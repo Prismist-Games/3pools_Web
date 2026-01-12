@@ -783,15 +783,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     const handleSelectionSelect = (selectedItem) => {
         const { type, pool } = selectionMode;
 
+        // Fix: Apply Entropy when confirming a selection (Time passes)
+        const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
+
         if (type === 'precise') {
             setDrawCount(prev => prev + 1);
-            handleIncomingItems([selectedItem]);
+            handleIncomingItems([selectedItem], decayedInventory);
             refreshPools();
             setSelectionMode(null);
         } else if (type === 'targeted') {
             const newItem = createItem(pool, selectedItem, pool.affixKey);
             setDrawCount(prev => prev + 1);
-            handleIncomingItems([newItem]);
+            handleIncomingItems([newItem], decayedInventory);
             refreshPools(false);
             setSelectionMode(null);
         }
@@ -851,7 +854,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 poolName: pool.name,
                 rarity: newRarity,
                 sterile: consumedItem.sterile,
-                decay: currentStageConfig.mechanics.entropy ? 40 : undefined
+                decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
             };
 
             setDrawCount(prev => prev + 1);

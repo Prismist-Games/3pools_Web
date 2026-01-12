@@ -6,13 +6,13 @@ const PoolCardBase = ({
     gold,
     tickets,
     hasSkill,
-    inventory = [], // Added inventory prop
+    inventory = [],
     onDraw,
     onMouseEnter,
     onMouseLeave,
     isHovered,
     relevantRequirements = [],
-    disabled = false // New prop to force disable (e.g. from parent)
+    disabled = false
 }) => {
     // Cost Calculation
     let finalCost = pool.cost;
@@ -25,8 +25,6 @@ const PoolCardBase = ({
 
     const canAfford = pool.currency === 'gold' ? gold >= finalCost : tickets >= finalCost;
     const isEffectiveDisabled = disabled || !canAfford;
-
-    // Theme: Use the solid pastel color defined in constants (pool.color)
     const isMainline = pool.type === 'mainline';
 
     return (
@@ -42,55 +40,61 @@ const PoolCardBase = ({
                 ${pool.color} 
                 ${isHovered ? 'scale-[1.02] shadow-xl z-10 ring-4 ring-white/50' : 'shadow-sm hover:shadow-md'}
                 ${isEffectiveDisabled ? 'opacity-60 grayscale-[0.8] cursor-not-allowed' : 'active:scale-95 cursor-pointer'}
-                flex flex-col gap-3 min-h-[140px]
+                flex flex-col gap-2 min-h-[140px]
             `}
         >
-            {/* Header: Name and Cost */}
-            <div className="flex justify-between items-start w-full">
-                <div className="flex items-center gap-2">
-                    <span className="text-4xl filter drop-shadow-sm">{pool.icon}</span>
-                    <div className="flex flex-col">
-                        <span className="font-black text-lg leading-none opacity-90">{pool.name}</span>
-                        {pool.affix && (
-                            <span className="text-xs font-bold opacity-70 mt-1">{pool.affix.name}</span>
-                        )}
-                    </div>
-                </div>
+            {/* ===== NEW LAYOUT: Centralized Info ===== */}
 
-                {/* Cost Pill */}
+            {/* Row 1: Icon + Pool Name + Price (all LEFT aligned, grouped together) */}
+            <div className="flex items-center gap-3">
+                <span className="text-4xl filter drop-shadow-sm">{pool.icon}</span>
+                <span className="font-black text-xl leading-tight">{pool.name}</span>
+
+                {/* Price Pill - Directly after name, NOT pushed to right */}
                 <div className={`
-                    absolute top-3 right-3
-                    flex items-center gap-2 px-4 py-2 rounded-full font-black text-xl border-2 shadow-md z-10
+                    flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
                     bg-white
                     ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-slate-200'}
                 `}>
                     {finalCost < pool.cost && (
-                        <span className="line-through text-xs text-slate-400 mr-1">{pool.cost}</span>
+                        <span className="line-through text-xs text-slate-400">{pool.cost}</span>
                     )}
                     {finalCost === 0 ? '免费' : finalCost}
                     {pool.currency === 'gold'
-                        ? <Coins size={22} className={canAfford ? "text-yellow-500" : "text-slate-400"} />
-                        : <Ticket size={22} className={canAfford ? "text-pink-500" : "text-slate-400"} />
+                        ? <Coins size={20} className={canAfford ? "text-yellow-500" : "text-slate-400"} />
+                        : <Ticket size={20} className={canAfford ? "text-pink-500" : "text-slate-400"} />
                     }
                 </div>
             </div>
 
-            {/* Content: Desc or Requirements */}
+            {/* Row 2: Affix Name (LARGE and prominent) */}
+            {pool.affix && (
+                <div className="flex items-center gap-2">
+                    <span className="text-base font-black text-slate-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
+                        ✨ {pool.affix.name}
+                    </span>
+                </div>
+            )}
+
+            {/* Row 3: Content Area */}
             <div className="flex-1 w-full">
                 {isMainline ? (
-                    <div className="flex flex-col gap-1 text-sm font-bold opacity-80 mt-1">
+                    <div className="flex flex-col gap-1 text-base font-bold opacity-80">
                         <p>🔥 主线目标: {pool.targetItem?.name}</p>
-                        <p className="text-xs opacity-60">可能是 90% 普通物品...</p>
+                        <p className="text-sm opacity-60">可能是 90% 普通物品...</p>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2">
+                        {/* Affix Description - LARGE readable text */}
                         {pool.affix && (
-                            <p className="text-xs opacity-75 leading-snug">{pool.affix.desc}</p>
+                            <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
+                                {pool.affix.desc}
+                            </p>
                         )}
 
-                        {/* Requirements matching hints - DYNAMIC STYLING */}
+                        {/* Requirements or Item Preview */}
                         {relevantRequirements.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 mt-2">
+                            <div className="flex flex-wrap gap-2 mt-1">
                                 {relevantRequirements.map((req, i) => {
                                     const candidates = inventory.filter(item => item && item.name === req.name);
                                     candidates.sort((a, b) => b.rarity.bonus - a.rarity.bonus);
@@ -129,8 +133,7 @@ const PoolCardBase = ({
                                 })}
                             </div>
                         ) : (
-                            // Preview items if no reqs
-                            <div className="flex flex-wrap gap-2 mt-2 opacity-80">
+                            <div className="flex flex-wrap gap-2 mt-1 opacity-80">
                                 {pool.items.slice(0, 4).map(item => (
                                     <div key={item.name} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-lg border border-white/40 text-lg shadow-sm">
                                         {item.icon}
