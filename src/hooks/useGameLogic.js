@@ -1162,7 +1162,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                     title: "恭喜通关！",
                     item: { name: '游戏胜利', icon: '🏆', rarity: { color: 'bg-yellow-500', name: 'VICTORY', starColor: 'text-yellow-200' } },
                     message: "你已经完成了所有主线挑战！",
-                    type: 'victory'
+                    type: 'victory',
+                    score: drawCount
                 });
             } else {
                 const nextStage = config.stages[nextProgress];

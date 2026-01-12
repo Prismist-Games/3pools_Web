@@ -4,6 +4,7 @@ import { Settings, Download, Upload, RotateCcw, X, Coins, Ticket, Flag, Power, C
 import { useGameLogic } from './hooks/useGameLogic';
 import { Toast } from './components/ui/Toast';
 import { SkillSelectionModal } from './components/game/SkillSelectionModal';
+import Leaderboard from './components/game/Leaderboard.jsx';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
 import { PoolCard } from './components/game/PoolCard';
@@ -72,14 +73,19 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                 return (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className={`bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full flex flex-col items-center gap-4 text-center border-4 border-white transform scale-100 animate-in zoom-in-95 duration-200
-                   ${isVictory ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}
+                        <div className={`bg-white p-6 rounded-3xl shadow-2xl max-w-sm w-full flex flex-col items-center gap-4 text-center border-4 border-white transform scale-100 animate-in zoom-in-95 duration-200
+                   ${isVictory ? 'ring-4 ring-yellow-400 bg-white' : ''}
                    ${isStageUp ? 'ring-4 ring-blue-400 bg-blue-50' : ''}
                    ${!isVictory && !isStageUp ? 'ring-4 ring-purple-200' : ''}
                 `}>
                             <h3 className="text-2xl font-black text-slate-800">{modalContent.title}</h3>
 
-                            {isStageUp ? (
+                            {isVictory ? (
+                                <Leaderboard
+                                    currentScore={modalContent.score}
+                                    onRestart={handleCloseModal}
+                                />
+                            ) : isStageUp ? (
                                 <div className="flex flex-col items-center gap-4 py-4 w-full">
                                     <div className="text-4xl animate-bounce">{modalContent.item?.icon}</div>
                                     <div className="w-full bg-white/50 rounded-xl p-4 border border-blue-200">
@@ -93,6 +99,12 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                             ))}
                                         </ul>
                                     </div>
+                                    <button
+                                        onClick={handleCloseModal}
+                                        className="mt-2 w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95"
+                                    >
+                                        继续挑战
+                                    </button>
                                 </div>
                             ) : (
                                 // Standard Item Modal
@@ -108,18 +120,14 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         </span>
                                         <p className="text-slate-500 font-medium">{modalContent.message}</p>
                                     </div>
+                                    <button
+                                        onClick={handleCloseModal}
+                                        className="mt-4 font-bold py-3 px-12 rounded-full shadow-lg transition-transform active:scale-95 bg-slate-800 text-white hover:bg-slate-700"
+                                    >
+                                        收下
+                                    </button>
                                 </>
                             )}
-
-                            {/* Use existing buttons for non-overload */}
-                            <button
-                                onClick={handleCloseModal}
-                                className={`mt-4 font-bold py-3 px-12 rounded-full shadow-lg transition-transform active:scale-95
-                             ${isVictory ? 'bg-yellow-500 text-white hover:bg-yellow-600 animate-pulse' : 'bg-slate-800 text-white hover:bg-slate-700'}
-                          `}
-                            >
-                                {isVictory ? '再来一局' : (isStageUp ? '继续挑战' : '收下')}
-                            </button>
                         </div>
                     </div>
                 );
