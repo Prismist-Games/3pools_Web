@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { RefreshCw, Check, Ticket, Coins, Clock, Zap, Crown, Trophy } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const OrderCardBase = ({
     order,
@@ -26,10 +27,11 @@ const OrderCardBase = ({
     hoveredPoolItemNames,
     selectedItemNames,
 }) => {
+    const { t } = useLanguage();
     if (!order) {
         return (
             <div className="h-40 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center">
-                <span className="text-slate-300 font-bold text-sm">暂无订单</span>
+                <span className="text-slate-300 font-bold text-sm">{t("暂无订单")}</span>
             </div>
         );
     }
@@ -66,7 +68,7 @@ const OrderCardBase = ({
                         {isMainline ? (
                             <div className="flex flex-col">
                                 <span className="text-xs font-black text-yellow-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-full border border-yellow-200">
-                                    <Crown size={12} /> 主线订单
+                                    <Crown size={12} /> {t("主线订单")}
                                 </span>
                             </div>
                         ) : (
@@ -161,9 +163,9 @@ const OrderCardBase = ({
                                 ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}
                                 ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
                             `}>
-                                    <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-white/50 shrink-0`} title={`需要: ${req.requiredRarity.name}`}></div>
+                                    <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-white/50 shrink-0`} title={`${t("需要")}: ${t(req.requiredRarity.name)}`}></div>
                                     <span className={`${iconFilterClass}`}>{req.icon}</span>
-                                    <span className={`font-bold ${iconFilterClass}`}>{req.name}</span>
+                                    <span className={`font-bold ${iconFilterClass}`}>{t(req.name)}</span>
                                     {isSubmitted && isQualitySatisfied && (
                                         <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-0.5 shadow">
                                             <Check size={10} strokeWidth={4} />
@@ -187,7 +189,7 @@ const OrderCardBase = ({
                                     ? 'bg-orange-100 text-orange-500 hover:bg-orange-200 hover:scale-105 active:scale-95'
                                     : 'bg-slate-50 text-slate-300 cursor-not-allowed'}
                             `}
-                            title={`刷新此订单`}
+                            title={t("刷新此订单")}
                         >
                             <RefreshCw size={18} />
                             <div className="absolute -bottom-1 -right-1 bg-white text-[10px] font-black text-slate-500 px-1.5 py-0.5 rounded-full shadow border border-slate-100">
@@ -200,7 +202,7 @@ const OrderCardBase = ({
 
             {isSatisfied && (
                 <div className="absolute bottom-3 left-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-sm animate-bounce flex items-center gap-1">
-                    <Check size={12} /> 可提交
+                    <Check size={12} /> {t("可提交")}
                 </div>
             )}
         </div>

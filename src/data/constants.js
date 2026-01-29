@@ -35,11 +35,11 @@ export const INITIAL_STAGE_CONFIG = [
             "4": 15
         },
         "rarityWeights": {
-            "common": 0.37,
-            "uncommon": 0.3,
-            "rare": 0.2,
-            "epic": 0.1,
-            "legendary": 0.03,
+            "common": 0.8,
+            "uncommon": 0.19,
+            "rare": 0.01,
+            "epic": 0,
+            "legendary": 0,
             "mythic": 0
         },
         "orderRarityWeights": {
@@ -84,11 +84,11 @@ export const INITIAL_STAGE_CONFIG = [
             "4": 15
         },
         "rarityWeights": {
-            "common": 0.37,
-            "uncommon": 0.3,
-            "rare": 0.2,
-            "epic": 0.1,
-            "legendary": 0.03,
+            "common": 0.8,
+            "uncommon": 0.19,
+            "rare": 0.01,
+            "epic": 0,
+            "legendary": 0,
             "mythic": 0
         },
         "orderRarityWeights": {
@@ -134,11 +134,11 @@ export const INITIAL_STAGE_CONFIG = [
             "4": 15
         },
         "rarityWeights": {
-            "common": 0.37,
-            "uncommon": 0.3,
-            "rare": 0.2,
-            "epic": 0.1,
-            "legendary": 0.03,
+            "common": 0.8,
+            "uncommon": 0.19,
+            "rare": 0.01,
+            "epic": 0,
+            "legendary": 0,
             "mythic": 0
         },
         "orderRarityWeights": {
@@ -185,11 +185,11 @@ export const INITIAL_STAGE_CONFIG = [
             "4": 15
         },
         "rarityWeights": {
-            "common": 0.37,
-            "uncommon": 0.3,
-            "rare": 0.2,
-            "epic": 0.1,
-            "legendary": 0.03,
+            "common": 0.8,
+            "uncommon": 0.19,
+            "rare": 0.01,
+            "epic": 0,
+            "legendary": 0,
             "mythic": 0
         },
         "orderRarityWeights": {

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Settings, Download, Upload, RotateCcw, X, Coins, Ticket, Flag, Power, ChevronsUp, Check, Briefcase, ShoppingBag, Truck, Trash2, Package, RefreshCw, Lock, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
+import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { SkillSelectionModal } from './components/game/SkillSelectionModal';
 import Leaderboard from './components/game/Leaderboard.jsx';
@@ -13,6 +14,7 @@ import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
 
 const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initialProgress = 0 }) => {
+    const { t, language, toggleLanguage } = useLanguage();
 
     // Initialize Logic Hook
     const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialProgress);
@@ -174,22 +176,26 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                         <div className="flex flex-col items-end mr-4 bg-slate-700/50 px-3 py-1.5 rounded-lg">
                             <div className="flex items-center gap-2">
                                 <Flag size={18} className="text-purple-400" />
-                                <span className="text-lg font-black text-white">{currentStageConfig.name}</span>
+                                <span className="text-lg font-black text-white">{t(currentStageConfig.name)}</span>
                             </div>
-                            <span className="text-sm font-semibold text-purple-200">{currentStageConfig.mechanicDesc}</span>
+                            <span className="text-sm font-semibold text-purple-200">{t(currentStageConfig.mechanicDesc)}</span>
                         </div>
 
                         <div className="flex flex-col items-end">
-                            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">累计抽奖</span>
-                            <span className="text-xl font-bold">{drawCount} 次</span>
+                            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{t("累计抽奖")}</span>
+                            <span className="text-xl font-bold">{drawCount} {t("次")}</span>
                         </div>
 
                         <div className="flex items-center gap-2 bg-slate-700 rounded-lg p-1">
-                            <button onClick={onReset} title="重置进度" className="p-1.5 hover:bg-slate-600 rounded transition-colors text-red-300 hover:text-red-100">
+                            <button onClick={toggleLanguage} className="px-2 py-1 hover:bg-slate-600 rounded text-xs font-bold text-slate-300 hover:text-white transition-colors">
+                                {language === 'zh' ? 'EN' : '中'}
+                            </button>
+                            <div className="w-[1px] h-5 bg-slate-600"></div>
+                            <button onClick={onReset} title={t("重置")} className="p-1.5 hover:bg-slate-600 rounded transition-colors text-red-300 hover:text-red-100">
                                 <Power size={20} />
                             </button>
                             <div className="w-[1px] h-5 bg-slate-600"></div>
-                            <button onClick={onOpenSettings} title="配置游戏" className="p-1.5 hover:bg-slate-600 rounded transition-colors text-slate-300 hover:text-white">
+                            <button onClick={onOpenSettings} title={t("设置")} className="p-1.5 hover:bg-slate-600 rounded transition-colors text-slate-300 hover:text-white">
                                 <Settings size={20} />
                             </button>
                         </div>
@@ -205,7 +211,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                   `}>
                         <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-50/95 p-2 rounded-lg z-10 backdrop-blur-sm">
                             <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
-                                <Package size={16} /> 当前订单
+                                <Package size={16} /> {t("当前订单")}
                             </h2>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleRefreshAllOrders(); }}
@@ -216,7 +222,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         : 'bg-orange-50 text-orange-600 hover:bg-orange-100 ring-1 ring-orange-200 hover:ring-orange-300 hover:scale-105'}`}
                             >
                                 {!currentStageConfig.mechanics.refresh ? <Lock size={14} /> : <RotateCcw size={14} />}
-                                <span>全部刷新 (-{config.global.refreshCost})</span>
+                                <span>{t("刷新所有订单")} (-{config.global.refreshCost})</span>
                             </button>
                         </div>
 
@@ -273,9 +279,9 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                     <section className="flex-1 p-4 lg:p-8 flex flex-col overflow-y-auto relative">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
-                                <RefreshCw size={16} /> 抽取物品
+                                <RefreshCw size={16} /> {t("抽取物品")}
                             </h2>
-                            <span className="text-xs text-slate-400">点击卡片抽奖</span>
+                            <span className="text-xs text-slate-400">{t("点击卡片购买")}</span>
                         </div>
 
                         <div className={`
@@ -321,7 +327,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                         {selectionMode && selectionMode.type !== 'trade_in' && (
                             <div className="absolute inset-0 bg-white z-40 flex flex-col items-center justify-center p-4 animate-in fade-in cursor-default">
                                 <h3 className="text-2xl font-black mb-8 text-slate-800 text-center">
-                                    {selectionMode.type === 'precise' ? '精准抽取：二选一 (不可取消)' : '有的放矢：请选择你想要的'}
+                                    {selectionMode.type === 'precise' ? t("精准：二选一 (不可取消)") : t("有的放矢：请选择你想要的")}
                                 </h3>
 
                                 <div className={`
@@ -360,7 +366,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                                 {selectionMode.type === 'targeted' && (
                                     <button onClick={handleSelectionCancel} className="mt-8 bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 px-8 py-2 rounded-full font-bold transition-colors">
-                                        取消
+                                        {t("取消")}
                                     </button>
                                 )}
                             </div>
@@ -379,7 +385,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                     {/* Skill Bar */}
                     <div className="flex items-center justify-center gap-4 mb-2 pb-2 border-b border-slate-100 relative">
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest absolute left-0 top-1/2 -translate-y-1/2 hidden md:block">被动技能</div>
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest absolute left-0 top-1/2 -translate-y-1/2 hidden md:block">{t("被动技能")}</div>
                         <div className="flex gap-4">
                             {[0, 1, 2].map(i => {
                                 const skillId = skills[i];
@@ -411,7 +417,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                             return (
                                 <div key={rarity.id} className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-full shadow-sm border border-slate-100 animate-in fade-in">
                                     <Star size={12} fill="currentColor" className={rarity.starColor} />
-                                    <span>{rarity.name} +{Math.round(rarity.bonus * 100)}%</span>
+                                    <span>{t(rarity.name)} +{Math.round(rarity.bonus * 100)}%</span>
                                 </div>
                             )
                         })}
@@ -420,35 +426,35 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                     {/* Status Bar */}
                     <div className="flex justify-between items-center mb-2 px-2 max-w-3xl mx-auto">
                         <div className="flex items-center gap-3">
-                            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">背包栏位 ({inventory.length}/{maxInventorySize})</h2>
+                            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("背包栏位")} ({inventory.length}/{maxInventorySize})</h2>
                             {!pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleSortInventory(); }}
                                     className="flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm text-slate-600 text-xs font-bold py-1.5 px-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95"
                                 >
                                     <ListOrdered size={14} />
-                                    <span>一键整理</span>
+                                    <span>{t("一键整理")}</span>
                                 </button>
                             )}
                         </div>
                         {selectedSlot !== null && !pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && (
                             <span className="text-xs font-bold text-blue-500 animate-pulse bg-blue-50 px-2 py-1 rounded flex items-center gap-2">
-                                <Hand size={14} /> 整理模式
+                                <Hand size={14} /> {t("整理模式")}
                             </span>
                         )}
                         {isSubmitMode && (
                             <span className="text-xs font-bold text-blue-600 animate-pulse flex items-center gap-1">
-                                <Layers size={14} /> 提交模式: 点击订单卡片可一键选择
+                                <Layers size={14} /> {t("提交模式: 点击订单卡片可一键选择")}
                             </span>
                         )}
                         {isRecycleMode && (
                             <span className="text-xs font-bold text-amber-600 animate-pulse flex items-center gap-1">
-                                <Trash2 size={14} /> 回收模式: 选择道具换取金币
+                                <Trash2 size={14} /> {t("回收模式: 选择道具换取金币")}
                             </span>
                         )}
                         {selectionMode?.type === 'trade_in' && (
                             <span className="text-xs font-bold text-purple-600 animate-pulse flex items-center gap-1">
-                                <Repeat size={14} /> 以旧换新: 请点击选择一个物品消耗
+                                <Repeat size={14} /> {t("以旧换新: 请点击选择一个物品消耗")}
                             </span>
                         )}
                     </div>
@@ -458,34 +464,34 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                         {!isSubmitMode && !isRecycleMode && !pendingItem && !selectionMode && (
                             <>
                                 <button onClick={toggleRecycleMode} className="flex items-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-full shadow-lg hover:bg-amber-200 transition-transform active:scale-95">
-                                    <Trash2 size={18} /> 回收
+                                    <Trash2 size={18} /> {t("回收")}
                                 </button>
                                 <button onClick={toggleSubmitMode} className="flex items-center gap-2 bg-slate-800 text-white font-bold py-3 px-6 rounded-full shadow-xl hover:bg-slate-700 transition-transform active:scale-95">
-                                    <Layers size={18} /> 出牌
+                                    <Layers size={18} /> {t("出牌")}
                                 </button>
                             </>
                         )}
 
                         {isSubmitMode && (
                             <>
-                                <button onClick={toggleSubmitMode} className="bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-full shadow-sm hover:bg-slate-50">取消</button>
+                                <button onClick={toggleSubmitMode} className="bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-full shadow-sm hover:bg-slate-50">{t("取消")}</button>
                                 <button onClick={handleConfirmSubmission} disabled={selectedIndices.length === 0} className={`flex items-center gap-2 font-bold py-2 px-6 rounded-full shadow-lg ${selectedIndices.length > 0 ? 'bg-blue-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                    <Send size={16} /> 确认出牌
+                                    <Send size={16} /> {t("确认出牌")}
                                 </button>
                             </>
                         )}
 
                         {isRecycleMode && (
                             <>
-                                <button onClick={toggleRecycleMode} className="bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-full shadow-sm hover:bg-slate-50">取消</button>
+                                <button onClick={toggleRecycleMode} className="bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-full shadow-sm hover:bg-slate-50">{t("取消")}</button>
                                 <button onClick={handleConfirmRecycle} disabled={selectedIndices.length === 0} className={`flex items-center gap-2 font-bold py-2 px-6 rounded-full shadow-lg ${selectedIndices.length > 0 ? 'bg-amber-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                    <Trash2 size={16} /> 确认回收 (+{totalRecycleValue}金币)
+                                    <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}{t("金币")})
                                 </button>
                             </>
                         )}
 
                         {selectionMode?.type === 'trade_in' && (
-                            <button onClick={handleSelectionCancel} className="bg-white border border-slate-300 text-slate-600 font-bold py-2 px-6 rounded-full shadow-sm hover:bg-slate-50">取消</button>
+                            <button onClick={handleSelectionCancel} className="bg-white border border-slate-300 text-slate-600 font-bold py-2 px-6 rounded-full shadow-sm hover:bg-slate-50">{t("取消")}</button>
                         )}
                     </div>
 
@@ -571,16 +577,16 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     <div className="flex justify-between items-center border-b border-red-100 pb-2">
                                         <div className="flex items-center gap-2 text-red-600 font-bold text-sm">
                                             <AlertCircle size={16} />
-                                            <span>{pendingItem.isOverload ? '种类过载：点击下方物品清除同类！' : `背包已满！待处理队列 (${pendingQueue.length + 1})`}</span>
+                                            <span>{pendingItem.isOverload ? t("种类过载：点击下方物品清除同类！") : `${t("背包已满！待处理队列")} (${pendingQueue.length + 1})`}</span>
                                         </div>
                                         <div className="text-xs text-slate-400">
-                                            按顺序处理
+                                            {t("按顺序处理")}
                                         </div>
                                     </div>
 
                                     <div className="flex items-start gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
                                         <div className="flex flex-col gap-2 shrink-0 snap-center items-center p-2 bg-red-50 rounded-xl border border-red-100 min-w-[100px]">
-                                            <div className="text-[10px] font-black text-red-500 bg-white px-2 py-0.5 rounded-full shadow-sm">当前处理</div>
+                                            <div className="text-[10px] font-black text-red-500 bg-white px-2 py-0.5 rounded-full shadow-sm">{t("当前处理")}</div>
 
                                             <div className="relative transform hover:scale-105 transition-transform">
                                                 {(() => {
@@ -612,7 +618,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                                 className="w-full flex items-center justify-center gap-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-xs font-bold py-1.5 px-2 rounded-lg transition-colors shadow-sm"
                                             >
                                                 <X size={12} />
-                                                {pendingItem.rarity.recycleValue > 0 ? `回收 +${pendingItem.rarity.recycleValue}` : '丢弃'}
+                                                {pendingItem.rarity.recycleValue > 0 ? `${t("回收")} +${pendingItem.rarity.recycleValue}` : t("丢弃")}
                                             </button>
                                         </div>
 
@@ -644,7 +650,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                         onClick={handleSelectionCancel}
                         className="fixed bottom-8 right-8 z-50 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full font-bold shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom-10"
                     >
-                        <X size={20} /> 取消置换
+                        <X size={20} /> {t("取消置换")}
                     </button>
                 </>
             )}

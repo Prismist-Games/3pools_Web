@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Coins, Ticket, Check, RefreshCw, Zap } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const PoolCardBase = ({
     pool,
@@ -12,8 +13,10 @@ const PoolCardBase = ({
     onMouseLeave,
     isHovered,
     relevantRequirements = [],
+
     disabled = false
 }) => {
+    const { t } = useLanguage();
     // Cost Calculation
     let finalCost = pool.cost;
     if (pool.currency === 'gold' && hasSkill('calculated') && gold < 10) {
@@ -48,7 +51,7 @@ const PoolCardBase = ({
             {/* Row 1: Icon + Pool Name + Price (all LEFT aligned, grouped together) */}
             <div className="flex items-center gap-3">
                 <span className="text-4xl filter drop-shadow-sm">{pool.icon}</span>
-                <span className="font-black text-xl leading-tight">{pool.name}</span>
+                <span className="font-black text-xl leading-tight">{t(pool.name)}</span>
 
                 {/* Price Pill - Directly after name, NOT pushed to right */}
                 <div className={`
@@ -59,7 +62,7 @@ const PoolCardBase = ({
                     {finalCost < pool.cost && (
                         <span className="line-through text-xs text-slate-400">{pool.cost}</span>
                     )}
-                    {finalCost === 0 ? '免费' : finalCost}
+                    {finalCost === 0 ? t("免费") : finalCost}
                     {pool.currency === 'gold'
                         ? <Coins size={20} className={canAfford ? "text-yellow-500" : "text-slate-400"} />
                         : <Ticket size={20} className={canAfford ? "text-pink-500" : "text-slate-400"} />
@@ -71,7 +74,7 @@ const PoolCardBase = ({
             {pool.affix && (
                 <div className="flex items-center gap-2">
                     <span className="text-base font-black text-slate-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
-                        ✨ {pool.affix.name}
+                        ✨ {t(pool.affix.name)}
                     </span>
                 </div>
             )}
@@ -80,15 +83,15 @@ const PoolCardBase = ({
             <div className="flex-1 w-full">
                 {isMainline ? (
                     <div className="flex flex-col gap-1 text-base font-bold opacity-80">
-                        <p>🔥 主线目标: {pool.targetItem?.name}</p>
-                        <p className="text-sm opacity-60">可能是 90% 普通物品...</p>
+                        <p>🔥 {t("主线目标")}: {t(pool.targetItem?.name)}</p>
+                        <p className="text-sm opacity-60">{t("可能是 90% 普通物品...")}</p>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2">
                         {/* Affix Description - LARGE readable text */}
                         {pool.affix && (
                             <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
-                                {pool.affix.desc}
+                                {t(pool.affix.desc)}
                             </p>
                         )}
 
@@ -125,9 +128,9 @@ const PoolCardBase = ({
                                             relative flex items-center gap-1 text-sm border-2 rounded px-2 py-1 transition-all duration-200 shadow-sm
                                             ${borderStyle} ${borderColorClass} ${bgColorClass} ${textColorClass}
                                         `}>
-                                            <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-black/10 shrink-0`} title={`需要: ${req.requiredRarity.name}`}></div>
+                                            <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-black/10 shrink-0`} title={`${t("需要")}: ${t(req.requiredRarity.name)}`}></div>
                                             <span className={`${iconFilterClass}`}>{req.icon}</span>
-                                            <span className={`font-bold ${iconFilterClass} opacity-90`}>{req.name}</span>
+                                            <span className={`font-bold ${iconFilterClass} opacity-90`}>{t(req.name)}</span>
                                         </div>
                                     );
                                 })}

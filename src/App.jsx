@@ -4,6 +4,7 @@ import GameCore from './GameCore';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { INITIAL_GAME_CONFIG, SKILL_DEFINITIONS } from './data/constants';
 import ErrorBoundary from './components/ErrorBoundary';
+import { LanguageProvider } from './contexts/LanguageContext';
 
 export default function App() {
     const [config, setConfig] = useState(INITIAL_GAME_CONFIG);
@@ -60,16 +61,18 @@ export default function App() {
 
     return (
         <>
-            <ErrorBoundary>
-                <GameCore
-                    key={gameId}
-                    config={config}
-                    initialSkills={initialSkills}
-                    initialProgress={initialStage}
-                    onOpenSettings={() => setShowSettings(true)}
-                    onReset={() => setResetConfirmOpen(true)}
-                />
-            </ErrorBoundary>
+            <LanguageProvider>
+                <ErrorBoundary>
+                    <GameCore
+                        key={gameId}
+                        config={config}
+                        initialSkills={initialSkills}
+                        initialProgress={initialStage}
+                        onOpenSettings={() => setShowSettings(true)}
+                        onReset={() => setResetConfirmOpen(true)}
+                    />
+                </ErrorBoundary>
+            </LanguageProvider>
 
             {resetConfirmOpen && (
                 <ConfirmDialog

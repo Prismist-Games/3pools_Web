@@ -1,4 +1,5 @@
 import { Sparkles, Trash2, ArrowLeftRight, Check, ChevronsUp, X, Ban, ShoppingBag, Lock, Star, CircleArrowUp } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export const InventorySlot = ({
     item,
@@ -32,7 +33,7 @@ export const InventorySlot = ({
     // Style overrides
     className = ""
 }) => {
-
+    const { t } = useLanguage();
     const isMultiSelectMode = isSubmitMode || isRecycleMode;
     const isTradeInMode = isSelectionMode; // Renamed param for clarity if passed as boolean, assuming referencing standard selectionMode check
 
@@ -77,7 +78,7 @@ export const InventorySlot = ({
             `}
         >
             {isPendingSlot && !item && (
-                <div className="text-slate-300 font-bold text-xs uppercase tracking-widest">In Queue</div>
+                <div className="text-slate-300 font-bold text-xs uppercase tracking-widest">{t("排队中")}</div>
             )}
 
             {item && (
@@ -86,7 +87,7 @@ export const InventorySlot = ({
                         <span className="text-2xl lg:text-3xl filter drop-shadow-sm transition-transform duration-300">
                             {item.icon}
                         </span>
-                        <span className="text-[10px] font-bold leading-none truncate max-w-full px-1">{item.name}</span>
+                        <span className="text-[10px] font-bold leading-none truncate max-w-full px-1">{t(item.name)}</span>
                         {item.rarity?.bonus > 0 && (
                             <div className="absolute top-0 right-0 p-0.5 bg-white/50 rounded-bl-lg">
                                 <Star size={8} fill="currentColor" className={item.rarity?.color ? item.rarity.color.split(' ')[2] : 'text-slate-400'} />
@@ -97,7 +98,7 @@ export const InventorySlot = ({
                     {/* Status Icons */}
                     {item.sterile && (
                         <div className="absolute bottom-0 left-0 p-0.5 bg-gray-800/80 rounded-tr-lg text-white z-10 text-[9px] px-1 font-bold">
-                            绝育的
+                            {t("绝育")}
                         </div>
                     )}
 
@@ -116,7 +117,7 @@ export const InventorySlot = ({
                             <div className={`absolute top-0 left-0 p-0.5 rounded-br-lg text-[9px] font-mono font-bold z-10 px-1 leading-none
                                 ${item.decay <= 0 ? 'bg-red-600 text-white' : 'bg-slate-700/80 text-white'}
                             `}>
-                                {item.decay <= 0 ? '损坏' : item.decay}
+                                {item.decay <= 0 ? t("损坏") : item.decay}
                             </div>
                             {item.decay <= 0 && (
                                 <div className="absolute inset-0 bg-slate-500/30 rounded-xl z-20 flex items-center justify-center pointer-events-none">
@@ -149,7 +150,7 @@ export const InventorySlot = ({
                     {(!isSelectionMode && isHovered && isTarget && canSynthesize) && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-yellow-400/80 rounded-lg transition-opacity z-10 backdrop-blur-[1px] animate-pulse">
                             <ChevronsUp size={36} className="text-white drop-shadow-md" />
-                            <span className="text-white text-xs font-black uppercase tracking-wider">升级</span>
+                            <span className="text-white text-xs font-black uppercase tracking-wider">{t("升级")}</span>
                         </div>
                     )}
 
@@ -157,7 +158,7 @@ export const InventorySlot = ({
                     {(!isSelectionMode && isOverloadTarget && !(isHovered && canSynthesize)) && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/60 rounded-lg transition-opacity z-10 backdrop-blur-[1px]">
                             <Trash2 size={32} className="text-white drop-shadow-md" />
-                            <span className="text-white text-[10px] font-black uppercase tracking-wider text-center px-1">回收</span>
+                            <span className="text-white text-[10px] font-black uppercase tracking-wider text-center px-1">{t("回收")}</span>
                             {['rare', 'epic', 'legendary', 'mythic'].includes(item.rarity?.id) && (
                                 <span className="text-amber-200 text-xs font-bold whitespace-nowrap drop-shadow-md">
                                     +{item.rarity.recycleValue || 0} G

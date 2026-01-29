@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { Trophy, Send, Loader2, AlertCircle } from 'lucide-react';
 
 const Leaderboard = ({ currentScore, onRestart }) => {
+    const { t } = useLanguage();
     const [scores, setScores] = useState([]);
     const [loading, setLoading] = useState(true);
     const [name, setName] = useState('');
@@ -64,20 +66,20 @@ const Leaderboard = ({ currentScore, onRestart }) => {
         <div className="w-full flex flex-col gap-4">
             <div className="flex items-center justify-center gap-2 text-yellow-600 mb-2">
                 <Trophy size={24} />
-                <h3 className="text-xl font-black">排行榜 (最少抽奖)</h3>
+                <h3 className="text-xl font-black">{t("排行榜")}</h3>
             </div>
 
             {/* Current Game Submission */}
             {!submitted && currentScore !== undefined && (
                 <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 flex flex-col gap-3">
                     <div className="flex justify-between items-center text-sm font-bold text-yellow-800">
-                        <span>你的成绩:</span>
-                        <span className="text-xl">{currentScore} 次</span>
+                        <span>{t("你的成绩")}:</span>
+                        <span className="text-xl">{currentScore} {t("次")}</span>
                     </div>
                     <div className="flex gap-2">
                         <input
                             type="text"
-                            placeholder="输入名字上榜"
+                            placeholder={t("输入名字上榜")}
                             className="flex-1 px-3 py-2 rounded-lg border border-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 font-bold text-slate-700 placeholder:font-normal"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
@@ -120,8 +122,8 @@ const Leaderboard = ({ currentScore, onRestart }) => {
                             <thead className="bg-slate-100 text-slate-500 font-bold sticky top-0">
                                 <tr>
                                     <th className="p-3 w-12 text-center">#</th>
-                                    <th className="p-3">玩家</th>
-                                    <th className="p-3 text-right">次数</th>
+                                    <th className="p-3">{t("玩家")}</th>
+                                    <th className="p-3 text-right">{t("次数")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -136,7 +138,7 @@ const Leaderboard = ({ currentScore, onRestart }) => {
                                 ))}
                                 {scores.length === 0 && (
                                     <tr>
-                                        <td colSpan="3" className="p-8 text-center text-slate-400 italic">暂无记录，快来抢沙发！</td>
+                                        <td colSpan="3" className="p-8 text-center text-slate-400 italic">{t("暂无记录，快来抢沙发！")}</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -150,7 +152,7 @@ const Leaderboard = ({ currentScore, onRestart }) => {
                 onClick={onRestart}
                 className="mt-2 w-full bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-700 transition-colors shadow-lg active:scale-95"
             >
-                {submitted ? "再来一局" : "跳过并重开"}
+                {submitted ? t("再来一局") : t("跳过并重开")}
             </button>
         </div>
     );

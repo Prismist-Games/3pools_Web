@@ -436,7 +436,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             // Check for Stage 2 Overload (Specialization)
             let isOverload = false;
             if (currentStageConfig.mechanics.specialization) {
-                const uniqueNames = new Set(inventory.map(i => i.name));
+                const uniqueNames = new Set(inventory.filter(i => i).map(i => i.name));
                 if (uniqueNames.size >= 7 && !uniqueNames.has(nextItem.name)) {
                     isOverload = true;
                 }

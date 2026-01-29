@@ -55,6 +55,10 @@ export const rollRequirementRarity = (config, currentStageConfig) => {
         accumulated += weights.legendary;
         if (r <= accumulated) return config.rarity.find(r => r.id === 'legendary');
     }
+    if (weights.mythic > 0) {
+        accumulated += weights.mythic;
+        if (r <= accumulated) return config.rarity.find(r => r.id === 'mythic');
+    }
 
     // Fallback to common
     return config.rarity.find(r => r.id === 'common');
@@ -187,12 +191,10 @@ export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = 
     }
 
     if (affixKey === 'volatile') {
-        if (weights.legendary > 0) {
-            const r = Math.random();
-            if (r < 0.92) return rarityConfig.find(r => r.id === 'common');
-            return rarityConfig.find(r => r.id === 'legendary');
-        }
-        return rarityConfig.find(r => r.id === 'common');
+        const r = Math.random();
+        // P3: Volatile always has a small chance (0.5%) for Legendary, regardless of global weights
+        if (r < 0.995) return rarityConfig.find(r => r.id === 'common');
+        return rarityConfig.find(r => r.id === 'legendary');
     }
 
     if (affixKey === 'fragmented') {
@@ -212,7 +214,7 @@ export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = 
     }
 
     // Calcluate Total Weight for Normalization
-    const orderedRarityIds = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+    const orderedRarityIds = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
     let totalWeight = 0;
 
     // First pass: sum weights

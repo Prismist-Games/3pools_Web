@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Eye, Sparkles, Zap, Check, Trash2, Info, ArrowRight } from 'lucide-react';
 import { SKILL_DEFINITIONS } from '../../data/constants';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export const SkillSelectionModal = ({ candidates, onSelect, currentSkills, onReplace }) => {
+    const { t } = useLanguage();
     const isReplacing = currentSkills && currentSkills.length >= 3;
     const [selectedCandidate, setSelectedCandidate] = useState(null);
     const [targetOldSkillId, setTargetOldSkillId] = useState(null);
@@ -18,26 +20,26 @@ export const SkillSelectionModal = ({ candidates, onSelect, currentSkills, onRep
                 onMouseLeave={() => setIsPeeking(false)}
                 onTouchStart={() => setIsPeeking(true)}
                 onTouchEnd={() => setIsPeeking(false)}
-                title="按住查看底部内容"
+                title={t("按住查看底部内容")}
             >
                 <Eye size={20} />
-                <span className="hidden md:inline">按住查看</span>
+                <span className="hidden md:inline">{t("按住查看")}</span>
             </button>
 
             {/* 弹窗主体 - 偷看时隐藏 */}
             <div className={`w-full max-w-5xl p-6 lg:p-8 flex flex-col items-center h-[90vh] overflow-y-auto transition-opacity duration-200 ${isPeeking ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                 <h2 className="text-3xl font-black text-white mb-2 tracking-wider uppercase">
-                    {isReplacing ? "技能槽已满！" : "选择一个技能"}
+                    {isReplacing ? t("技能槽已满！") : t("选择一个技能")}
                 </h2>
                 <p className="text-slate-300 mb-8 font-bold text-center">
-                    {isReplacing ? "请分别选择一个【新技能】和一个【旧技能】进行替换" : "主线任务奖励"}
+                    {isReplacing ? t("请分别选择一个【新技能】和一个【旧技能】进行替换") : t("主线任务奖励")}
                 </p>
 
                 <div className="flex flex-col gap-8 w-full">
                     {/* 新技能候选区 */}
                     <div className="w-full">
                         <div className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <Sparkles size={16} /> 新技能候选 (点击选择)
+                            <Sparkles size={16} /> {t("新技能候选 (点击选择)")}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {candidates.map((skill) => {
@@ -58,17 +60,17 @@ export const SkillSelectionModal = ({ candidates, onSelect, currentSkills, onRep
                                     >
                                         {isReplacing && selectedCandidate?.id === skill.id && (
                                             <div className="absolute -top-3 -right-3 bg-green-500 text-white px-3 py-1 rounded-full font-black text-xs shadow-lg z-10 flex items-center gap-1">
-                                                <Check size={12} /> 学习
+                                                <Check size={12} /> {t("学习")}
                                             </div>
                                         )}
                                         <div className={`w-14 h-14 rounded-full ${skill.color} flex items-center justify-center shadow-inner`}>
                                             <SkillIcon size={28} />
                                         </div>
                                         <div className="text-center">
-                                            <h3 className="text-lg font-bold text-slate-800">{skill.name}</h3>
-                                            <p className="text-xs text-slate-500 leading-relaxed mt-1">{skill.desc}</p>
+                                            <h3 className="text-lg font-bold text-slate-800">{t(skill.name)}</h3>
+                                            <p className="text-xs text-slate-500 leading-relaxed mt-1">{t(skill.desc)}</p>
                                         </div>
-                                        {!isReplacing && <span className="mt-2 text-xs font-bold text-blue-500 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">点击获取</span>}
+                                        {!isReplacing && <span className="mt-2 text-xs font-bold text-blue-500 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">{t("点击获取")}</span>}
                                     </button>
                                 )
                             })}
@@ -78,11 +80,11 @@ export const SkillSelectionModal = ({ candidates, onSelect, currentSkills, onRep
                     {/* 旧技能区 (替换模式下为可交互，非替换模式下为只读展示) */}
                     <div className="w-full p-6 rounded-3xl bg-slate-800/50 border border-slate-700">
                         <div className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            {isReplacing ? <><Trash2 size={16} /> 选择要遗忘的旧技能</> : <><Info size={16} /> 当前已拥有技能</>}
+                            {isReplacing ? <><Trash2 size={16} /> {t("选择要遗忘的旧技能")}</> : <><Info size={16} /> {t("当前已拥有技能")}</>}
                         </div>
 
                         {currentSkills.length === 0 ? (
-                            <div className="text-slate-500 italic text-center py-4">暂无技能</div>
+                            <div className="text-slate-500 italic text-center py-4">{t("暂无技能")}</div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {currentSkills.map(skillId => {
@@ -107,12 +109,12 @@ export const SkillSelectionModal = ({ candidates, onSelect, currentSkills, onRep
                                                 <SkillIcon size={24} />
                                             </div>
                                             <div className="text-center">
-                                                <div className="font-bold">{skill?.name || '未知技能'}</div>
-                                                <div className="text-[10px] opacity-70 mt-1">{skill?.desc}</div>
+                                                <div className="font-bold">{t(skill?.name) || t('未知技能')}</div>
+                                                <div className="text-[10px] opacity-70 mt-1">{t(skill?.desc)}</div>
                                             </div>
                                             {isReplacing && targetOldSkillId === skill?.id && (
                                                 <div className="absolute -top-2 -right-2 bg-red-500 text-white px-2 py-0.5 rounded-full font-bold text-[10px] shadow-sm">
-                                                    遗忘
+                                                    {t("遗忘")}
                                                 </div>
                                             )}
                                         </button>
@@ -129,7 +131,7 @@ export const SkillSelectionModal = ({ candidates, onSelect, currentSkills, onRep
                         onClick={() => onSelect(null)}
                         className="px-8 py-3 rounded-full border-2 border-slate-500 text-slate-300 hover:bg-slate-700 hover:text-white transition-all font-bold uppercase tracking-wider"
                     >
-                        放弃新技能
+                        {t("放弃新技能")}
                     </button>
 
                     {isReplacing && (
@@ -144,7 +146,7 @@ export const SkillSelectionModal = ({ candidates, onSelect, currentSkills, onRep
                                 }
                             `}
                         >
-                            <span>确认替换</span>
+                            <span>{t("确认替换")}</span>
                             {selectedCandidate && targetOldSkillId && <ArrowRight size={20} />}
                         </button>
                     )}
