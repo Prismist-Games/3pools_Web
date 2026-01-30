@@ -3,7 +3,8 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main"] # 监听 main 分支的推送
+    branches: ["main"]
+  workflow_dispatch: # 添加这一行，允许手动触发
 
 permissions:
   contents: read
