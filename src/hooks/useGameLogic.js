@@ -58,6 +58,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         setToast({ message, type });
     };
 
+    const hideToast = () => {
+        setToast(null);
+    };
+
     const hasSkill = (id) => skills.includes(id);
 
     const allNormalItems = useMemo(() => getAllNormalItems(config.pools, currentStageConfig), [config.pools, currentStageConfig]);
@@ -1296,6 +1300,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         },
         actions: {
             showToast,
+            hideToast,
             triggerSkillSelection,
             handleSkillSelect,
             handleSkillReplace,
