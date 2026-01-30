@@ -102,6 +102,15 @@ export const EN_TRANSLATIONS = {
     "可提交": "Ready",
     "暂无订单": "No Orders",
 
+    // 两步选择流程
+    "选择物品池": "Select Pool",
+    "点击选择一个物品池": "Click to Select a Pool",
+    "选择词缀": "Select Affix",
+    "重新选择池子": "Back to Pools",
+    "已选择": "Selected",
+    "点击选择": "Click to Select",
+    "目标": "Target",
+
     // --- Stages & Mechanics ---
     "阶段 1": "Stage 1",
     "基础机制生效": "Basic Mechanics Active",

@@ -46,6 +46,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
     const [skills, setSkills] = useState(initialSkills);
     const [skillSelectionCandidates, setSkillSelectionCandidates] = useState(null);
+
+    // 两步选择流程状态
+    const [poolSelectionPhase, setPoolSelectionPhase] = useState('pool'); // 'pool' | 'affix'
+    const [selectedPoolForDraw, setSelectedPoolForDraw] = useState(null);
+    const [affixCandidates, setAffixCandidates] = useState([]);
     const [skillState, setSkillState] = useState({
         consecutiveCommons: 0,
         nextDrawGuaranteedRare: false,
@@ -161,23 +166,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             }
 
             if (selectedPool && selectedPool.type === 'normal') {
-                if (currentStageConfig.mechanics.affixes) {
-                    const availableAffixes = config.affixes.filter(a => !usedAffixIds.has(a.id));
-                    const affixPool = availableAffixes.length > 0 ? availableAffixes : config.affixes;
-                    const affix = getRandomAffix(affixPool);
-
-                    selectedPool.affixKey = affix.id;
-                    selectedPool.affix = affix;
-                    selectedPool.cost = affix.cost;
-                    usedAffixIds.add(affix.id);
-                } else {
-                    selectedPool.cost = currentStageConfig.fixedPrice !== null ? currentStageConfig.fixedPrice : 1;
-                }
-
-                // Stage 1 Volatility: Random cost 1-4
-                if (currentStageConfig.mechanics.volatility) {
-                    selectedPool.cost = Math.floor(Math.random() * 4) + 1;
-                }
+                // 第一阶段不分配词缀，只展示池子供选择
+                selectedPool.cost = 0; // 选择池子本身免费
+                selectedPool.affixKey = null;
+                selectedPool.affix = null;
             }
 
             if (selectedPool) result.push(selectedPool);
@@ -691,7 +683,51 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         refreshPools();
     };
 
-    const handleDraw = (pool) => {
+    // ========== 两步选择流程 ==========
+
+    // 第一步：玩家选择池子后，生成3个随机词缀候选
+    const handlePoolSelection = (pool) => {
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0) return;
+
+        // 随机生成3个不同的词缀
+        const shuffledAffixes = [...config.affixes].sort(() => 0.5 - Math.random());
+        const candidates = shuffledAffixes.slice(0, 3);
+
+        setSelectedPoolForDraw(pool);
+        setAffixCandidates(candidates);
+        setPoolSelectionPhase('affix');
+    };
+
+    // 第二步：玩家选择词缀后，执行实际抽取
+    const handleAffixSelection = (affix) => {
+        if (!selectedPoolForDraw) return;
+
+        // 将选中的词缀应用到池子
+        const poolWithAffix = {
+            ...selectedPoolForDraw,
+            affixKey: affix.id,
+            affix: affix,
+            cost: affix.cost
+        };
+
+        // 执行抽取
+        executeDrawFromPool(poolWithAffix);
+
+        // 重置状态
+        setSelectedPoolForDraw(null);
+        setAffixCandidates([]);
+        setPoolSelectionPhase('pool');
+    };
+
+    // 取消词缀选择，返回池子选择阶段
+    const handleCancelAffixSelection = () => {
+        setSelectedPoolForDraw(null);
+        setAffixCandidates([]);
+        setPoolSelectionPhase('pool');
+    };
+
+    // 内部函数：执行实际抽取（原 handleDraw 逻辑）
+    const executeDrawFromPool = (pool) => {
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0) return;
 
         let finalCost = pool.cost;
@@ -748,6 +784,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             handleNormalDraw(pool);
         }
     };
+
+    // 保留 handleDraw 作为别名以便向后兼容（如有其他地方调用）
+    const handleDraw = executeDrawFromPool;
 
     const handleCloseModal = () => {
         if (modalContent?.type === 'stage_up') {
@@ -1292,7 +1331,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             satisfiableOrders, // P2 Fix: Return calculated memo, not empty array
             potentialSatisfiableOrders, // P2 Fix: Return preview memo
             totalRecycleValue,
-            selectedItemNames
+            selectedItemNames,
+            // 两步选择流程状态
+            poolSelectionPhase,
+            selectedPoolForDraw,
+            affixCandidates
         },
         actions: {
             showToast,
@@ -1315,7 +1358,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             handleSortInventory,
             handlePoolHover,
             handlePoolLeave,
-            refreshPools
+            refreshPools,
+            // 两步选择流程函数
+            handlePoolSelection,
+            handleAffixSelection,
+            handleCancelAffixSelection
         },
         helpers: {
             hasSkill

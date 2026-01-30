@@ -9,11 +9,12 @@ const PoolCardBase = ({
     hasSkill,
     inventory = [],
     onDraw,
+    onPoolSelect,  // 新增：池子选择回调（第一步）
     onMouseEnter,
     onMouseLeave,
     isHovered,
     relevantRequirements = [],
-
+    showAffix = true,  // 新增：是否显示词缀（第一步为false）
     disabled = false
 }) => {
     const { t } = useLanguage();
@@ -26,13 +27,26 @@ const PoolCardBase = ({
         finalCost = Math.max(0, finalCost - 1);
     }
 
-    const canAfford = pool.currency === 'gold' ? gold >= finalCost : tickets >= finalCost;
+    // 在无词缀模式下，选择池子免费
+    const canAfford = showAffix
+        ? (pool.currency === 'gold' ? gold >= finalCost : tickets >= finalCost)
+        : true; // 无词缀模式下始终可选
     const isEffectiveDisabled = disabled || !canAfford;
     const isMainline = pool.type === 'mainline';
 
+    // 点击处理：根据模式调用不同的回调
+    const handleClick = () => {
+        if (isEffectiveDisabled) return;
+        if (showAffix && onDraw) {
+            onDraw(pool); // 有词缀模式：直接抽取
+        } else if (!showAffix && onPoolSelect) {
+            onPoolSelect(pool); // 无词缀模式：选择池子
+        }
+    };
+
     return (
         <button
-            onClick={() => !isEffectiveDisabled && onDraw(pool)}
+            onClick={handleClick}
             onMouseEnter={() => onMouseEnter(pool)}
             onMouseLeave={onMouseLeave}
             aria-disabled={isEffectiveDisabled}
@@ -48,30 +62,39 @@ const PoolCardBase = ({
         >
             {/* ===== NEW LAYOUT: Centralized Info ===== */}
 
-            {/* Row 1: Icon + Pool Name + Price (all LEFT aligned, grouped together) */}
+            {/* Row 1: Icon + Pool Name + Price (在无词缀模式下不显示价格) */}
             <div className="flex items-center gap-3">
                 <span className="text-4xl filter drop-shadow-sm">{pool.icon}</span>
                 <span className="font-black text-xl leading-tight">{t(pool.name)}</span>
 
-                {/* Price Pill - Directly after name, NOT pushed to right */}
-                <div className={`
-                    flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
-                    bg-white
-                    ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-slate-200'}
-                `}>
-                    {finalCost < pool.cost && (
-                        <span className="line-through text-xs text-slate-400">{pool.cost}</span>
-                    )}
-                    {finalCost === 0 ? t("免费") : finalCost}
-                    {pool.currency === 'gold'
-                        ? <Coins size={20} className={canAfford ? "text-yellow-500" : "text-slate-400"} />
-                        : <Ticket size={20} className={canAfford ? "text-pink-500" : "text-slate-400"} />
-                    }
-                </div>
+                {/* Price Pill - 仅在有词缀模式下显示 */}
+                {showAffix && (
+                    <div className={`
+                        flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
+                        bg-white
+                        ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-slate-200'}
+                    `}>
+                        {finalCost < pool.cost && (
+                            <span className="line-through text-xs text-slate-400">{pool.cost}</span>
+                        )}
+                        {finalCost === 0 ? t("免费") : finalCost}
+                        {pool.currency === 'gold'
+                            ? <Coins size={20} className={canAfford ? "text-yellow-500" : "text-slate-400"} />
+                            : <Ticket size={20} className={canAfford ? "text-pink-500" : "text-slate-400"} />
+                        }
+                    </div>
+                )}
+
+                {/* 无词缀模式下显示提示 */}
+                {!showAffix && (
+                    <div className="ml-auto text-sm font-bold text-slate-500 bg-white/60 px-3 py-1 rounded-lg">
+                        {t("点击选择")}
+                    </div>
+                )}
             </div>
 
-            {/* Row 2: Affix Name (LARGE and prominent) */}
-            {pool.affix && (
+            {/* Row 2: Affix Name (仅在有词缀且存在词缀时显示) */}
+            {showAffix && pool.affix && (
                 <div className="flex items-center gap-2">
                     <span className="text-base font-black text-slate-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
                         ✨ {t(pool.affix.name)}
@@ -88,8 +111,8 @@ const PoolCardBase = ({
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2">
-                        {/* Affix Description - LARGE readable text */}
-                        {pool.affix && (
+                        {/* Affix Description - 仅在有词缀时显示 */}
+                        {showAffix && pool.affix && (
                             <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
                                 {t(pool.affix.desc)}
                             </p>

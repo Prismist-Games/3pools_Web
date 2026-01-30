@@ -9,6 +9,7 @@ import Leaderboard from './components/game/Leaderboard.jsx';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
 import { PoolCard } from './components/game/PoolCard';
+import { AffixCard } from './components/game/AffixCard';
 
 import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
@@ -27,7 +28,9 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
         isSubmitMode, isRecycleMode, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates,
-        toast, satisfiableOrders, totalRecycleValue, selectedItemNames
+        toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
+        // 两步选择流程状态
+        poolSelectionPhase, selectedPoolForDraw, affixCandidates
     } = state;
 
     const {
@@ -48,7 +51,11 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
         handleConfirmRecycle,
         handleSortInventory,
         handlePoolHover,
-        handlePoolLeave
+        handlePoolLeave,
+        // 两步选择流程函数
+        handlePoolSelection,
+        handleAffixSelection,
+        handleCancelAffixSelection
     } = actions;
 
     const { hasSkill } = helpers;
@@ -277,51 +284,93 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                     {/* RIGHT COLUMN: POOLS */}
                     <section className="flex-1 p-4 lg:p-8 flex flex-col overflow-y-auto relative">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
-                                <RefreshCw size={16} /> {t("抽取物品")}
-                            </h2>
-                            <span className="text-xs text-slate-400">{t("点击卡片购买")}</span>
-                        </div>
 
-                        <div className={`
-                        flex flex-col gap-4
-                        transition-opacity duration-300
-                        ${pendingItem || isSubmitMode || isRecycleMode || selectionMode ? 'opacity-100' : 'opacity-100'}
-                    `}>
-                            {activePools.map((pool) => {
-                                const relevantRequirements = [...orders, mainlineOrder]
-                                    .filter(Boolean)
-                                    .flatMap(o => o.requirements)
-                                    .filter(req => {
-                                        // 1. Must be in the pool
-                                        if (!pool.items.some(pi => pi.name === req.name)) return false;
+                        {/* 第一步：选择池子 */}
+                        {poolSelectionPhase === 'pool' && (
+                            <>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
+                                        <RefreshCw size={16} /> {t("选择物品池")}
+                                    </h2>
+                                    <span className="text-xs text-slate-400">{t("点击选择一个物品池")}</span>
+                                </div>
 
-                                        // 2. Hide if satisfied in inventory
-                                        const isSatisfied = inventory.some(item =>
-                                            item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
-                                        );
-                                        return !isSatisfied;
-                                    });
+                                <div className={`
+                                    flex flex-col gap-4
+                                    transition-opacity duration-300
+                                    ${pendingItem || isSubmitMode || isRecycleMode || selectionMode ? 'opacity-50 pointer-events-none' : 'opacity-100'}
+                                `}>
+                                    {activePools.map((pool) => {
+                                        const relevantRequirements = [...orders, mainlineOrder]
+                                            .filter(Boolean)
+                                            .flatMap(o => o.requirements)
+                                            .filter(req => {
+                                                if (!pool.items.some(pi => pi.name === req.name)) return false;
+                                                const isSatisfied = inventory.some(item =>
+                                                    item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
+                                                );
+                                                return !isSatisfied;
+                                            });
 
-                                return (
-                                    <PoolCard
-                                        key={pool.id}
-                                        pool={pool}
-                                        gold={gold}
-                                        tickets={tickets}
-                                        inventory={inventory}
-                                        hasSkill={hasSkill}
-                                        onDraw={handleDraw}
-                                        onMouseEnter={handlePoolHover}
-                                        onMouseLeave={handlePoolLeave}
-                                        isHovered={hoveredPoolId === (pool.originalId || pool.id)}
-                                        relevantRequirements={relevantRequirements}
-                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
-                                    />
-                                )
-                            })}
-                        </div>
+                                        return (
+                                            <PoolCard
+                                                key={pool.id}
+                                                pool={pool}
+                                                gold={gold}
+                                                tickets={tickets}
+                                                inventory={inventory}
+                                                hasSkill={hasSkill}
+                                                onPoolSelect={handlePoolSelection}
+                                                showAffix={false}
+                                                onMouseEnter={handlePoolHover}
+                                                onMouseLeave={handlePoolLeave}
+                                                isHovered={hoveredPoolId === (pool.originalId || pool.id)}
+                                                relevantRequirements={relevantRequirements}
+                                                disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
+                                            />
+                                        )
+                                    })}
+                                </div>
+                            </>
+                        )}
+
+                        {/* 第二步：选择词缀 */}
+                        {poolSelectionPhase === 'affix' && selectedPoolForDraw && (
+                            <>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
+                                        ✨ {t("选择词缀")}
+                                    </h2>
+                                    <button
+                                        onClick={handleCancelAffixSelection}
+                                        className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+                                    >
+                                        ← {t("重新选择池子")}
+                                    </button>
+                                </div>
+
+                                {/* 已选中的池子预览 */}
+                                <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
+                                    <span className="text-sm text-slate-500 font-medium">{t("已选择")}:</span>
+                                    <span className="text-3xl">{selectedPoolForDraw.icon}</span>
+                                    <span className="font-bold text-lg text-slate-800">{t(selectedPoolForDraw.name)}</span>
+                                </div>
+
+                                {/* 词缀选择卡片 */}
+                                <div className="flex flex-col gap-4">
+                                    {affixCandidates.map((affix) => (
+                                        <AffixCard
+                                            key={affix.id}
+                                            affix={affix}
+                                            pool={selectedPoolForDraw}
+                                            gold={gold}
+                                            hasSkill={hasSkill}
+                                            onSelect={handleAffixSelection}
+                                        />
+                                    ))}
+                                </div>
+                            </>
+                        )}
 
                         {/* SELECTION OVERLAY (Trade-in / Targeted) */}
                         {selectionMode && selectionMode.type !== 'trade_in' && (
