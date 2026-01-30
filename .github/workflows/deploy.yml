@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "Main"]
   workflow_dispatch: # 添加这一行，允许手动触发
 
 permissions:
