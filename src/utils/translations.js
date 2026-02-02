@@ -193,5 +193,15 @@ export const EN_TRANSLATIONS = {
     "完成需求物品数为 4 个的订单时，额外获得 5 金币。": "+5 Gold for Orders with 4 items.",
 
     "困难订单专家": "Hard Order",
-    "完成需要史诗以上品质物品的订单时，额外获得 10 金币。": "+10 Gold for Orders requiring Epic+ items."
+    "完成需要史诗以上品质物品的订单时，额外获得 10 金币。": "+10 Gold for Orders requiring Epic+ items.",
+
+    // --- 支付方式选择 ---
+    "选择支付方式": "Choose Payment",
+    "用金币支付": "Pay with Gold",
+    "用道具支付": "Pay with Item",
+    "个可用": "available",
+    "道具支付无找零，高品质可付低价": "No change for item payment",
+    "选择要消耗的道具": "Select Item to Consume",
+    "金币等值": "Gold Value",
+    "没有足够品质的道具": "No eligible items"
 };

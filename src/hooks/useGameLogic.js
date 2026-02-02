@@ -8,7 +8,7 @@ import {
     getRandomAffix,
     getRandomItems
 } from '../utils/helpers';
-import { MAINLINE_ITEMS, SKILL_DEFINITIONS } from '../data/constants';
+import { MAINLINE_ITEMS, SKILL_DEFINITIONS, RARITY_COIN_VALUE } from '../data/constants';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialProgress = 0) => {
     const [gold, setGold] = useState(config.global.initialGold);
@@ -43,6 +43,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
     const [modalContent, setModalContent] = useState(null);
     const [selectionMode, setSelectionMode] = useState(null);
+
+    // 支付方式选择状态
+    const [paymentMode, setPaymentMode] = useState(null); // null | 'selecting' | 'item_select'
+    const [pendingPoolForPayment, setPendingPoolForPayment] = useState(null);
 
     const [skills, setSkills] = useState(initialSkills);
     const [skillSelectionCandidates, setSkillSelectionCandidates] = useState(null);
@@ -627,7 +631,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         }
     };
 
-    const handleNormalDraw = (pool) => {
+    const handleNormalDraw = (pool, updatedInventory = null) => {
         setDrawCount(prev => prev + 1);
 
         let itemsToProcess = [];
@@ -688,7 +692,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         setSkillState(newSkillState);
 
         // Apply Entropy (Time passes on draw)
-        const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
+        // 使用传入的 updatedInventory 或当前 inventory
+        const baseInventory = updatedInventory || inventory;
+        const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(baseInventory) : [...baseInventory];
 
         handleIncomingItems(itemsToProcess, decayedInventory);
 
@@ -751,6 +757,122 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             setGold(prev => prev - finalCost);
             handleNormalDraw(pool);
         }
+    };
+
+    // ===== 支付方式选择系统 =====
+
+    // 点击奖池 -> 打开支付选择
+    const handlePoolClick = (pool) => {
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || paymentMode) return;
+
+        // 计算最终价格
+        let finalCost = pool.cost;
+        if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
+            finalCost = Math.max(0, finalCost - 1);
+        }
+
+        // 以旧换新词缀特殊处理：先付开启费
+        if (pool.affixKey === 'trade_in') {
+            setPendingPoolForPayment({ ...pool, cost: 1, originalPool: pool }); // 开启费1金币
+        } else {
+            setPendingPoolForPayment({ ...pool, cost: finalCost });
+        }
+        setPaymentMode('selecting');
+    };
+
+    // 用金币支付
+    const handlePayWithGold = () => {
+        if (!pendingPoolForPayment || paymentMode !== 'selecting') return;
+
+        const pool = pendingPoolForPayment;
+        const cost = pool.cost;
+
+        if (gold < cost) {
+            showToast("金币不足！", "error");
+            return;
+        }
+
+        setGold(prev => prev - cost);
+
+        // 清除支付状态
+        setPaymentMode(null);
+        setPendingPoolForPayment(null);
+
+        // 执行抽奖逻辑
+        executeDrawAfterPayment(pool.originalPool || pool);
+    };
+
+    // 进入道具选择模式
+    const handleSelectItemPayment = () => {
+        if (!pendingPoolForPayment || paymentMode !== 'selecting') return;
+        setPaymentMode('item_select');
+    };
+
+    // 用道具支付
+    const handlePayWithItem = (itemIndex) => {
+        if (!pendingPoolForPayment || paymentMode !== 'item_select') return;
+
+        const item = inventory[itemIndex];
+        if (!item) return;
+
+        const pool = pendingPoolForPayment;
+        const requiredCost = pool.cost;
+        const itemValue = RARITY_COIN_VALUE[item.rarity.id] || 1;
+
+        // 检查道具是否满足最低品质要求
+        if (itemValue < requiredCost) {
+            showToast(`需要至少 ${requiredCost} 金币等值的道具！`, "error");
+            return;
+        }
+
+        // 消耗道具（向下覆盖，无找零）
+        const newInventory = [...inventory];
+        newInventory[itemIndex] = null;
+        setInventory(newInventory);
+
+        // 清除支付状态
+        setPaymentMode(null);
+        setPendingPoolForPayment(null);
+
+        // 执行抽奖逻辑（传递已更新的 inventory）
+        executeDrawAfterPayment(pool.originalPool || pool, newInventory);
+    };
+
+    // 取消支付选择
+    const handleCancelPayment = () => {
+        setPaymentMode(null);
+        setPendingPoolForPayment(null);
+    };
+
+    // 支付完成后执行抽奖
+    const executeDrawAfterPayment = (pool, updatedInventory = null) => {
+        // 以旧换新特殊处理
+        if (pool.affixKey === 'trade_in') {
+            setSelectionMode({ type: 'trade_in', pool });
+            return;
+        }
+        // 精准词缀
+        if (pool.affixKey === 'precise') {
+            const candidates = [];
+            let itemIndices = pool.items.map((_, i) => i);
+            for (let i = 0; i < 2; i++) {
+                if (itemIndices.length === 0) itemIndices = pool.items.map((_, i) => i);
+                const randArrIdx = Math.floor(Math.random() * itemIndices.length);
+                const actualItemIdx = itemIndices[randArrIdx];
+                itemIndices.splice(randArrIdx, 1);
+                const tpl = pool.items[actualItemIdx];
+                candidates.push(createItem(pool, tpl, pool.affixKey));
+            }
+            setSelectionMode({ type: 'precise', pool, items: candidates });
+            return;
+        }
+        // 有的放矢词缀
+        if (pool.affixKey === 'targeted') {
+            setSelectionMode({ type: 'targeted', pool, items: pool.items });
+            return;
+        }
+        // 普通抽奖
+        handleNormalDraw(pool, updatedInventory);
     };
 
     const handleCloseModal = () => {
@@ -1290,6 +1412,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             setHoveredPoolId, setHoveredItemName, setHoveredSlotIndex, setHoveredPoolItemNames,
             isSubmitMode, isRecycleMode, selectedIndices,
             modalContent, selectionMode,
+            paymentMode, pendingPoolForPayment,  // 支付方式选择状态
             skills, skillSelectionCandidates,
             toast,
             toast,
@@ -1320,7 +1443,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             handleSortInventory,
             handlePoolHover,
             handlePoolLeave,
-            refreshPools
+            refreshPools,
+            // 支付方式选择函数
+            handlePoolClick,
+            handlePayWithGold,
+            handleSelectItemPayment,
+            handlePayWithItem,
+            handleCancelPayment
         },
         helpers: {
             hasSkill

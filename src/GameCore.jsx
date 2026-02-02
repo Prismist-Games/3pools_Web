@@ -9,6 +9,7 @@ import Leaderboard from './components/game/Leaderboard.jsx';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
 import { PoolCard } from './components/game/PoolCard';
+import { PaymentModal } from './components/game/PaymentModal';
 
 import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
@@ -26,6 +27,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, selectedIndices,
         modalContent, selectionMode,
+        paymentMode, pendingPoolForPayment,
         skills, skillSelectionCandidates,
         toast, satisfiableOrders, totalRecycleValue, selectedItemNames
     } = state;
@@ -48,7 +50,13 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
         handleConfirmRecycle,
         handleSortInventory,
         handlePoolHover,
-        handlePoolLeave
+        handlePoolLeave,
+        // 支付方式选择
+        handlePoolClick,
+        handlePayWithGold,
+        handleSelectItemPayment,
+        handlePayWithItem,
+        handleCancelPayment
     } = actions;
 
     const { hasSkill } = helpers;
@@ -150,6 +158,20 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => actions.hideToast()} />}
 
             {renderModal()}
+
+            {/* 支付方式选择弹窗 */}
+            {paymentMode && (
+                <PaymentModal
+                    pool={pendingPoolForPayment}
+                    paymentMode={paymentMode}
+                    gold={gold}
+                    inventory={inventory}
+                    onPayWithGold={handlePayWithGold}
+                    onSelectItemPayment={handleSelectItemPayment}
+                    onPayWithItem={handlePayWithItem}
+                    onCancel={handleCancelPayment}
+                />
+            )}
 
             <div className="w-full max-w-7xl mx-auto h-full flex flex-col shadow-2xl bg-white border-x border-slate-200 relative">
 
@@ -312,12 +334,12 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         tickets={tickets}
                                         inventory={inventory}
                                         hasSkill={hasSkill}
-                                        onDraw={handleDraw}
+                                        onDraw={handlePoolClick}
                                         onMouseEnter={handlePoolHover}
                                         onMouseLeave={handlePoolLeave}
                                         isHovered={hoveredPoolId === (pool.originalId || pool.id)}
                                         relevantRequirements={relevantRequirements}
-                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!paymentMode}
                                     />
                                 )
                             })}

@@ -291,6 +291,16 @@ export const INITIAL_AFFIXES_CONFIG = [
     }
 ];
 
+// --- 道具品质金币等值（用于道具支付抽奖）---
+export const RARITY_COIN_VALUE = {
+    common: 1,      // 白色
+    uncommon: 2,    // 绿色
+    rare: 3,        // 蓝色
+    epic: 4,        // 紫色
+    legendary: 4,   // 橙色（抽取时等值4，回收时返5）
+    mythic: 4       // 神话
+};
+
 export const INITIAL_RARITY_CONFIG = [
     {
         "id": "common",
@@ -301,7 +311,7 @@ export const INITIAL_RARITY_CONFIG = [
         "prob": 0.4,
         "shadow": "",
         "starColor": "text-slate-400",
-        "recycleValue": 0
+        "recycleValue": 0  // 丢弃不返金币
     },
     {
         "id": "uncommon",
@@ -312,7 +322,7 @@ export const INITIAL_RARITY_CONFIG = [
         "prob": 0.3,
         "shadow": "shadow-green-200",
         "starColor": "text-green-500",
-        "recycleValue": 0
+        "recycleValue": 0  // 丢弃不返金币
     },
     {
         "id": "rare",
@@ -323,7 +333,7 @@ export const INITIAL_RARITY_CONFIG = [
         "prob": 0.19,
         "shadow": "shadow-blue-200",
         "starColor": "text-blue-500",
-        "recycleValue": 1
+        "recycleValue": 0  // 丢弃不返金币
     },
     {
         "id": "epic",
@@ -334,7 +344,7 @@ export const INITIAL_RARITY_CONFIG = [
         "prob": 0.1,
         "shadow": "shadow-purple-200",
         "starColor": "text-purple-500",
-        "recycleValue": 2
+        "recycleValue": 0  // 丢弃不返金币
     },
     {
         "id": "legendary",
@@ -345,7 +355,7 @@ export const INITIAL_RARITY_CONFIG = [
         "prob": 0.01,
         "shadow": "shadow-orange-200",
         "starColor": "text-orange-500",
-        "recycleValue": 4
+        "recycleValue": 5  // 传说可回收 5 金币
     },
     {
         "id": "mythic",
@@ -356,7 +366,7 @@ export const INITIAL_RARITY_CONFIG = [
         "prob": 0,
         "shadow": "shadow-rose-200",
         "starColor": "text-rose-600",
-        "recycleValue": 10
+        "recycleValue": 5  // 神话同传说
     }
 ];
 
