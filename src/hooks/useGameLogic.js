@@ -6,7 +6,8 @@ import {
     rollRarity,
     getNextRarity,
     getRandomAffix,
-    getRandomItems
+    getRandomItems,
+    checkQualitySatisfaction
 } from '../utils/helpers';
 import { MAINLINE_ITEMS, SKILL_DEFINITIONS } from '../data/constants';
 
@@ -266,6 +267,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     const satisfiableOrders = useMemo(() => {
         if (!isSubmitMode || selectedIndices.length === 0) return [];
         const selectedItems = selectedIndices.map(idx => inventory[idx]).filter(Boolean);
+        
+        // 按物品名称分组
         const handGroups = {};
         selectedItems.forEach(item => {
             if (!handGroups[item.name]) handGroups[item.name] = [];
@@ -276,59 +279,78 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         });
 
         const checkOrder = (order, idx, isMain) => {
+            // 新系统：物品与品质解耦
+            const orderItems = order.items || order.requirements.map(r => ({ name: r.name, icon: r.icon, poolId: r.poolId }));
+            const qualityReqs = order.qualityRequirements || [];
+            
+            // 1. 检查物品名称是否全部满足
             const tempHand = JSON.parse(JSON.stringify(handGroups));
-            let isSatisfied = true;
-            let totalSubmitBonus = 0;
-
-            const allReqs = order.requirements;
-            let isSameType = false;
-            if (hasSkill('ocd') && allReqs.length > 1) {
-                const firstPool = allReqs[0].poolId;
-                isSameType = allReqs.every(r => r.poolId === firstPool);
-            }
-
-            for (const req of order.requirements) {
-                const availableItems = tempHand[req.name];
+            const matchedItems = [];
+            
+            for (const reqItem of orderItems) {
+                const availableItems = tempHand[reqItem.name];
                 if (!availableItems || availableItems.length === 0) {
-                    isSatisfied = false;
-                    break;
+                    return null; // 缺少此物品
                 }
-                const matchIndex = availableItems.findIndex(item => (item.rarity.bonus >= req.requiredRarity.bonus && (!item.decay || item.decay > 0)));
-                if (matchIndex === -1) {
-                    isSatisfied = false;
-                    break;
+                // 选择品质最高的（用于后续品质检测）
+                const matchedItem = availableItems.shift();
+                if (matchedItem.decay !== undefined && matchedItem.decay <= 0) {
+                    return null; // 物品已腐烂
                 }
-                const matchedItem = availableItems[matchIndex];
-                totalSubmitBonus += matchedItem.rarity.bonus;
-                availableItems.splice(matchIndex, 1);
+                matchedItems.push(matchedItem);
             }
-            if (!isSatisfied) return null;
+            
+            // 2. 检查品质要求是否满足
+            const qualityCheck = checkQualitySatisfaction(matchedItems, qualityReqs, config);
+            if (!qualityCheck.satisfied) {
+                return null;
+            }
+            
+            // 3. 计算奖励
+            let totalSubmitBonus = qualityCheck.totalBonus;
+            
+            // 技能【强迫症】：同类物品加成
+            let isSameType = false;
+            if (hasSkill('ocd') && orderItems.length > 1) {
+                const firstPool = orderItems[0].poolId;
+                isSameType = orderItems.every(r => r.poolId === firstPool);
+            }
 
             let multiplier = 1 + totalSubmitBonus;
             if (isSameType) multiplier *= 2;
 
             let extraGold = 0;
             if (hasSkill('poverty_relief') && gold < 5 && order.rewardType === 'gold') {
-                extraGold += 5; // Updated to +5
+                extraGold += 5;
             }
-            if (hasSkill('big_order_expert') && order.requirements.length === 4) {
-                extraGold += 5; // New: Flat +5
+            if (hasSkill('big_order_expert') && orderItems.length === 4) {
+                extraGold += 5;
             }
             if (hasSkill('hard_order_expert')) {
-                const hasHardReq = order.requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
-                if (hasHardReq) extraGold += 10; // New: Flat +10
+                // 检查是否有史诗或传说品质要求
+                const hasHardReq = qualityReqs.some(req => req.rarityId === 'epic' || req.rarityId === 'legendary');
+                if (hasHardReq) extraGold += 10;
             }
 
-            // P0: extraGold is added AFTER the multiplier, making it a final flat bonus (unaffected by rarity/flush multipliers).
-            // This matches the user requirement: "10点加成不会吃到稀有度的加成，变成最终加成".
             const finalReward = Math.ceil(order.baseReward * multiplier) + extraGold;
-            return { index: idx, finalReward, rewardType: order.rewardType, isMainline: isMain, reqCount: order.requirements.length, requirements: order.requirements };
+            return { 
+                index: idx, 
+                finalReward, 
+                rewardType: order.rewardType, 
+                isMainline: isMain, 
+                reqCount: orderItems.length, 
+                items: orderItems,
+                qualityRequirements: qualityReqs,
+                matchedItems: matchedItems
+            };
         };
 
         const results = [];
         orders.forEach((o, i) => {
-            const res = checkOrder(o, i, false);
-            if (res) results.push(res);
+            if (o) {
+                const res = checkOrder(o, i, false);
+                if (res) results.push(res);
+            }
         });
         if (mainlineOrder) {
             const res = checkOrder(mainlineOrder, -1, true);
@@ -336,7 +358,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         }
 
         return results;
-    }, [isSubmitMode, selectedIndices, inventory, orders, mainlineOrder, gold, skills]);
+    }, [isSubmitMode, selectedIndices, inventory, orders, mainlineOrder, gold, skills, config]);
 
     // Preview Potential Rewards (Calculate using BEST items from inventory)
     const potentialSatisfiableOrders = useMemo(() => {
@@ -354,52 +376,66 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         });
 
         const checkOrder = (order, idx, isMain) => {
-            const tempHand = JSON.parse(JSON.stringify(handGroups)); // Deep copy for simulation
-            let isSatisfied = true;
-            let totalSubmitBonus = 0;
-
-            const allReqs = order.requirements;
-            let isSameType = false;
-            // Helper function for OCD check (same as above)
-            if (hasSkill('ocd') && allReqs.length > 1) {
-                const firstPool = allReqs[0].poolId;
-                isSameType = allReqs.every(r => r.poolId === firstPool);
-            }
-
-            for (const req of order.requirements) {
-                const availableItems = tempHand[req.name];
+            // 新系统：物品与品质解耦
+            const orderItems = order.items || order.requirements.map(r => ({ name: r.name, icon: r.icon, poolId: r.poolId }));
+            const qualityReqs = order.qualityRequirements || [];
+            
+            const tempHand = JSON.parse(JSON.stringify(handGroups));
+            const matchedItems = [];
+            
+            // 1. 检查物品名称是否全部满足
+            for (const reqItem of orderItems) {
+                const availableItems = tempHand[reqItem.name];
                 if (!availableItems || availableItems.length === 0) {
-                    isSatisfied = false;
-                    break;
+                    return null;
                 }
-                const matchIndex = availableItems.findIndex(item => (item.rarity.bonus >= req.requiredRarity.bonus && (!item.decay || item.decay > 0)));
-                if (matchIndex === -1) {
-                    isSatisfied = false;
-                    break;
+                const matchedItem = availableItems.shift();
+                if (matchedItem.decay !== undefined && matchedItem.decay <= 0) {
+                    return null;
                 }
-                const matchedItem = availableItems[matchIndex];
-                totalSubmitBonus += matchedItem.rarity.bonus;
-                availableItems.splice(matchIndex, 1);
+                matchedItems.push(matchedItem);
             }
-            if (!isSatisfied) return null;
+            
+            // 2. 检查品质要求是否满足
+            const qualityCheck = checkQualitySatisfaction(matchedItems, qualityReqs, config);
+            if (!qualityCheck.satisfied) {
+                return null;
+            }
+            
+            // 3. 计算奖励
+            let totalSubmitBonus = qualityCheck.totalBonus;
+            
+            let isSameType = false;
+            if (hasSkill('ocd') && orderItems.length > 1) {
+                const firstPool = orderItems[0].poolId;
+                isSameType = orderItems.every(r => r.poolId === firstPool);
+            }
 
             let multiplier = 1 + totalSubmitBonus;
             if (isSameType) multiplier *= 2;
 
             let extraGold = 0;
             if (hasSkill('poverty_relief') && gold < 5 && order.rewardType === 'gold') {
-                extraGold += 5; // Updated to +5
+                extraGold += 5;
             }
-            if (hasSkill('big_order_expert') && order.requirements.length === 4) {
-                extraGold += 5; // New: Flat +5
+            if (hasSkill('big_order_expert') && orderItems.length === 4) {
+                extraGold += 5;
             }
             if (hasSkill('hard_order_expert')) {
-                const hasHardReq = order.requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
-                if (hasHardReq) extraGold += 10; // New: Flat +10
+                const hasHardReq = qualityReqs.some(req => req.rarityId === 'epic' || req.rarityId === 'legendary');
+                if (hasHardReq) extraGold += 10;
             }
 
             const finalReward = Math.ceil(order.baseReward * multiplier) + extraGold;
-            return { index: idx, finalReward, rewardType: order.rewardType, isMainline: isMain, reqCount: order.requirements.length, requirements: order.requirements };
+            return { 
+                index: idx, 
+                finalReward, 
+                rewardType: order.rewardType, 
+                isMainline: isMain, 
+                reqCount: orderItems.length, 
+                items: orderItems,
+                qualityRequirements: qualityReqs
+            };
         };
 
         const results = [];
@@ -414,7 +450,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             }
         });
         return results;
-    }, [inventory, orders, mainlineOrder, gold, skills]);
+    }, [inventory, orders, mainlineOrder, gold, skills, config]);
 
     const totalRecycleValue = useMemo(() => {
         if (!isRecycleMode || selectedIndices.length === 0) return 0;
@@ -1063,37 +1099,43 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         const order = isMainline ? mainlineOrder : orders[orderIndex];
         if (!order) return;
 
-        const newSelectedIndices = [...selectedIndices];
-        const tempSelectedIndices = [...newSelectedIndices];
-        const indicesToAdd = [];
-        const requirements = [...order.requirements];
+        // 新系统：物品与品质解耦
+        const orderItems = order.items || order.requirements.map(r => ({ name: r.name }));
+        const qualityReqs = order.qualityRequirements || [];
 
-        for (const req of requirements) {
-            const existingMatchIndexInSelected = tempSelectedIndices.findIndex(idx => {
+        const indicesToAdd = [];
+        const currentlyUsedIndices = new Set([...selectedIndices]);
+
+        // 1. 为每个物品需求选择匹配的物品（按品质从高到低）
+        for (const reqItem of orderItems) {
+            // 检查是否已经选中了匹配的物品
+            const existingMatchIdx = [...currentlyUsedIndices].find(idx => {
                 const item = inventory[idx];
-                return item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus;
+                return item && item.name === reqItem.name;
             });
 
-            if (existingMatchIndexInSelected !== -1) {
-                tempSelectedIndices.splice(existingMatchIndexInSelected, 1);
+            if (existingMatchIdx !== undefined) {
+                // 已经有匹配的物品被选中，跳过
+                currentlyUsedIndices.delete(existingMatchIdx);
                 continue;
             }
 
-            const currentlyUsedIndices = new Set([...selectedIndices, ...indicesToAdd]);
+            // 从背包中找到匹配的物品（优先选择高品质）
             const candidates = inventory
                 .map((item, idx) => ({ item, idx }))
                 .filter(({ item, idx }) =>
                     item &&
                     !currentlyUsedIndices.has(idx) &&
-                    item.name === req.name &&
-                    item.rarity.bonus >= req.requiredRarity.bonus
+                    !indicesToAdd.includes(idx) &&
+                    item.name === reqItem.name &&
+                    (!item.decay || item.decay > 0)
                 );
 
+            // 按品质从高到低排序
             candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus);
 
             if (candidates.length > 0) {
-                const match = candidates[0];
-                indicesToAdd.push(match.idx);
+                indicesToAdd.push(candidates[0].idx);
             }
         }
 
@@ -1116,20 +1158,20 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
         const nextSkillState = { ...skillState };
 
-        satisfiableOrders.forEach(({ index, finalReward, rewardType, isMainline, reqCount, requirements }) => {
+        satisfiableOrders.forEach(({ index, finalReward, rewardType, isMainline, reqCount, qualityRequirements }) => {
             if (rewardType === 'gold') gainedGold += finalReward;
             if (rewardType === 'ticket') gainedTickets += finalReward;
 
             if (hasSkill('big_order_expert') && reqCount === 4) {
-                // gainedGold += 15; // Refactored: Included in finalReward
-                showToast("【大订单专家】触发：+5金币"); // Update message to +5
+                showToast("【大订单专家】触发：+5金币");
             }
 
             if (hasSkill('hard_order_expert')) {
-                const hasHardReq = requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
+                // 新系统：检查品质要求中是否有史诗或传说
+                const qualityReqs = qualityRequirements || [];
+                const hasHardReq = qualityReqs.some(req => req.rarityId === 'epic' || req.rarityId === 'legendary');
                 if (hasHardReq) {
-                    // gainedGold += 20; // Refactored: Included in finalReward
-                    showToast("【困难订单专家】触发：+10金币"); // Update message to +10
+                    showToast("【困难订单专家】触发：+10金币");
                 }
             }
 

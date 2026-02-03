@@ -64,6 +64,125 @@ export const rollRequirementRarity = (config, currentStageConfig) => {
     return config.rarity.find(r => r.id === 'common');
 };
 
+/**
+ * 生成品质要求列表（新解耦系统）
+ * 根据物品数量和配置的概率，生成独立的品质要求
+ * @returns {Array} 品质要求数组，如 [{ rarityId: 'rare', minRarity: {...}, count: 1 }, ...]
+ */
+export const generateQualityRequirements = (itemCount, config, currentStageConfig) => {
+    const weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
+    
+    // 为每个物品槽位 roll 一个品质
+    const rolledRarities = [];
+    for (let i = 0; i < itemCount; i++) {
+        const rarity = rollRequirementRarity(config, currentStageConfig);
+        rolledRarities.push(rarity);
+    }
+    
+    // 统计各品质数量（不包括普通，因为普通不需要额外要求）
+    const rarityCounts = {};
+    const rarityOrder = ['mythic', 'legendary', 'epic', 'rare', 'uncommon']; // 从高到低
+    
+    rolledRarities.forEach(rarity => {
+        if (rarity.id !== 'common') {
+            rarityCounts[rarity.id] = (rarityCounts[rarity.id] || 0) + 1;
+        }
+    });
+    
+    // 转换为品质要求列表
+    const qualityRequirements = [];
+    rarityOrder.forEach(rarityId => {
+        if (rarityCounts[rarityId] > 0) {
+            const rarityObj = config.rarity.find(r => r.id === rarityId);
+            qualityRequirements.push({
+                rarityId: rarityId,
+                minRarity: rarityObj,
+                count: rarityCounts[rarityId]
+            });
+        }
+    });
+    
+    return qualityRequirements;
+};
+
+/**
+ * 计算品质要求对应的奖励加成
+ * @param {Array} qualityRequirements 品质要求数组
+ * @returns {number} 总加成值
+ */
+export const calculateQualityBonus = (qualityRequirements) => {
+    return qualityRequirements.reduce((sum, req) => {
+        return sum + (req.minRarity.bonus * req.count);
+    }, 0);
+};
+
+/**
+ * 检查物品列表是否满足品质要求（最优匹配算法）
+ * 贪心策略：高品质要求优先使用高品质物品
+ * @param {Array} items 物品数组（包含 rarity 信息）
+ * @param {Array} qualityRequirements 品质要求数组
+ * @returns {Object} { satisfied: boolean, matchResult: Array, totalBonus: number }
+ */
+export const checkQualitySatisfaction = (items, qualityRequirements, config) => {
+    if (!items || items.length === 0) {
+        return { satisfied: qualityRequirements.length === 0, matchResult: [], totalBonus: 0 };
+    }
+    
+    // 获取品质排序（从高到低）
+    const rarityOrder = ['mythic', 'legendary', 'epic', 'rare', 'uncommon', 'common'];
+    const getRarityIndex = (rarityId) => rarityOrder.indexOf(rarityId);
+    
+    // 将物品按品质从高到低排序
+    const sortedItems = [...items].sort((a, b) => {
+        return getRarityIndex(a.rarity.id) - getRarityIndex(b.rarity.id);
+    });
+    
+    // 品质要求已经是从高到低排序的（在生成时保证）
+    // 贪心匹配：对于每个品质要求，从剩余物品中选择满足要求的物品
+    const usedItemIndices = new Set();
+    const matchResult = [];
+    let totalBonus = 0;
+    
+    for (const req of qualityRequirements) {
+        let matchedCount = 0;
+        const reqMatches = [];
+        
+        for (let i = 0; i < sortedItems.length && matchedCount < req.count; i++) {
+            if (usedItemIndices.has(i)) continue;
+            
+            const item = sortedItems[i];
+            // 检查物品品质是否 >= 要求品质（bonus 越高品质越好）
+            if (item.rarity.bonus >= req.minRarity.bonus) {
+                usedItemIndices.add(i);
+                matchedCount++;
+                totalBonus += item.rarity.bonus;
+                reqMatches.push(item);
+            }
+        }
+        
+        matchResult.push({
+            requirement: req,
+            matchedItems: reqMatches,
+            satisfied: matchedCount >= req.count
+        });
+    }
+    
+    // 加上未使用物品的 bonus（它们也会被提交）
+    for (let i = 0; i < sortedItems.length; i++) {
+        if (!usedItemIndices.has(i)) {
+            totalBonus += sortedItems[i].rarity.bonus;
+        }
+    }
+    
+    const allSatisfied = matchResult.every(m => m.satisfied);
+    
+    return {
+        satisfied: allSatisfied,
+        matchResult,
+        totalBonus
+    };
+};
+
 export const generateOrder = (allNormalItems, config, hasSkill = () => false, currentStageConfig) => {
     // P0: Use orderCountWeights for configurable requirement counts (2, 3, or 4)
     let count = 3;
@@ -94,14 +213,20 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         count -= 1;
     }
 
-    const rawRequirements = getRandomItems(allNormalItems, count);
-
-    const requirements = rawRequirements.map(item => ({
-        ...item,
-        requiredRarity: rollRequirementRarity(config, currentStageConfig)
+    // 新系统：物品与品质解耦
+    // 1. 随机选择物品（不含品质要求）
+    const items = getRandomItems(allNormalItems, count).map(item => ({
+        name: item.name,
+        icon: item.icon,
+        poolId: item.poolId,
+        poolName: item.poolName
     }));
-
-    const totalReqBonus = requirements.reduce((sum, req) => sum + req.requiredRarity.bonus, 0);
+    
+    // 2. 生成独立的品质要求
+    const qualityRequirements = generateQualityRequirements(count, config, currentStageConfig);
+    
+    // 3. 计算基础奖励（基于品质要求的加成）
+    const qualityBonus = calculateQualityBonus(qualityRequirements);
 
     // P2 Refactor: Always Gold, Configurable Base
     const rewardType = 'gold';
@@ -111,12 +236,21 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
     const baseRewards = currentStageConfig.baseRewards || defaultBaseRewards;
 
     const rawBaseReward = baseRewards[count] || 15;
+    const baseReward = Math.ceil(rawBaseReward * (1 + qualityBonus));
 
-    const baseReward = Math.ceil(rawBaseReward * (1 + totalReqBonus));
+    // 兼容性：保留 requirements 字段用于其他系统（如 PoolCard 的需求显示）
+    // 但主要使用新的 items 和 qualityRequirements
+    const requirements = items.map((item, idx) => ({
+        ...item,
+        // 为了向后兼容，保留 requiredRarity 但设为 common
+        requiredRarity: config.rarity.find(r => r.id === 'common')
+    }));
 
     return {
         id: Math.random().toString(36).substr(2, 9),
-        requirements,
+        items,                    // 新：物品列表（不含品质）
+        qualityRequirements,      // 新：品质要求列表
+        requirements,             // 兼容：旧格式（用于其他系统）
         baseReward,
         rewardType,
         remainingRefreshes: 2,
@@ -131,36 +265,38 @@ export const generateMainlineOrder = (level, config, currentStageConfig) => {
     const targetRarity = config.rarity.find(r => r.id === rarityId) || config.rarity.find(r => r.id === 'epic');
 
     const pools = config.pools.slice(0, currentStageConfig.allowedPoolCount);
-    // Select 'count' random pool items (can be same pool or different, let's keep it diverse if possible, but distinct pools logic was nice)
-    // If count > allowedPoolCount, we must reuse.
-    // Let's just pick 'count' random items from 'allowedPools' entirely? OR pick pools then items?
-    // Previous logic: Pick 2 distinct pools.
-    // New logic: Pick 'count' random items from 'getAllNormalItems' but that might be too broad.
-    // Let's stick to "Pick N random pools (can contain duplicates if needed), then 1 item from each".
 
-    // Actually, picking N distinct pools is better for variety if count <= pools.length.
-
-    const requirements = [];
-    // We need 'count' items.
-    const availablePools = [...pools]; // Copy to shuffle/pick
-
-    // Strategy: Randomly pick 'count' times from available pools.
+    // 新系统：物品与品质解耦
+    const items = [];
     for (let i = 0; i < count; i++) {
-        // Simple random pick to support count > pools.length
         const randomPool = pools[Math.floor(Math.random() * pools.length)];
         const item = getRandomItems(randomPool.items, 1)[0];
-
-        requirements.push({
-            ...item,
+        items.push({
+            name: item.name,
+            icon: item.icon,
             poolId: randomPool.id,
-            poolName: randomPool.name,
-            requiredRarity: targetRarity
+            poolName: randomPool.name
         });
     }
+    
+    // 主线订单的品质要求：所有物品都需要达到指定品质
+    const qualityRequirements = [{
+        rarityId: rarityId,
+        minRarity: targetRarity,
+        count: count
+    }];
+
+    // 兼容性：保留 requirements 字段
+    const requirements = items.map(item => ({
+        ...item,
+        requiredRarity: targetRarity
+    }));
 
     return {
         id: `mainline_order_${Math.random().toString(36).substr(2, 9)}`,
-        requirements,
+        items,                    // 新：物品列表
+        qualityRequirements,      // 新：品质要求列表
+        requirements,             // 兼容：旧格式
         baseReward: 0,
         rewardType: 'none',
         remainingRefreshes: 0,

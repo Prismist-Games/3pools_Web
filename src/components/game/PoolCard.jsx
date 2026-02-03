@@ -95,47 +95,23 @@ const PoolCardBase = ({
                             </p>
                         )}
 
-                        {/* Requirements or Item Preview */}
-                        {relevantRequirements.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 mt-1">
-                                {relevantRequirements.map((req, i) => {
-                                    const candidates = inventory.filter(item => item && item.name === req.name);
-                                    candidates.sort((a, b) => b.rarity.bonus - a.rarity.bonus);
-                                    const matchedItem = candidates[0];
-
-                                    const hasItem = !!matchedItem;
-                                    const isQualitySatisfied = matchedItem && matchedItem.rarity.bonus >= req.requiredRarity.bonus;
-
-                                    const borderStyle = hasItem ? 'border-solid' : 'border-dashed';
-
-                                    let bgColorClass = 'bg-white/90';
-                                    let iconFilterClass = 'grayscale opacity-70';
-                                    let textColorClass = 'text-slate-500';
-                                    let borderColorClass = 'border-slate-300';
-
-                                    if (hasItem && isQualitySatisfied) {
-                                        bgColorClass = matchedItem.rarity.color;
-                                        iconFilterClass = '';
-                                        textColorClass = 'text-slate-700';
-                                        borderColorClass = matchedItem.rarity.color.split(' ')[0];
-                                    } else if (hasItem) {
-                                        bgColorClass = 'bg-slate-50';
-                                        borderColorClass = matchedItem.rarity.color.split(' ')[0];
-                                    }
-
-                                    return (
-                                        <div key={i} className={`
-                                            relative flex items-center gap-1 text-sm border-2 rounded px-2 py-1 transition-all duration-200 shadow-sm
-                                            ${borderStyle} ${borderColorClass} ${bgColorClass} ${textColorClass}
-                                        `}>
-                                            <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-black/10 shrink-0`} title={`${t("需要")}: ${t(req.requiredRarity.name)}`}></div>
-                                            <span className={`${iconFilterClass}`}>{req.icon}</span>
-                                            <span className={`font-bold ${iconFilterClass} opacity-90`}>{t(req.name)}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
+                        {/* Requirements or Item Preview - 新系统：只显示物品需求 */}
+                                        {relevantRequirements.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2 mt-1">
+                                                {relevantRequirements.map((reqItem, i) => {
+                                                    return (
+                                                        <div key={i} className="
+                                                            relative flex items-center gap-1 text-sm border-2 border-dashed rounded px-2 py-1 
+                                                            transition-all duration-200 shadow-sm
+                                                            border-slate-300 bg-white/90 text-slate-500
+                                                        ">
+                                                            <span className="grayscale opacity-70">{reqItem.icon}</span>
+                                                            <span className="font-bold grayscale opacity-70">{t(reqItem.name)}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
                             <div className="flex flex-wrap gap-2 mt-1 opacity-80">
                                 {pool.items.slice(0, 4).map(item => (
                                     <div key={item.name} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-lg border border-white/40 text-lg shadow-sm">

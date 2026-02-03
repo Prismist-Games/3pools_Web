@@ -290,19 +290,20 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                         ${pendingItem || isSubmitMode || isRecycleMode || selectionMode ? 'opacity-100' : 'opacity-100'}
                     `}>
                             {activePools.map((pool) => {
+                                // 新系统：使用 items 而非 requirements
                                 const relevantRequirements = [...orders, mainlineOrder]
                                     .filter(Boolean)
-                                    .flatMap(o => o.requirements)
-                                    .filter(req => {
+                                    .flatMap(o => o.items || o.requirements?.map(r => ({ name: r.name, icon: r.icon })) || [])
+                                    .filter(reqItem => {
                                         // 1. Must be in the pool
-                                        if (!pool.items.some(pi => pi.name === req.name)) return false;
+                                        if (!pool.items.some(pi => pi.name === reqItem.name)) return false;
 
-                                        // 2. Hide if satisfied in inventory
-                                        const isSatisfied = inventory.some(item =>
-                                            item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
-                                        );
-                                        return !isSatisfied;
-                                    });
+                                        // 2. Hide if have item in inventory
+                                        const hasItem = inventory.some(item => item && item.name === reqItem.name);
+                                        return !hasItem;
+                                    })
+                                    // 去重
+                                    .filter((item, index, self) => self.findIndex(i => i.name === item.name) === index);
 
                                 return (
                                     <PoolCard
