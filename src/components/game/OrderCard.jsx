@@ -36,7 +36,7 @@ const OrderCardBase = ({
         );
     }
 
-    const { id, requirements, baseReward, rewardType, remainingRefreshes } = order;
+    const { id, requirements, basePatienceReward, baseProgressReward, remainingRefreshes } = order;
 
     // Calculate visualization states
     const isSatisfied = !!canSatisfy;
@@ -72,24 +72,31 @@ const OrderCardBase = ({
                                 </span>
                             </div>
                         ) : (
-                            // Normal Order: Show Reward Badge
-                            rewardType !== 'none' && (
-                                <div className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-black text-sm shadow-sm transition-all ${canSatisfy ? 'bg-orange-500 text-white ring-2 ring-orange-200' : 'bg-yellow-400 text-slate-900'}`}>
-                                    {/* Base Reward */}
-                                    <span className="text-lg leading-none">{baseReward}</span>
-
-                                    {/* Actual Reward (if satisfied) */}
+                            // Normal Order: Show Dual Reward Badge
+                            <div className="flex items-center gap-2">
+                                {/* Patience Reward */}
+                                <div className={`flex items-center gap-1 px-2 py-1 rounded-lg font-black text-xs shadow-sm ${canSatisfy ? 'bg-pink-500 text-white' : 'bg-pink-100 text-pink-700'}`}>
+                                    <span>{basePatienceReward}</span>
                                     {canSatisfy && (
                                         <>
-                                            <span className="text-white/80 mx-0.5">→</span>
-                                            <span className="text-xl leading-none text-white drop-shadow-sm">{canSatisfy.finalReward}</span>
+                                            <span className="opacity-60">→</span>
+                                            <span className="text-sm">{canSatisfy.finalPatienceReward}</span>
                                         </>
                                     )}
-
-                                    <Coins size={16} fill="currentColor" className="opacity-80" />
-                                    {isSatisfied && <Zap size={14} className="ml-1 text-white animate-pulse" fill="currentColor" />}
+                                    <span className="opacity-70">💗</span>
                                 </div>
-                            )
+                                {/* Progress Reward */}
+                                <div className={`flex items-center gap-1 px-2 py-1 rounded-lg font-black text-xs shadow-sm ${canSatisfy ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'}`}>
+                                    <span>{baseProgressReward}</span>
+                                    {canSatisfy && (
+                                        <>
+                                            <span className="opacity-60">→</span>
+                                            <span className="text-sm">{canSatisfy.finalProgressReward}</span>
+                                        </>
+                                    )}
+                                    <span className="opacity-70">⭐</span>
+                                </div>
+                            </div>
                         )}
                     </div>
 

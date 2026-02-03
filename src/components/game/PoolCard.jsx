@@ -4,8 +4,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 
 const PoolCardBase = ({
     pool,
-    gold,
-    tickets,
+    patience,
     hasSkill,
     inventory = [],
     onDraw,
@@ -17,16 +16,13 @@ const PoolCardBase = ({
     disabled = false
 }) => {
     const { t } = useLanguage();
-    // Cost Calculation
+    // Cost Calculation - all pools now use patience
     let finalCost = pool.cost;
-    if (pool.currency === 'gold' && hasSkill('calculated') && gold < 10) {
-        finalCost = Math.max(1, finalCost - 2);
-    }
-    if (pool.currency === 'gold' && hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
+    if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
         finalCost = Math.max(0, finalCost - 1);
     }
 
-    const canAfford = pool.currency === 'gold' ? gold >= finalCost : tickets >= finalCost;
+    const canAfford = patience >= finalCost;
     const isEffectiveDisabled = disabled || !canAfford;
     const isMainline = pool.type === 'mainline';
 
@@ -53,7 +49,7 @@ const PoolCardBase = ({
                 <span className="text-4xl filter drop-shadow-sm">{pool.icon}</span>
                 <span className="font-black text-xl leading-tight">{t(pool.name)}</span>
 
-                {/* Price Pill - Directly after name, NOT pushed to right */}
+                {/* Price Pill - Patience cost */}
                 <div className={`
                     flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
                     bg-white
@@ -63,10 +59,7 @@ const PoolCardBase = ({
                         <span className="line-through text-xs text-slate-400">{pool.cost}</span>
                     )}
                     {finalCost === 0 ? t("免费") : finalCost}
-                    {pool.currency === 'gold'
-                        ? <Coins size={20} className={canAfford ? "text-yellow-500" : "text-slate-400"} />
-                        : <Ticket size={20} className={canAfford ? "text-pink-500" : "text-slate-400"} />
-                    }
+                    <span className={canAfford ? "text-pink-500" : "text-slate-400"}>💗</span>
                 </div>
             </div>
 

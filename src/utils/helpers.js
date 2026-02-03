@@ -103,72 +103,30 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
 
     const totalReqBonus = requirements.reduce((sum, req) => sum + req.requiredRarity.bonus, 0);
 
-    // P2 Refactor: Always Gold, Configurable Base
-    const rewardType = 'gold';
-
-    // Default fallback if config is missing (compatibility)
+    // Patience System: Base rewards for both patience and progress
     const defaultBaseRewards = { 2: 7, 3: 10, 4: 15 };
     const baseRewards = currentStageConfig.baseRewards || defaultBaseRewards;
 
     const rawBaseReward = baseRewards[count] || 15;
 
-    const baseReward = Math.ceil(rawBaseReward * (1 + totalReqBonus));
+    // Base patience reward (affected by requirement rarity)
+    const basePatienceReward = Math.ceil(rawBaseReward * (1 + totalReqBonus));
+
+    // Base progress reward (from config)
+    const baseProgressReward = config.progress?.baseProgressPerOrder || 5;
 
     return {
         id: Math.random().toString(36).substr(2, 9),
         requirements,
-        baseReward,
-        rewardType,
+        basePatienceReward,
+        baseProgressReward,
         remainingRefreshes: 2,
         isMainline: false
     };
 };
 
-export const generateMainlineOrder = (level, config, currentStageConfig) => {
-    // P3 Update: Configurable Mainline Requirements
-    const count = currentStageConfig.mainlineReqCount || 2;
-    const rarityId = currentStageConfig.mainlineReqRarity || 'epic';
-    const targetRarity = config.rarity.find(r => r.id === rarityId) || config.rarity.find(r => r.id === 'epic');
+// generateMainlineOrder removed - mainline orders are replaced by progress system
 
-    const pools = config.pools.slice(0, currentStageConfig.allowedPoolCount);
-    // Select 'count' random pool items (can be same pool or different, let's keep it diverse if possible, but distinct pools logic was nice)
-    // If count > allowedPoolCount, we must reuse.
-    // Let's just pick 'count' random items from 'allowedPools' entirely? OR pick pools then items?
-    // Previous logic: Pick 2 distinct pools.
-    // New logic: Pick 'count' random items from 'getAllNormalItems' but that might be too broad.
-    // Let's stick to "Pick N random pools (can contain duplicates if needed), then 1 item from each".
-
-    // Actually, picking N distinct pools is better for variety if count <= pools.length.
-
-    const requirements = [];
-    // We need 'count' items.
-    const availablePools = [...pools]; // Copy to shuffle/pick
-
-    // Strategy: Randomly pick 'count' times from available pools.
-    for (let i = 0; i < count; i++) {
-        // Simple random pick to support count > pools.length
-        const randomPool = pools[Math.floor(Math.random() * pools.length)];
-        const item = getRandomItems(randomPool.items, 1)[0];
-
-        requirements.push({
-            ...item,
-            poolId: randomPool.id,
-            poolName: randomPool.name,
-            requiredRarity: targetRarity
-        });
-    }
-
-    return {
-        id: `mainline_order_${Math.random().toString(36).substr(2, 9)}`,
-        requirements,
-        baseReward: 0,
-        rewardType: 'none',
-        remainingRefreshes: 0,
-        isMainline: true,
-        level: level + 1,
-        name: `主线订单`
-    };
-};
 
 export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = () => false, skillState = {}, currentStageConfig) => {
     const { rarity: rarityConfig } = config;

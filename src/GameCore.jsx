@@ -20,8 +20,8 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
     const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialProgress);
 
     const {
-        gold, tickets, mainlineProgress, currentStageConfig, maxInventorySize,
-        drawCount, activePools, orders, mainlineOrder, inventory,
+        patience, patienceStage, mainlineProgress, upgradedOrderItems, currentStageConfig, maxInventorySize,
+        drawCount, activePools, orders, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, selectedIndices,
@@ -153,14 +153,25 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
             <div className="w-full max-w-7xl mx-auto h-full flex flex-col shadow-2xl bg-white border-x border-slate-200 relative">
 
-                {/* HEADER */}
+                {/* Top Bar */}
                 <header className="p-4 bg-slate-800 text-white flex justify-between items-center shadow-md z-20 shrink-0">
                     <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2 text-yellow-400">
-                            <Coins size={20} />
-                            <span className="text-xl font-bold">{gold}</span>
+                        {/* Patience Bar */}
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2 text-pink-300">
+                                <span className="text-xs font-bold">耐心值</span>
+                                <span className="text-xl font-bold">{patience}</span>
+                            </div>
                         </div>
 
+                        {/* Mainline Progress */}
+                        <div className="flex flex-col gap-1 ml-4 border-l border-slate-600 pl-4">
+                            <div className="flex items-center gap-2 text-blue-300">
+                                <Flag size={16} />
+                                <span className="text-xs font-bold">主线进度</span>
+                                <span className="text-xl font-bold">{mainlineProgress}/{config.progress?.targetProgress || 100}</span>
+                            </div>
+                        </div>
 
                         {currentStageConfig.mechanics.specialization && (
                             <div className="flex items-center gap-2 text-blue-300 ml-4 border-l border-slate-600 pl-4">
@@ -215,41 +226,20 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                             </h2>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleRefreshAllOrders(); }}
-                                disabled={!!pendingItem || gold < config.global.refreshCost || isSubmitMode || isRecycleMode || !!selectionMode || !currentStageConfig.mechanics.refresh}
+                                disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !currentStageConfig.mechanics.refresh}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-200 text-sm shadow-sm
-                          ${pendingItem || gold < config.global.refreshCost || isSubmitMode || isRecycleMode || selectionMode || !currentStageConfig.mechanics.refresh
+                          ${pendingItem || isSubmitMode || isRecycleMode || selectionMode || !currentStageConfig.mechanics.refresh
                                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                         : 'bg-orange-50 text-orange-600 hover:bg-orange-100 ring-1 ring-orange-200 hover:ring-orange-300 hover:scale-105'}`}
                             >
                                 {!currentStageConfig.mechanics.refresh ? <Lock size={14} /> : <RotateCcw size={14} />}
-                                <span>{t("刷新所有订单")} (-{config.global.refreshCost})</span>
+                                <span>{t("刷新所有订单")}</span>
                             </button>
                         </div>
 
                         <div className="flex flex-col gap-3">
-                            {/* Mainline Order */}
-                            {mainlineOrder && (
-                                <OrderCard
-                                    order={mainlineOrder}
-                                    index={-1}
-                                    isMainline={true}
-                                    isSubmitMode={isSubmitMode}
-                                    canSatisfy={satisfiableOrders.find(r => r.isMainline)}
-                                    potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.isMainline)} // Pass preview
-                                    onClick={handleOrderClick}
-                                    currentStageConfig={currentStageConfig}
-                                    config={config}
-                                    inventory={inventory}
-                                    selectedIndices={selectedIndices}
-                                    hasSkill={hasSkill}
-                                    hoveredPoolId={hoveredPoolId}
-                                    hoveredItemName={hoveredItemName}
-                                    hoveredPoolItemNames={hoveredPoolItemNames}
-                                    selectedItemNames={selectedItemNames}
-                                />
-                            )}
 
-                            {/* Normal Orders */}
+                            {/* Normal Orders (no mainline) */}
                             {orders.map((order, idx) => (
                                 <OrderCard
                                     key={order ? order.id : `empty-${idx}`}
@@ -290,7 +280,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                         ${pendingItem || isSubmitMode || isRecycleMode || selectionMode ? 'opacity-100' : 'opacity-100'}
                     `}>
                             {activePools.map((pool) => {
-                                const relevantRequirements = [...orders, mainlineOrder]
+                                const relevantRequirements = [...orders]
                                     .filter(Boolean)
                                     .flatMap(o => o.requirements)
                                     .filter(req => {
@@ -308,8 +298,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     <PoolCard
                                         key={pool.id}
                                         pool={pool}
-                                        gold={gold}
-                                        tickets={tickets}
+                                        patience={patience}
                                         inventory={inventory}
                                         hasSkill={hasSkill}
                                         onDraw={handleDraw}
@@ -485,7 +474,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                             <>
                                 <button onClick={toggleRecycleMode} className="bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-full shadow-sm hover:bg-slate-50">{t("取消")}</button>
                                 <button onClick={handleConfirmRecycle} disabled={selectedIndices.length === 0} className={`flex items-center gap-2 font-bold py-2 px-6 rounded-full shadow-lg ${selectedIndices.length > 0 ? 'bg-amber-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                    <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}{t("金币")})
+                                    <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}{t("耐心值")})
                                 </button>
                             </>
                         )}
@@ -518,7 +507,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     currentStageConfig.mechanics.synthesis;
 
                                 // Badge Logic: Scans all orders
-                                const activeReqs = [...orders, mainlineOrder].filter(Boolean).flatMap(o => o.requirements);
+                                const activeReqs = [...orders].filter(Boolean).flatMap(o => o.requirements);
                                 // Find best requirement? Ideally any requirement that needs this item.
                                 // We check if ANY requirement matches name.
                                 // isMaxSatisfied if ANY requirement is satisfied by this quality.
@@ -536,6 +525,11 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     item.rarity.id !== 'mythic' // Not max level (mythic usually can't synth)
                                 );
 
+                                // Fix: Show Red Recycle Overlay for ANY pending item replacement logic
+                                const isOverloadTarget =
+                                    (pendingItem?.isOverload && item && item.name === hoveredItemName) ||
+                                    (pendingItem && !pendingItem.isOverload && hoveredSlotIndex === idx);
+
                                 return (
                                     <InventorySlot
                                         key={idx}
@@ -552,11 +546,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         isNeededForOrder={isNeeded}
                                         isMaxSatisfied={isMaxSatisfied}
                                         hasUpgradePair={hasUpgradePair} // Pass the new prop
-                                        // Fix: Show Red Recycle Overlay for ANY pending item replacement logic
-                                        isOverloadTarget={
-                                            (pendingItem?.isOverload && item && item.name === hoveredItemName) ||
-                                            (pendingItem && !pendingItem.isOverload && hoveredSlotIndex === idx)
-                                        }
+                                        isOverloadTarget={isOverloadTarget}
 
                                         onClick={handleSlotClick}
                                         onMouseEnter={(i, item) => { state.setHoveredSlotIndex(i); if (item) state.setHoveredItemName(item.name); }}
@@ -591,7 +581,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                             <div className="relative transform hover:scale-105 transition-transform">
                                                 {(() => {
                                                     // Pending Item Badge Logic
-                                                    const activeReqs = [...orders, mainlineOrder].filter(Boolean).flatMap(o => o.requirements);
+                                                    const activeReqs = [...orders].filter(Boolean).flatMap(o => o.requirements);
                                                     const matchedReqs = activeReqs.filter(r => r.name === pendingItem.name);
                                                     const isNeeded = matchedReqs.length > 0;
                                                     const isMaxSatisfied = isNeeded && matchedReqs.some(r => pendingItem.rarity.bonus >= r.requiredRarity.bonus);
@@ -643,18 +633,20 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
             </div>
 
             {/* Confirms */}
-            {selectionMode?.type === 'trade_in' && (
-                <>
-                    <div className="fixed inset-0 z-10 bg-black/20 pointer-events-none"></div>
-                    <button
-                        onClick={handleSelectionCancel}
-                        className="fixed bottom-8 right-8 z-50 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full font-bold shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom-10"
-                    >
-                        <X size={20} /> {t("取消置换")}
-                    </button>
-                </>
-            )}
-        </div>
+            {
+                selectionMode?.type === 'trade_in' && (
+                    <>
+                        <div className="fixed inset-0 z-10 bg-black/20 pointer-events-none"></div>
+                        <button
+                            onClick={handleSelectionCancel}
+                            className="fixed bottom-8 right-8 z-50 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full font-bold shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom-10"
+                        >
+                            <X size={20} /> {t("取消置换")}
+                        </button>
+                    </>
+                )
+            }
+        </div >
     );
 };
 
