@@ -14,7 +14,7 @@ export const INITIAL_STAGE_CONFIG = [
         "desc": "普通模式 (Base)",
         "inventorySize": 10,
         "orderSlots": 4,
-        "poolSize": 5,
+        "poolSize": 4,
         "allowedPoolCount": 5,
         "fixedPrice": null,
         "initialGold": 20,
@@ -68,7 +68,7 @@ export const INITIAL_STAGE_CONFIG = [
         "desc": "波动模式 (Volatility)",
         "inventorySize": 10,
         "orderSlots": 4,
-        "poolSize": 5,
+        "poolSize": 4,
         "allowedPoolCount": 5,
         "fixedPrice": null,
         "initialGold": 30,
@@ -118,7 +118,7 @@ export const INITIAL_STAGE_CONFIG = [
         "desc": "专业化模式 (Specialization)",
         "inventorySize": 20,
         "orderSlots": 4,
-        "poolSize": 5,
+        "poolSize": 4,
         "allowedPoolCount": 5,
         "fixedPrice": null,
         "initialGold": 40,
@@ -168,7 +168,7 @@ export const INITIAL_STAGE_CONFIG = [
         "desc": "熵增模式 (Entropy)",
         "inventorySize": 10,
         "orderSlots": 4,
-        "poolSize": 5,
+        "poolSize": 4,
         "allowedPoolCount": 5,
         "fixedPrice": null,
         "initialGold": 50,
@@ -384,10 +384,6 @@ export const INITIAL_POOLS_DATA = [
             {
                 "name": "苹果",
                 "icon": "🍎"
-            },
-            {
-                "name": "橙子",
-                "icon": "🍊"
             }
         ]
     },
@@ -414,10 +410,6 @@ export const INITIAL_POOLS_DATA = [
             {
                 "name": "胶囊",
                 "icon": "💊"
-            },
-            {
-                "name": "绷带",
-                "icon": "🤕"
             }
         ]
     },
@@ -444,10 +436,6 @@ export const INITIAL_POOLS_DATA = [
             {
                 "name": "笔记本",
                 "icon": "📒"
-            },
-            {
-                "name": "尺子",
-                "icon": "📏"
             }
         ]
     },
@@ -474,10 +462,6 @@ export const INITIAL_POOLS_DATA = [
             {
                 "name": "汤勺",
                 "icon": "🥄"
-            },
-            {
-                "name": "叉子",
-                "icon": "🍴"
             }
         ]
     },
@@ -504,10 +488,6 @@ export const INITIAL_POOLS_DATA = [
             {
                 "name": "电脑",
                 "icon": "💻"
-            },
-            {
-                "name": "电视",
-                "icon": "📺"
             }
         ]
     }

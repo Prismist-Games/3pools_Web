@@ -141,13 +141,14 @@ export const generateMainlineOrder = (level, config, currentStageConfig) => {
     // Actually, picking N distinct pools is better for variety if count <= pools.length.
 
     const requirements = [];
-    // We need 'count' items.
-    const availablePools = [...pools]; // Copy to shuffle/pick
+    // We need 'count' items from DIFFERENT pools.
+    // Shuffle available pools and pick from each one sequentially
+    const shuffledPools = [...pools].sort(() => 0.5 - Math.random());
 
-    // Strategy: Randomly pick 'count' times from available pools.
     for (let i = 0; i < count; i++) {
-        // Simple random pick to support count > pools.length
-        const randomPool = pools[Math.floor(Math.random() * pools.length)];
+        // Pick pool at index i (wrap around if count > pools.length, but normally count <= pools.length)
+        const poolIndex = i % shuffledPools.length;
+        const randomPool = shuffledPools[poolIndex];
         const item = getRandomItems(randomPool.items, 1)[0];
 
         requirements.push({
