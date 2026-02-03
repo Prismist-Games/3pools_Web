@@ -60,19 +60,17 @@ export default function App() {
     };
 
     return (
-        <>
-            <LanguageProvider>
-                <ErrorBoundary>
-                    <GameCore
-                        key={gameId}
-                        config={config}
-                        initialSkills={initialSkills}
-                        initialProgress={initialStage}
-                        onOpenSettings={() => setShowSettings(true)}
-                        onReset={() => setResetConfirmOpen(true)}
-                    />
-                </ErrorBoundary>
-            </LanguageProvider>
+        <LanguageProvider>
+            <ErrorBoundary key={gameId}>
+                <GameCore
+                    key={gameId}
+                    config={config}
+                    initialSkills={initialSkills}
+                    initialProgress={initialStage}
+                    onOpenSettings={() => setShowSettings(true)}
+                    onReset={() => setResetConfirmOpen(true)}
+                />
+            </ErrorBoundary>
 
             {resetConfirmOpen && (
                 <ConfirmDialog
@@ -719,6 +717,6 @@ export default function App() {
                     </div>
                 </div>
             )}
-        </>
+        </LanguageProvider>
     );
 }

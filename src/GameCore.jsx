@@ -147,7 +147,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
     return (
         <div className="h-screen w-full bg-slate-50 text-slate-800 font-sans selection:bg-blue-100 overflow-hidden flex flex-col animate-in fade-in duration-500 relative">
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => state.setToast(null)} />}
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => actions.hideToast()} />}
 
             {renderModal()}
 
