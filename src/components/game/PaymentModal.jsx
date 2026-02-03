@@ -24,11 +24,15 @@ export const PaymentModal = ({
     const cost = pool.cost;
     const canAffordGold = gold >= cost;
 
-    // 筛选出可用于支付的道具（等值 >= 所需价格）
+    // 筛选出可用于支付的道具（同类型 + 等值 >= 所需价格）
+    // 使用 pool.originalId 或 pool.id 作为池子类型标识
+    const poolType = pool.originalId || pool.id;
     const eligibleItems = inventory
         .map((item, index) => ({ item, index }))
         .filter(({ item }) => {
             if (!item) return false;
+            // 检查道具类型是否匹配奖池类型
+            if (item.poolId !== poolType) return false;
             const itemValue = RARITY_COIN_VALUE[item.rarity.id] || 1;
             return itemValue >= cost;
         });
@@ -81,8 +85,8 @@ export const PaymentModal = ({
                                     onClick={onPayWithGold}
                                     disabled={!canAffordGold}
                                     className={`w-full p-4 rounded-xl border-2 flex items-center justify-between transition-all ${canAffordGold
-                                            ? 'border-yellow-400 bg-yellow-50 hover:bg-yellow-100 text-yellow-800'
-                                            : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                                        ? 'border-yellow-400 bg-yellow-50 hover:bg-yellow-100 text-yellow-800'
+                                        : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -99,8 +103,8 @@ export const PaymentModal = ({
                                     onClick={onSelectItemPayment}
                                     disabled={!hasEligibleItems}
                                     className={`w-full p-4 rounded-xl border-2 flex items-center justify-between transition-all ${hasEligibleItems
-                                            ? 'border-purple-400 bg-purple-50 hover:bg-purple-100 text-purple-800'
-                                            : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                                        ? 'border-purple-400 bg-purple-50 hover:bg-purple-100 text-purple-800'
+                                        : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -114,7 +118,7 @@ export const PaymentModal = ({
                             </div>
 
                             <p className="text-xs text-slate-400 text-center mt-4">
-                                {t("道具支付无找零，高品质可付低价")}
+                                {t("需要同类型道具，无找零")}
                             </p>
                         </>
                     ) : (
@@ -129,7 +133,7 @@ export const PaymentModal = ({
                                 </button>
                                 <span className="font-bold">{t("选择要消耗的道具")}</span>
                                 <span className="text-sm text-slate-500">
-                                    ({t("需要")} ≥{cost} {t("金币等值")})
+                                    ({t("需要")} {pool.icon} ≥{cost})
                                 </span>
                             </div>
 
@@ -154,7 +158,7 @@ export const PaymentModal = ({
 
                             {eligibleItems.length === 0 && (
                                 <div className="text-center text-slate-400 py-8">
-                                    {t("没有足够品质的道具")}
+                                    {t("没有足够品质的同类型道具")}
                                 </div>
                             )}
                         </>

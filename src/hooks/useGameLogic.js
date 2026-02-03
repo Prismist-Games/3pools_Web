@@ -475,6 +475,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         return {
             ...itemTemplate,
             uid: Math.random().toString(36).substr(2, 9),
+            poolId: pool.originalId || pool.id, // 用于同类型道具支付匹配
             poolName: pool.name,
             rarity: rarity,
             sterile: affixKey === 'hardened',
@@ -818,6 +819,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         const pool = pendingPoolForPayment;
         const requiredCost = pool.cost;
         const itemValue = RARITY_COIN_VALUE[item.rarity.id] || 1;
+        const poolType = pool.originalId || pool.id;
+
+        // 检查道具类型是否匹配奖池类型
+        if (item.poolId !== poolType) {
+            showToast("需要同类型道具！", "error");
+            return;
+        }
 
         // 检查道具是否满足最低品质要求
         if (itemValue < requiredCost) {

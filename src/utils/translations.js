@@ -203,5 +203,7 @@ export const EN_TRANSLATIONS = {
     "道具支付无找零，高品质可付低价": "No change for item payment",
     "选择要消耗的道具": "Select Item to Consume",
     "金币等值": "Gold Value",
-    "没有足够品质的道具": "No eligible items"
+    "没有足够品质的道具": "No eligible items",
+    "需要同类型道具，无找零": "Same-type item required, no change",
+    "没有足够品质的同类型道具": "No eligible same-type items"
 };
