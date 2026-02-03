@@ -146,42 +146,64 @@ const OrderCardBase = ({
             `}
         >
             {/* Content Container */}
-            <div className="flex flex-col gap-2 w-full">
+            <div className="flex flex-col gap-1.5 w-full">
 
-                {/* Header Row: Title & Reward */}
-                <div className="flex items-center justify-between gap-2">
-                    {isMainline ? (
-                        <span className="text-xs font-black text-yellow-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-full border border-yellow-200">
-                            <Crown size={12} /> {t("主线订单")}
-                        </span>
-                    ) : (
-                        <span className="text-xs font-bold text-slate-400">
-                            #{index + 1}
-                        </span>
-                    )}
+                {/* Header Row: Title & Reward + Refresh */}
+                <div className="flex items-center justify-between gap-2 min-h-[32px]">
+                    <div className="flex items-center gap-2">
+                        {isMainline ? (
+                            <span className="text-xs font-black text-yellow-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-full border border-yellow-200">
+                                <Crown size={12} /> {t("主线订单")}
+                            </span>
+                        ) : (
+                            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                #{index + 1}
+                            </span>
+                        )}
+                    </div>
 
-                    {/* Reward Badge */}
-                    {!isMainline && rewardType !== 'none' && (
-                        <div className={`flex items-center gap-1 px-2 py-1 rounded-lg font-black text-sm shadow-sm transition-all ${canSatisfy ? 'bg-orange-500 text-white ring-2 ring-orange-200' : 'bg-yellow-400 text-slate-900'}`}>
-                            <span className="text-base leading-none">{baseReward}</span>
-                            {canSatisfy && (
-                                <>
-                                    <span className="text-white/80 mx-0.5">→</span>
-                                    <span className="text-lg leading-none text-white drop-shadow-sm">{canSatisfy.finalReward}</span>
-                                </>
-                            )}
-                            <Coins size={14} fill="currentColor" className="opacity-80" />
-                            {isSatisfied && <Zap size={12} className="ml-0.5 text-white animate-pulse" fill="currentColor" />}
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {/* Reward Badge */}
+                        {!isMainline && rewardType !== 'none' && (
+                            <div className={`flex items-center gap-1 px-2 py-1 rounded-lg font-black text-xs shadow-sm transition-all ${canSatisfy ? 'bg-orange-500 text-white ring-2 ring-orange-200' : 'bg-yellow-400 text-slate-900'}`}>
+                                <span className="text-sm leading-none">{baseReward}</span>
+                                {canSatisfy && (
+                                    <>
+                                        <span className="text-white/80 mx-0.5">→</span>
+                                        <span className="text-sm leading-none text-white drop-shadow-sm">{canSatisfy.finalReward}</span>
+                                    </>
+                                )}
+                                <Coins size={12} fill="currentColor" className="opacity-80" />
+                            </div>
+                        )}
+
+                        {/* Refresh Button (Now inside the flex flow to avoid overlap) */}
+                        {!isMainline && !isSubmitMode && currentStageConfig.mechanics.refresh && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onRefresh(index); }}
+                                disabled={remainingRefreshes <= 0}
+                                className={`
+                                    relative w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-sm
+                                    ${remainingRefreshes > 0
+                                        ? 'bg-orange-100 text-orange-500 hover:bg-orange-200 hover:scale-105 active:scale-95'
+                                        : 'bg-slate-50 text-slate-300 cursor-not-allowed'}
+                                `}
+                                title={t("刷新此订单")}
+                            >
+                                <RefreshCw size={12} />
+                                <div className="absolute -bottom-1 -right-1 bg-white text-[8px] font-black text-slate-500 px-1 py-0.5 rounded-full shadow border border-slate-100">
+                                    {remainingRefreshes}
+                                </div>
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                {/* Items Row: 物品需求（新系统） */}
-                <div className="flex flex-wrap gap-1.5">
+                {/* Items Row: 物品需求（紧凑化） */}
+                <div className="flex flex-wrap gap-1">
                     {itemStates.map((itemState, rIdx) => {
                         const { name, icon, hasItem, isSelected, bestItem, selectedBestItem } = itemState;
                         
-                        // 确定显示状态
                         const displayItem = isSubmitMode ? selectedBestItem : bestItem;
                         const isPoolHighlighted = hoveredPoolId && hoveredPoolItemNames && hoveredPoolItemNames.includes(name);
                         const isItemHighlighted = hoveredItemName && name === hoveredItemName;
@@ -198,7 +220,7 @@ const OrderCardBase = ({
                             iconFilterClass = '';
                             textColorClass = 'text-slate-700';
                         } else if (hasItem) {
-                            bgColorClass = bestItem.rarity.color;
+                            bgColorClass = 'bg-slate-50';
                             iconFilterClass = 'opacity-60';
                             textColorClass = 'text-slate-600';
                         }
@@ -209,16 +231,16 @@ const OrderCardBase = ({
 
                         return (
                             <div key={rIdx} className={`
-                                relative flex items-center gap-1 text-sm border-2 rounded-lg px-2 py-1.5 transition-all duration-200
+                                relative flex items-center gap-1 text-sm border-2 rounded-lg px-2 py-0.1 transition-all duration-200
                                 ${borderStyle} ${borderColorClass} ${bgColorClass} ${textColorClass}
                                 ${isSelected && isSubmitMode ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}
-                                ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
+                                ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-105 z-30 shadow-md ring-1 ring-slate-200 border-slate-400' : ''}
                             `}>
                                 <span className={`text-lg ${iconFilterClass}`}>{icon}</span>
                                 <span className={`font-bold text-xs ${iconFilterClass}`}>{t(name)}</span>
                                 {isSelected && isSubmitMode && (
-                                    <div className="absolute -top-1.5 -right-1.5 bg-blue-500 text-white rounded-full p-0.5 shadow">
-                                        <Check size={10} strokeWidth={4} />
+                                    <div className="absolute -top-1 -right-1 bg-blue-500 text-white rounded-full p-0.5 shadow">
+                                        <Check size={8} strokeWidth={4} />
                                     </div>
                                 )}
                             </div>
@@ -257,34 +279,12 @@ const OrderCardBase = ({
                         </div>
                     </div>
                 )}
-
-                {/* Refresh Button (Right Side) */}
-                {!isMainline && !isSubmitMode && currentStageConfig.mechanics.refresh && (
-                    <div className="absolute top-3 right-3">
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onRefresh(index); }}
-                            disabled={remainingRefreshes <= 0}
-                            className={`
-                                relative w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm
-                                ${remainingRefreshes > 0
-                                    ? 'bg-orange-100 text-orange-500 hover:bg-orange-200 hover:scale-105 active:scale-95'
-                                    : 'bg-slate-50 text-slate-300 cursor-not-allowed'}
-                            `}
-                            title={t("刷新此订单")}
-                        >
-                            <RefreshCw size={14} />
-                            <div className="absolute -bottom-1 -right-1 bg-white text-[9px] font-black text-slate-500 px-1 py-0.5 rounded-full shadow border border-slate-100">
-                                {remainingRefreshes}
-                            </div>
-                        </button>
-                    </div>
-                )}
             </div>
 
             {/* Satisfaction Badge */}
             {isSatisfied && (
-                <div className="absolute bottom-2 left-2 bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm animate-bounce flex items-center gap-1">
-                    <Check size={10} /> {t("可提交")}
+                <div className="absolute bottom-2 left-2 bg-green-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm animate-bounce flex items-center gap-1">
+                    <Check size={8} /> {t("可提交")}
                 </div>
             )}
         </div>
