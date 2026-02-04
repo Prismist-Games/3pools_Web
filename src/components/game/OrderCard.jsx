@@ -105,13 +105,12 @@ const OrderCardBase = ({
                                     // 已完成状态：显示绿色已完成
                                     <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-green-300">
                                         <Check size={12} />
-                                        <span>✅ {t("已完成")} ({order.deadline} {t("回合后刷新")})</span>
+                                        <span>✅ {t("已完成")}</span>
                                     </div>
                                 ) : (
-                                    // 进行中状态：显示红色倒计时
-                                    <div className="flex items-center gap-1 bg-red-100 text-red-600 px-2 py-1 rounded-lg font-black text-xs shadow-sm animate-pulse border border-red-200">
-                                        <Clock size={12} />
-                                        <span>{order.deadline} {t("回合剩余")}</span>
+                                    // 进行中状态：显示撤离提示
+                                    <div className="flex items-center gap-1 bg-amber-100 text-amber-700 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-amber-200">
+                                        <span>⚠️ {t("撤离时未完成此订单顾客情绪+1")}</span>
                                     </div>
                                 )}
                                 {order.difficulty && (

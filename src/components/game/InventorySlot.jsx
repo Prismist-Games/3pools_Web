@@ -161,7 +161,7 @@ export const InventorySlot = ({
                             <span className="text-white text-[10px] font-black uppercase tracking-wider text-center px-1">{t("回收")}</span>
                             {['rare', 'epic', 'legendary', 'mythic'].includes(item.rarity?.id) && (
                                 <span className="text-amber-200 text-xs font-bold whitespace-nowrap drop-shadow-md">
-                                    +{item.rarity.recycleValue || 0} 💗
+                                    +{item.rarity.recycleValue || 0} 🪙
                                 </span>
                             )}
                         </div>

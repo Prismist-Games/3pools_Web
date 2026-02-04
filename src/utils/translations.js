@@ -104,6 +104,9 @@ export const EN_TRANSLATIONS = {
     "已完成": "Completed",
     "回合后刷新": "Refreshing",
     "顾客情绪": "Customer Mood",
+    "撤离时未完成此订单顾客情绪+1": "Mood +1 if incomplete on evacuation",
+    "撤离（重置金币）": "Evacuate (Reset Gold)",
+    "撤离成功！金币已重置为": "Evacuated! Gold reset to",
 
     // --- Stages & Mechanics ---
     "阶段 1": "Stage 1",

@@ -636,7 +636,8 @@ export const INITIAL_GAME_CONFIG = {
         "hard_order_expert"
     ],
     global: {
-        "refreshCost": 5
+        "refreshCost": 5,
+        "initialGold": 30
     }
 };
 

@@ -25,6 +25,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     const currentStageConfig = config.stages[0]; // Always use stage 0 (no stage progression)
     const maxInventorySize = currentStageConfig.inventorySize;
 
+    // Gold System
+    const [gold, setGold] = useState(config.global?.initialGold || 30);
+
     const [drawCount, setDrawCount] = useState(0);
 
     const [activePools, setActivePools] = useState([]);
@@ -128,7 +131,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 const affix = getRandomAffix(affixPool);
                 selectedPool.affixKey = affix.id;
                 selectedPool.affix = affix;
-                selectedPool.cost = config.patience.drawCost;
+                selectedPool.cost = affix.cost || config.patience.drawCost; // Use affix cost if defined
                 usedAffixIds.add(affix.id);
             } else {
                 selectedPool.cost = config.patience.drawCost;
@@ -156,13 +159,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             }));
         }
 
-        // Decrease Emergency Order Deadline on tick/refresh
-        if (tick && emergencyOrder) {
-            setEmergencyOrder(prev => {
-                if (!prev) return null;
-                return { ...prev, deadline: prev.deadline - 1 };
-            });
-        }
+        // NOTE: Emergency order deadline no longer ticks down - player evacuates manually
     };
 
     useEffect(() => {
@@ -862,26 +859,26 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     const handleDraw = (pool) => {
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0) return;
 
-        // Use configured patience cost
-        let finalCost = config.patience.drawCost;
+        // Use pool cost (from affix config)
+        let finalCost = pool.cost || config.patience.drawCost;
 
         if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
             finalCost = Math.max(0, finalCost - 1);
         }
 
+        // Check gold affordability
+        if (gold < finalCost) {
+            showToast("金币不足！", "error");
+            return;
+        }
+
         if (pool.affixKey === 'trade_in') {
-            if (config.patience?.enabled !== false) {
-                if (patience < finalCost) { showToast("耐心值不足！", "error"); return; }
-                setPatience(prev => prev - finalCost);
-            }
+            setGold(prev => prev - finalCost);
             setSelectionMode({ type: 'trade_in', pool });
             return;
         }
         if (pool.affixKey === 'precise') {
-            if (config.patience?.enabled !== false) {
-                if (patience < finalCost) { showToast("耐心值不足！", "error"); return; }
-                setPatience(prev => prev - finalCost);
-            }
+            setGold(prev => prev - finalCost);
 
             const candidates = [];
             let itemIndices = pool.items.map((_, i) => i);
@@ -898,20 +895,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             return;
         }
         if (pool.affixKey === 'targeted') {
-            if (config.patience?.enabled !== false) {
-                if (patience < finalCost) { showToast("耐心值不足！", "error"); return; }
-                setPatience(prev => prev - finalCost);
-            }
+            setGold(prev => prev - finalCost);
             setSelectionMode({ type: 'targeted', pool, items: pool.items, cost: finalCost });
             return;
         }
-        if (config.patience?.enabled !== false) {
-            if (patience < finalCost) {
-                showToast("耐心值不足！", "error");
-                return;
-            }
-            setPatience(prev => prev - finalCost);
-        }
+
+        setGold(prev => prev - finalCost);
         handleNormalDraw(pool);
     };
 
@@ -1064,7 +1053,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 // Calculate refund for cleared items
                 const clearedItems = inventory.filter(i => i && i.name === targetName);
                 const recycleValue = clearedItems.reduce((acc, i) => acc + (i.rarity.recycleValue || 0), 0);
-                if (recycleValue > 0) setPatience(prev => prev + recycleValue);
+                if (recycleValue > 0) setGold(prev => prev + recycleValue);
 
                 const itemToAdd = { ...pendingItem };
                 delete itemToAdd.isOverload;
@@ -1088,7 +1077,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             }
 
             const recycleGain = targetItem.rarity.recycleValue;
-            if (recycleGain > 0) setPatience(prev => prev + recycleGain);
+            if (recycleGain > 0) setGold(prev => prev + recycleGain);
 
             const newInventory = [...inventory];
             newInventory[index] = pendingItem;
@@ -1146,7 +1135,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
     const handleDiscardNew = () => {
         const recycleGain = pendingItem.rarity.recycleValue;
-        if (recycleGain > 0) setPatience(prev => prev + recycleGain);
+        if (recycleGain > 0) setGold(prev => prev + recycleGain);
 
         // Discarding does NOT consume durability (only draws do)
         // setInventory(prev => applyEntropy(prev));
@@ -1430,19 +1419,19 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         if (selectedIndices.length === 0) return;
 
         let baseValue = totalRecycleValue;
-        let extraPatience = 0;
+        let extraGold = 0;
 
         if (hasSkill('alchemy')) {
             selectedIndices.forEach(idx => {
                 const item = inventory[idx];
                 if (item && item.rarity.bonus >= 0.2) {
-                    if (Math.random() < 0.25) extraPatience += 5;
+                    if (Math.random() < 0.25) extraGold += 5;
                 }
             });
-            if (extraPatience > 0) showToast(`【炼金术】触发：获得 ${extraPatience} 耐心值！`, 'info');
+            if (extraGold > 0) showToast(`【炼金术】触发：获得 ${extraGold} 金币！`, 'info');
         }
 
-        setPatience(prev => prev + baseValue + extraPatience);
+        setGold(prev => prev + baseValue + extraGold);
 
         const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
         setInventory(newInventory);
@@ -1511,6 +1500,44 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     const handlePoolLeave = () => {
         setHoveredPoolId(null);
         setHoveredPoolItemNames([]);
+    };
+
+    // Evacuate: Trigger timeout effect and reset gold
+    const handleEvacuate = () => {
+        if (!emergencyOrder) return;
+
+        // 只在限时订单未完成时增加急躁值
+        if (!emergencyOrderCompleted) {
+            const impatienceConfig = config.emergency?.impatience;
+            if (impatienceConfig?.enabled) {
+                const increaseAmount = impatienceConfig.increaseOnTimeout || 1;
+                const newImpatience = customerImpatience + increaseAmount;
+                setCustomerImpatience(newImpatience);
+                showToast(`撤离！顾客急躁值 +${increaseAmount}（${newImpatience}/${impatienceConfig.maxValue}）`, "warning");
+            }
+        }
+
+        // 刷新限时订单（难度提升）
+        const difficultyConfig = config.emergency?.difficulty;
+        const increaseOnTimeout = difficultyConfig?.increaseOnNewOrder || 1;
+        const maxDifficulty = difficultyConfig?.maxDifficulty || 10;
+        const newDifficulty = Math.min(maxDifficulty, emergencyDifficulty + increaseOnTimeout);
+
+        setEmergencyDifficulty(newDifficulty);
+
+        const deadline = config.emergency?.deadline || 15;
+        const newEmergencyOrder = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, newDifficulty);
+        newEmergencyOrder.isEmergency = true;
+        newEmergencyOrder.deadline = deadline;
+        newEmergencyOrder.maxDeadline = deadline;
+        newEmergencyOrder.difficulty = newDifficulty;
+        setEmergencyOrder(newEmergencyOrder);
+        setEmergencyOrderCompleted(false);
+
+        // 重置金币到初始值
+        const initialGold = config.global?.initialGold || 30;
+        setGold(initialGold);
+        showToast(`撤离成功！金币已重置为 ${initialGold}`, "info");
     };
 
     // Patience Check: Game Over when patience <= 0
@@ -1588,6 +1615,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
     return {
         state: {
+            gold,
             patience,
             patienceStage,
             emergencyOrder,
@@ -1637,6 +1665,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             handleSortInventory,
             handlePoolHover,
             handlePoolLeave,
+            handleEvacuate,
             refreshPools,
             addInventoryItem
         },

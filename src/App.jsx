@@ -682,8 +682,8 @@ export default function App() {
                                                                 }
                                                             }}
                                                             className={`text-[10px] px-3 py-1 rounded font-bold transition-all ${(config.emergency?.difficultyRequirements?.[difficulty])
-                                                                    ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                                                    : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                                                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
                                                                 }`}
                                                         >
                                                             {(config.emergency?.difficultyRequirements?.[difficulty]) ? '禁用精确配置' : '启用精确配置'}
@@ -957,6 +957,15 @@ export default function App() {
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-slate-500">初始金币</label>
+                                        <input
+                                            type="number"
+                                            value={config.global.initialGold || 30}
+                                            onChange={(e) => setConfig({ ...config, global: { ...config.global, initialGold: parseInt(e.target.value) || 30 } })}
+                                            className="border rounded px-3 py-2 font-mono"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
                                         <label className="text-xs font-bold text-slate-500">主线道具出现概率 (0-1)</label>
                                         <input
                                             type="number" step="0.05"
@@ -979,6 +988,29 @@ export default function App() {
                                             className="border rounded px-3 py-2 font-mono"
                                         />
                                     </div>
+                                </div>
+                            </section>
+
+                            {/* 奖池词缀消耗配置 */}
+                            <section>
+                                <h4 className="text-lg font-bold mb-4 border-l-4 border-yellow-500 pl-3">奖池词缀消耗 (金币)</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {config.affixes.map((affix, idx) => (
+                                        <div key={affix.id} className="flex items-center gap-2 p-2 border rounded-lg bg-slate-50">
+                                            <span className="text-sm font-bold flex-1">{affix.name}</span>
+                                            <input
+                                                type="number"
+                                                value={affix.cost || config.patience.drawCost}
+                                                onChange={(e) => {
+                                                    const newAffixes = [...config.affixes];
+                                                    newAffixes[idx] = { ...newAffixes[idx], cost: parseInt(e.target.value) || 0 };
+                                                    setConfig({ ...config, affixes: newAffixes });
+                                                }}
+                                                className="w-20 border rounded px-2 py-1 font-mono text-sm"
+                                            />
+                                            <span className="text-yellow-500">🪙</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </section>
 

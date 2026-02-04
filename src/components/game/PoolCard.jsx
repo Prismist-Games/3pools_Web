@@ -4,7 +4,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 
 const PoolCardBase = ({
     pool,
-    patience,
+    gold,
     hasSkill,
     config = {}, // Add default empty obj safety
     inventory = [],
@@ -17,13 +17,13 @@ const PoolCardBase = ({
     disabled = false
 }) => {
     const { t } = useLanguage();
-    // Cost Calculation - all pools now use patience
+    // Cost Calculation - all pools now use gold
     let finalCost = pool.cost;
     if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
         finalCost = Math.max(0, finalCost - 1);
     }
 
-    const canAfford = patience >= finalCost;
+    const canAfford = gold >= finalCost;
     const isEffectiveDisabled = disabled || !canAfford;
     const isMainline = pool.type === 'mainline';
 
@@ -50,20 +50,18 @@ const PoolCardBase = ({
                 <span className="text-4xl filter drop-shadow-sm">{pool.icon}</span>
                 <span className="font-black text-xl leading-tight">{t(pool.name)}</span>
 
-                {/* Price Pill - Patience cost */}
-                {(config.patience?.enabled !== false) && (
-                    <div className={`
-                        flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
-                        bg-white
-                        ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-slate-200'}
-                    `}>
-                        {finalCost < pool.cost && (
-                            <span className="line-through text-xs text-slate-400">{pool.cost}</span>
-                        )}
-                        {finalCost === 0 ? t("免费") : finalCost}
-                        <span className={canAfford ? "text-pink-500" : "text-slate-400"}>💗</span>
-                    </div>
-                )}
+                {/* Price Pill - Gold cost */}
+                <div className={`
+                    flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
+                    bg-white
+                    ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-yellow-400'}
+                `}>
+                    {finalCost < pool.cost && (
+                        <span className="line-through text-xs text-slate-400">{pool.cost}</span>
+                    )}
+                    {finalCost === 0 ? t("免费") : finalCost}
+                    <span className={canAfford ? "text-yellow-500" : "text-slate-400"}>🪙</span>
+                </div>
             </div>
 
             {/* Row 2: Affix Name (LARGE and prominent) */}

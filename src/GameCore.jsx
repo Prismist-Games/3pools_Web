@@ -29,7 +29,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
     }, [debugAddItem, actions]);
 
     const {
-        patience, patienceStage, mainlineProgress, upgradedOrderItems, currentStageConfig, maxInventorySize,
+        gold, patience, patienceStage, mainlineProgress, upgradedOrderItems, currentStageConfig, maxInventorySize,
         drawCount, activePools, orders, emergencyOrder, customerImpatience, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
@@ -57,7 +57,8 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
         handleConfirmRecycle,
         handleSortInventory,
         handlePoolHover,
-        handlePoolLeave
+        handlePoolLeave,
+        handleEvacuate
     } = actions;
 
     const { hasSkill } = helpers;
@@ -117,6 +118,27 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         继续挑战
                                     </button>
                                 </div>
+                            ) : modalContent.type === 'game_over' ? (
+                                // Game Over Modal
+                                <>
+                                    <div className={`w-32 h-32 rounded-2xl flex items-center justify-center text-6xl shadow-inner bg-red-50 border-4 border-red-400`}>
+                                        <div className={`flex flex-col items-center`}>
+                                            {modalContent.item?.icon || '💔'}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-lg font-bold text-red-600">
+                                            {modalContent.item?.name}
+                                        </span>
+                                        <p className="text-slate-500 font-medium">{modalContent.message}</p>
+                                    </div>
+                                    <button
+                                        onClick={onReset}
+                                        className="mt-4 font-bold py-3 px-12 rounded-full shadow-lg transition-transform active:scale-95 bg-red-600 text-white hover:bg-red-700"
+                                    >
+                                        重新开始
+                                    </button>
+                                </>
                             ) : (
                                 // Standard Item Modal
                                 <>
@@ -179,6 +201,17 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                     </div>
 
                     <div className="flex items-center gap-6">
+                        {/* Gold Display */}
+                        <div className="flex flex-col gap-0.5 items-end border-r border-slate-700 pr-4">
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-yellow-100">{t("金币")}</span>
+                            <div className="flex items-center gap-2 text-yellow-300">
+                                <Coins size={18} />
+                                <span className="text-2xl font-black font-mono tracking-tighter leading-none">
+                                    {gold}
+                                </span>
+                            </div>
+                        </div>
+
                         {/* Emergency Info: Impatience & Difficulty */}
                         {config.emergency?.impatience?.enabled && (
                             <div className="flex flex-col gap-0.5 items-end border-r border-slate-700 pr-4">
@@ -292,6 +325,21 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         selectedItemNames={selectedItemNames}
                                         upgradedOrderItems={state.upgradedOrderItems}
                                     />
+                                    {/* Evacuate Button */}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleEvacuate(); }}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
+                                        className={`
+                                            mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold transition-all duration-200 text-sm shadow-sm
+                                            ${pendingItem || isSubmitMode || isRecycleMode || selectionMode
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                : 'bg-orange-500 text-white hover:bg-orange-600 hover:scale-[1.02] active:scale-95 ring-2 ring-orange-300'
+                                            }
+                                        `}
+                                    >
+                                        <Truck size={16} />
+                                        <span>{t("撤离（重置金币）")}</span>
+                                    </button>
                                 </div>
                             )}
 
@@ -355,7 +403,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     <PoolCard
                                         key={pool.id}
                                         pool={pool}
-                                        patience={patience}
+                                        gold={gold}
                                         inventory={inventory}
                                         hasSkill={hasSkill}
                                         config={config}
@@ -620,7 +668,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                             <>
                                 <button onClick={toggleRecycleMode} className="bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-full shadow-sm hover:bg-slate-50">{t("取消")}</button>
                                 <button onClick={handleConfirmRecycle} disabled={selectedIndices.length === 0} className={`flex items-center gap-2 font-bold py-2 px-6 rounded-full shadow-lg ${selectedIndices.length > 0 ? 'bg-amber-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                    <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}{t("耐心值")})
+                                    <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}🪙)
                                 </button>
                             </>
                         )}
