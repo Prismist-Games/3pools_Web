@@ -529,7 +529,7 @@ export const EMERGENCY_ORDER_CONFIG = {
     // 顾客急躁值系统
     impatience: {
         enabled: true,      // 是否启用急躁值系统
-        maxValue: 5,        // 最大急躁值（达到后游戏失败）
+        maxValue: 3,        // 最大急躁值（达到后游戏失败）
         increaseOnTimeout: 1 // 每次超时增加的急躁值
     },
 

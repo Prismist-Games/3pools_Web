@@ -103,6 +103,7 @@ export const EN_TRANSLATIONS = {
     "暂无订单": "No Orders",
     "已完成": "Completed",
     "回合后刷新": "Refreshing",
+    "顾客情绪": "Customer Mood",
 
     // --- Stages & Mechanics ---
     "阶段 1": "Stage 1",

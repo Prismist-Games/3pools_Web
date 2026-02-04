@@ -1525,7 +1525,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                     type: 'game_over',
                     score: drawCount
                 });
-            } else if (config.emergency?.impatience?.enabled && customerImpatience >= (config.emergency.impatience.maxValue || 5)) {
+            } else if (config.emergency?.impatience?.enabled && customerImpatience >= (config.emergency.impatience.maxValue || 3)) {
                 setModalContent({
                     title: "游戏结束",
                     item: { name: '顾客不满', icon: '😡', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },

@@ -182,7 +182,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                         {/* Emergency Info: Impatience & Difficulty */}
                         {config.emergency?.impatience?.enabled && (
                             <div className="flex flex-col gap-0.5 items-end border-r border-slate-700 pr-4">
-                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-amber-100">Customer Mood</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-amber-100">{t("顾客情绪")}</span>
                                 <div className="flex items-center gap-2 text-amber-300">
                                     <span className="text-2xl font-black font-mono tracking-tighter leading-none">
                                         {customerImpatience}/{config.emergency.impatience.maxValue}

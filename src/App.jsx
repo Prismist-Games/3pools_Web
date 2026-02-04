@@ -270,17 +270,17 @@ export default function App() {
                                                 </div>
                                                 <div className={`grid grid-cols-2 gap-2 ${config.emergency?.impatience?.enabled === false ? 'opacity-40 pointer-events-none' : ''}`}>
                                                     <div>
-                                                        <label className="text-[8px] text-amber-600 block mb-1">最大急躁值</label>
+                                                        <label className="text-[8px] text-amber-600 block mb-1">最大情绪值 (Customer Mood)</label>
                                                         <input
                                                             type="number"
                                                             min="1"
                                                             className="w-full p-1 border rounded font-mono text-sm"
-                                                            value={config.emergency?.impatience?.maxValue || 5}
+                                                            value={config.emergency?.impatience?.maxValue || 3}
                                                             onChange={(e) => setConfig({
                                                                 ...config,
                                                                 emergency: {
                                                                     ...config.emergency,
-                                                                    impatience: { ...(config.emergency?.impatience || {}), maxValue: parseInt(e.target.value) || 5 }
+                                                                    impatience: { ...(config.emergency?.impatience || {}), maxValue: parseInt(e.target.value) || 3 }
                                                                 }
                                                             })}
                                                         />
