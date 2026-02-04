@@ -140,10 +140,47 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
 
     const rawRequirements = getRandomItems(allNormalItems, count);
 
-    const requirements = rawRequirements.map(item => ({
-        ...item,
-        requiredRarity: rollRequirementRarity(config, currentStageConfig, isEmergency, emergencyDifficulty)
-    }));
+    // 检查是否有精确的难度需求配置
+    const difficultyRequirements = isEmergency && config.emergency?.difficultyRequirements?.[emergencyDifficulty];
+
+    let requirements;
+    if (difficultyRequirements && difficultyRequirements.length > 0) {
+        // 使用精确配置模式
+        // 将配置的品质需求展开成数组
+        const rarityList = [];
+        difficultyRequirements.forEach(req => {
+            const rarityObj = config.rarity.find(r => r.id === req.rarity);
+            if (rarityObj) {
+                for (let i = 0; i < req.count; i++) {
+                    rarityList.push(rarityObj);
+                }
+            }
+        });
+
+        // 如果配置的品质数量不足，用普通品质补足
+        while (rarityList.length < rawRequirements.length) {
+            rarityList.push(config.rarity.find(r => r.id === 'common'));
+        }
+
+        // 如果配置的品质数量过多，截断
+        if (rarityList.length > rawRequirements.length) {
+            rarityList.length = rawRequirements.length;
+        }
+
+        // 随机打乱品质列表，避免每次都是相同顺序
+        const shuffledRarities = rarityList.sort(() => Math.random() - 0.5);
+
+        requirements = rawRequirements.map((item, index) => ({
+            ...item,
+            requiredRarity: shuffledRarities[index]
+        }));
+    } else {
+        // 使用原有的随机模式
+        requirements = rawRequirements.map(item => ({
+            ...item,
+            requiredRarity: rollRequirementRarity(config, currentStageConfig, isEmergency, emergencyDifficulty)
+        }));
+    }
 
     const totalReqBonus = requirements.reduce((sum, req) => sum + req.requiredRarity.bonus, 0);
 

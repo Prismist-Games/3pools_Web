@@ -581,6 +581,18 @@ export const EMERGENCY_ORDER_CONFIG = {
         8: { common: 0.15, uncommon: 0.2, rare: 0.32, epic: 0.2, legendary: 0.13 },
         9: { common: 0.1, uncommon: 0.15, rare: 0.35, epic: 0.25, legendary: 0.15 },
         10: { common: 0.05, uncommon: 0.1, rare: 0.35, epic: 0.3, legendary: 0.2 }
+    },
+
+    // 难度等级配置：难度 -> 精确品质需求（可选，如配置则优先使用）
+    // 数组中每项表示需要的品质和数量，会随机打乱后生成订单
+    // 示例: 1: [{ rarity: 'common', count: 1 }, { rarity: 'uncommon', count: 1 }] 
+    // 表示难度1固定需要1个普通+1个优秀品质的物品
+    difficultyRequirements: {
+        // 默认为空，使用随机模式
+        // 示例配置：
+        // 1: [{ rarity: 'common', count: 2 }],
+        // 5: [{ rarity: 'rare', count: 2 }, { rarity: 'epic', count: 1 }],
+        // 10: [{ rarity: 'epic', count: 2 }, { rarity: 'legendary', count: 2 }]
     }
 };
 

@@ -69,6 +69,32 @@ difficultyRarityWeights: {
 - 概率值范围0-1，总和应为1
 - 难度越高，高品质物品概率越大
 
+### 5. 精确品质需求配置 (`difficultyRequirements`)
+为每个难度等级配置**精确的**物品品质和数量（可选）：
+
+```javascript
+difficultyRequirements: {
+    1: [
+        { rarity: 'common', count: 2 }
+    ],
+    5: [
+        { rarity: 'rare', count: 2 },
+        { rarity: 'epic', count: 1 }
+    ],
+    10: [
+        { rarity: 'epic', count: 2 },
+        { rarity: 'legendary', count: 2 }
+    ]
+}
+```
+
+**说明：**
+- 如果配置了此项，**将优先使用**，忽略 `difficultyRarityWeights` 的随机模式
+- 数组中每个对象表示需要的品质（rarity）和数量（count）
+- 品质选项：`common`（普通）、`uncommon`（优秀）、`rare`（稀有）、`epic`（史诗）、`legendary`（传说）
+- 订单生成时会随机选择物品，但品质固定按配置生成
+- 如果未配置某难度，则使用随机模式（`difficultyRarityWeights`）
+
 ## 配置示例
 
 ### 示例1：让难度5必定产出3-4个物品
@@ -91,7 +117,28 @@ difficultyRarityWeights: {
 }
 ```
 
-### 示例3：调整难度增长速度
+### 示例3：使用精确品质需求配置
+让难度3固定需要 1个稀有 + 2个优秀：
+```javascript
+difficultyRequirements: {
+    3: [
+        { rarity: 'rare', count: 1 },
+        { rarity: 'uncommon', count: 2 }
+    ]
+}
+```
+
+让难度8固定需要 2个史诗 + 1个传说：
+```javascript
+difficultyRequirements: {
+    8: [
+        { rarity: 'epic', count: 2 },
+        { rarity: 'legendary', count: 1 }
+    ]
+}
+```
+
+### 示例4：调整难度增长速度
 ```javascript
 difficulty: {
     increaseOnNewOrder: 2,   // 完成限时订单难度+2（更快）
