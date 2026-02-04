@@ -545,17 +545,12 @@ export default function App() {
                                     🎚️ 撤离需求难度等级配置 (1-{config.emergency?.difficulty?.maxDifficulty || 10})
                                 </h4>
                                 <div className="text-xs text-slate-600 mb-4 bg-white/60 p-3 rounded-lg border border-orange-100">
-                                    为每个难度等级单独配置需求数量概率和品质概率。难度越高，可以设置更多物品和更高品质的概率。
+                                    为每个难度等级配置精确的品质需求。难度越高，可以设置更高品质的要求。
                                     <br />
                                     <span className="text-orange-600 font-bold">💡 当前最大难度: {config.emergency?.difficulty?.maxDifficulty || 10}，可在上方"难度系统"中调整</span>
                                 </div>
 
                                 {Array.from({ length: config.emergency?.difficulty?.maxDifficulty || 10 }, (_, i) => i + 1).map(difficulty => {
-                                    const difficultyReqCountWeights = config.emergency?.difficultyReqCountWeights || {};
-                                    const difficultyRarityWeights = config.emergency?.difficultyRarityWeights || {};
-                                    const currentReqWeights = difficultyReqCountWeights[difficulty] || { 1: 0.25, 2: 0.25, 3: 0.25, 4: 0.25 };
-                                    const currentRarityWeights = difficultyRarityWeights[difficulty] || { common: 0.5, uncommon: 0.3, rare: 0.15, epic: 0.04, legendary: 0.01 };
-
                                     return (
                                         <details key={difficulty} className="mb-3 bg-white rounded-lg border border-orange-200 shadow-sm">
                                             <summary className="p-3 cursor-pointer hover:bg-orange-50 rounded-lg font-bold text-sm flex items-center gap-2 select-none">
@@ -572,98 +567,11 @@ export default function App() {
                                             </summary>
 
                                             <div className="p-4 border-t border-orange-100 space-y-4">
-                                                {/* Requirement Count Weights */}
-                                                <div>
-                                                    <label className="text-xs font-bold text-slate-700 block mb-2">📦 需求物品数量概率</label>
-                                                    <div className="grid grid-cols-4 gap-2">
-                                                        {[1, 2, 3, 4].map(count => (
-                                                            <div key={count} className="flex flex-col gap-1 bg-slate-50 p-2 rounded border">
-                                                                <label className="text-[10px] font-bold text-center text-slate-600">{count}个物品</label>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.05"
-                                                                    min="0"
-                                                                    max="1"
-                                                                    className="p-1.5 border rounded font-mono text-sm text-center focus:ring-2 focus:ring-orange-300"
-                                                                    value={currentReqWeights[count] || 0}
-                                                                    onChange={(e) => {
-                                                                        const newWeight = parseFloat(e.target.value) || 0;
-                                                                        const newReqWeights = {
-                                                                            ...currentReqWeights,
-                                                                            [count]: Math.max(0, Math.min(1, newWeight))
-                                                                        };
-                                                                        setConfig({
-                                                                            ...config,
-                                                                            emergency: {
-                                                                                ...config.emergency,
-                                                                                difficultyReqCountWeights: {
-                                                                                    ...difficultyReqCountWeights,
-                                                                                    [difficulty]: newReqWeights
-                                                                                }
-                                                                            }
-                                                                        });
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    <div className="text-[9px] text-slate-400 mt-1 text-right">
-                                                        总和: {Object.values(currentReqWeights).reduce((sum, v) => sum + v, 0).toFixed(2)} (建议=1.00)
-                                                    </div>
-                                                </div>
-
-                                                {/* Rarity Weights */}
-                                                <div>
-                                                    <label className="text-xs font-bold text-slate-700 block mb-2">✨ 需求物品品质概率</label>
-                                                    <div className="grid grid-cols-5 gap-2">
-                                                        {[
-                                                            { id: 'common', name: '普通', color: 'slate' },
-                                                            { id: 'uncommon', name: '优秀', color: 'green' },
-                                                            { id: 'rare', name: '稀有', color: 'blue' },
-                                                            { id: 'epic', name: '史诗', color: 'purple' },
-                                                            { id: 'legendary', name: '传说', color: 'amber' }
-                                                        ].map(rarity => (
-                                                            <div key={rarity.id} className={`flex flex-col gap-1 bg-${rarity.color}-50 p-2 rounded border border-${rarity.color}-200`}>
-                                                                <label className={`text-[10px] font-bold text-center text-${rarity.color}-700`}>{rarity.name}</label>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.05"
-                                                                    min="0"
-                                                                    max="1"
-                                                                    className="p-1.5 border rounded font-mono text-sm text-center focus:ring-2 focus:ring-orange-300"
-                                                                    value={currentRarityWeights[rarity.id] || 0}
-                                                                    onChange={(e) => {
-                                                                        const newWeight = parseFloat(e.target.value) || 0;
-                                                                        const newRarityWeights = {
-                                                                            ...currentRarityWeights,
-                                                                            [rarity.id]: Math.max(0, Math.min(1, newWeight))
-                                                                        };
-                                                                        setConfig({
-                                                                            ...config,
-                                                                            emergency: {
-                                                                                ...config.emergency,
-                                                                                difficultyRarityWeights: {
-                                                                                    ...difficultyRarityWeights,
-                                                                                    [difficulty]: newRarityWeights
-                                                                                }
-                                                                            }
-                                                                        });
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    <div className="text-[9px] text-slate-400 mt-1 text-right">
-                                                        总和: {Object.values(currentRarityWeights).reduce((sum, v) => sum + v, 0).toFixed(2)} (建议=1.00)
-                                                    </div>
-                                                </div>
-
                                                 {/* Exact Requirements Configuration */}
-                                                <div className="border-t pt-4">
+                                                <div>
                                                     <div className="flex items-center justify-between mb-2">
                                                         <label className="text-xs font-bold text-purple-700 flex items-center gap-2">
                                                             🎯 精确品质需求配置
-                                                            <span className="text-[9px] text-slate-400 font-normal">(可选，如配置则忽略上方随机模式)</span>
                                                         </label>
                                                         <button
                                                             onClick={() => {
@@ -698,7 +606,7 @@ export default function App() {
                                                                 : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
                                                                 }`}
                                                         >
-                                                            {(config.emergency?.difficultyRequirements?.[difficulty]) ? '禁用精确配置' : '启用精确配置'}
+                                                            {(config.emergency?.difficultyRequirements?.[difficulty]) ? '清除配置' : '添加配置'}
                                                         </button>
                                                     </div>
 
