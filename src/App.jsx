@@ -238,7 +238,7 @@ export default function App() {
 
                                         {/* Emergency Order Config */}
                                         <div className="mt-4 pt-4 border-t border-slate-200">
-                                            <h5 className="text-sm font-bold text-red-700 flex items-center gap-1 mb-3"><Timer size={14} /> 限时急单配置</h5>
+                                            <h5 className="text-sm font-bold text-red-700 flex items-center gap-1 mb-3"><Timer size={14} /> 撤离需求配置</h5>
 
                                             {/* Deadline */}
                                             <div className="mb-3">
@@ -343,19 +343,25 @@ export default function App() {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-[8px] text-red-600 block mb-1">完成限时订单难度+</label>
+                                                        <label className="text-[8px] text-red-600 block mb-1">完成撤离需求难度+</label>
                                                         <input
                                                             type="number"
                                                             min="0"
                                                             className="w-full p-1 border rounded font-mono text-sm"
-                                                            value={config.emergency?.difficulty?.increaseOnNewOrder || 1}
-                                                            onChange={(e) => setConfig({
-                                                                ...config,
-                                                                emergency: {
-                                                                    ...config.emergency,
-                                                                    difficulty: { ...(config.emergency?.difficulty || {}), increaseOnNewOrder: parseInt(e.target.value) || 1 }
-                                                                }
-                                                            })}
+                                                            value={config.emergency?.difficulty?.increaseOnNewOrder !== undefined ? config.emergency.difficulty.increaseOnNewOrder : 1}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value);
+                                                                setConfig({
+                                                                    ...config,
+                                                                    emergency: {
+                                                                        ...config.emergency,
+                                                                        difficulty: {
+                                                                            ...(config.emergency?.difficulty || {}),
+                                                                            increaseOnNewOrder: isNaN(val) ? 1 : val
+                                                                        }
+                                                                    }
+                                                                });
+                                                            }}
                                                         />
                                                     </div>
                                                     <div>
@@ -364,14 +370,20 @@ export default function App() {
                                                             type="number"
                                                             min="0"
                                                             className="w-full p-1 border rounded font-mono text-sm bg-green-50"
-                                                            value={config.emergency?.difficulty?.decreaseOnMainline || 1}
-                                                            onChange={(e) => setConfig({
-                                                                ...config,
-                                                                emergency: {
-                                                                    ...config.emergency,
-                                                                    difficulty: { ...(config.emergency?.difficulty || {}), decreaseOnMainline: parseInt(e.target.value) || 1 }
-                                                                }
-                                                            })}
+                                                            value={config.emergency?.difficulty?.decreaseOnMainline !== undefined ? config.emergency.difficulty.decreaseOnMainline : 1}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value);
+                                                                setConfig({
+                                                                    ...config,
+                                                                    emergency: {
+                                                                        ...config.emergency,
+                                                                        difficulty: {
+                                                                            ...(config.emergency?.difficulty || {}),
+                                                                            decreaseOnMainline: isNaN(val) ? 1 : val
+                                                                        }
+                                                                    }
+                                                                });
+                                                            }}
                                                         />
                                                     </div>
                                                 </div>
@@ -530,7 +542,7 @@ export default function App() {
                             {/* Emergency Order Difficulty Levels Config */}
                             <section className="bg-gradient-to-br from-orange-50 to-red-50 p-5 rounded-xl border-2 border-orange-200">
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-orange-500 pl-3 flex items-center gap-2">
-                                    🎚️ 限时订单难度等级配置 (1-{config.emergency?.difficulty?.maxDifficulty || 10})
+                                    🎚️ 撤离需求难度等级配置 (1-{config.emergency?.difficulty?.maxDifficulty || 10})
                                 </h4>
                                 <div className="text-xs text-slate-600 mb-4 bg-white/60 p-3 rounded-lg border border-orange-100">
                                     为每个难度等级单独配置需求数量概率和品质概率。难度越高，可以设置更多物品和更高品质的概率。
@@ -845,6 +857,7 @@ export default function App() {
                                                 <th className="p-2 text-center">稀有</th>
                                                 <th className="p-2 text-center">史诗</th>
                                                 <th className="p-2 text-center">传说</th>
+                                                <th className="p-2 text-center">神话</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -855,7 +868,7 @@ export default function App() {
                                                         <Package size={16} className="text-orange-500" /> 物品掉落概率
                                                     </div>
                                                 </td>
-                                                {['common', 'uncommon', 'rare', 'epic', 'legendary'].map(rKey => (
+                                                {['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].map(rKey => (
                                                     <td key={rKey} className="p-2 text-center">
                                                         <input
                                                             type="number" step="0.05"
@@ -878,16 +891,26 @@ export default function App() {
                                                         <Flag size={16} className="text-blue-500" /> 订单需求概率
                                                     </div>
                                                 </td>
-                                                {['common', 'uncommon', 'rare', 'epic', 'legendary'].map(rKey => (
+                                                {['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].map(rKey => (
                                                     <td key={rKey} className="p-2 text-center">
                                                         <input
                                                             type="number" step="0.05"
                                                             className="w-16 p-1 border rounded text-center bg-white"
-                                                            value={config.stages[0].orderRarityWeights?.[rKey] || config.stages[0].rarityWeights[rKey]}
+                                                            value={config.stages[0].orderRarityWeights?.[rKey] !== undefined
+                                                                ? config.stages[0].orderRarityWeights[rKey]
+                                                                : config.stages[0].rarityWeights[rKey]}
                                                             onChange={(e) => {
                                                                 const val = parseFloat(e.target.value);
                                                                 const newStages = [...config.stages];
-                                                                newStages[0] = { ...newStages[0], orderRarityWeights: { ...(newStages[0].orderRarityWeights || newStages[0].rarityWeights), [rKey]: val } };
+                                                                // 确保 orderRarityWeights 存在并包含所有品质
+                                                                const currentOrderWeights = newStages[0].orderRarityWeights || { ...newStages[0].rarityWeights };
+                                                                newStages[0] = {
+                                                                    ...newStages[0],
+                                                                    orderRarityWeights: {
+                                                                        ...currentOrderWeights,
+                                                                        [rKey]: val
+                                                                    }
+                                                                };
                                                                 setConfig({ ...config, stages: newStages });
                                                             }}
                                                         />
@@ -991,26 +1014,129 @@ export default function App() {
                                 </div>
                             </section>
 
-                            {/* 奖池词缀消耗配置 */}
+                            {/* 奖池词缀配置 */}
                             <section>
-                                <h4 className="text-lg font-bold mb-4 border-l-4 border-yellow-500 pl-3">奖池词缀消耗 (金币)</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {config.affixes.map((affix, idx) => (
-                                        <div key={affix.id} className="flex items-center gap-2 p-2 border rounded-lg bg-slate-50">
-                                            <span className="text-sm font-bold flex-1">{affix.name}</span>
-                                            <input
-                                                type="number"
-                                                value={affix.cost || config.patience.drawCost}
-                                                onChange={(e) => {
-                                                    const newAffixes = [...config.affixes];
-                                                    newAffixes[idx] = { ...newAffixes[idx], cost: parseInt(e.target.value) || 0 };
-                                                    setConfig({ ...config, affixes: newAffixes });
-                                                }}
-                                                className="w-20 border rounded px-2 py-1 font-mono text-sm"
-                                            />
-                                            <span className="text-yellow-500">🪙</span>
-                                        </div>
-                                    ))}
+                                <h4 className="text-lg font-bold mb-4 border-l-4 border-yellow-500 pl-3">奖池词缀配置</h4>
+                                <div className="space-y-3">
+                                    {config.affixes.map((affix, idx) => {
+                                        // 判断此词缀是否支持自定义品质配置（稀碎的固定100%普通，不可配置）
+                                        const supportsCustomRarity = affix.id !== 'fragmented';
+
+                                        return (
+                                            <details key={affix.id} className="border rounded-lg overflow-hidden bg-white shadow-sm">
+                                                <summary className="p-3 cursor-pointer hover:bg-slate-50 font-bold text-sm flex items-center justify-between select-none">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-base">{affix.name}</span>
+                                                        <span className="text-xs text-slate-400 font-normal">({affix.desc})</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-slate-500">消耗:</span>
+                                                        <span className="font-mono text-yellow-600">{affix.cost}🪙</span>
+                                                    </div>
+                                                </summary>
+
+                                                <div className="p-4 border-t bg-slate-50 space-y-4">
+                                                    {/* 消耗配置 */}
+                                                    <div>
+                                                        <label className="text-xs font-bold text-slate-600 block mb-2">💰 金币消耗</label>
+                                                        <input
+                                                            type="number"
+                                                            value={affix.cost || config.patience.drawCost}
+                                                            onChange={(e) => {
+                                                                const newAffixes = [...config.affixes];
+                                                                newAffixes[idx] = { ...newAffixes[idx], cost: parseInt(e.target.value) || 0 };
+                                                                setConfig({ ...config, affixes: newAffixes });
+                                                            }}
+                                                            className="w-24 border rounded px-3 py-2 font-mono text-sm"
+                                                        />
+                                                    </div>
+
+                                                    {/* 品质权重配置 (仅支持的词缀显示) */}
+                                                    {supportsCustomRarity && (
+                                                        <div className="pt-3 border-t">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <label className="text-xs font-bold text-purple-600">✨ 自定义品质概率</label>
+                                                                {affix.rarityWeights ? (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newAffixes = [...config.affixes];
+                                                                            const { rarityWeights, ...rest } = newAffixes[idx];
+                                                                            newAffixes[idx] = rest;
+                                                                            setConfig({ ...config, affixes: newAffixes });
+                                                                        }}
+                                                                        className="text-xs px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 font-bold"
+                                                                    >
+                                                                        禁用自定义
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newAffixes = [...config.affixes];
+                                                                            newAffixes[idx] = {
+                                                                                ...newAffixes[idx],
+                                                                                rarityWeights: { ...config.stages[0].rarityWeights }
+                                                                            };
+                                                                            setConfig({ ...config, affixes: newAffixes });
+                                                                        }}
+                                                                        className="text-xs px-2 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200 font-bold"
+                                                                    >
+                                                                        启用自定义
+                                                                    </button>
+                                                                )}
+                                                            </div>
+
+                                                            {affix.rarityWeights && (
+                                                                <div className="bg-white p-3 rounded-lg border border-purple-200">
+                                                                    <div className="text-xs text-purple-600 mb-2">
+                                                                        自定义此词缀的品质概率分布（未启用时使用全局掉落概率）
+                                                                    </div>
+                                                                    <div className="grid grid-cols-3 gap-2">
+                                                                        {['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].map(rKey => (
+                                                                            <div key={rKey} className="flex flex-col gap-1">
+                                                                                <span className="text-xs font-bold uppercase opacity-60 text-center">{rKey}</span>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    step="0.05"
+                                                                                    className="p-1.5 border rounded font-mono text-sm text-center"
+                                                                                    value={affix.rarityWeights[rKey] || 0}
+                                                                                    onChange={(e) => {
+                                                                                        const newAffixes = [...config.affixes];
+                                                                                        newAffixes[idx] = {
+                                                                                            ...newAffixes[idx],
+                                                                                            rarityWeights: {
+                                                                                                ...affix.rarityWeights,
+                                                                                                [rKey]: parseFloat(e.target.value) || 0
+                                                                                            }
+                                                                                        };
+                                                                                        setConfig({ ...config, affixes: newAffixes });
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                    <div className="text-xs text-slate-400 mt-2 text-right">
+                                                                        总和: {Object.values(affix.rarityWeights).reduce((sum, v) => sum + v, 0).toFixed(2)}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {!affix.rarityWeights && (
+                                                                <div className="text-xs text-slate-400 bg-white p-2 rounded border">
+                                                                    当前使用全局物品掉落概率
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {!supportsCustomRarity && (
+                                                        <div className="text-xs text-slate-400 bg-yellow-50 p-2 rounded border border-yellow-200">
+                                                            ℹ️ 此词缀有固定的品质逻辑，无法自定义
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </details>
+                                        );
+                                    })}
                                 </div>
                             </section>
 

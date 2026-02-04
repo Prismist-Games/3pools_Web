@@ -225,10 +225,34 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
 
 
 export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = () => false, skillState = {}, currentStageConfig) => {
-    const { rarity: rarityConfig } = config;
+    const { rarity: rarityConfig, affixes } = config;
     const weights = currentStageConfig.rarityWeights;
 
-    // 词缀处理优先于技能保底
+    // 检查词缀是否有自定义品质权重（优先级最高）
+    if (affixKey && affixes) {
+        const affix = affixes.find(a => a.id === affixKey);
+        if (affix && affix.rarityWeights) {
+            // 使用词缀自定义权重
+            const customWeights = affix.rarityWeights;
+            const orderedRarityIds = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+            const totalWeight = orderedRarityIds.reduce((sum, rid) => sum + (customWeights[rid] || 0), 0);
+
+            const r = Math.random() * totalWeight;
+            let accumulated = 0;
+
+            for (const rid of orderedRarityIds) {
+                const w = customWeights[rid] || 0;
+                if (w > 0) {
+                    accumulated += w;
+                    if (r <= accumulated) {
+                        return rarityConfig.find(item => item.id === rid);
+                    }
+                }
+            }
+        }
+    }
+
+    // 词缀默认逻辑（如果没有自定义权重）
     if (affixKey === 'hardened' || affixKey === 'purified') {
         if (weights.legendary > 0) {
             const r = Math.random();

@@ -941,16 +941,30 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     };
 
     const handleSelectionCancel = () => {
-        if (config.patience?.enabled === false) {
-            setSelectionMode(null);
-            return;
-        }
-
         if (selectionMode?.type === 'targeted') {
-            setPatience(prev => prev + config.patience.drawCost); // Refund patience
+            // 退回金币
+            const refundCost = selectionMode.cost || config.patience.drawCost;
+            setGold(prev => prev + refundCost);
             setSelectionMode(null);
         } else if (selectionMode?.type === 'trade_in') {
-            setPatience(prev => prev + config.patience.drawCost);
+            // 退回金币
+            const pool = selectionMode.pool;
+            let refundCost = pool.cost || config.patience.drawCost;
+            if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
+                refundCost = Math.max(0, refundCost - 1);
+            }
+            setGold(prev => prev + refundCost);
+            setSelectionMode(null);
+        } else if (selectionMode?.type === 'precise') {
+            // 退回金币
+            const pool = selectionMode.pool;
+            let refundCost = pool.cost || config.patience.drawCost;
+            if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
+                refundCost = Math.max(0, refundCost - 1);
+            }
+            setGold(prev => prev + refundCost);
+            setSelectionMode(null);
+        } else {
             setSelectionMode(null);
         }
     }
@@ -1365,15 +1379,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             // 完成限时订单后，提升难度
             const difficultyConfig = config.emergency?.difficulty;
             if (difficultyConfig) {
-                const increaseAmount = difficultyConfig.increaseOnNewOrder || 1;
+                const increaseAmount = difficultyConfig.increaseOnNewOrder !== undefined ? difficultyConfig.increaseOnNewOrder : 1;
                 const maxDifficulty = difficultyConfig.maxDifficulty || 10;
-                setEmergencyDifficulty(prev => {
-                    const newDiff = Math.min(maxDifficulty, prev + increaseAmount);
-                    if (newDiff > prev) {
-                        showToast(`限时订单难度提升至 ${newDiff}！`, "warning");
-                    }
-                    return newDiff;
-                });
+                if (increaseAmount > 0) {
+                    setEmergencyDifficulty(prev => {
+                        const newDiff = Math.min(maxDifficulty, prev + increaseAmount);
+                        if (newDiff > prev) {
+                            showToast(`撤离需求难度提升至 ${newDiff}！`, "warning");
+                        }
+                        return newDiff;
+                    });
+                }
             }
         }
 
@@ -1381,15 +1397,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         if (completedMainlineCount > 0) {
             const difficultyConfig = config.emergency?.difficulty;
             if (difficultyConfig) {
-                const decreaseAmount = (difficultyConfig.decreaseOnMainline || 1) * completedMainlineCount;
+                const decreaseAmountBase = difficultyConfig.decreaseOnMainline !== undefined ? difficultyConfig.decreaseOnMainline : 1;
+                const decreaseAmount = decreaseAmountBase * completedMainlineCount;
                 const minDifficulty = difficultyConfig.minDifficulty || 1;
-                setEmergencyDifficulty(prev => {
-                    const newDiff = Math.max(minDifficulty, prev - decreaseAmount);
-                    if (newDiff < prev) {
-                        showToast(`限时订单难度降低至 ${newDiff}！`, "success");
-                    }
-                    return newDiff;
-                });
+                if (decreaseAmount > 0) {
+                    setEmergencyDifficulty(prev => {
+                        const newDiff = Math.max(minDifficulty, prev - decreaseAmount);
+                        if (newDiff < prev) {
+                            showToast(`撤离需求难度降低至 ${newDiff}！`, "success");
+                        }
+                        return newDiff;
+                    });
+                }
             }
         }
 
@@ -1581,11 +1600,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                         const increaseAmount = impatienceConfig.increaseOnTimeout || 1;
                         const newImpatience = customerImpatience + increaseAmount;
                         setCustomerImpatience(newImpatience);
-                        showToast(`限时订单超时！顾客急躁值 +${increaseAmount}（${newImpatience}/${impatienceConfig.maxValue}）`, "error");
+                        showToast(`撤离需求超时！顾客急躁值 +${increaseAmount}（${newImpatience}/${impatienceConfig.maxValue}）`, "error");
 
                         // 刷新限时订单（难度提升）
                         const difficultyConfig = config.emergency?.difficulty;
-                        const increaseOnTimeout = difficultyConfig?.increaseOnNewOrder || 1;
+                        const increaseOnTimeout = difficultyConfig?.increaseOnNewOrder !== undefined ? difficultyConfig.increaseOnNewOrder : 1;
                         const maxDifficulty = difficultyConfig?.maxDifficulty || 10;
                         const newDifficulty = Math.min(maxDifficulty, emergencyDifficulty + increaseOnTimeout);
 
@@ -1602,8 +1621,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                         // 如果未启用急躁值系统，则直接游戏结束
                         setModalContent({
                             title: "游戏结束",
-                            item: { name: '限时订单超时', icon: '⏰', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
-                            message: "未能在规定时间内完成限时订单！",
+                            item: { name: '撤离需求超时', icon: '⏰', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
+                            message: "未能在规定时间内完成撤离需求！",
                             type: 'game_over',
                             score: drawCount
                         });

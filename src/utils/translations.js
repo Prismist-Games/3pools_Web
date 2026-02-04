@@ -100,6 +100,7 @@ export const EN_TRANSLATIONS = {
     "全部回收": "Recycle All",
     "刷新此订单": "Refresh Order",
     "可提交": "Ready",
+    "撤离需求": "Evacuation Req",
     "暂无订单": "No Orders",
     "已完成": "Completed",
     "回合后刷新": "Refreshing",

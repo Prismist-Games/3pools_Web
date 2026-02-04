@@ -301,7 +301,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                 <div className="mb-2 relative">
                                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg z-20 flex items-center gap-1 animate-pulse">
                                         <Timer size={10} />
-                                        <span>{t("限时急单")}</span>
+                                        <span>{t("撤离需求")}</span>
                                     </div>
                                     <OrderCard
                                         key="emergency"
@@ -700,8 +700,11 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     item.rarity.id !== 'mythic' &&
                                     currentStageConfig.mechanics.synthesis;
 
-                                // Badge Logic: Scans all orders
-                                const activeReqs = [...orders].filter(Boolean).flatMap(o => o.requirements);
+                                // Badge Logic: Scans all orders (including emergency order)
+                                const activeReqs = [
+                                    ...orders.filter(Boolean).flatMap(o => o.requirements),
+                                    ...(emergencyOrder ? emergencyOrder.requirements : [])
+                                ];
                                 // Find best requirement? Ideally any requirement that needs this item.
                                 // We check if ANY requirement matches name.
                                 // isMaxSatisfied if ANY requirement is satisfied by this quality.
@@ -775,7 +778,10 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                             <div className="relative transform hover:scale-105 transition-transform">
                                                 {(() => {
                                                     // Pending Item Badge Logic
-                                                    const activeReqs = [...orders].filter(Boolean).flatMap(o => o.requirements);
+                                                    const activeReqs = [
+                                                        ...orders.filter(Boolean).flatMap(o => o.requirements),
+                                                        ...(emergencyOrder ? emergencyOrder.requirements : [])
+                                                    ];
                                                     const matchedReqs = activeReqs.filter(r => r.name === pendingItem.name);
                                                     const isNeeded = matchedReqs.length > 0;
                                                     const isMaxSatisfied = isNeeded && matchedReqs.some(r => pendingItem.rarity.bonus >= r.requiredRarity.bonus);
@@ -806,18 +812,31 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                             </button>
                                         </div>
 
-                                        {pendingQueue.map((qItem, idx) => (
-                                            <div key={idx} className="flex flex-col gap-2 shrink-0 snap-center items-center opacity-60 grayscale-[0.3]">
-                                                <div className="text-[10px] font-bold text-slate-400 mt-2">#{idx + 1}</div>
-                                                <InventorySlot
-                                                    item={qItem}
-                                                    index={-1}
-                                                    isPendingSlot={true}
-                                                    onClick={() => { }} onMouseEnter={() => { }} onMouseLeave={() => { }}
-                                                    className="w-16 h-16 pointer-events-none"
-                                                />
-                                            </div>
-                                        ))}
+                                        {pendingQueue.map((qItem, idx) => {
+                                            // Queue Item Badge Logic
+                                            const activeReqs = [
+                                                ...orders.filter(Boolean).flatMap(o => o.requirements),
+                                                ...(emergencyOrder ? emergencyOrder.requirements : [])
+                                            ];
+                                            const matchedReqs = activeReqs.filter(r => r.name === qItem.name);
+                                            const isNeeded = matchedReqs.length > 0;
+                                            const isMaxSatisfied = isNeeded && matchedReqs.some(r => qItem.rarity.bonus >= r.requiredRarity.bonus);
+
+                                            return (
+                                                <div key={idx} className="flex flex-col gap-2 shrink-0 snap-center items-center opacity-60 grayscale-[0.3]">
+                                                    <div className="text-[10px] font-bold text-slate-400 mt-2">#{idx + 1}</div>
+                                                    <InventorySlot
+                                                        item={qItem}
+                                                        index={-1}
+                                                        isPendingSlot={true}
+                                                        isNeededForOrder={isNeeded}
+                                                        isMaxSatisfied={isMaxSatisfied}
+                                                        onClick={() => { }} onMouseEnter={() => { }} onMouseLeave={() => { }}
+                                                        className="w-16 h-16 pointer-events-none"
+                                                    />
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
