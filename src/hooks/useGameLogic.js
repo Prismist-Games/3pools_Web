@@ -758,7 +758,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
             const randomPool = validPools[Math.floor(Math.random() * validPools.length)];
 
-            const poolSize = currentStageConfig ? currentStageConfig.poolSize : 5;
+            const poolSize = currentStageConfig ? currentStageConfig.poolSize : (config.pools[0]?.items.length || 4);
             const validItems = randomPool.items.slice(0, poolSize);
             const randomItem = validItems[Math.floor(Math.random() * validItems.length)];
 
@@ -896,7 +896,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         }
         if (pool.affixKey === 'targeted') {
             setGold(prev => prev - finalCost);
-            setSelectionMode({ type: 'targeted', pool, items: pool.items, cost: finalCost });
+            // "有的放矢" 应呈现该池子的全部原始物品，不受当前阶段 poolSize 限制
+            const originalPool = config.pools.find(p => p.id === (pool.originalId || pool.id));
+            const allItems = originalPool ? originalPool.items : pool.items;
+            setSelectionMode({ type: 'targeted', pool, items: allItems, cost: finalCost });
             return;
         }
 

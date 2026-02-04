@@ -131,7 +131,7 @@ const PoolCardBase = ({
                             </div>
                         ) : (
                             <div className="flex flex-wrap gap-2 mt-1 opacity-80">
-                                {pool.items.slice(0, 4).map(item => (
+                                {pool.items.map(item => (
                                     <div key={item.name} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-lg border border-white/40 text-lg shadow-sm">
                                         {item.icon}
                                     </div>
