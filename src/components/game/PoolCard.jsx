@@ -6,6 +6,7 @@ const PoolCardBase = ({
     pool,
     patience,
     hasSkill,
+    config = {}, // Add default empty obj safety
     inventory = [],
     onDraw,
     onMouseEnter,
@@ -50,17 +51,19 @@ const PoolCardBase = ({
                 <span className="font-black text-xl leading-tight">{t(pool.name)}</span>
 
                 {/* Price Pill - Patience cost */}
-                <div className={`
-                    flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
-                    bg-white
-                    ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-slate-200'}
-                `}>
-                    {finalCost < pool.cost && (
-                        <span className="line-through text-xs text-slate-400">{pool.cost}</span>
-                    )}
-                    {finalCost === 0 ? t("免费") : finalCost}
-                    <span className={canAfford ? "text-pink-500" : "text-slate-400"}>💗</span>
-                </div>
+                {(config.patience?.enabled !== false) && (
+                    <div className={`
+                        flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
+                        bg-white
+                        ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-slate-200'}
+                    `}>
+                        {finalCost < pool.cost && (
+                            <span className="line-through text-xs text-slate-400">{pool.cost}</span>
+                        )}
+                        {finalCost === 0 ? t("免费") : finalCost}
+                        <span className={canAfford ? "text-pink-500" : "text-slate-400"}>💗</span>
+                    </div>
+                )}
             </div>
 
             {/* Row 2: Affix Name (LARGE and prominent) */}

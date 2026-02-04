@@ -30,8 +30,8 @@ export const INITIAL_STAGE_CONFIG = [
             "4": 15
         },
         "baseRewards": {
-            "2": 7,
-            "3": 10,
+            "2": 15,
+            "3": 15,
             "4": 15
         },
         "rarityWeights": {
@@ -515,15 +515,89 @@ export const INITIAL_POOLS_DATA = [
 
 // --- 耐心值系统配置 ---
 export const PATIENCE_CONFIG = {
+    enabled: false,
     initialPatience: 100,
     drawCost: 5,
-    stages: [100, 80, 60, 40, 20] // 阈值，从高到低
+    orderCompletionReward: 15,
+    stages: [100, 80, 60, 40, 20, 10] // 6个阈值定义5个阶段：100-80, 79-60, 59-40, 39-20, 19-10
+};
+
+// --- 限时急单配置 ---
+export const EMERGENCY_ORDER_CONFIG = {
+    deadline: 15,           // 时限（回合数）
+
+    // 顾客急躁值系统
+    impatience: {
+        enabled: true,      // 是否启用急躁值系统
+        maxValue: 5,        // 最大急躁值（达到后游戏失败）
+        increaseOnTimeout: 1 // 每次超时增加的急躁值
+    },
+
+    // 难度系统
+    difficulty: {
+        initial: 1,         // 初始难度
+        increaseOnNewOrder: 1,  // 每个新限时订单难度增加值
+        decreaseOnMainline: 1,  // 完成主线订单时难度减少值
+        minDifficulty: 1,   // 最小难度
+        maxDifficulty: 10   // 最大难度（可选）
+    },
+
+    // 基础配置
+    reqCountMin: 1,         // 需求数量最小值
+    reqCountMax: 4,         // 需求数量最大值
+
+    // 基础品质权重（难度=1时使用）
+    baseRarityWeights: {
+        common: 0.5,
+        uncommon: 0.3,
+        rare: 0.15,
+        epic: 0.04,
+        legendary: 0.01
+    },
+
+    // 难度等级配置：难度 -\u003e 需求数量权重
+    difficultyReqCountWeights: {
+        1: { 1: 0.5, 2: 0.3, 3: 0.15, 4: 0.05 },
+        2: { 1: 0.4, 2: 0.35, 3: 0.2, 4: 0.05 },
+        3: { 1: 0.3, 2: 0.35, 3: 0.25, 4: 0.1 },
+        4: { 1: 0.2, 2: 0.3, 3: 0.3, 4: 0.2 },
+        5: { 1: 0.1, 2: 0.25, 3: 0.35, 4: 0.3 },
+        6: { 1: 0.05, 2: 0.2, 3: 0.35, 4: 0.4 },
+        7: { 1: 0.05, 2: 0.15, 3: 0.3, 4: 0.5 },
+        8: { 1: 0.0, 2: 0.1, 3: 0.3, 4: 0.6 },
+        9: { 1: 0.0, 2: 0.05, 3: 0.25, 4: 0.7 },
+        10: { 1: 0.0, 2: 0.0, 3: 0.2, 4: 0.8 }
+    },
+
+    // 难度等级配置：难度 -\u003e 品质权重
+    difficultyRarityWeights: {
+        1: { common: 0.5, uncommon: 0.3, rare: 0.15, epic: 0.04, legendary: 0.01 },
+        2: { common: 0.45, uncommon: 0.3, rare: 0.18, epic: 0.06, legendary: 0.01 },
+        3: { common: 0.4, uncommon: 0.3, rare: 0.2, epic: 0.08, legendary: 0.02 },
+        4: { common: 0.35, uncommon: 0.3, rare: 0.22, epic: 0.1, legendary: 0.03 },
+        5: { common: 0.3, uncommon: 0.28, rare: 0.25, epic: 0.12, legendary: 0.05 },
+        6: { common: 0.25, uncommon: 0.25, rare: 0.28, epic: 0.15, legendary: 0.07 },
+        7: { common: 0.2, uncommon: 0.22, rare: 0.3, epic: 0.18, legendary: 0.1 },
+        8: { common: 0.15, uncommon: 0.2, rare: 0.32, epic: 0.2, legendary: 0.13 },
+        9: { common: 0.1, uncommon: 0.15, rare: 0.35, epic: 0.25, legendary: 0.15 },
+        10: { common: 0.05, uncommon: 0.1, rare: 0.35, epic: 0.3, legendary: 0.2 }
+    }
 };
 
 // --- 主线进度配置 ---
+// --- 主线进度配置 ---
 export const MAINLINE_PROGRESS_CONFIG = {
-    targetProgress: 100,
-    baseProgressPerOrder: 5
+    targetProgress: 20,        // 胜利条件
+    progressOffset: 0.0,       // 计算偏移量
+    // 详细品质权重分配 (累加每个需求物品的值)
+    rarityWeights: {
+        common: 0.5,
+        uncommon: 1.0,
+        rare: 1.5,
+        epic: 2.0,
+        legendary: 3.0,
+        mythic: 4.0
+    }
 };
 
 export const INITIAL_GAME_CONFIG = {
@@ -533,6 +607,7 @@ export const INITIAL_GAME_CONFIG = {
     stages: INITIAL_STAGE_CONFIG,
     patience: PATIENCE_CONFIG,
     progress: MAINLINE_PROGRESS_CONFIG,
+    emergency: EMERGENCY_ORDER_CONFIG,
     enabledSkillIds: [
         "poverty_relief",
         "lucky_7",

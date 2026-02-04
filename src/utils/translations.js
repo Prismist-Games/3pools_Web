@@ -101,6 +101,8 @@ export const EN_TRANSLATIONS = {
     "刷新此订单": "Refresh Order",
     "可提交": "Ready",
     "暂无订单": "No Orders",
+    "已完成": "Completed",
+    "回合后刷新": "Refreshing",
 
     // --- Stages & Mechanics ---
     "阶段 1": "Stage 1",

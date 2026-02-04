@@ -1,4 +1,4 @@
-import { MAINLINE_ITEMS } from '../data/constants.js';
+// helpers.js - utility functions for game logic
 
 export const getAllNormalItems = (pools, currentStageConfig) => {
     // 修正：限制池子类型（allowedPoolCount）和池内物品数量（poolSize）
@@ -26,9 +26,26 @@ export const getRandomItems = (array, count) => {
     return shuffled.slice(0, count);
 };
 
-export const rollRequirementRarity = (config, currentStageConfig) => {
+export const rollRequirementRarity = (config, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
     // P0: Use orderRarityWeights if available (specific to orders), otherwise fallback to general rarityWeights
-    const weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
+    // For emergency orders, use emergency-specific weights if available
+    let weights;
+    if (isEmergency && config.emergency) {
+        // 优先使用难度相关的品质权重
+        const difficultyWeights = config.emergency.difficultyRarityWeights?.[emergencyDifficulty];
+        if (difficultyWeights) {
+            weights = difficultyWeights;
+        } else if (config.emergency.rarityWeights) {
+            weights = config.emergency.rarityWeights;
+        } else if (config.emergency.baseRarityWeights) {
+            weights = config.emergency.baseRarityWeights;
+        } else {
+            weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
+        }
+    } else {
+        weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
+    }
+
     const r = Math.random();
 
     // 累积概率计算
@@ -64,10 +81,37 @@ export const rollRequirementRarity = (config, currentStageConfig) => {
     return config.rarity.find(r => r.id === 'common');
 };
 
-export const generateOrder = (allNormalItems, config, hasSkill = () => false, currentStageConfig) => {
+export const generateOrder = (allNormalItems, config, hasSkill = () => false, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
     // P0: Use orderCountWeights for configurable requirement counts (2, 3, or 4)
     let count = 3;
-    if (currentStageConfig.orderCountWeights) {
+
+    // Emergency orders use their own config if available
+    if (isEmergency && config.emergency) {
+        const emergencyConfig = config.emergency;
+
+        // 使用难度配置来决定需求数量
+        const difficultyWeights = emergencyConfig.difficultyReqCountWeights?.[emergencyDifficulty];
+        if (difficultyWeights) {
+            // 根据难度等级的权重分布随机选择需求数量
+            const entries = Object.entries(difficultyWeights);
+            const totalWeight = entries.reduce((sum, [_, weight]) => sum + weight, 0);
+            let random = Math.random() * totalWeight;
+
+            for (const [reqCount, weight] of entries) {
+                random -= weight;
+                if (random <= 0) {
+                    count = parseInt(reqCount);
+                    break;
+                }
+            }
+        } else if (emergencyConfig.reqCountMin !== undefined && emergencyConfig.reqCountMax !== undefined) {
+            const min = emergencyConfig.reqCountMin || 1;
+            const max = emergencyConfig.reqCountMax || 4;
+            count = Math.floor(Math.random() * (max - min + 1)) + min;
+        } else if (emergencyConfig.reqCount !== undefined) {
+            count = emergencyConfig.reqCount;
+        }
+    } else if (currentStageConfig.orderCountWeights) {
         const weights = currentStageConfig.orderCountWeights;
         const w2 = weights[2] || 0;
         const w3 = weights[3] || 0;
@@ -89,8 +133,8 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         count = Math.floor(Math.random() * (orderCountRange[1] - orderCountRange[0] + 1)) + orderCountRange[0];
     }
 
-    // 技能【偷工减料】
-    if (hasSkill('cut_corners') && Math.random() < 0.20 && count > 1) {
+    // 技能【偷工减料】- does not affect emergency orders
+    if (!isEmergency && hasSkill('cut_corners') && Math.random() < 0.20 && count > 1) {
         count -= 1;
     }
 
@@ -98,22 +142,37 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
 
     const requirements = rawRequirements.map(item => ({
         ...item,
-        requiredRarity: rollRequirementRarity(config, currentStageConfig)
+        requiredRarity: rollRequirementRarity(config, currentStageConfig, isEmergency, emergencyDifficulty)
     }));
 
     const totalReqBonus = requirements.reduce((sum, req) => sum + req.requiredRarity.bonus, 0);
 
     // Patience System: Base rewards for both patience and progress
-    const defaultBaseRewards = { 2: 7, 3: 10, 4: 15 };
-    const baseRewards = currentStageConfig.baseRewards || defaultBaseRewards;
+    const defaultBaseReward = config.patience?.orderCompletionReward || 15;
+    const baseRewards = currentStageConfig.baseRewards || { 2: defaultBaseReward, 3: defaultBaseReward, 4: defaultBaseReward };
 
-    const rawBaseReward = baseRewards[count] || 15;
+    const rawBaseReward = baseRewards[count] || defaultBaseReward;
 
-    // Base patience reward (affected by requirement rarity)
-    const basePatienceReward = Math.ceil(rawBaseReward * (1 + totalReqBonus));
+    // Fixed patience reward (no rarity multiplier)
+    const basePatienceReward = rawBaseReward;
 
-    // Base progress reward (from config)
-    const baseProgressReward = config.progress?.baseProgressPerOrder || 5;
+    // Base progress reward (calculated ONLY by sum of per-rarity weights)
+    // Emergency orders DON'T give progress rewards
+    let baseProgressReward = 0;
+
+    if (!isEmergency) {
+        const rarityWeights = config.progress?.rarityWeights || {};
+        const offset = config.progress?.progressOffset || 0;
+
+        // Formula: sum of weights of each required item's rarity + offset
+        const totalRarityScore = requirements.reduce((sum, req) => {
+            const rKey = req.requiredRarity?.id || 'common';
+            return sum + (rarityWeights[rKey] || 0);
+        }, 0);
+
+        const calculatedProgress = Math.floor(totalRarityScore + offset);
+        baseProgressReward = Math.max(1, Math.min(4, calculatedProgress));
+    }
 
     return {
         id: Math.random().toString(36).substr(2, 9),

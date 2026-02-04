@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Settings, Download, Upload, RotateCcw, X, Coins, Ticket, Flag, Power, ChevronsUp, Check, Briefcase, ShoppingBag, Truck, Trash2, Package, RefreshCw, Lock, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Settings, Download, Upload, RotateCcw, X, Coins, Ticket, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Briefcase, ShoppingBag, Truck, Trash2, Package, RefreshCw, Lock, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Heart, Timer } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
@@ -13,15 +13,24 @@ import { PoolCard } from './components/game/PoolCard';
 import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
 
-const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initialProgress = 0 }) => {
+const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initialProgress = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
+    const [isSkillsCollapsed, setIsSkillsCollapsed] = useState(false);
 
     // Initialize Logic Hook
     const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialProgress);
 
+    // Debug: Handle direct item addition from Config Tool
+    useEffect(() => {
+        if (debugAddItem) {
+            actions.addInventoryItem(debugAddItem.itemName, debugAddItem.rarityId);
+            if (onDebugAddItemHandled) onDebugAddItemHandled();
+        }
+    }, [debugAddItem, actions]);
+
     const {
         patience, patienceStage, mainlineProgress, upgradedOrderItems, currentStageConfig, maxInventorySize,
-        drawCount, activePools, orders, inventory,
+        drawCount, activePools, orders, emergencyOrder, customerImpatience, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, selectedIndices,
@@ -135,7 +144,6 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                 );
             }
 
-
             return null;
         } catch (error) {
             console.error("Modal Rendering Error:", error);
@@ -153,67 +161,83 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
             <div className="w-full max-w-7xl mx-auto h-full flex flex-col shadow-2xl bg-white border-x border-slate-200 relative">
 
-                {/* Top Bar */}
+                {/* Top Bar Simplified */}
                 <header className="p-4 bg-slate-800 text-white flex justify-between items-center shadow-md z-20 shrink-0">
-                    <div className="flex items-center gap-6">
-                        {/* Patience Bar */}
-                        <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2 text-pink-300">
-                                <span className="text-xs font-bold">耐心值</span>
-                                <span className="text-xl font-bold">{patience}</span>
-                            </div>
+                    <div className="flex items-center gap-4">
+                        <div className="bg-slate-700 p-2 rounded-xl shadow-inner border border-slate-600">
+                            <ListOrdered className="text-yellow-400" size={24} />
                         </div>
-
-                        {/* Mainline Progress */}
-                        <div className="flex flex-col gap-1 ml-4 border-l border-slate-600 pl-4">
-                            <div className="flex items-center gap-2 text-blue-300">
-                                <Flag size={16} />
-                                <span className="text-xs font-bold">主线进度</span>
-                                <span className="text-xl font-bold">{mainlineProgress}/{config.progress?.targetProgress || 100}</span>
-                            </div>
+                        <div className="flex flex-col">
+                            <h1 className="text-lg font-black tracking-tighter leading-tight">ORDER GAME</h1>
+                            {config.patience?.enabled !== false && (
+                                <div className="flex items-center gap-1.5 opacity-60">
+                                    <span className={`w-2 h-2 rounded-full animate-pulse ${patience > 60 ? 'bg-green-400' : patience > 30 ? 'bg-yellow-400' : 'bg-red-500'}`} />
+                                    <span className="text-[10px] font-bold tracking-widest">{t("STAGE")} {state.patienceStage}</span>
+                                </div>
+                            )}
                         </div>
-
-                        {currentStageConfig.mechanics.specialization && (
-                            <div className="flex items-center gap-2 text-blue-300 ml-4 border-l border-slate-600 pl-4">
-                                <Layers size={20} />
-                                <span className={`text-xl font-bold ${new Set(inventory.filter(i => i).map(i => i.name)).size >= 7 ? 'text-red-400 animate-pulse' : ''}`}>
-                                    {new Set(inventory.filter(i => i).map(i => i.name)).size}/7
-                                </span>
-                            </div>
-                        )}
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <div className="flex flex-col items-end mr-4 bg-slate-700/50 px-3 py-1.5 rounded-lg">
-                            <div className="flex items-center gap-2">
-                                <Flag size={18} className="text-purple-400" />
-                                <span className="text-lg font-black text-white">{t(currentStageConfig.name)}</span>
+                    <div className="flex items-center gap-6">
+                        {/* Emergency Info: Impatience & Difficulty */}
+                        {config.emergency?.impatience?.enabled && (
+                            <div className="flex flex-col gap-0.5 items-end border-r border-slate-700 pr-4">
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-amber-100">Customer Mood</span>
+                                <div className="flex items-center gap-2 text-amber-300">
+                                    <span className="text-2xl font-black font-mono tracking-tighter leading-none">
+                                        {customerImpatience}/{config.emergency.impatience.maxValue}
+                                    </span>
+                                    <span className="text-xs opacity-50">😡</span>
+                                </div>
                             </div>
-                            <span className="text-sm font-semibold text-purple-200">{t(currentStageConfig.mechanicDesc)}</span>
+                        )}
+
+                        {emergencyOrder && (
+                            <div className="flex flex-col gap-0.5 items-end border-r border-slate-700 pr-4">
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-red-100">Difficulty</span>
+                                <div className="flex items-center gap-2 text-red-300">
+                                    <span className="text-2xl font-black font-mono tracking-tighter leading-none">
+                                        LV.{emergencyDifficulty}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Progress Display */}
+                        <div className="flex flex-col gap-0.5 items-end">
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-blue-100">Project Progress</span>
+                            <div className="flex items-center gap-2 text-blue-300">
+                                <Flag size={18} />
+                                <span className="text-3xl font-black font-mono tracking-tighter leading-none">{mainlineProgress}<span className="text-sm opacity-30 mx-1">/</span>{config.progress?.targetProgress || 100}</span>
+                            </div>
                         </div>
 
-                        <div className="flex flex-col items-end">
-                            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{t("累计抽奖")}</span>
-                            <span className="text-xl font-bold">{drawCount} {t("次")}</span>
+                        {/* Stage Details */}
+                        <div className="hidden md:flex flex-col items-end border-l border-slate-700 pl-6">
+                            <div className="flex items-center gap-2">
+                                <Layers size={16} className="text-purple-400" />
+                                <span className="text-sm font-black text-white whitespace-nowrap">{t(currentStageConfig.name)}</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400">{t(currentStageConfig.mechanicDesc)}</span>
                         </div>
 
-                        <div className="flex items-center gap-2 bg-slate-700 rounded-lg p-1">
-                            <button onClick={toggleLanguage} className="px-2 py-1 hover:bg-slate-600 rounded text-xs font-bold text-slate-300 hover:text-white transition-colors">
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 bg-slate-700/50 rounded-xl p-1 border border-slate-600">
+                            <button onClick={toggleLanguage} className="px-2 py-1 hover:bg-slate-600 rounded-lg text-[10px] font-black text-slate-400 hover:text-white transition-colors">
                                 {language === 'zh' ? 'EN' : '中'}
                             </button>
-                            <div className="w-[1px] h-5 bg-slate-600"></div>
-                            <button onClick={onReset} title={t("重置")} className="p-1.5 hover:bg-slate-600 rounded transition-colors text-red-300 hover:text-red-100">
-                                <Power size={20} />
+                            <div className="w-[1px] h-4 bg-slate-600"></div>
+                            <button onClick={onReset} title={t("重置")} className="p-1.5 hover:bg-slate-600 rounded-lg transition-colors text-red-400/80 hover:text-red-400">
+                                <Power size={18} />
                             </button>
-                            <div className="w-[1px] h-5 bg-slate-600"></div>
-                            <button onClick={onOpenSettings} title={t("设置")} className="p-1.5 hover:bg-slate-600 rounded transition-colors text-slate-300 hover:text-white">
-                                <Settings size={20} />
+                            <button onClick={onOpenSettings} title={t("设置")} className="p-1.5 hover:bg-slate-600 rounded-lg transition-colors text-slate-400 hover:text-white">
+                                <Settings size={18} />
                             </button>
                         </div>
                     </div>
                 </header>
 
-                <main className="flex-1 flex flex-col lg:flex-row overflow-hidden pb-[400px] lg:pb-[400px]">
+                <main className={`flex-1 flex flex-col lg:flex-row overflow-hidden transition-all duration-300 ${isSkillsCollapsed ? 'pb-[280px]' : 'pb-[400px]'}`}>
 
                     {/* LEFT COLUMN: ORDERS */}
                     <section className={`
@@ -239,6 +263,38 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                         <div className="flex flex-col gap-3">
 
+                            {/* Emergency Order */}
+                            {state.emergencyOrder && (
+                                <div className="mb-2 relative">
+                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg z-20 flex items-center gap-1 animate-pulse">
+                                        <Timer size={10} />
+                                        <span>{t("限时急单")}</span>
+                                    </div>
+                                    <OrderCard
+                                        key="emergency"
+                                        order={state.emergencyOrder}
+                                        index={999}
+                                        isMainline={false}
+                                        isEmergency={true}
+                                        isSubmitMode={isSubmitMode}
+                                        canSatisfy={satisfiableOrders.find(r => r.index === 999)}
+                                        potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === 999)}
+                                        emergencyOrderCompleted={state.emergencyOrderCompleted}
+                                        onClick={handleOrderClick}
+                                        currentStageConfig={currentStageConfig}
+                                        config={config}
+                                        inventory={inventory}
+                                        selectedIndices={selectedIndices}
+                                        hasSkill={hasSkill}
+                                        hoveredPoolId={hoveredPoolId}
+                                        hoveredItemName={hoveredItemName}
+                                        hoveredPoolItemNames={hoveredPoolItemNames}
+                                        selectedItemNames={selectedItemNames}
+                                        upgradedOrderItems={state.upgradedOrderItems}
+                                    />
+                                </div>
+                            )}
+
                             {/* Normal Orders (no mainline) */}
                             {orders.map((order, idx) => (
                                 <OrderCard
@@ -260,6 +316,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     hoveredItemName={hoveredItemName}
                                     hoveredPoolItemNames={hoveredPoolItemNames}
                                     selectedItemNames={selectedItemNames}
+                                    upgradedOrderItems={state.upgradedOrderItems}
                                 />
                             ))}
                         </div>
@@ -301,6 +358,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         patience={patience}
                                         inventory={inventory}
                                         hasSkill={hasSkill}
+                                        config={config}
                                         onDraw={handleDraw}
                                         onMouseEnter={handlePoolHover}
                                         onMouseLeave={handlePoolLeave}
@@ -372,44 +430,132 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                     ${selectionMode?.type === 'trade_in' ? 'bg-purple-50/95 border-purple-200' : ''}
                 `}>
 
-                    {/* Skill Bar */}
-                    <div className="flex items-center justify-center gap-4 mb-2 pb-2 border-b border-slate-100 relative">
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest absolute left-0 top-1/2 -translate-y-1/2 hidden md:block">{t("被动技能")}</div>
-                        <div className="flex gap-4">
-                            {[0, 1, 2].map(i => {
-                                const skillId = skills[i];
-                                const skill = SKILL_DEFINITIONS.find(s => s.id === skillId);
-                                const SkillIcon = skill?.Icon || Zap;
-                                return (
-                                    <div key={i} className="flex flex-col items-center gap-1">
-                                        <div title={skill ? `${skill.name}: ${skill.desc}` : '空槽位'} className="group relative w-12 h-12 rounded-full border-2 border-slate-200 bg-slate-100 flex items-center justify-center transition-all hover:scale-110">
-                                            {skill ? (
-                                                <div className={`w-full h-full rounded-full flex items-center justify-center ${skill.color}`}>
-                                                    <SkillIcon size={18} />
-                                                </div>
-                                            ) : (
-                                                <div className="text-slate-300"><Zap size={18} /></div>
-                                            )}
-                                            <div className="absolute -top-1 -right-1 text-[10px] bg-slate-300 text-white rounded-full w-4 h-4 flex items-center justify-center leading-none">{i + 1}</div>
-                                        </div>
+                    {/* Skill Bar Area */}
+                    <div className="flex flex-col gap-4 items-center mb-4">
+                        {config.patience?.enabled !== false && (
+                            /* Integrated Patience Bar (Larger but slim) */
+                            <div className="w-full max-w-3xl px-8 mt-2">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <Heart size={12} className="text-pink-500 animate-pulse" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{t("Patience Stability")}</span>
                                     </div>
-                                );
+                                    <span className={`text-base font-black font-mono tracking-tighter ${patience > 60 ? 'text-green-600' : patience > 30 ? 'text-amber-600' : 'text-red-600'}`}>
+                                        {patience}%
+                                    </span>
+                                </div>
+
+                                <div className="h-2.5 bg-slate-100 rounded-full relative border border-slate-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] group mb-7">
+                                    {/* The Actual Progress Fill */}
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) ${patience > 60 ? 'bg-gradient-to-r from-emerald-500 to-green-400' :
+                                            patience > 30 ? 'bg-gradient-to-r from-amber-500 to-yellow-400' :
+                                                'bg-gradient-to-r from-rose-600 to-red-500'
+                                            }`}
+                                        style={{ width: `${Math.max(0, Math.min(100, patience))}%` }}
+                                    />
+
+                                    {/* Stage Function Threshold Markers */}
+                                    {(config.patience?.stages || []).map((threshold, i) => {
+                                        const stageEffects = [
+                                            { label: t('初始'), color: 'text-cyan-600' },
+                                            { label: t('需求品质+'), color: 'text-yellow-600' },
+                                            { label: t('需求品质+'), color: 'text-orange-600' },
+                                            { label: t('需求品质+'), color: 'text-red-600' },
+                                            { label: t('需求品质+'), color: 'text-fuchsia-600' },
+                                            { label: t('需求品质+'), color: 'text-slate-600' }
+                                        ];
+                                        const nextThreshold = (config.patience?.stages || [])[i + 1] || -1;
+                                        const effect = stageEffects[i] || { label: '', color: 'text-slate-500' };
+
+                                        // Active: patience is within this stage's range (e.g. <= 80 and > 60 for 80 threshold)
+                                        // Special case for top stage (100): active if > next threshold
+                                        const isActive = patience <= threshold && patience > nextThreshold;
+
+                                        // Passed: patience has dropped AT OR BELOW this threshold
+                                        // We only show checks for hazard stages (i>=1, i.e. 80 and below)
+                                        const isPassed = patience <= threshold && i >= 1;
+
+                                        return (
+                                            <div
+                                                key={i}
+                                                className={`absolute top-0 bottom-0 w-px z-10 transition-colors ${patience <= threshold && i > 0 ? 'bg-slate-400' : 'bg-slate-200'}`}
+                                                style={{ left: `${threshold}%` }}
+                                            >
+                                                <div className={`absolute -top-1 left-1/2 -translate-x-1/2 w-0.5 h-1 ${patience <= threshold && i > 0 ? 'bg-slate-600' : 'bg-slate-300'}`} />
+
+                                                <div
+                                                    className={`absolute top-full mt-1 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none transition-all ${effect.color} ${isActive ? 'scale-105' : 'opacity-40'}`}
+                                                >
+                                                    <div className="h-3 flex items-center justify-center -mb-0.5">
+                                                        {isPassed && <Check size={10} strokeWidth={4} className="text-green-500 animate-in zoom-in-50 duration-300" />}
+                                                    </div>
+
+                                                    <span className={`text-[8px] font-black whitespace-nowrap`}>
+                                                        {effect.label}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Passive Skills Row */}
+                        <div className={`transition-all duration-300 overflow-hidden flex flex-col items-center w-full ${isSkillsCollapsed ? 'h-0 opacity-0' : 'h-24 opacity-100 pt-2 border-t border-slate-100/50'}`}>
+                            <div className="flex items-center justify-center gap-4 relative w-full">
+                                <div className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] absolute left-4 top-1/2 -translate-y-1/2 hidden md:block">{t("Passive Skills")}</div>
+                                <div className="flex gap-4">
+                                    {[0, 1, 2].map(i => {
+                                        const skillId = skills[i];
+                                        const skill = SKILL_DEFINITIONS.find(s => s.id === skillId);
+                                        const SkillIcon = skill?.Icon || Zap;
+                                        return (
+                                            <div key={i} className="flex flex-col items-center gap-1">
+                                                <div title={skill ? `${skill.name}: ${skill.desc}` : '空槽位'} className="group relative w-12 h-12 rounded-full border-2 border-slate-200 bg-slate-100 flex items-center justify-center transition-all hover:scale-110">
+                                                    {skill ? (
+                                                        <div className={`w-full h-full rounded-full flex items-center justify-center ${skill.color}`}>
+                                                            <SkillIcon size={18} />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-slate-300"><Zap size={18} /></div>
+                                                    )}
+                                                    <div className="absolute -top-1 -right-1 text-[10px] bg-slate-300 text-white rounded-full w-4 h-4 flex items-center justify-center leading-none">{i + 1}</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={`transition-all duration-300 overflow-hidden ${isSkillsCollapsed ? 'h-0 opacity-0 mb-0' : 'h-auto opacity-100 mb-2'}`}>
+                        {/* Rarity Bonuses Row */}
+                        <div className="flex items-center justify-center gap-4 pb-2 border-b border-slate-100 flex-wrap">
+                            {config.rarity.slice(1).map(rarity => {
+                                const weights = currentStageConfig.rarityWeights;
+                                if ((weights[rarity.id] || 0) <= 0) return null;
+                                return (
+                                    <div key={rarity.id} className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-full shadow-sm border border-slate-100 animate-in fade-in">
+                                        <Star size={12} fill="currentColor" className={rarity.starColor} />
+                                        <span>{t(rarity.name)} +{Math.round(rarity.bonus * 100)}%</span>
+                                    </div>
+                                )
                             })}
                         </div>
                     </div>
 
-                    {/* Rarity Bonuses */}
-                    <div className="flex items-center justify-center gap-4 mb-2 pb-2 border-b border-slate-100 flex-wrap">
-                        {config.rarity.slice(1).map(rarity => {
-                            const weights = currentStageConfig.rarityWeights;
-                            if ((weights[rarity.id] || 0) <= 0) return null;
-                            return (
-                                <div key={rarity.id} className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-full shadow-sm border border-slate-100 animate-in fade-in">
-                                    <Star size={12} fill="currentColor" className={rarity.starColor} />
-                                    <span>{t(rarity.name)} +{Math.round(rarity.bonus * 100)}%</span>
-                                </div>
-                            )
-                        })}
+                    {/* Collapse Toggle Tab */}
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-40">
+                        <button
+                            onClick={() => setIsSkillsCollapsed(!isSkillsCollapsed)}
+                            className="bg-white border-2 border-slate-200 border-b-0 px-4 py-1 rounded-t-xl shadow-[-5px_-5px_15px_rgba(0,0,0,0.05)] text-slate-400 hover:text-blue-500 hover:bg-slate-50 transition-all flex items-center gap-1.5"
+                        >
+                            {isSkillsCollapsed ? <ChevronUp size={14} strokeWidth={3} /> : <ChevronDown size={14} strokeWidth={3} />}
+                            <span className="text-[9px] font-black uppercase tracking-tighter">{isSkillsCollapsed ? t("展开面板") : t("折叠面板")}</span>
+                        </button>
                     </div>
 
                     {/* Status Bar */}

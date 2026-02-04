@@ -15,6 +15,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     const [patienceStage, setPatienceStage] = useState(0);
     const [mainlineProgress, setMainlineProgress] = useState(0);
 
+    // Emergency Order System: Impatience & Difficulty
+    const [customerImpatience, setCustomerImpatience] = useState(0);
+    const [emergencyDifficulty, setEmergencyDifficulty] = useState(config.emergency?.difficulty?.initial || 1);
+
     // Upgraded items tracking: [{ orderId, itemIndex, originalRarityId }]
     const [upgradedOrderItems, setUpgradedOrderItems] = useState([]);
 
@@ -25,6 +29,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
     const [activePools, setActivePools] = useState([]);
     const [orders, setOrders] = useState([]);
+    const [emergencyOrder, setEmergencyOrder] = useState(null);
+    const [emergencyOrderCompleted, setEmergencyOrderCompleted] = useState(false); // 标记限时订单已完成但未刷新
 
     const [inventory, setInventory] = useState([]);
 
@@ -73,8 +79,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         }
     }, [initialSkills]);
 
-    // No mainlineOrder generation - replaced by progress system
-
     useEffect(() => {
         if (orders.length < currentStageConfig.orderSlots) {
             const needed = currentStageConfig.orderSlots - orders.length;
@@ -83,103 +87,54 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         } else if (orders.length === 0) {
             setOrders(Array(currentStageConfig.orderSlots).fill(null).map(() => generateOrder(allNormalItems, config, hasSkill, currentStageConfig)));
         }
-    }, [config, allNormalItems, currentStageConfig.orderSlots, orders.length]);
+
+        // Initialize Emergency Order if none (Separate from normal orders slot limit)
+        if (!emergencyOrder) {
+            const deadline = config.emergency?.deadline || 15;
+            const newEmergencyOrder = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, emergencyDifficulty);
+            newEmergencyOrder.isEmergency = true;
+            newEmergencyOrder.deadline = deadline;
+            newEmergencyOrder.maxDeadline = deadline;
+            newEmergencyOrder.difficulty = emergencyDifficulty;
+            setEmergencyOrder(newEmergencyOrder);
+        }
+    }, [config, allNormalItems, currentStageConfig.orderSlots, orders.length, emergencyOrder, emergencyDifficulty]);
 
     const generateActivePools = () => {
         const result = [];
         const usedAffixIds = new Set();
+        let tempPools = [...config.pools.slice(0, currentStageConfig.allowedPoolCount)];
 
-        let tempPools = config.pools.slice(0, currentStageConfig.allowedPoolCount);
-
-        const mainlineChance = config.global.mainlineChance !== undefined ? config.global.mainlineChance : 0.5;
-        const canSpawnMainline = false; // P2 Refactor: Mainline Pool Disabled
-
-        let targetMainlineItem = null;
-
-        if (canSpawnMainline) {
-            const neededItems = MAINLINE_ITEMS;
-            for (let i = mainlineProgress; i < neededItems.length; i++) {
-                const itemDef = neededItems[i];
-                const hasItemByName = inventory.some(inv => inv.name === itemDef.name);
-                if (!hasItemByName) {
-                    targetMainlineItem = itemDef;
+        for (let i = 0; i < 3; i++) {
+            if (tempPools.length === 0) break;
+            const totalWeight = tempPools.reduce((sum, p) => sum + (p.weight || 1), 0);
+            let r = Math.random() * totalWeight;
+            let selectedIndex = -1;
+            for (let j = 0; j < tempPools.length; j++) {
+                r -= (tempPools[j].weight || 1);
+                if (r <= 0) {
+                    selectedIndex = j;
                     break;
                 }
             }
-        }
-
-        let slotTypes = ['normal', 'normal', 'normal'];
-        if (targetMainlineItem) {
-            slotTypes[0] = 'mainline';
-        }
-
-        slotTypes = slotTypes.sort(() => 0.5 - Math.random());
-
-        for (let i = 0; i < 3; i++) {
-            let selectedPool = null;
-            const type = slotTypes[i];
-
-            if (type === 'mainline' && targetMainlineItem) {
-                selectedPool = {
-                    id: `mainline_pool_${targetMainlineItem.id}`,
-                    name: `${targetMainlineItem.name}池`,
-                    type: 'mainline',
-                    targetItem: targetMainlineItem,
-                    weight: 0,
-                    cost: 10,
-                    currency: 'ticket',
-                    icon: targetMainlineItem.icon,
-                    color: 'bg-purple-100 text-purple-900 border-purple-300 ring-2 ring-purple-400',
-                    items: []
-                };
-                targetMainlineItem = null;
+            if (selectedIndex === -1) selectedIndex = tempPools.length - 1;
+            const selectedPool = JSON.parse(JSON.stringify(tempPools[selectedIndex]));
+            selectedPool.originalId = selectedPool.id;
+            selectedPool.id = selectedPool.originalId;
+            selectedPool.items = selectedPool.items.slice(0, currentStageConfig.poolSize);
+            if (currentStageConfig.mechanics.affixes) {
+                const availableAffixes = config.affixes.filter(a => !usedAffixIds.has(a.id));
+                const affixPool = availableAffixes.length > 0 ? availableAffixes : config.affixes;
+                const affix = getRandomAffix(affixPool);
+                selectedPool.affixKey = affix.id;
+                selectedPool.affix = affix;
+                selectedPool.cost = config.patience.drawCost;
+                usedAffixIds.add(affix.id);
             } else {
-                if (tempPools.length > 0) {
-                    const totalWeight = tempPools.reduce((sum, p) => sum + (p.weight || 1), 0);
-                    let r = Math.random() * totalWeight;
-                    let selectedIndex = -1;
-
-                    for (let j = 0; j < tempPools.length; j++) {
-                        r -= (tempPools[j].weight || 1);
-                        if (r <= 0) {
-                            selectedIndex = j;
-                            break;
-                        }
-                    }
-                    if (selectedIndex === -1) selectedIndex = tempPools.length - 1;
-
-                    selectedPool = JSON.parse(JSON.stringify(tempPools[selectedIndex]));
-                    selectedPool.originalId = selectedPool.id;
-                    // Stable ID to prevent flickering
-                    selectedPool.id = selectedPool.originalId;
-
-                    selectedPool.items = selectedPool.items.slice(0, currentStageConfig.poolSize);
-
-                    tempPools.splice(selectedIndex, 1);
-                }
+                selectedPool.cost = config.patience.drawCost;
             }
-
-            if (selectedPool && selectedPool.type === 'normal') {
-                if (currentStageConfig.mechanics.affixes) {
-                    const availableAffixes = config.affixes.filter(a => !usedAffixIds.has(a.id));
-                    const affixPool = availableAffixes.length > 0 ? availableAffixes : config.affixes;
-                    const affix = getRandomAffix(affixPool);
-
-                    selectedPool.affixKey = affix.id;
-                    selectedPool.affix = affix;
-                    selectedPool.cost = affix.cost;
-                    usedAffixIds.add(affix.id);
-                } else {
-                    selectedPool.cost = currentStageConfig.fixedPrice !== null ? currentStageConfig.fixedPrice : 1;
-                }
-
-                // Stage 1 Volatility: Random cost 1-4
-                if (currentStageConfig.mechanics.volatility) {
-                    selectedPool.cost = Math.floor(Math.random() * 4) + 1;
-                }
-            }
-
-            if (selectedPool) result.push(selectedPool);
+            result.push(selectedPool);
+            tempPools.splice(selectedIndex, 1);
         }
         return result;
     };
@@ -200,31 +155,82 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 return { ...item, decay: item.decay - 1 };
             }));
         }
+
+        // Decrease Emergency Order Deadline on tick/refresh
+        if (tick && emergencyOrder) {
+            setEmergencyOrder(prev => {
+                if (!prev) return null;
+                return { ...prev, deadline: prev.deadline - 1 };
+            });
+        }
     };
 
     useEffect(() => {
         refreshPools(false);
-    }, [config, mainlineProgress]);
+    }, [config]);
+
+    useEffect(() => {
+        const newStage = calculatePatienceStage(patience);
+        if (newStage !== patienceStage) {
+            handlePatienceStageChange(newStage, patienceStage);
+            setPatienceStage(newStage);
+        }
+    }, [patience]);
 
     const triggerSkillSelection = () => {
         const availableSkills = SKILL_DEFINITIONS.filter(s => {
             if (!config.enabledSkillIds.includes(s.id)) return false;
             if (skills.includes(s.id)) return false;
-
             if (s.id === 'vip_discount' && mainlineProgress < 2) return false;
             if (s.id === 'hard_order_expert' && mainlineProgress < 3) return false;
             if ((['cut_corners', 'time_freeze', 'negotiator'].includes(s.id)) && mainlineProgress < 3) return false;
-
             return true;
         });
-
         if (availableSkills.length === 0) {
             showToast("暂无更多可学习技能！");
             return;
         }
-
         const candidates = getRandomItems(availableSkills, Math.min(3, availableSkills.length));
         setSkillSelectionCandidates(candidates);
+    };
+
+    const handlePatienceStageChange = (newStage, oldStage) => {
+        if (newStage > oldStage) {
+            if (newStage <= 1) return;
+            const stageDiff = newStage - Math.max(oldStage, 1);
+            if (stageDiff <= 0) return;
+            for (let i = 0; i < stageDiff; i++) {
+                upgradeRandomOrderItem(newStage - i);
+            }
+        } else if (newStage < oldStage) {
+            const stageDiff = oldStage - Math.max(newStage, 1);
+            if (stageDiff <= 0) return;
+            for (let i = 0; i < stageDiff; i++) {
+                revertLastUpgrade();
+            }
+        }
+    };
+
+    const addInventoryItem = (itemName, rarityId) => {
+        const allItems = getAllNormalItems(config.pools, currentStageConfig);
+        const baseItem = allItems.find(i => i.name === itemName);
+        const rarity = config.rarity.find(r => r.id === rarityId) || config.rarity[0];
+        if (!baseItem) {
+            showToast(`找不到物品: ${itemName}`, 'error');
+            return;
+        }
+        const newItem = {
+            ...baseItem,
+            id: Math.random().toString(36).substr(2, 9),
+            rarity,
+            obtainCount: drawCount
+        };
+        if (inventory.length < maxInventorySize) {
+            setInventory(prev => [...prev, newItem]);
+            showToast(`已获取: ${newItem.name} (${rarity.name})`, 'success');
+        } else {
+            showToast('背包已满！', 'error');
+        }
     };
 
     const handleSkillSelect = (skill) => {
@@ -243,6 +249,147 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         setSkills(prev => prev.map(id => id === oldSkillId ? newSkill.id : id));
         setSkillSelectionCandidates(null);
         showToast(`替换技能：${newSkill.name}`);
+    };
+
+    // ===== 耐心值阶段机制核心函数 =====
+
+    const calculatePatienceStage = (currentPatience) => {
+        const stages = config.patience.stages; // [100, 80, 60, 40, 20, 10]
+        for (let i = 0; i < stages.length; i++) {
+            if (currentPatience >= stages[i]) return i;
+        }
+        return stages.length; // <10 时返回最大阶段
+    };
+
+    const upgradeRandomOrderItem = (currentStage) => {
+        const eligibleOrders = orders
+            .map((order, idx) => ({ order, idx }))
+            .filter(({ order }) => order && order.requirements.length > 0);
+
+        if (eligibleOrders.length === 0) return;
+
+        const { order: randomOrder, idx: orderSlotIndex } = eligibleOrders[
+            Math.floor(Math.random() * eligibleOrders.length)
+        ];
+
+        const eligibleItems = randomOrder.requirements.filter(req => {
+            const nextRarity = getNextRarity(req.requiredRarity.id, config);
+            return nextRarity !== null;
+        });
+
+        if (eligibleItems.length === 0) return;
+
+        const randomReq = eligibleItems[Math.floor(Math.random() * eligibleItems.length)];
+        const itemIndex = randomOrder.requirements.indexOf(randomReq);
+        const nextRarity = getNextRarity(randomReq.requiredRarity.id, config);
+
+        // 更新订单
+        const updatedOrders = orders.map((o, idx) => {
+            if (idx === orderSlotIndex && o) {
+                const newReqs = [...o.requirements];
+                newReqs[itemIndex] = { ...newReqs[itemIndex], requiredRarity: nextRarity };
+                return { ...o, requirements: newReqs };
+            }
+            return o;
+        });
+        setOrders(updatedOrders);
+
+        // 记录升级
+        setUpgradedOrderItems(prev => [...prev, {
+            orderSlotIndex,
+            itemIndex,
+            upgradeStage: currentStage
+        }]);
+    };
+
+    const revertLastUpgrade = () => {
+        if (upgradedOrderItems.length === 0) return;
+
+        const lastUpgrade = upgradedOrderItems[upgradedOrderItems.length - 1];
+        const { orderSlotIndex, itemIndex } = lastUpgrade;
+
+        const order = orders[orderSlotIndex];
+        if (!order) {
+            setUpgradedOrderItems(prev => prev.slice(0, -1));
+            return;
+        }
+
+        // 降级一次
+        const currentReq = order.requirements[itemIndex];
+        const currentRarityId = currentReq.requiredRarity.id;
+        const rarityIndex = config.rarity.findIndex(r => r.id === currentRarityId);
+
+        if (rarityIndex > 0) {
+            const lowerRarity = config.rarity[rarityIndex - 1];
+
+            const updatedOrders = orders.map((o, idx) => {
+                if (idx === orderSlotIndex && o) {
+                    const newReqs = [...o.requirements];
+                    newReqs[itemIndex] = { ...newReqs[itemIndex], requiredRarity: lowerRarity };
+                    return { ...o, requirements: newReqs };
+                }
+                return o;
+            });
+            setOrders(updatedOrders);
+        }
+
+        setUpgradedOrderItems(prev => prev.slice(0, -1));
+    };
+
+
+
+    const applySlotUpgrades = (newOrders, targetIndices = null) => {
+        const result = [...newOrders];
+        const updatedUpgrades = [];
+        let upgradeChanged = false;
+
+        upgradedOrderItems.forEach((upgrade) => {
+            const { orderSlotIndex, itemIndex, upgradeStage } = upgrade;
+
+            // 如果提供了 targetIndices，仅处理指定的槽位
+            if (targetIndices && !targetIndices.includes(orderSlotIndex)) {
+                updatedUpgrades.push(upgrade);
+                return;
+            }
+
+            const order = result[orderSlotIndex];
+
+            if (!order || !order.requirements[itemIndex]) {
+                if (order && order.requirements.length > 0) {
+                    const newIndex = Math.floor(Math.random() * order.requirements.length);
+                    updatedUpgrades.push({ ...upgrade, itemIndex: newIndex });
+                    upgradeChanged = true;
+
+                    let currentRarity = order.requirements[newIndex].requiredRarity;
+                    for (let i = 0; i < upgradeStage; i++) {
+                        const nextRarity = getNextRarity(currentRarity.id, config);
+                        if (nextRarity) currentRarity = nextRarity;
+                    }
+                    result[orderSlotIndex].requirements[newIndex] = {
+                        ...result[orderSlotIndex].requirements[newIndex],
+                        requiredRarity: currentRarity
+                    };
+                } else {
+                    updatedUpgrades.push(upgrade);
+                }
+                return;
+            }
+
+            updatedUpgrades.push(upgrade);
+
+            let currentRarity = order.requirements[itemIndex].requiredRarity;
+            for (let i = 0; i < upgradeStage; i++) {
+                const nextRarity = getNextRarity(currentRarity.id, config);
+                if (nextRarity) currentRarity = nextRarity;
+            }
+
+            result[orderSlotIndex].requirements[itemIndex] = {
+                ...result[orderSlotIndex].requirements[itemIndex],
+                requiredRarity: currentRarity
+            };
+        });
+
+        return { orders: result, updatedUpgrades, hasChanges: upgradeChanged };
     };
 
     const maxRequirementRarityMap = useMemo(() => {
@@ -274,6 +421,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         });
 
         const checkOrder = (order, idx, isMain) => {
+            if (!order) return null;
             const tempHand = JSON.parse(JSON.stringify(handGroups));
             let isSatisfied = true;
             let totalSubmitBonus = 0;
@@ -317,7 +465,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 if (hasHardReq) extraPatience += 10;
             }
 
-            const finalPatienceReward = Math.ceil(order.basePatienceReward * multiplier) + extraPatience;
+            const finalPatienceReward = order.basePatienceReward; // Fixed reward as requested
             const finalProgressReward = Math.ceil(order.baseProgressReward * multiplier);
 
             return {
@@ -331,13 +479,20 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         };
 
         const results = [];
+        // Normal Orders
         orders.forEach((o, i) => {
             const res = checkOrder(o, i, false);
             if (res) results.push(res);
         });
 
+        // Emergency Order (Index 999)
+        if (emergencyOrder) {
+            const res = checkOrder(emergencyOrder, 999, false);
+            if (res) results.push(res);
+        }
+
         return results;
-    }, [isSubmitMode, selectedIndices, inventory, orders, patience, skills]);
+    }, [orders, emergencyOrder, isSubmitMode, selectedIndices, inventory, hasSkill, patience, skills]);
 
     // Preview Potential Rewards (Calculate using BEST items from inventory)
     const potentialSatisfiableOrders = useMemo(() => {
@@ -399,7 +554,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 if (hasHardReq) extraPatience += 10;
             }
 
-            const finalPatienceReward = Math.ceil(order.basePatienceReward * multiplier) + extraPatience;
+            const finalPatienceReward = order.basePatienceReward; // Fixed reward as requested
             const finalProgressReward = Math.ceil(order.baseProgressReward * multiplier);
 
             return {
@@ -419,8 +574,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 if (res) results.push(res);
             }
         });
+
+        // Emergency Order (Index 999)
+        if (emergencyOrder) {
+            const res = checkOrder(emergencyOrder, 999, false);
+            if (res) results.push(res);
+        }
+
         return results;
-    }, [inventory, orders, patience, skills]);
+    }, [inventory, orders, patience, skills, emergencyOrder]);
 
     const totalRecycleValue = useMemo(() => {
         if (!isRecycleMode || selectedIndices.length === 0) return 0;
@@ -469,7 +631,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     }, [pendingItem, pendingQueue, inventory, maxInventorySize, currentStageConfig]);
 
     const createItem = (pool, itemTemplate, affixKey = null) => {
-        const rarity = rollRarity(config, affixKey, gold, hasSkill, skillState, currentStageConfig);
+        const rarity = rollRarity(config, affixKey, patience, hasSkill, skillState, currentStageConfig);
         return {
             ...itemTemplate,
             uid: Math.random().toString(36).substr(2, 9),
@@ -694,7 +856,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
         handleIncomingItems(itemsToProcess, decayedInventory);
 
-        refreshPools();
+        refreshPools(true);
     };
 
     const handleDraw = (pool) => {
@@ -708,12 +870,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         }
 
         if (pool.affixKey === 'trade_in') {
+            if (config.patience?.enabled !== false) {
+                if (patience < finalCost) { showToast("耐心值不足！", "error"); return; }
+                setPatience(prev => prev - finalCost);
+            }
             setSelectionMode({ type: 'trade_in', pool });
             return;
         }
         if (pool.affixKey === 'precise') {
-            if (patience < finalCost) { showToast("耐心值不足！", "error"); return; }
-            setPatience(prev => prev - finalCost);
+            if (config.patience?.enabled !== false) {
+                if (patience < finalCost) { showToast("耐心值不足！", "error"); return; }
+                setPatience(prev => prev - finalCost);
+            }
 
             const candidates = [];
             let itemIndices = pool.items.map((_, i) => i);
@@ -730,16 +898,20 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             return;
         }
         if (pool.affixKey === 'targeted') {
-            if (patience < finalCost) { showToast("耐心值不足！", "error"); return; }
-            setPatience(prev => prev - finalCost);
+            if (config.patience?.enabled !== false) {
+                if (patience < finalCost) { showToast("耐心值不足！", "error"); return; }
+                setPatience(prev => prev - finalCost);
+            }
             setSelectionMode({ type: 'targeted', pool, items: pool.items, cost: finalCost });
             return;
         }
-        if (patience < finalCost) {
-            showToast("耐心值不足！", "error");
-            return;
+        if (config.patience?.enabled !== false) {
+            if (patience < finalCost) {
+                showToast("耐心值不足！", "error");
+                return;
+            }
+            setPatience(prev => prev - finalCost);
         }
-        setPatience(prev => prev - finalCost);
         handleNormalDraw(pool);
     };
 
@@ -755,7 +927,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             handleIncomingItems([modalContent.actualItem], decayedInventory);
         }
         setDrawCount(prev => prev + 1);
-        refreshPools(false);
+        refreshPools(true);
         setModalContent(null);
     };
 
@@ -768,22 +940,28 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         if (type === 'precise') {
             setDrawCount(prev => prev + 1);
             handleIncomingItems([selectedItem], decayedInventory);
-            refreshPools();
+            refreshPools(true);
             setSelectionMode(null);
         } else if (type === 'targeted') {
             const newItem = createItem(pool, selectedItem, pool.affixKey);
             setDrawCount(prev => prev + 1);
             handleIncomingItems([newItem], decayedInventory);
-            refreshPools(false);
+            refreshPools(true);
             setSelectionMode(null);
         }
     };
 
     const handleSelectionCancel = () => {
+        if (config.patience?.enabled === false) {
+            setSelectionMode(null);
+            return;
+        }
+
         if (selectionMode?.type === 'targeted') {
             setPatience(prev => prev + config.patience.drawCost); // Refund patience
             setSelectionMode(null);
         } else if (selectionMode?.type === 'trade_in') {
+            setPatience(prev => prev + config.patience.drawCost);
             setSelectionMode(null);
         }
     }
@@ -838,7 +1016,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
             setDrawCount(prev => prev + 1);
             handleIncomingItems([newItem], decayedInv);
-            refreshPools();
+            refreshPools(true);
             setSelectionMode(null);
             return;
         }
@@ -860,17 +1038,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 pendingItem.rarity.id === targetItem.rarity.id &&
                 pendingItem.rarity.id !== 'mythic') {
 
-                if (!currentStageConfig.mechanics.synthesis) {
-                    showToast("合成系统暂未解锁！", "error");
-                    return;
-                }
+
 
                 const nextRarity = getNextRarity(targetItem.rarity.id, config);
-
-                if (currentStageConfig.rarityWeights[nextRarity.id] <= 0 && nextRarity.id !== 'mythic') {
-                    showToast(`受限于当前时代工艺，无法合成【${nextRarity.name}】物品！`, 'error');
-                    return;
-                }
 
                 const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
                 const newInventory = [...inventory];
@@ -894,7 +1064,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 // Calculate refund for cleared items
                 const clearedItems = inventory.filter(i => i && i.name === targetName);
                 const recycleValue = clearedItems.reduce((acc, i) => acc + (i.rarity.recycleValue || 0), 0);
-                if (recycleValue > 0) setGold(prev => prev + recycleValue);
+                if (recycleValue > 0) setPatience(prev => prev + recycleValue);
 
                 const itemToAdd = { ...pendingItem };
                 delete itemToAdd.isOverload;
@@ -918,7 +1088,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             }
 
             const recycleGain = targetItem.rarity.recycleValue;
-            if (recycleGain > 0) setGold(prev => prev + recycleGain);
+            if (recycleGain > 0) setPatience(prev => prev + recycleGain);
 
             const newInventory = [...inventory];
             newInventory[index] = pendingItem;
@@ -946,19 +1116,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 sourceItem.rarity.id === targetItem.rarity.id &&
                 sourceItem.rarity.id !== 'mythic') {
 
-                if (!currentStageConfig.mechanics.synthesis) {
-                    showToast("合成系统暂未解锁！", "error");
-                    setSelectedSlot(null);
-                    return;
-                }
+
 
                 const nextRarity = getNextRarity(sourceItem.rarity.id, config);
-
-                if (currentStageConfig.rarityWeights[nextRarity.id] <= 0) {
-                    showToast(`受限于当前时代工艺，无法合成【${nextRarity.name}】物品！`, 'error');
-                    setSelectedSlot(null);
-                    return;
-                }
 
                 const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
                 const newInventory = [...inventory];
@@ -986,7 +1146,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
     const handleDiscardNew = () => {
         const recycleGain = pendingItem.rarity.recycleValue;
-        if (recycleGain > 0) setGold(prev => prev + recycleGain);
+        if (recycleGain > 0) setPatience(prev => prev + recycleGain);
 
         // Discarding does NOT consume durability (only draws do)
         // setInventory(prev => applyEntropy(prev));
@@ -997,16 +1157,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
     const handleRefreshAllOrders = () => {
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode) return;
-        if (gold < config.global.refreshCost) return;
+        if (config.patience?.enabled !== false && patience < config.global.refreshCost) return;
         if (!currentStageConfig.mechanics.refresh) {
             showToast("当前时代尚未解锁订单刷新技术！", "error");
             return;
         }
 
-        setGold(prev => prev - config.global.refreshCost);
-        setOrders(Array(currentStageConfig.orderSlots).fill(null).map(() => generateOrder(allNormalItems, config, hasSkill, currentStageConfig)));
-        // Refreshing does not consume durability
-        // setInventory(prev => applyEntropy(prev));
+        const newOrders = Array(currentStageConfig.orderSlots).fill(null).map(() => generateOrder(allNormalItems, config, hasSkill, currentStageConfig));
+
+        // 应用槽位升级
+        const { orders: upgradedOrders, updatedUpgrades, hasChanges } = applySlotUpgrades(newOrders);
+        setOrders(upgradedOrders);
+        if (hasChanges) setUpgradedOrderItems(updatedUpgrades);
     };
 
     const handleRefreshSingleOrder = (index) => {
@@ -1031,53 +1193,113 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
         const newOrders = [...orders];
         newOrders[index] = newOrder;
-        setOrders(newOrders);
-        // Refreshing does not consume durability
-        // setInventory(prev => applyEntropy(prev));
+
+        // 应用槽位升级 - 仅针对新生成的订单
+        const { orders: upgradedOrders, updatedUpgrades, hasChanges } = applySlotUpgrades(newOrders, [index]);
+        setOrders(upgradedOrders);
+        if (hasChanges) setUpgradedOrderItems(updatedUpgrades);
     };
 
-    const handleOrderClick = (orderIndex, isMainline = false) => {
-        if (!isSubmitMode) return;
-
-        const order = isMainline ? mainlineOrder : orders[orderIndex];
+    const handleOrderClick = (orderIndex) => {
+        const order = orderIndex === 999 ? emergencyOrder : orders[orderIndex];
         if (!order) return;
 
-        const newSelectedIndices = [...selectedIndices];
-        const tempSelectedIndices = [...newSelectedIndices];
-        const indicesToAdd = [];
+        // Check if we can satisfy at least ONE requirement for this order
+        // If NO requirement can be satisfied, prevent clicking
         const requirements = [...order.requirements];
+        let canSatisfyAny = false;
 
         for (const req of requirements) {
-            const existingMatchIndexInSelected = tempSelectedIndices.findIndex(idx => {
-                const item = inventory[idx];
-                return item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus;
-            });
-
-            if (existingMatchIndexInSelected !== -1) {
-                tempSelectedIndices.splice(existingMatchIndexInSelected, 1);
-                continue;
-            }
-
-            const currentlyUsedIndices = new Set([...selectedIndices, ...indicesToAdd]);
-            const candidates = inventory
-                .map((item, idx) => ({ item, idx }))
-                .filter(({ item, idx }) =>
-                    item &&
-                    !currentlyUsedIndices.has(idx) &&
-                    item.name === req.name &&
-                    item.rarity.bonus >= req.requiredRarity.bonus
-                );
-
-            candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus);
-
-            if (candidates.length > 0) {
-                const match = candidates[0];
-                indicesToAdd.push(match.idx);
+            const hasMatchingItem = inventory.some(item =>
+                item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
+            );
+            if (hasMatchingItem) {
+                canSatisfyAny = true;
+                break;
             }
         }
 
-        if (indicesToAdd.length > 0) {
-            setSelectedIndices([...selectedIndices, ...indicesToAdd]);
+        // Prevent clicking if no requirements can be satisfied
+        if (!canSatisfyAny) {
+            showToast("库存中没有满足该订单条件的物品", "error");
+            return;
+        }
+
+        // Auto-enter submit mode if not active
+        if (!isSubmitMode) {
+            setIsSubmitMode(true);
+            setIsRecycleMode(false);
+            setSelectedSlot(null);
+            // We can't immediately run the selection logic because state updates are async,
+            // but we can use a local flag to proceed in this execution turn.
+        }
+
+        // Check which items are currently satisfying THIS specific order
+        const currentMatchesIdx = [];
+        const tempSelected = [...selectedIndices];
+
+        for (const req of requirements) {
+            const matchIdx = tempSelected.findIndex(idx => {
+                const item = inventory[idx];
+                return item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus;
+            });
+            if (matchIdx !== -1) {
+                currentMatchesIdx.push(tempSelected[matchIdx]);
+                tempSelected.splice(matchIdx, 1);
+            }
+        }
+
+        const isFullySatisfied = currentMatchesIdx.length === requirements.length;
+
+        if (isFullySatisfied) {
+            // UNSELECT all items used for this order
+            setSelectedIndices(prev => prev.filter(idx => !currentMatchesIdx.includes(idx)));
+        } else {
+            // TRY TO FILL the remaining/missing requirements
+            const indicesToAdd = [];
+            const currentlyUsedIndices = new Set(selectedIndices);
+
+            for (const req of requirements) {
+                // Skip if already matched
+                const alreadyMatched = currentMatchesIdx.some(idx => {
+                    const item = inventory[idx];
+                    return item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus;
+                });
+
+                // Wait, the toggle logic above is simpler. 
+                // Let's just find ALL candidates to satisfy the order from scratch, 
+                // but prioritizing keeping what's already selected.
+            }
+
+            // Simpler "Fill everything we can" logic:
+            const finalIndicesToAdd = [];
+            const usedInThisSearch = new Set(selectedIndices);
+
+            requirements.forEach(req => {
+                // Find if any CURRENTLY selected item matches this req (that isn't already "used" for another req in this loop)
+                // This is complex to do perfectly in one pass, let's just use the logic from before but better.
+
+                const candidates = inventory
+                    .map((item, idx) => ({ item, idx }))
+                    .filter(({ item, idx }) =>
+                        item &&
+                        !usedInThisSearch.has(idx) &&
+                        item.name === req.name &&
+                        item.rarity.bonus >= req.requiredRarity.bonus
+                    );
+                candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus);
+                if (candidates.length > 0) {
+                    finalIndicesToAdd.push(candidates[0].idx);
+                    usedInThisSearch.add(candidates[0].idx);
+                }
+            });
+
+            if (finalIndicesToAdd.length > 0) {
+                setSelectedIndices(prev => [...prev, ...finalIndicesToAdd]);
+            } else if (!isFullySatisfied && !isSubmitMode) {
+                // If we JUST entered submit mode but couldn't find anything, show a hint
+                showToast("库存中没有满足该订单条件的物品", "info");
+            }
         }
     };
 
@@ -1092,9 +1314,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         const newOrders = [...orders];
         const completedIndices = [];
 
+        // 追踪完成的订单类型
+        let completedEmergencyOrder = false;
+        let completedMainlineCount = 0;
+
         const nextSkillState = { ...skillState };
 
-        satisfiableOrders.forEach(({ index, finalPatienceReward, finalProgressReward, reqCount, requirements }) => {
+        satisfiableOrders.forEach(({ index, finalPatienceReward, finalProgressReward, reqCount, requirements, isMainline }) => {
             gainedPatience += finalPatienceReward;
             gainedProgress += finalProgressReward;
 
@@ -1111,6 +1337,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
 
             if (hasSkill('auto_restock')) nextSkillState.nextDrawExtraItem = true;
             if (hasSkill('turn_fortune')) nextSkillState.nextDrawGuaranteedRare = true;
+
+            // 追踪订单类型
+            if (index === 999) {
+                completedEmergencyOrder = true;
+            }
+
+            // 计算主线进度增加值来判断是否为主线订单（主线订单通常进度奖励更高）
+            if (finalProgressReward >= 2) {  // 主线订单的判断逻辑
+                completedMainlineCount++;
+            }
 
             completedIndices.push(index);
         });
@@ -1135,10 +1371,53 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             return newProgress;
         });
 
+        // 难度调整逻辑
+        if (completedEmergencyOrder) {
+            // 完成限时订单后，提升难度
+            const difficultyConfig = config.emergency?.difficulty;
+            if (difficultyConfig) {
+                const increaseAmount = difficultyConfig.increaseOnNewOrder || 1;
+                const maxDifficulty = difficultyConfig.maxDifficulty || 10;
+                setEmergencyDifficulty(prev => {
+                    const newDiff = Math.min(maxDifficulty, prev + increaseAmount);
+                    if (newDiff > prev) {
+                        showToast(`限时订单难度提升至 ${newDiff}！`, "warning");
+                    }
+                    return newDiff;
+                });
+            }
+        }
+
+        // 完成主线订单后，降低限时订单难度
+        if (completedMainlineCount > 0) {
+            const difficultyConfig = config.emergency?.difficulty;
+            if (difficultyConfig) {
+                const decreaseAmount = (difficultyConfig.decreaseOnMainline || 1) * completedMainlineCount;
+                const minDifficulty = difficultyConfig.minDifficulty || 1;
+                setEmergencyDifficulty(prev => {
+                    const newDiff = Math.max(minDifficulty, prev - decreaseAmount);
+                    if (newDiff < prev) {
+                        showToast(`限时订单难度降低至 ${newDiff}！`, "success");
+                    }
+                    return newDiff;
+                });
+            }
+        }
+
         completedIndices.forEach(idx => {
-            newOrders[idx] = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            if (idx === 999) {
+                // 限时订单完成：标记为已完成，但不立即刷新
+                // 等倒计时结束后再刷新
+                setEmergencyOrderCompleted(true);
+            } else {
+                newOrders[idx] = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            }
         });
-        setOrders(newOrders);
+
+        // 应用槽位升级 - 仅针对新生成的订单
+        const { orders: upgradedOrders, updatedUpgrades, hasChanges } = applySlotUpgrades(newOrders, completedIndices);
+        setOrders(upgradedOrders);
+        if (hasChanges) setUpgradedOrderItems(updatedUpgrades);
 
         const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
         setInventory(newInventory);
@@ -1235,22 +1514,86 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     };
 
     // Patience Check: Game Over when patience <= 0
+    // Also check Emergency Deadline and Customer Impatience
     useEffect(() => {
-        if (patience <= 0 && !modalContent) {
-            setModalContent({
-                title: "游戏结束",
-                item: { name: '耐心耗尽', icon: '💔', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
-                message: "你的耐心值已耗尽！",
-                type: 'game_over',
-                score: drawCount
-            });
+        if (!modalContent) {
+            if (config.patience?.enabled !== false && patience <= 0) {
+                setModalContent({
+                    title: "游戏结束",
+                    item: { name: '耐心耗尽', icon: '💔', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
+                    message: "你的耐心值已耗尽！",
+                    type: 'game_over',
+                    score: drawCount
+                });
+            } else if (config.emergency?.impatience?.enabled && customerImpatience >= (config.emergency.impatience.maxValue || 5)) {
+                setModalContent({
+                    title: "游戏结束",
+                    item: { name: '顾客不满', icon: '😡', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
+                    message: `顾客急躁值已达到上限（${config.emergency.impatience.maxValue}）！`,
+                    type: 'game_over',
+                    score: drawCount
+                });
+            } else if (emergencyOrder && emergencyOrder.deadline <= 0) {
+                // 倒计时结束
+                if (emergencyOrderCompleted) {
+                    // 订单已完成，刷新订单
+                    const deadline = config.emergency?.deadline || 15;
+                    const newDifficulty = emergencyDifficulty; // 完成时已经调整过难度了
+
+                    const newEmergencyOrder = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, newDifficulty);
+                    newEmergencyOrder.isEmergency = true;
+                    newEmergencyOrder.deadline = deadline;
+                    newEmergencyOrder.maxDeadline = deadline;
+                    newEmergencyOrder.difficulty = newDifficulty;
+                    setEmergencyOrder(newEmergencyOrder);
+                    setEmergencyOrderCompleted(false); // 重置完成标记
+                } else {
+                    // 订单超时：增加急躁值并刷新订单
+                    const impatienceConfig = config.emergency?.impatience;
+                    if (impatienceConfig?.enabled) {
+                        const increaseAmount = impatienceConfig.increaseOnTimeout || 1;
+                        const newImpatience = customerImpatience + increaseAmount;
+                        setCustomerImpatience(newImpatience);
+                        showToast(`限时订单超时！顾客急躁值 +${increaseAmount}（${newImpatience}/${impatienceConfig.maxValue}）`, "error");
+
+                        // 刷新限时订单（难度提升）
+                        const difficultyConfig = config.emergency?.difficulty;
+                        const increaseOnTimeout = difficultyConfig?.increaseOnNewOrder || 1;
+                        const maxDifficulty = difficultyConfig?.maxDifficulty || 10;
+                        const newDifficulty = Math.min(maxDifficulty, emergencyDifficulty + increaseOnTimeout);
+
+                        setEmergencyDifficulty(newDifficulty);
+
+                        const deadline = config.emergency?.deadline || 15;
+                        const newEmergencyOrder = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, newDifficulty);
+                        newEmergencyOrder.isEmergency = true;
+                        newEmergencyOrder.deadline = deadline;
+                        newEmergencyOrder.maxDeadline = deadline;
+                        newEmergencyOrder.difficulty = newDifficulty;
+                        setEmergencyOrder(newEmergencyOrder);
+                    } else {
+                        // 如果未启用急躁值系统，则直接游戏结束
+                        setModalContent({
+                            title: "游戏结束",
+                            item: { name: '限时订单超时', icon: '⏰', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
+                            message: "未能在规定时间内完成限时订单！",
+                            type: 'game_over',
+                            score: drawCount
+                        });
+                    }
+                }
+            }
         }
-    }, [patience, modalContent, drawCount]);
+    }, [patience, modalContent, drawCount, config, emergencyOrder, emergencyOrderCompleted, customerImpatience, emergencyDifficulty, allNormalItems, hasSkill, currentStageConfig]);
 
     return {
         state: {
             patience,
             patienceStage,
+            emergencyOrder,
+            emergencyOrderCompleted,
+            customerImpatience,
+            emergencyDifficulty,
             mainlineProgress,
             upgradedOrderItems,
             currentStageConfig,
@@ -1294,7 +1637,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             handleSortInventory,
             handlePoolHover,
             handlePoolLeave,
-            refreshPools
+            refreshPools,
+            addInventoryItem
         },
         helpers: {
             hasSkill
