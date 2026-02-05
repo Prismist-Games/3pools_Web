@@ -231,7 +231,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const baseItem = allItems.find(i => i.name === itemName);
         const rarity = config.rarity.find(r => r.id === rarityId) || config.rarity[0];
         if (!baseItem) {
-            showToast(`找不到物品: ${itemName}`, 'error');
+            showToast(`${t("找不到物品")}: ${t(itemName)}`, 'error');
             return;
         }
         const newItem = {
@@ -244,7 +244,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setInventory(prev => [...prev, newItem]);
             showToast(`${t("已获取")}: ${t(newItem.name)} (${t(rarity.name)})`, 'success');
         } else {
-            showToast(t('背包已满！'), 'error');
+            showToast(t("背包已满！"), 'error');
         }
     };
 
@@ -854,7 +854,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (hasSkill('consolation_prize') && newSkillState.consecutiveCommons >= 5) {
             newSkillState.nextDrawGuaranteedRare = true;
             newSkillState.consecutiveCommons = 0;
-            showToast("【安慰奖】触发：下一次必定稀有！", "info");
+            showToast(t("【安慰奖】触发：下一次必定稀有！"), "info");
         }
 
         setSkillState(newSkillState);
@@ -879,7 +879,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         // Check gold affordability
         if (gold < finalCost) {
-            showToast("金币不足！", "error");
+            showToast(t("金币不足！"), "error");
             return;
         }
 
@@ -989,7 +989,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             if (!consumedItem) return;
 
             if (consumedItem.isScoreItem) {
-                showToast("主线道具无法用于以旧换新！", "error");
+                showToast(t("主线道具无法用于以旧换新！"), "error");
                 return;
             }
 
@@ -1176,7 +1176,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode) return;
         if (config.patience?.enabled !== false && patience < config.global.refreshCost) return;
         if (!currentStageConfig.mechanics.refresh) {
-            showToast("当前时代尚未解锁订单刷新技术！", "error");
+            showToast(t("当前时代尚未解锁订单刷新技术！"), "error");
             return;
         }
 
@@ -1192,7 +1192,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode) return;
 
         if (!currentStageConfig.mechanics.refresh) {
-            showToast("当前时代尚未解锁订单刷新技术！", "error");
+            showToast(t("当前时代尚未解锁订单刷新技术！"), "error");
             return;
         }
 
@@ -1204,7 +1204,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         let newRefreshes = currentOrder.remainingRefreshes - 1;
         if (hasSkill('time_freeze') && Math.random() < 0.20) {
             newRefreshes = currentOrder.remainingRefreshes;
-            showToast("【时间冻结】触发：刷新次数未消耗！");
+            showToast(t("【时间冻结】触发：刷新次数未消耗！"));
         }
         newOrder.remainingRefreshes = newRefreshes;
 
@@ -1238,7 +1238,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 }
             }
             if (!canSatisfyAny) {
-                showToast("库存中没有满足该撤离需求的物品", "error");
+                showToast(t("库存中没有满足该撤离需求的物品"), "error");
                 return;
             }
 
@@ -1304,7 +1304,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         // Prevent clicking if no requirements can be satisfied
         if (!canSatisfyAny) {
-            showToast("库存中没有满足该订单条件的物品", "error");
+            showToast(t("库存中没有满足该订单条件的物品"), "error");
             return;
         }
 
@@ -1381,14 +1381,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 setSelectedIndices(prev => [...prev, ...finalIndicesToAdd]);
             } else if (!isFullySatisfied && !isSubmitMode) {
                 // If we JUST entered submit mode but couldn't find anything, show a hint
-                showToast("库存中没有满足该订单条件的物品", "info");
+                showToast(t("库存中没有满足该订单条件的物品"), "info");
             }
         }
     };
 
     const handleConfirmSubmission = () => {
         if (satisfiableOrders.length === 0) {
-            showToast("请至少完成一个任务才能提交！", "error");
+            showToast(t("请至少完成一个任务才能提交！"), "error");
             return;
         }
 
@@ -1408,13 +1408,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             gainedScore += finalScoreReward;
 
             if (hasSkill('big_order_expert') && reqCount === 4) {
-                showToast("【大订单专家】触发：+5耐心值");
+                showToast(t("【大订单专家】触发：+5耐心值"));
             }
 
             if (hasSkill('hard_order_expert')) {
                 const hasHardReq = requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
                 if (hasHardReq) {
-                    showToast("【困难订单专家】触发：+10耐心值");
+                    showToast(t("【困难订单专家】触发：+10耐心值"));
                 }
             }
 
@@ -1450,12 +1450,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     setEmergencyDifficulty(prev => {
                         const newDiff = Math.max(minDifficulty, prev - decreaseAmount);
                         if (newDiff < prev) {
-                            showToast(`积分订单达成，撤离需求难度降低至 ${newDiff}！`, "success");
+                            showToast(`${t("积分订单达成，撤离需求难度降低至")} ${newDiff}！`, "success");
                         }
                         return newDiff;
                     });
                 } else if (decreaseAmountBase === 0) {
-                    showToast(`积分订单达成！`, "success");
+                    showToast(t("积分订单达成！"), "success");
                 }
             }
         }
@@ -1493,7 +1493,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     if (Math.random() < 0.25) extraGold += 5;
                 }
             });
-            if (extraGold > 0) showToast(`【炼金术】触发：获得 ${extraGold} 金币！`, 'info');
+            if (extraGold > 0) showToast(`${t("【炼金术】触发：获得")} ${extraGold} ${t("金币")}!`, 'info');
         }
 
         setGold(prev => prev + baseValue + extraGold);
@@ -1561,7 +1561,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }
             return newInv;
         });
-        showToast("背包已整理", "success");
+        showToast(t("背包已整理"), "success");
     };
 
     const handlePoolHover = (pool) => {

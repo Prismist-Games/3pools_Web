@@ -320,7 +320,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                 <div className="mb-2 relative flex flex-col gap-2">
                                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg z-20 flex items-center gap-1">
                                         <Timer size={10} />
-                                        <span>{t("撤离需求")} (完成任意其一)</span>
+                                        <span>{t("撤离需求")} {t("(完成任意其一)")}</span>
                                     </div>
 
                                     <div className="flex flex-col gap-2 mt-2">
