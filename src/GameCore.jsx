@@ -293,7 +293,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                     {/* LEFT COLUMN: ORDERS */}
                     <section className={`
-                     flex-none lg:w-1/3 p-4 overflow-y-auto border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 transition-all
+                     flex-none lg:w-5/12 p-4 overflow-y-auto border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 transition-all
                      ${selectionMode?.type === 'targeted' ? 'hidden md:block md:w-1/4' : ''}
                   `}>
                         <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-50/95 p-2 rounded-lg z-10 backdrop-blur-sm">
