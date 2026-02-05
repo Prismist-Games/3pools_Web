@@ -30,10 +30,10 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
     const {
         gold, patience, patienceStage, score, upgradedOrderItems, currentStageConfig, maxInventorySize,
-        drawCount, activePools, orders, emergencyOrder, health, emergencyDifficulty, inventory,
+        drawCount, activePools, orders, emergencyOrders, health, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
-        isSubmitMode, isRecycleMode, selectedIndices,
+        isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates,
         toast, satisfiableOrders, totalRecycleValue, selectedItemNames
@@ -58,7 +58,9 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
         handleSortInventory,
         handlePoolHover,
         handlePoolLeave,
-        handleEvacuate
+        handleEvacuate,
+        toggleEvacuationMode,
+        handleConfirmEvacuation
     } = actions;
 
     const { hasSkill } = helpers;
@@ -251,7 +253,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                             </div>
 
                             {/* Difficulty Display */}
-                            {emergencyOrder && (
+                            {emergencyOrders.length > 0 && (
                                 <div className="flex flex-col gap-0.5 items-end">
                                     <span className="text-[9px] font-black uppercase tracking-widest opacity-30 text-orange-100">{t("撤离难度")}</span>
                                     <div className="flex items-center gap-1.5 text-orange-400/90">
@@ -313,49 +315,57 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                         <div className="flex flex-col gap-3">
 
-                            {/* Emergency Order */}
-                            {state.emergencyOrder && (
-                                <div className="mb-2 relative">
+                            {/* Emergency Orders */}
+                            {state.emergencyOrders && state.emergencyOrders.length > 0 && (
+                                <div className="mb-2 relative flex flex-col gap-2">
                                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg z-20 flex items-center gap-1">
                                         <Timer size={10} />
-                                        <span>{t("撤离需求")}</span>
+                                        <span>{t("撤离需求")} (完成任意其一)</span>
                                     </div>
-                                    <OrderCard
-                                        key="emergency"
-                                        order={state.emergencyOrder}
-                                        index={999}
-                                        isScoreOrder={false}
-                                        isEmergency={true}
-                                        isSubmitMode={isSubmitMode}
-                                        canSatisfy={satisfiableOrders.find(r => r.index === 999)}
-                                        potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === 999)}
-                                        emergencyOrderCompleted={state.emergencyOrderCompleted}
-                                        onClick={handleOrderClick}
-                                        currentStageConfig={currentStageConfig}
-                                        config={config}
-                                        inventory={inventory}
-                                        selectedIndices={selectedIndices}
-                                        hasSkill={hasSkill}
-                                        hoveredPoolId={hoveredPoolId}
-                                        hoveredItemName={hoveredItemName}
-                                        hoveredPoolItemNames={hoveredPoolItemNames}
-                                        selectedItemNames={selectedItemNames}
-                                        upgradedOrderItems={state.upgradedOrderItems}
-                                    />
+
+                                    <div className="flex flex-col gap-2 mt-2">
+                                        {state.emergencyOrders.map((order, idx) => (
+                                            <OrderCard
+                                                key={order.id}
+                                                order={order}
+                                                index={998 + idx}
+                                                isScoreOrder={false}
+                                                isEmergency={true}
+                                                isSubmitMode={isSubmitMode}
+                                                canSatisfy={satisfiableOrders.find(r => r.index === 998 + idx)}
+                                                potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === 998 + idx)}
+                                                // Pass click handler to allow auto-selection
+                                                onClick={handleOrderClick}
+                                                currentStageConfig={currentStageConfig}
+                                                config={config}
+                                                inventory={inventory}
+                                                selectedIndices={selectedIndices}
+                                                hasSkill={hasSkill}
+                                                hoveredPoolId={hoveredPoolId}
+                                                hoveredItemName={hoveredItemName}
+                                                hoveredPoolItemNames={hoveredPoolItemNames}
+                                                selectedItemNames={selectedItemNames}
+                                                upgradedOrderItems={state.upgradedOrderItems}
+                                            />
+                                        ))}
+                                    </div>
+
                                     {/* Evacuate Button */}
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleEvacuate(); }}
                                         disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
                                         className={`
                                             mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold transition-all duration-200 text-sm shadow-sm
-                                            ${pendingItem || isSubmitMode || isRecycleMode || selectionMode
-                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                : 'bg-orange-500 text-white hover:bg-orange-600 hover:scale-[1.02] active:scale-95 ring-2 ring-orange-300'
+                                            ${isEvacuationMode
+                                                ? 'bg-orange-600 text-white ring-4 ring-orange-300 scale-[1.02]'
+                                                : (pendingItem || isSubmitMode || isRecycleMode || selectionMode
+                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                    : 'bg-orange-500 text-white hover:bg-orange-600 hover:scale-[1.02] active:scale-95 ring-2 ring-orange-300')
                                             }
                                         `}
                                     >
-                                        <Truck size={16} />
-                                        <span>{t("撤离（重置金币）")}</span>
+                                        {isEvacuationMode ? <Check size={16} /> : <Truck size={16} />}
+                                        <span>{isEvacuationMode ? t("正在选择撤离物品...") : t("撤离（重置金币）")}</span>
                                     </button>
                                 </div>
                             )}
@@ -656,7 +666,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                     {/* Action Buttons (Fixed Bottom Right) */}
                     <div className="absolute bottom-4 right-4 md:right-10 lg:right-20 flex gap-2 z-50">
-                        {!isSubmitMode && !isRecycleMode && !pendingItem && !selectionMode && (
+                        {!isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode && (
                             <>
                                 <button onClick={toggleRecycleMode} className="flex items-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-full shadow-lg hover:bg-amber-200 transition-transform active:scale-95">
                                     <Trash2 size={18} /> {t("回收")}
@@ -681,6 +691,15 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                 <button onClick={toggleRecycleMode} className="bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-full shadow-sm hover:bg-slate-50">{t("取消")}</button>
                                 <button onClick={handleConfirmRecycle} disabled={selectedIndices.length === 0} className={`flex items-center gap-2 font-bold py-2 px-6 rounded-full shadow-lg ${selectedIndices.length > 0 ? 'bg-amber-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
                                     <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}🪙)
+                                </button>
+                            </>
+                        )}
+
+                        {isEvacuationMode && (
+                            <>
+                                <button onClick={() => toggleEvacuationMode()} className="bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-full shadow-sm hover:bg-slate-50">{t("取消")}</button>
+                                <button onClick={handleConfirmEvacuation} disabled={satisfiableOrders.filter(o => o.index >= 998).length === 0} className={`flex items-center gap-2 font-bold py-2 px-6 rounded-full shadow-lg ${satisfiableOrders.filter(o => o.index >= 998).length > 0 ? 'bg-orange-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
+                                    <Truck size={16} /> {t("确认撤离")}
                                 </button>
                             </>
                         )}
@@ -715,7 +734,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                 // Badge Logic: Scans all orders (including emergency order)
                                 const activeReqs = [
                                     ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                    ...(emergencyOrder ? emergencyOrder.requirements : [])
+                                    ...emergencyOrders.flatMap(o => o.requirements)
                                 ];
                                 // Find best requirement? Ideally any requirement that needs this item.
                                 // We check if ANY requirement matches name.
@@ -746,7 +765,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         item={item}
                                         isSelected={isSelected}
                                         isTarget={!!sourceItem && !isSourceSelf} // If we are dragging/selecting something, this slot is a target
-                                        isSubmitMode={isSubmitMode}
+                                        isSubmitMode={isSubmitMode || isEvacuationMode}
                                         isRecycleMode={isRecycleMode}
                                         isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
                                         isReference={selectionMode?.type === 'trade_in'}
@@ -792,7 +811,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                                     // Pending Item Badge Logic
                                                     const activeReqs = [
                                                         ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                                        ...(emergencyOrder ? emergencyOrder.requirements : [])
+                                                        ...emergencyOrders.flatMap(o => o.requirements)
                                                     ];
                                                     const matchedReqs = activeReqs.filter(r => r.name === pendingItem.name);
                                                     const isNeeded = matchedReqs.length > 0;
@@ -828,7 +847,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                             // Queue Item Badge Logic
                                             const activeReqs = [
                                                 ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                                ...(emergencyOrder ? emergencyOrder.requirements : [])
+                                                ...emergencyOrders.flatMap(o => o.requirements)
                                             ];
                                             const matchedReqs = activeReqs.filter(r => r.name === qItem.name);
                                             const isNeeded = matchedReqs.length > 0;
