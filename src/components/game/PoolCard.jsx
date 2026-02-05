@@ -25,7 +25,7 @@ const PoolCardBase = ({
 
     const canAfford = gold >= finalCost;
     const isEffectiveDisabled = disabled || !canAfford;
-    const isMainline = pool.type === 'mainline';
+    const isScorePool = pool.type === 'score';
 
     return (
         <button
@@ -75,9 +75,9 @@ const PoolCardBase = ({
 
             {/* Row 3: Content Area */}
             <div className="flex-1 w-full">
-                {isMainline ? (
+                {isScorePool ? (
                     <div className="flex flex-col gap-1 text-base font-bold opacity-80">
-                        <p>🔥 {t("主线目标")}: {t(pool.targetItem?.name)}</p>
+                        <p>🔥 {t("积分目标")}: {t(pool.targetItem?.name)}</p>
                         <p className="text-sm opacity-60">{t("可能是 90% 普通物品...")}</p>
                     </div>
                 ) : (

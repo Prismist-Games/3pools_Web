@@ -50,7 +50,7 @@ export const InventorySlot = ({
         }
     }
 
-    const isDisabled = (isMultiSelectMode && !item) || (isReference && (!item || item.isMainlineItem)) || isPendingSlot;
+    const isDisabled = (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem)) || isPendingSlot;
 
     return (
         <button

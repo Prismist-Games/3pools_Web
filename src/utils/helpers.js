@@ -191,9 +191,9 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
     // Fixed patience reward (no rarity multiplier)
     const basePatienceReward = rawBaseReward;
 
-    // Base progress reward (calculated ONLY by sum of per-rarity weights)
-    // Emergency orders DON'T give progress rewards
-    let baseProgressReward = 0;
+    // Base score reward (calculated ONLY by sum of per-rarity weights)
+    // Emergency orders DON'T give score rewards
+    let baseScoreReward = 0;
 
     if (!isEmergency) {
         const rarityWeights = config.progress?.rarityWeights || {};
@@ -205,17 +205,17 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
             return sum + (rarityWeights[rKey] || 0);
         }, 0);
 
-        const calculatedProgress = Math.floor(totalRarityScore + offset);
-        baseProgressReward = Math.max(1, Math.min(4, calculatedProgress));
+        const calculatedScore = Math.floor(totalRarityScore + offset);
+        baseScoreReward = Math.max(1, Math.min(4, calculatedScore));
     }
 
     return {
         id: Math.random().toString(36).substr(2, 9),
         requirements,
         basePatienceReward,
-        baseProgressReward,
+        baseScoreReward,
         remainingRefreshes: 2,
-        isMainline: false
+        isScoreOrder: !isEmergency
     };
 };
 

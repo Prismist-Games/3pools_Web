@@ -251,52 +251,52 @@ export default function App() {
                                                 />
                                             </div>
 
-                                            {/* Impatience System */}
-                                            <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                            {/* Health System */}
+                                            <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-lg">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <label className="text-xs font-bold text-amber-700">😡 顾客急躁值系统</label>
+                                                    <label className="text-xs font-bold text-rose-700">❤️ 生命值系统</label>
                                                     <input
                                                         type="checkbox"
-                                                        checked={config.emergency?.impatience?.enabled !== false}
+                                                        checked={config.emergency?.health?.enabled !== false}
                                                         onChange={(e) => setConfig({
                                                             ...config,
                                                             emergency: {
                                                                 ...config.emergency,
-                                                                impatience: { ...(config.emergency?.impatience || {}), enabled: e.target.checked }
+                                                                health: { ...(config.emergency?.health || {}), enabled: e.target.checked }
                                                             }
                                                         })}
-                                                        className="accent-amber-600 w-4 h-4"
+                                                        className="accent-rose-600 w-4 h-4"
                                                     />
                                                 </div>
-                                                <div className={`grid grid-cols-2 gap-2 ${config.emergency?.impatience?.enabled === false ? 'opacity-40 pointer-events-none' : ''}`}>
+                                                <div className={`grid grid-cols-2 gap-2 ${config.emergency?.health?.enabled === false ? 'opacity-40 pointer-events-none' : ''}`}>
                                                     <div>
-                                                        <label className="text-[8px] text-amber-600 block mb-1">最大情绪值 (Customer Mood)</label>
+                                                        <label className="text-[8px] text-rose-600 block mb-1">最大生命值</label>
                                                         <input
                                                             type="number"
                                                             min="1"
                                                             className="w-full p-1 border rounded font-mono text-sm"
-                                                            value={config.emergency?.impatience?.maxValue || 3}
+                                                            value={config.emergency?.health?.maxHealth || 3}
                                                             onChange={(e) => setConfig({
                                                                 ...config,
                                                                 emergency: {
                                                                     ...config.emergency,
-                                                                    impatience: { ...(config.emergency?.impatience || {}), maxValue: parseInt(e.target.value) || 3 }
+                                                                    health: { ...(config.emergency?.health || {}), maxHealth: parseInt(e.target.value) || 3 }
                                                                 }
                                                             })}
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-[8px] text-amber-600 block mb-1">超时增加值</label>
+                                                        <label className="text-[8px] text-rose-600 block mb-1">超时扣除值</label>
                                                         <input
                                                             type="number"
                                                             min="1"
                                                             className="w-full p-1 border rounded font-mono text-sm"
-                                                            value={config.emergency?.impatience?.increaseOnTimeout || 1}
+                                                            value={config.emergency?.health?.decreaseOnTimeout || 1}
                                                             onChange={(e) => setConfig({
                                                                 ...config,
                                                                 emergency: {
                                                                     ...config.emergency,
-                                                                    impatience: { ...(config.emergency?.impatience || {}), increaseOnTimeout: parseInt(e.target.value) || 1 }
+                                                                    health: { ...(config.emergency?.health || {}), decreaseOnTimeout: parseInt(e.target.value) || 1 }
                                                                 }
                                                             })}
                                                         />
@@ -365,7 +365,7 @@ export default function App() {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-[8px] text-green-600 block mb-1">完成主线订单难度-</label>
+                                                        <label className="text-[8px] text-green-600 block mb-1">完成积分订单难度-</label>
                                                         <input
                                                             type="number"
                                                             min="0"
@@ -484,9 +484,9 @@ export default function App() {
                                     </div>
 
 
-                                    {/* Progress Config */}
+                                    {/* Score Config */}
                                     <div className="space-y-4">
-                                        <h5 className="text-sm font-bold text-blue-700 flex items-center gap-1"><Flag size={14} /> 游戏进度获取公式</h5>
+                                        <h5 className="text-sm font-bold text-blue-700 flex items-center gap-1"><Flag size={14} /> 积分订单获取公式</h5>
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="flex flex-col gap-1">

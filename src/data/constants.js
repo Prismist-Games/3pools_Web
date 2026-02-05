@@ -506,18 +506,18 @@ export const PATIENCE_CONFIG = {
 export const EMERGENCY_ORDER_CONFIG = {
     deadline: 15,           // 时限（回合数）
 
-    // 顾客急躁值系统
-    impatience: {
-        enabled: true,      // 是否启用急躁值系统
-        maxValue: 3,        // 最大急躁值（达到后游戏失败）
-        increaseOnTimeout: 1 // 每次超时增加的急躁值
+    // 生命值系统（原顾客急躁值）
+    health: {
+        enabled: true,      // 是否启用生命值系统
+        maxHealth: 3,       // 最大生命值（减少到0后游戏失败）
+        decreaseOnTimeout: 1 // 每次超时减少的生命值
     },
 
     // 难度系统
     difficulty: {
         initial: 1,         // 初始难度
         increaseOnNewOrder: 1,  // 每个新限时订单难度增加值
-        decreaseOnMainline: 1,  // 完成主线订单时难度减少值
+        decreaseOnScoreOrder: 1,  // 完成积分订单时难度减少值
         minDifficulty: 1,   // 最小难度
         maxDifficulty: 10   // 最大难度（可选）
     },
@@ -576,10 +576,9 @@ export const EMERGENCY_ORDER_CONFIG = {
     }
 };
 
-// --- 主线进度配置 ---
-// --- 主线进度配置 ---
-export const MAINLINE_PROGRESS_CONFIG = {
-    targetProgress: 20,        // 胜利条件
+// --- 积分订单配置 ---
+export const SCORE_PROGRESS_CONFIG = {
+    targetProgress: Infinity,  // 无上限
     progressOffset: 0.0,       // 计算偏移量
     // 详细品质权重分配 (累加每个需求物品的值)
     rarityWeights: {
@@ -598,7 +597,7 @@ export const INITIAL_GAME_CONFIG = {
     pools: INITIAL_POOLS_DATA,
     stages: INITIAL_STAGE_CONFIG,
     patience: PATIENCE_CONFIG,
-    progress: MAINLINE_PROGRESS_CONFIG,
+    progress: SCORE_PROGRESS_CONFIG,
     emergency: EMERGENCY_ORDER_CONFIG,
     enabledSkillIds: [
         "poverty_relief",

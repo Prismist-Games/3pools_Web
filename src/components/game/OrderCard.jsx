@@ -1,15 +1,15 @@
 import React, { useMemo } from 'react';
-import { RefreshCw, Check, Ticket, Coins, Clock, Zap, Crown, Trophy, TrendingUp } from 'lucide-react';
+import { RefreshCw, Check, Ticket, Coins, Clock, Zap, Crown, Trophy, TrendingUp, Star } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const OrderCardBase = ({
     order,
     index,
-    isMainline,
+    isScoreOrder,
 
     // State
     isSubmitMode,
-    canSatisfy, // { index, finalReward, rewardType, isMainline, reqCount, requirements }
+    canSatisfy, // { index, finalReward, rewardType, isScoreOrder, reqCount, requirements }
     potentialSatisfy, // { index, finalReward ... } (Preview)
     emergencyOrderCompleted, // 限时订单已完成标记
 
@@ -62,26 +62,26 @@ const OrderCardBase = ({
         );
     }
 
-    const { id, requirements, basePatienceReward, baseProgressReward, remainingRefreshes } = order;
+    const { id, requirements, basePatienceReward, baseScoreReward, remainingRefreshes } = order;
 
     // Calculate visualization states
     const isSatisfied = !!canSatisfy;
 
     return (
         <div
-            onClick={() => onClick(index, isMainline)}
+            onClick={() => onClick(index, isScoreOrder)}
             className={`
                 relative bg-white rounded-2xl p-3 shadow-sm border-2 transition-all duration-200
-                ${isMainline
-                    ? 'border-yellow-300 bg-yellow-50 ring-4 ring-yellow-50'
+                ${isScoreOrder
+                    ? 'border-blue-300 bg-blue-50 ring-4 ring-blue-50'
                     : order.isEmergency
                         ? 'border-red-400 bg-red-50 ring-4 ring-red-50'
                         : 'border-slate-100 hover:border-slate-300'
                 }
                 ${isSubmitMode ? (canSatisfy || potentialSatisfy ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed') : ''}
                 ${isSatisfied
-                    ? (isMainline ? 'ring-4 ring-green-400 border-green-500 bg-green-50' : 'ring-4 ring-green-400 border-green-500 bg-green-50 transform scale-[1.02]')
-                    : ((isSubmitMode && !isMainline) ? 'opacity-60 grayscale-[0.8] scale-95' : '')
+                    ? (isScoreOrder ? 'ring-4 ring-green-400 border-green-500 bg-green-50' : 'ring-4 ring-green-400 border-green-500 bg-green-50 transform scale-[1.02]')
+                    : ((isSubmitMode && !isScoreOrder) ? 'opacity-60 grayscale-[0.8] scale-95' : '')
                 }
             `}
         >
@@ -92,33 +92,33 @@ const OrderCardBase = ({
                 <div className="flex flex-col gap-1.5 flex-1">
 
                     {/* Header / Reward Badge */}
-                    <div className="flex items-center gap-2">
-                        {isMainline ? (
-                            <div className="flex flex-col">
-                                <span className="text-xs font-black text-yellow-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-full border border-yellow-200">
-                                    <Crown size={12} /> {t("主线订单")}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Label & Status */}
+                        {isScoreOrder && (
+                            <div className="flex items-center">
+                                <span className="text-[10px] font-black text-blue-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-full border border-blue-200 whitespace-nowrap">
+                                    <Star size={10} fill="currentColor" /> {t("积分订单")}
                                 </span>
                             </div>
-                        ) : order.isEmergency ? (
-                            <div className="flex items-center gap-2">
+                        )}
+
+                        {order.isEmergency ? (
+                            <div className="flex flex-wrap items-center gap-2">
                                 {emergencyOrderCompleted ? (
-                                    // 已完成状态：显示绿色已完成
                                     <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-green-300">
                                         <Check size={12} />
                                         <span>✅ {t("已完成")}</span>
                                     </div>
                                 ) : (
-                                    // 进行中状态：显示撤离提示
-                                    <div className="flex items-center gap-1 bg-amber-100 text-amber-700 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-amber-200">
-                                        <span>⚠️ {t("撤离时未完成此订单顾客情绪+1")}</span>
+                                    <div className="flex items-center gap-1 bg-rose-100 text-rose-700 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-rose-200">
+                                        <span>⚠️ {t("撤离时未完成扣1血")}</span>
                                     </div>
                                 )}
                                 {order.difficulty && (
                                     <div className="flex items-center gap-1 bg-orange-100 text-orange-600 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-orange-200">
-                                        <span>难度 LV.{order.difficulty}</span>
+                                        <span>LV.{order.difficulty}</span>
                                     </div>
                                 )}
-                                {/* Patience Reward Only for Emergency Orders */}
                                 {(config.patience?.enabled !== false) && (
                                     <div className="flex items-center gap-1 opacity-80 scale-90 origin-left">
                                         <span className="bg-pink-100 text-pink-700 px-1.5 rounded font-bold text-[10px]">{order.basePatienceReward}💗</span>
@@ -126,28 +126,28 @@ const OrderCardBase = ({
                                 )}
                             </div>
                         ) : (
-                            // Normal Order: Show Dual Reward Badge
+                            /* Rewards Badge for Normal/Score Orders */
                             <div className="flex items-center gap-2">
                                 {/* Patience Reward */}
                                 {(config.patience?.enabled !== false) && (
-                                    <div className={`flex items-center gap-1 px-2 py-1 rounded-lg font-black text-xs shadow-sm ${canSatisfy ? 'bg-pink-500 text-white' : 'bg-pink-100 text-pink-700'}`}>
+                                    <div className={`flex items-center gap-1 px-2 py-1 rounded-lg font-black text-[10px] shadow-sm ${canSatisfy ? 'bg-pink-500 text-white' : 'bg-pink-100 text-pink-700'}`}>
                                         <span>{basePatienceReward}</span>
                                         {canSatisfy && (
                                             <>
                                                 <span className="opacity-60">→</span>
-                                                <span className="text-sm">{canSatisfy.finalPatienceReward}</span>
+                                                <span className="text-xs">{canSatisfy.finalPatienceReward}</span>
                                             </>
                                         )}
                                         <span className="opacity-70">💗</span>
                                     </div>
                                 )}
-                                {/* Progress Reward */}
-                                <div className={`flex items-center gap-1 px-2 py-1 rounded-lg font-black text-xs shadow-sm ${canSatisfy ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'}`}>
-                                    <span>{baseProgressReward}</span>
+                                {/* Score Reward */}
+                                <div className={`flex items-center gap-1 px-2 py-1 rounded-lg font-black text-[10px] shadow-sm ${canSatisfy ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'}`}>
+                                    <span>{baseScoreReward}</span>
                                     {canSatisfy && (
                                         <>
                                             <span className="opacity-60">→</span>
-                                            <span className="text-sm">{canSatisfy.finalProgressReward}</span>
+                                            <span className="text-xs">{canSatisfy.finalScoreReward}</span>
                                         </>
                                     )}
                                     <span className="opacity-70">⭐</span>
@@ -197,12 +197,12 @@ const OrderCardBase = ({
                             const hasItem = !!matchedItem;
                             const isQualitySatisfied = matchedItem && matchedItem.rarity.bonus >= req.requiredRarity.bonus;
 
-                            const isPoolHighlighted = hoveredPoolId && !req.isMainlineItem && hoveredPoolItemNames && hoveredPoolItemNames.includes(req.name);
+                            const isPoolHighlighted = hoveredPoolId && !req.isScoreItem && hoveredPoolItemNames && hoveredPoolItemNames.includes(req.name);
                             const isItemHighlighted = hoveredItemName && req.name === hoveredItemName;
 
                             const borderStyle = hasItem ? 'border-solid' : 'border-dashed';
                             let bgColorClass = 'bg-slate-50';
-                            if (isMainline) bgColorClass = 'bg-white/60';
+                            if (isScoreOrder) bgColorClass = 'bg-white/60';
 
                             let iconFilterClass = 'grayscale opacity-50';
                             let textColorClass = 'text-slate-400';
@@ -212,12 +212,12 @@ const OrderCardBase = ({
                                 iconFilterClass = '';
                                 textColorClass = 'text-slate-700';
                             } else if (hasItem && !isQualitySatisfied) {
-                                bgColorClass = isMainline ? 'bg-white' : 'bg-slate-50';
+                                bgColorClass = isScoreOrder ? 'bg-white' : 'bg-slate-50';
                                 iconFilterClass = 'grayscale opacity-50';
                                 textColorClass = 'text-slate-500';
                             }
 
-                            const borderColorClass = hasItem ? matchedItem.rarity.color.split(' ')[0] : (isMainline ? 'border-yellow-300' : 'border-slate-300');
+                            const borderColorClass = hasItem ? matchedItem.rarity.color.split(' ')[0] : (isScoreOrder ? 'border-blue-300' : 'border-slate-300');
 
                             // 检测是否被升级
                             const upgradeInfo = upgradedItemsMap[rIdx];
@@ -266,7 +266,7 @@ const OrderCardBase = ({
                 </div>
 
                 {/* Right Side: Refresh Button (Centered) */}
-                {!isMainline && !order.isEmergency && !isSubmitMode && currentStageConfig.mechanics.refresh && (
+                {!isScoreOrder && !order.isEmergency && !isSubmitMode && currentStageConfig.mechanics.refresh && (
                     <div className="flex-none pl-2">
                         <button
                             onClick={(e) => { e.stopPropagation(); onRefresh(index); }}

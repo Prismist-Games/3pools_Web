@@ -9,14 +9,14 @@ import {
 } from '../utils/helpers';
 import { SKILL_DEFINITIONS } from '../data/constants';
 
-export const useGameLogic = (config, initialSkills = [], onReset, initialProgress = 0) => {
+export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
     // Patience System
     const [patience, setPatience] = useState(config.patience.initialPatience);
     const [patienceStage, setPatienceStage] = useState(0);
-    const [mainlineProgress, setMainlineProgress] = useState(0);
+    const [score, setScore] = useState(initialScore);
 
-    // Emergency Order System: Impatience & Difficulty
-    const [customerImpatience, setCustomerImpatience] = useState(0);
+    // 生命值系统（原急躁值）
+    const [health, setHealth] = useState(config.emergency?.health?.maxHealth || 3);
     const [emergencyDifficulty, setEmergencyDifficulty] = useState(config.emergency?.difficulty?.initial || 1);
 
     // Upgraded items tracking: [{ orderId, itemIndex, originalRarityId }]
@@ -178,9 +178,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         const availableSkills = SKILL_DEFINITIONS.filter(s => {
             if (!config.enabledSkillIds.includes(s.id)) return false;
             if (skills.includes(s.id)) return false;
-            if (s.id === 'vip_discount' && mainlineProgress < 2) return false;
-            if (s.id === 'hard_order_expert' && mainlineProgress < 3) return false;
-            if ((['cut_corners', 'time_freeze', 'negotiator'].includes(s.id)) && mainlineProgress < 3) return false;
+            if (s.id === 'vip_discount' && score < 2) return false;
+            if (s.id === 'hard_order_expert' && score < 3) return false;
+            if ((['cut_corners', 'time_freeze', 'negotiator'].includes(s.id)) && score < 3) return false;
             return true;
         });
         if (availableSkills.length === 0) {
@@ -463,13 +463,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             }
 
             const finalPatienceReward = order.basePatienceReward; // Fixed reward as requested
-            const finalProgressReward = Math.ceil(order.baseProgressReward * multiplier);
+            const finalScoreReward = Math.ceil(order.baseScoreReward * multiplier);
 
             return {
                 index: idx,
                 finalPatienceReward,
-                finalProgressReward,
-                isMainline: isMain,
+                finalScoreReward,
+                isScoreOrder: isMain,
                 reqCount: order.requirements.length,
                 requirements: order.requirements
             };
@@ -478,7 +478,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         const results = [];
         // Normal Orders
         orders.forEach((o, i) => {
-            const res = checkOrder(o, i, false);
+            const res = checkOrder(o, i, true);
             if (res) results.push(res);
         });
 
@@ -552,13 +552,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             }
 
             const finalPatienceReward = order.basePatienceReward; // Fixed reward as requested
-            const finalProgressReward = Math.ceil(order.baseProgressReward * multiplier);
+            const finalScoreReward = Math.ceil(order.baseScoreReward * multiplier);
 
             return {
                 index: idx,
                 finalPatienceReward,
-                finalProgressReward,
-                isMainline: isMain,
+                finalScoreReward,
+                isScoreOrder: isMain,
                 reqCount: order.requirements.length,
                 requirements: order.requirements
             };
@@ -567,7 +567,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         const results = [];
         orders.forEach((order, idx) => {
             if (order) {
-                const res = checkOrder(order, idx, false);
+                const res = checkOrder(order, idx, true);
                 if (res) results.push(res);
             }
         });
@@ -728,11 +728,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         setInventory(currentInventory);
     };
 
-    const handleMainlineDraw = (pool) => {
-        const mainlineRate = config.global.mainlineDropRate || 0.3;
-        const isMainlineItem = Math.random() < mainlineRate;
+    const handleScoreDraw = (pool) => {
+        const scoreRate = config.global.scoreDropRate || 0.3;
+        const isScoreItem = Math.random() < scoreRate;
 
-        if (isMainlineItem) {
+        if (isScoreItem) {
             const target = pool.targetItem;
             const mythicRarity = config.rarity.find(r => r.id === 'mythic');
             const newItem = {
@@ -740,7 +740,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 uid: Math.random().toString(36).substr(2, 9),
                 poolName: pool.name,
                 rarity: mythicRarity,
-                isMainlineItem: true
+                isScoreItem: true
             };
 
             setModalContent({
@@ -752,7 +752,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             });
 
         } else {
-            const currentStageConfig = config.stages[mainlineProgress];
+            const currentStageConfig = config.stages[score];
             const allowedCount = currentStageConfig ? currentStageConfig.allowedPoolCount : config.pools.length;
             const validPools = config.pools.slice(0, allowedCount);
 
@@ -762,7 +762,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             const validItems = randomPool.items.slice(0, poolSize);
             const randomItem = validItems[Math.floor(Math.random() * validItems.length)];
 
-            const currentStageId = config.stages[mainlineProgress]?.id;
+            const currentStageId = config.stages[score]?.id;
 
             let targetRarityId = 'common';
             if (currentStageId === 1) targetRarityId = 'uncommon';
@@ -977,7 +977,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             const consumedItem = inventory[index];
             if (!consumedItem) return;
 
-            if (consumedItem.isMainlineItem) {
+            if (consumedItem.isScoreItem) {
                 showToast("主线道具无法用于以旧换新！", "error");
                 return;
             }
@@ -1316,19 +1316,19 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         }
 
         let gainedPatience = 0;
-        let gainedProgress = 0;
+        let gainedScore = 0;
         const newOrders = [...orders];
         const completedIndices = [];
 
         // 追踪完成的订单类型
         let completedEmergencyOrder = false;
-        let completedMainlineCount = 0;
+        let completedScoreCount = 0;
 
         const nextSkillState = { ...skillState };
 
-        satisfiableOrders.forEach(({ index, finalPatienceReward, finalProgressReward, reqCount, requirements, isMainline }) => {
+        satisfiableOrders.forEach(({ index, finalPatienceReward, finalScoreReward, reqCount, requirements, isScoreOrder }) => {
             gainedPatience += finalPatienceReward;
-            gainedProgress += finalProgressReward;
+            gainedScore += finalScoreReward;
 
             if (hasSkill('big_order_expert') && reqCount === 4) {
                 showToast("【大订单专家】触发：+5耐心值");
@@ -1349,10 +1349,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 completedEmergencyOrder = true;
             }
 
-            // 计算主线进度增加值来判断是否为主线订单（主线订单通常进度奖励更高）
-            if (finalProgressReward >= 2) {  // 主线订单的判断逻辑
-                completedMainlineCount++;
-            }
+            // 积分订单的奖励通常更高，这里将其视为所有非限时订单都能获得积分
+            if (isScoreOrder) completedScoreCount++;
 
             completedIndices.push(index);
         });
@@ -1360,54 +1358,22 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
         setSkillState(nextSkillState);
 
         setPatience(prev => prev + gainedPatience);
-        setMainlineProgress(prev => {
-            const newProgress = prev + gainedProgress;
+        setScore(prev => prev + gainedScore);
 
-            // Check victory condition
-            if (newProgress >= config.progress.targetProgress) {
-                setModalContent({
-                    title: "恭喜通关！",
-                    item: { name: '游戏胜利', icon: '🏆', rarity: { color: 'bg-yellow-500', name: 'VICTORY', starColor: 'text-yellow-200' } },
-                    message: `你已达成目标进度 ${config.progress.targetProgress}！`,
-                    type: 'victory',
-                    score: drawCount
-                });
-            }
+        // 只有手动“撤离”会提升难度，因此这里删除了完成订单时的难度提升逻辑
 
-            return newProgress;
-        });
-
-        // 难度调整逻辑
-        if (completedEmergencyOrder) {
-            // 完成限时订单后，提升难度
+        // 完成积分订单后，降低限时订单难度
+        if (completedScoreCount > 0) {
             const difficultyConfig = config.emergency?.difficulty;
             if (difficultyConfig) {
-                const increaseAmount = difficultyConfig.increaseOnNewOrder !== undefined ? difficultyConfig.increaseOnNewOrder : 1;
-                const maxDifficulty = difficultyConfig.maxDifficulty || 10;
-                if (increaseAmount > 0) {
-                    setEmergencyDifficulty(prev => {
-                        const newDiff = Math.min(maxDifficulty, prev + increaseAmount);
-                        if (newDiff > prev) {
-                            showToast(`撤离需求难度提升至 ${newDiff}！`, "warning");
-                        }
-                        return newDiff;
-                    });
-                }
-            }
-        }
-
-        // 完成主线订单后，降低限时订单难度
-        if (completedMainlineCount > 0) {
-            const difficultyConfig = config.emergency?.difficulty;
-            if (difficultyConfig) {
-                const decreaseAmountBase = difficultyConfig.decreaseOnMainline !== undefined ? difficultyConfig.decreaseOnMainline : 1;
-                const decreaseAmount = decreaseAmountBase * completedMainlineCount;
+                const decreaseAmountBase = difficultyConfig.decreaseOnScoreOrder !== undefined ? difficultyConfig.decreaseOnScoreOrder : 1;
+                const decreaseAmount = decreaseAmountBase * completedScoreCount;
                 const minDifficulty = difficultyConfig.minDifficulty || 1;
                 if (decreaseAmount > 0) {
                     setEmergencyDifficulty(prev => {
                         const newDiff = Math.max(minDifficulty, prev - decreaseAmount);
                         if (newDiff < prev) {
-                            showToast(`撤离需求难度降低至 ${newDiff}！`, "success");
+                            showToast(`积分订单达成，撤离需求难度降低至 ${newDiff}！`, "success");
                         }
                         return newDiff;
                     });
@@ -1513,7 +1479,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     };
 
     const handlePoolHover = (pool) => {
-        if (pool.type !== 'mainline') {
+        if (pool.type !== 'score') {
             setHoveredPoolId(pool.originalId || pool.id);
             setHoveredPoolItemNames(pool.items.map(i => i.name));
         }
@@ -1528,14 +1494,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     const handleEvacuate = () => {
         if (!emergencyOrder) return;
 
-        // 只在限时订单未完成时增加急躁值
+        // 只在限时订单未完成时减少生命值
         if (!emergencyOrderCompleted) {
-            const impatienceConfig = config.emergency?.impatience;
-            if (impatienceConfig?.enabled) {
-                const increaseAmount = impatienceConfig.increaseOnTimeout || 1;
-                const newImpatience = customerImpatience + increaseAmount;
-                setCustomerImpatience(newImpatience);
-                showToast(`撤离！顾客急躁值 +${increaseAmount}（${newImpatience}/${impatienceConfig.maxValue}）`, "warning");
+            const healthConfig = config.emergency?.health;
+            if (healthConfig?.enabled) {
+                const decreaseAmount = healthConfig.decreaseOnTimeout || 1;
+                const newHealth = Math.max(0, health - decreaseAmount);
+                setHealth(newHealth);
+                showToast(`撤离！生命值 -${decreaseAmount}（${newHealth}/${healthConfig.maxHealth}）`, "warning");
             }
         }
 
@@ -1563,7 +1529,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
     };
 
     // Patience Check: Game Over when patience <= 0
-    // Also check Emergency Deadline and Customer Impatience
+    // Also check Emergency Deadline and Health
     useEffect(() => {
         if (!modalContent) {
             if (config.patience?.enabled !== false && patience <= 0) {
@@ -1574,13 +1540,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                     type: 'game_over',
                     score: drawCount
                 });
-            } else if (config.emergency?.impatience?.enabled && customerImpatience >= (config.emergency.impatience.maxValue || 3)) {
+            } else if (config.emergency?.health?.enabled && health <= 0) {
                 setModalContent({
                     title: "游戏结束",
-                    item: { name: '顾客不满', icon: '😡', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
-                    message: `顾客急躁值已达到上限（${config.emergency.impatience.maxValue}）！`,
+                    item: { name: '生命耗尽', icon: '💀', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
+                    message: `你的生命值已归零！`,
                     type: 'game_over',
-                    score: drawCount
+                    score: score // 使用积分作为最终得分
                 });
             } else if (emergencyOrder && emergencyOrder.deadline <= 0) {
                 // 倒计时结束
@@ -1597,21 +1563,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                     setEmergencyOrder(newEmergencyOrder);
                     setEmergencyOrderCompleted(false); // 重置完成标记
                 } else {
-                    // 订单超时：增加急躁值并刷新订单
-                    const impatienceConfig = config.emergency?.impatience;
-                    if (impatienceConfig?.enabled) {
-                        const increaseAmount = impatienceConfig.increaseOnTimeout || 1;
-                        const newImpatience = customerImpatience + increaseAmount;
-                        setCustomerImpatience(newImpatience);
-                        showToast(`撤离需求超时！顾客急躁值 +${increaseAmount}（${newImpatience}/${impatienceConfig.maxValue}）`, "error");
+                    // 订单超时：扣除生命值并刷新订单
+                    const healthConfig = config.emergency?.health;
+                    if (healthConfig?.enabled) {
+                        const decreaseAmount = healthConfig.decreaseOnTimeout || 1;
+                        const newHealth = Math.max(0, health - decreaseAmount);
+                        setHealth(newHealth);
+                        showToast(`撤离需求超时！生命值 -${decreaseAmount}（${newHealth}/${healthConfig.maxHealth}）`, "error");
 
-                        // 刷新限时订单（难度提升）
-                        const difficultyConfig = config.emergency?.difficulty;
-                        const increaseOnTimeout = difficultyConfig?.increaseOnNewOrder !== undefined ? difficultyConfig.increaseOnNewOrder : 1;
-                        const maxDifficulty = difficultyConfig?.maxDifficulty || 10;
-                        const newDifficulty = Math.min(maxDifficulty, emergencyDifficulty + increaseOnTimeout);
-
-                        setEmergencyDifficulty(newDifficulty);
+                        const newDifficulty = emergencyDifficulty;
 
                         const deadline = config.emergency?.deadline || 15;
                         const newEmergencyOrder = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, newDifficulty);
@@ -1633,7 +1593,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
                 }
             }
         }
-    }, [patience, modalContent, drawCount, config, emergencyOrder, emergencyOrderCompleted, customerImpatience, emergencyDifficulty, allNormalItems, hasSkill, currentStageConfig]);
+    }, [patience, modalContent, score, config, emergencyOrder, emergencyOrderCompleted, health, emergencyDifficulty, allNormalItems, hasSkill, currentStageConfig]);
 
     return {
         state: {
@@ -1642,9 +1602,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialProgres
             patienceStage,
             emergencyOrder,
             emergencyOrderCompleted,
-            customerImpatience,
+            health,
             emergencyDifficulty,
-            mainlineProgress,
+            score,
             upgradedOrderItems,
             currentStageConfig,
             maxInventorySize,

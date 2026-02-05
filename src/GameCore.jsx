@@ -13,12 +13,12 @@ import { PoolCard } from './components/game/PoolCard';
 import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
 
-const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initialProgress = 0, debugAddItem, onDebugAddItemHandled }) => {
+const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
     const [isSkillsCollapsed, setIsSkillsCollapsed] = useState(false);
 
     // Initialize Logic Hook
-    const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialProgress);
+    const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialScore);
 
     // Debug: Handle direct item addition from Config Tool
     useEffect(() => {
@@ -29,8 +29,8 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
     }, [debugAddItem, actions]);
 
     const {
-        gold, patience, patienceStage, mainlineProgress, upgradedOrderItems, currentStageConfig, maxInventorySize,
-        drawCount, activePools, orders, emergencyOrder, customerImpatience, emergencyDifficulty, inventory,
+        gold, patience, patienceStage, score, upgradedOrderItems, currentStageConfig, maxInventorySize,
+        drawCount, activePools, orders, emergencyOrder, health, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, selectedIndices,
@@ -183,88 +183,105 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
             <div className="w-full max-w-7xl mx-auto h-full flex flex-col shadow-2xl bg-white border-x border-slate-200 relative">
 
-                {/* Top Bar Simplified */}
-                <header className="p-4 bg-slate-800 text-white flex justify-between items-center shadow-md z-20 shrink-0">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-slate-700 p-2 rounded-xl shadow-inner border border-slate-600">
-                            <ListOrdered className="text-yellow-400" size={24} />
+                {/* Reorganized Header for better readability */}
+                <header className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center shadow-lg z-20 shrink-0 border-b border-slate-800">
+                    <div className="flex items-center gap-8">
+                        {/* Game Title & Stage (Left aligned) */}
+                        <div className="flex items-center gap-3">
+                            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2.5 rounded-xl shadow-lg">
+                                <ListOrdered className="text-white" size={24} />
+                            </div>
+                            <div className="flex flex-col">
+                                <h1 className="text-xl font-black tracking-tighter leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">ORDER GAME</h1>
+                                {config.patience?.enabled !== false && (
+                                    <div className="flex items-center gap-1.5 opacity-60">
+                                        <span className={`w-2 h-2 rounded-full ${patience > 60 ? 'bg-green-400' : patience > 30 ? 'bg-yellow-400' : 'bg-red-500'}`} />
+                                        <span className="text-[10px] font-bold tracking-widest uppercase">{t("STAGE")} {state.patienceStage}</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex flex-col">
-                            <h1 className="text-lg font-black tracking-tighter leading-tight">ORDER GAME</h1>
-                            {config.patience?.enabled !== false && (
-                                <div className="flex items-center gap-1.5 opacity-60">
-                                    <span className={`w-2 h-2 rounded-full animate-pulse ${patience > 60 ? 'bg-green-400' : patience > 30 ? 'bg-yellow-400' : 'bg-red-500'}`} />
-                                    <span className="text-[10px] font-bold tracking-widest">{t("STAGE")} {state.patienceStage}</span>
+
+                        {/* Primary Gameplay Stats (Most Important) */}
+                        <div className="flex items-center bg-slate-800/50 rounded-2xl px-5 py-2 border border-slate-700/50 gap-8 shadow-inner">
+                            {/* Score Display */}
+                            <div className="flex flex-col gap-0.5 items-center">
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 text-blue-200 leading-none">{t("当前积分")}</span>
+                                <div className="flex items-center gap-2 text-blue-400">
+                                    <Star size={18} fill="currentColor" className="drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
+                                    <span className="text-3xl font-black font-mono tracking-tighter leading-none">{score}</span>
+                                </div>
+                            </div>
+
+                            {/* Divider */}
+                            <div className="w-px h-8 bg-slate-700/50" />
+
+                            {/* Health Display */}
+                            {config.emergency?.health?.enabled && (
+                                <div className="flex flex-col gap-1 items-center">
+                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 text-rose-200 leading-none">{t("生命值")}</span>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex gap-1">
+                                            {Array.from({ length: config.emergency.health.maxHealth }).map((_, i) => (
+                                                <Heart
+                                                    key={i}
+                                                    size={16}
+                                                    fill={i < health ? "currentColor" : "none"}
+                                                    className={`${i < health ? "text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.4)]" : "text-slate-700"} transition-all duration-300`}
+                                                />
+                                            ))}
+                                        </div>
+                                        <span className="text-2xl font-black font-mono tracking-tighter leading-none text-rose-400">{health}</span>
+                                    </div>
                                 </div>
                             )}
                         </div>
                     </div>
 
                     <div className="flex items-center gap-6">
-                        {/* Gold Display */}
-                        <div className="flex flex-col gap-0.5 items-end border-r border-slate-700 pr-4">
-                            <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-yellow-100">{t("金币")}</span>
-                            <div className="flex items-center gap-2 text-yellow-300">
-                                <Coins size={18} />
-                                <span className="text-2xl font-black font-mono tracking-tighter leading-none">
-                                    {gold}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Emergency Info: Impatience & Difficulty */}
-                        {config.emergency?.impatience?.enabled && (
-                            <div className="flex flex-col gap-0.5 items-end border-r border-slate-700 pr-4">
-                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-amber-100">{t("顾客情绪")}</span>
-                                <div className="flex items-center gap-2 text-amber-300">
-                                    <span className="text-2xl font-black font-mono tracking-tighter leading-none">
-                                        {customerImpatience}/{config.emergency.impatience.maxValue}
-                                    </span>
-                                    <span className="text-xs opacity-50">😡</span>
+                        {/* Secondary Stats Group (Gold & Difficulty) */}
+                        <div className="flex items-center gap-6 pr-6 border-r border-slate-800">
+                            {/* Gold Display */}
+                            <div className="flex flex-col gap-0.5 items-end">
+                                <span className="text-[9px] font-black uppercase tracking-widest opacity-30 text-yellow-100">{t("持有金币")}</span>
+                                <div className="flex items-center gap-2 text-yellow-400/90">
+                                    <Coins size={16} />
+                                    <span className="text-xl font-black font-mono tracking-tighter leading-none">{gold}</span>
                                 </div>
                             </div>
-                        )}
 
-                        {emergencyOrder && (
-                            <div className="flex flex-col gap-0.5 items-end border-r border-slate-700 pr-4">
-                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-red-100">Difficulty</span>
-                                <div className="flex items-center gap-2 text-red-300">
-                                    <span className="text-2xl font-black font-mono tracking-tighter leading-none">
-                                        LV.{emergencyDifficulty}
-                                    </span>
+                            {/* Difficulty Display */}
+                            {emergencyOrder && (
+                                <div className="flex flex-col gap-0.5 items-end">
+                                    <span className="text-[9px] font-black uppercase tracking-widest opacity-30 text-orange-100">{t("撤离难度")}</span>
+                                    <div className="flex items-center gap-1.5 text-orange-400/90">
+                                        <ChevronsUp size={16} />
+                                        <span className="text-xl font-black font-mono tracking-tighter leading-none">LV.{emergencyDifficulty}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Progress Display */}
-                        <div className="flex flex-col gap-0.5 items-end">
-                            <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-blue-100">Project Progress</span>
-                            <div className="flex items-center gap-2 text-blue-300">
-                                <Flag size={18} />
-                                <span className="text-3xl font-black font-mono tracking-tighter leading-none">{mainlineProgress}<span className="text-sm opacity-30 mx-1">/</span>{config.progress?.targetProgress || 100}</span>
-                            </div>
+                            )}
                         </div>
 
-                        {/* Stage Details */}
-                        <div className="hidden md:flex flex-col items-end border-l border-slate-700 pl-6">
+                        {/* Stage Info (Compact) */}
+                        <div className="hidden lg:flex flex-col items-end border-r border-slate-800 pr-6">
                             <div className="flex items-center gap-2">
-                                <Layers size={16} className="text-purple-400" />
-                                <span className="text-sm font-black text-white whitespace-nowrap">{t(currentStageConfig.name)}</span>
+                                <Layers size={14} className="text-purple-400" />
+                                <span className="text-[12px] font-black text-white whitespace-nowrap">{t(currentStageConfig.name)}</span>
                             </div>
-                            <span className="text-[10px] font-bold text-slate-400">{t(currentStageConfig.mechanicDesc)}</span>
+                            <span className="text-[9px] font-bold text-slate-500">{t(currentStageConfig.mechanicDesc)}</span>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 bg-slate-700/50 rounded-xl p-1 border border-slate-600">
-                            <button onClick={toggleLanguage} className="px-2 py-1 hover:bg-slate-600 rounded-lg text-[10px] font-black text-slate-400 hover:text-white transition-colors">
+                        {/* Quick Actions */}
+                        <div className="flex items-center gap-2 bg-slate-800/80 rounded-xl p-1 border border-slate-700 shadow-inner">
+                            <button onClick={toggleLanguage} className="px-2.5 py-1 hover:bg-slate-700 rounded-lg text-[11px] font-black text-slate-400 hover:text-white transition-all">
                                 {language === 'zh' ? 'EN' : '中'}
                             </button>
-                            <div className="w-[1px] h-4 bg-slate-600"></div>
-                            <button onClick={onReset} title={t("重置")} className="p-1.5 hover:bg-slate-600 rounded-lg transition-colors text-red-400/80 hover:text-red-400">
-                                <Power size={18} />
-                            </button>
-                            <button onClick={onOpenSettings} title={t("设置")} className="p-1.5 hover:bg-slate-600 rounded-lg transition-colors text-slate-400 hover:text-white">
+                            <div className="w-[1px] h-4 bg-slate-700"></div>
+                            <button onClick={onOpenSettings} title={t("设置")} className="p-2 hover:bg-slate-700 rounded-lg transition-all text-slate-400 hover:text-white">
                                 <Settings size={18} />
+                            </button>
+                            <button onClick={onReset} title={t("重置")} className="p-2 hover:bg-slate-700 rounded-lg transition-all text-red-500/60 hover:text-red-500">
+                                <Power size={18} />
                             </button>
                         </div>
                     </div>
@@ -299,7 +316,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                             {/* Emergency Order */}
                             {state.emergencyOrder && (
                                 <div className="mb-2 relative">
-                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg z-20 flex items-center gap-1 animate-pulse">
+                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg z-20 flex items-center gap-1">
                                         <Timer size={10} />
                                         <span>{t("撤离需求")}</span>
                                     </div>
@@ -307,7 +324,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         key="emergency"
                                         order={state.emergencyOrder}
                                         index={999}
-                                        isMainline={false}
+                                        isScoreOrder={false}
                                         isEmergency={true}
                                         isSubmitMode={isSubmitMode}
                                         canSatisfy={satisfiableOrders.find(r => r.index === 999)}
@@ -349,7 +366,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     key={order ? order.id : `empty-${idx}`}
                                     order={order}
                                     index={idx}
-                                    isMainline={false}
+                                    isScoreOrder={true}
                                     isSubmitMode={isSubmitMode}
                                     canSatisfy={satisfiableOrders.find(r => r.index === idx)}
                                     potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === idx)} // Pass preview
@@ -843,7 +860,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                         )}
                     </div>
                 </footer>
-            </div>
+            </div >
 
             {/* Confirms */}
             {
