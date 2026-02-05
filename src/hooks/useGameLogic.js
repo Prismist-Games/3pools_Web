@@ -1454,6 +1454,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                         }
                         return newDiff;
                     });
+                } else if (decreaseAmountBase === 0) {
+                    showToast(`积分订单达成！`, "success");
                 }
             }
         }

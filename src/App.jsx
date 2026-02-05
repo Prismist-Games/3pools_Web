@@ -434,7 +434,7 @@ export default function App() {
                                                             type="number"
                                                             min="0"
                                                             className="w-full p-1 border rounded font-mono text-sm bg-green-50"
-                                                            value={config.emergency?.difficulty?.decreaseOnMainline !== undefined ? config.emergency.difficulty.decreaseOnMainline : 1}
+                                                            value={config.emergency?.difficulty?.decreaseOnScoreOrder !== undefined ? config.emergency.difficulty.decreaseOnScoreOrder : 1}
                                                             onChange={(e) => {
                                                                 const val = parseInt(e.target.value);
                                                                 setConfig({
@@ -443,7 +443,7 @@ export default function App() {
                                                                         ...config.emergency,
                                                                         difficulty: {
                                                                             ...(config.emergency?.difficulty || {}),
-                                                                            decreaseOnMainline: isNaN(val) ? 1 : val
+                                                                            decreaseOnScoreOrder: isNaN(val) ? 1 : val
                                                                         }
                                                                     }
                                                                 });
