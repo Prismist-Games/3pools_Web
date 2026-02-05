@@ -206,7 +206,7 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         }, 0);
 
         const calculatedScore = Math.floor(totalRarityScore + offset);
-        baseScoreReward = Math.max(1, Math.min(4, calculatedScore));
+        baseScoreReward = Math.max(1, calculatedScore);
     }
 
     return {

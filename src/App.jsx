@@ -597,7 +597,6 @@ export default function App() {
 
                                         <div className="text-[10px] text-slate-400 font-mono bg-slate-50 p-2 rounded leading-relaxed border border-slate-100">
                                             公式: floor(∑(每个需求物品对应权重) + Offset)
-                                            <br /><span className="text-blue-500 italic">产出范围: 1 - 4 (整数)</span>
                                         </div>
                                     </div>
                                 </div>
