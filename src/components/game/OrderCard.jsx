@@ -266,7 +266,7 @@ const OrderCardBase = ({
                 </div>
 
                 {/* Right Side: Refresh Button (Centered) */}
-                {!isScoreOrder && !order.isEmergency && !isSubmitMode && currentStageConfig.mechanics.refresh && (
+                {!order.isEmergency && !isSubmitMode && currentStageConfig.mechanics.refresh && (
                     <div className="flex-none pl-2">
                         <button
                             onClick={(e) => { e.stopPropagation(); onRefresh(index); }}
