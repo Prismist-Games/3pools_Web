@@ -87,6 +87,7 @@ export const EN_TRANSLATIONS = {
     "积分订单": "Score Order",
     "已完成": "Completed",
     "撤离时未完成扣1血": "Lose 1 HP if incomplete",
+    "品质得分加成": "Rarity Score Bonus",
 
     // --- Rarity ---
     "普通": "Common",
