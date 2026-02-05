@@ -868,7 +868,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleDraw = (pool) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode) return;
 
         // Use pool cost (from affix config)
         let finalCost = pool.cost || config.patience.drawCost;
@@ -1538,7 +1538,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleSortInventory = () => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode) return;
 
         setInventory(prev => {
             const validItems = prev.filter(i => i !== null);

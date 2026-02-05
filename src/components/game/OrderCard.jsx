@@ -9,6 +9,7 @@ const OrderCardBase = ({
 
     // State
     isSubmitMode,
+    isEvacuationMode,
     canSatisfy, // { index, finalReward, rewardType, isScoreOrder, reqCount, requirements }
     potentialSatisfy, // { index, finalReward ... } (Preview)
     emergencyOrderCompleted, // 限时订单已完成标记
@@ -266,7 +267,7 @@ const OrderCardBase = ({
                 </div>
 
                 {/* Right Side: Refresh Button (Centered) */}
-                {!order.isEmergency && !isSubmitMode && currentStageConfig.mechanics.refresh && (
+                {!order.isEmergency && !isSubmitMode && !isEvacuationMode && currentStageConfig.mechanics.refresh && (
                     <div className="flex-none pl-2">
                         <button
                             onClick={(e) => { e.stopPropagation(); onRefresh(index); }}

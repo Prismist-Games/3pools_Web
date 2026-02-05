@@ -302,9 +302,9 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                             </h2>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleRefreshAllOrders(); }}
-                                disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !currentStageConfig.mechanics.refresh}
+                                disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !currentStageConfig.mechanics.refresh || isEvacuationMode}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-200 text-sm shadow-sm
-                          ${pendingItem || isSubmitMode || isRecycleMode || selectionMode || !currentStageConfig.mechanics.refresh
+                          ${pendingItem || isSubmitMode || isRecycleMode || selectionMode || !currentStageConfig.mechanics.refresh || isEvacuationMode
                                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                         : 'bg-orange-50 text-orange-600 hover:bg-orange-100 ring-1 ring-orange-200 hover:ring-orange-300 hover:scale-105'}`}
                             >
@@ -378,6 +378,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     index={idx}
                                     isScoreOrder={true}
                                     isSubmitMode={isSubmitMode}
+                                    isEvacuationMode={isEvacuationMode}
                                     canSatisfy={satisfiableOrders.find(r => r.index === idx)}
                                     potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === idx)} // Pass preview
                                     onClick={handleOrderClick}
@@ -439,7 +440,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         onMouseLeave={handlePoolLeave}
                                         isHovered={hoveredPoolId === (pool.originalId || pool.id)}
                                         relevantRequirements={relevantRequirements}
-                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode}
                                     />
                                 )
                             })}
@@ -632,7 +633,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                     <div className="flex justify-between items-center mb-2 px-2 max-w-3xl mx-auto">
                         <div className="flex items-center gap-3">
                             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("背包栏位")} ({inventory.length}/{maxInventorySize})</h2>
-                            {!pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && (
+                            {!pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && !isEvacuationMode && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleSortInventory(); }}
                                     className="flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm text-slate-600 text-xs font-bold py-1.5 px-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95"
@@ -642,7 +643,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                 </button>
                             )}
                         </div>
-                        {selectedSlot !== null && !pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && (
+                        {selectedSlot !== null && !pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && !isEvacuationMode && (
                             <span className="text-xs font-bold text-blue-500 animate-pulse bg-blue-50 px-2 py-1 rounded flex items-center gap-2">
                                 <Hand size={14} /> {t("整理模式")}
                             </span>
