@@ -255,5 +255,7 @@ export const EN_TRANSLATIONS = {
     "积分订单达成！": "Score Order Complete!",
     "背包已整理": "Inventory Sorted",
     "背包已满！": "Inventory Full!",
-    "【炼金术】触发：获得": "['Alchemy'] Triggered: Gained"
+    "【炼金术】触发：获得": "['Alchemy'] Triggered: Gained",
+    "正在选择撤离物品...": "Selecting Evac Items...",
+    "确认撤离": "Confirm Evacuation"
 };
