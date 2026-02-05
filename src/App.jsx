@@ -53,10 +53,73 @@ export default function App() {
         const reader = new FileReader();
         reader.onload = (event) => {
             try {
-                const importedConfig = JSON.parse(event.target.result);
-                if (importedConfig.rarity && importedConfig.pools && importedConfig.global && importedConfig.affixes) {
-                    setConfig(importedConfig);
-                }
+                const imported = JSON.parse(event.target.result);
+
+                setConfig(prev => {
+                    const next = { ...prev };
+
+                    // 1. 保护性合并：阶段数值 (Stages)
+                    // 只继承掉落概率、权重和奖励数值，不改变阶段的基础结构
+                    if (imported.stages && imported.stages[0]) {
+                        const impStage = imported.stages[0];
+                        next.stages = prev.stages.map((s, i) => {
+                            if (i > 0) return s; // 目前主要配置 stage 0
+                            return {
+                                ...s,
+                                rarityWeights: impStage.rarityWeights || s.rarityWeights,
+                                orderRarityWeights: impStage.orderRarityWeights || s.orderRarityWeights,
+                                orderCountWeights: impStage.orderCountWeights || s.orderCountWeights,
+                                baseRewards: impStage.baseRewards || s.baseRewards,
+                                entropyDecayValue: impStage.entropyDecayValue || s.entropyDecayValue
+                            };
+                        });
+                    }
+
+                    // 2. 保护性合并：词缀数值 (Affixes)
+                    // 只继承金币消耗和自定义权重，不改变词缀的名称、描述或逻辑 ID
+                    if (imported.affixes) {
+                        next.affixes = prev.affixes.map(defAffix => {
+                            const impAffix = imported.affixes.find(a => a.id === defAffix.id);
+                            if (impAffix) {
+                                return {
+                                    ...defAffix,
+                                    cost: impAffix.cost !== undefined ? impAffix.cost : defAffix.cost,
+                                    rarityWeights: impAffix.rarityWeights || defAffix.rarityWeights
+                                };
+                            }
+                            return defAffix;
+                        });
+                    }
+
+                    // 3. 继承平衡性参数 (Patience, Progress, Emergency, Global)
+                    // 这些通常全是数值，可以较安全地合并
+                    if (imported.patience) next.patience = { ...prev.patience, ...imported.patience };
+                    if (imported.progress) next.progress = { ...prev.progress, ...imported.progress };
+                    if (imported.emergency) next.emergency = { ...prev.emergency, ...imported.emergency };
+                    if (imported.global) next.global = { ...prev.global, ...imported.global };
+
+                    // 4. 特殊字段：品质属性 (Rarity Details)
+                    // 只继承加成（bonus）和回收价值（recycleValue），不继承 id, name, color
+                    if (imported.rarity) {
+                        next.rarity = prev.rarity.map(defR => {
+                            const impR = imported.rarity.find(r => r.id === defR.id);
+                            if (impR) {
+                                return {
+                                    ...defR,
+                                    bonus: impR.bonus !== undefined ? impR.bonus : defR.bonus,
+                                    recycleValue: impR.recycleValue !== undefined ? impR.recycleValue : defR.recycleValue
+                                };
+                            }
+                            return defR;
+                        });
+                    }
+
+                    // --- 绝对禁止覆盖的字段 ---
+                    // next.pools = prev.pools; // 保持当前物品列表
+                    // next.enabledSkillIds = prev.enabledSkillIds; // 保持当前技能列表
+
+                    return next;
+                });
             } catch (err) {
                 console.error(err);
             }

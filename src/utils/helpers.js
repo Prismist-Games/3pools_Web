@@ -224,90 +224,71 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
 
 export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = () => false, skillState = {}, currentStageConfig) => {
     const { rarity: rarityConfig, affixes } = config;
-    const weights = currentStageConfig.rarityWeights;
+    const stageWeights = currentStageConfig.rarityWeights;
 
-    // 检查词缀是否有自定义品质权重（优先级最高）
+    // --- 1. 确定逻辑约束（Logic: 哪些品质是允许产出的） ---
+    const orderedRarityIds = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+    let allowedRarityIds = [...orderedRarityIds];
+
+    if (affixKey === 'volatile') {
+        allowedRarityIds = ['common', 'legendary']; // 波动逻辑：只有普通或传说
+    } else if (affixKey === 'fragmented') {
+        allowedRarityIds = ['common']; // 稀碎逻辑：只有普通
+    } else if (affixKey === 'hardened' || affixKey === 'purified') {
+        allowedRarityIds = ['rare', 'epic', 'legendary', 'mythic']; // 提纯/硬化逻辑：保底稀有+
+    }
+
+    // --- 2. 提取数值驱动（Values: 从配置中获取权重） ---
+    const finalWeights = {};
+    let customWeights = null;
+
+    // 尝试获取词缀自定义权重
     if (affixKey && affixes) {
         const affix = affixes.find(a => a.id === affixKey);
         if (affix && affix.rarityWeights) {
-            // 使用词缀自定义权重
-            const customWeights = affix.rarityWeights;
-            const orderedRarityIds = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
-            const totalWeight = orderedRarityIds.reduce((sum, rid) => sum + (customWeights[rid] || 0), 0);
-
-            const r = Math.random() * totalWeight;
-            let accumulated = 0;
-
-            for (const rid of orderedRarityIds) {
-                const w = customWeights[rid] || 0;
-                if (w > 0) {
-                    accumulated += w;
-                    if (r <= accumulated) {
-                        return rarityConfig.find(item => item.id === rid);
-                    }
-                }
-            }
+            customWeights = affix.rarityWeights;
         }
     }
 
-    // 词缀默认逻辑（如果没有自定义权重）
-    if (affixKey === 'hardened' || affixKey === 'purified') {
-        if (weights.legendary > 0) {
-            const r = Math.random();
-            if (r < 0.67) return rarityConfig.find(r => r.id === 'rare');
-            if (r < 0.97) return rarityConfig.find(r => r.id === 'epic');
-            return rarityConfig.find(r => r.id === 'legendary');
-        } else if (weights.epic > 0) {
-            const r = Math.random();
-            return r < 0.7 ? rarityConfig.find(r => r.id === 'rare') : rarityConfig.find(r => r.id === 'epic');
-        } else if (weights.rare > 0) {
-            return rarityConfig.find(r => r.id === 'rare');
-        }
-        return rarityConfig.find(r => r.id === 'uncommon'); // Fallback
-    }
+    // 应用逻辑过滤后的权重
+    allowedRarityIds.forEach(rid => {
+        // 优先使用词缀权重，没有则使用阶段权重
+        const rawWeight = customWeights ? (customWeights[rid] || 0) : (stageWeights[rid] || 0);
+        finalWeights[rid] = rawWeight;
+    });
 
-    if (affixKey === 'volatile') {
-        const r = Math.random();
-        // P3: Volatile always has a small chance (0.5%) for Legendary, regardless of global weights
-        if (r < 0.995) return rarityConfig.find(r => r.id === 'common');
-        return rarityConfig.find(r => r.id === 'legendary');
-    }
-
-    if (affixKey === 'fragmented') {
-        return rarityConfig.find(r => r.id === 'common');
-    }
-
-    // 检查技能保底
-    if (skillState.nextDrawGuaranteedRare) {
-        const allowedRarities = rarityConfig.filter(r => weights[r.id] > 0);
-        const highRarities = allowedRarities.filter(r => ['rare', 'epic', 'legendary'].includes(r.id));
-
-        if (highRarities.length > 0) {
-            return highRarities[Math.floor(Math.random() * highRarities.length)];
-        } else {
-            return allowedRarities[allowedRarities.length - 1];
-        }
-    }
-
-    // Calcluate Total Weight for Normalization
-    const orderedRarityIds = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+    // --- 3. 计算总权重并处理技能修正 ---
     let totalWeight = 0;
-
-    // First pass: sum weights
-    for (const rid of orderedRarityIds) {
-        let w = weights[rid] || 0;
+    allowedRarityIds.forEach(rid => {
+        let w = finalWeights[rid];
         if (rid === 'legendary' && hasSkill('lucky_7') && (currentGold % 10 === 7)) {
             w *= 2;
         }
         totalWeight += w;
+    });
+
+    // 容错处理：如果当前配置在该逻辑约束下总权重为 0，则执行强制保底
+    if (totalWeight <= 0) {
+        if (affixKey === 'hardened' || affixKey === 'purified') return rarityConfig.find(r => r.id === 'rare');
+        if (affixKey === 'volatile' || affixKey === 'fragmented') return rarityConfig.find(r => r.id === 'common');
+        return rarityConfig.find(r => r.id === 'common');
     }
 
-    // Roll
+    // --- 4. 抽取逻辑 ---
+    // 技能保底判断（如果是保底抽，且保底品质在允许范围内）
+    if (skillState.nextDrawGuaranteedRare) {
+        const highTierIds = allowedRarityIds.filter(id => ['rare', 'epic', 'legendary', 'mythic'].includes(id));
+        if (highTierIds.length > 0) {
+            const pickId = highTierIds[Math.floor(Math.random() * highTierIds.length)];
+            return rarityConfig.find(r => r.id === pickId);
+        }
+    }
+
     const r = Math.random() * totalWeight;
     let accumulated = 0;
 
-    for (const rid of orderedRarityIds) {
-        let w = weights[rid] || 0;
+    for (const rid of allowedRarityIds) {
+        let w = finalWeights[rid];
         if (rid === 'legendary' && hasSkill('lucky_7') && (currentGold % 10 === 7)) {
             w *= 2;
         }
@@ -320,7 +301,7 @@ export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = 
         }
     }
 
-    return rarityConfig[0];
+    return rarityConfig[0]; // 极端情况回退
 };
 
 export const getNextRarity = (currentRarityId, config) => {

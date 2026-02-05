@@ -15,7 +15,7 @@ import { SKILL_DEFINITIONS } from './data/constants';
 
 const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
-    const [isSkillsCollapsed, setIsSkillsCollapsed] = useState(false);
+    const [isSkillsCollapsed, setIsSkillsCollapsed] = useState(true);
 
     // Initialize Logic Hook
     const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialScore);

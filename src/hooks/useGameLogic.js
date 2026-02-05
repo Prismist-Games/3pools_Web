@@ -793,22 +793,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         let itemsToProcess = [];
 
-        if (pool.affixKey === 'volatile') {
-            // Volatile: Higher chance for legendary, but ONLY Common or Legendary
-            // We'll override the rarity rolled by createItem essentially, or just roll cleanly here.
-            // Let's modify properties after creation to be safe or pass a flag.
-            // Simpler: Just force the rarity here.
-            const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-            const newItem = createItem(pool, tpl, pool.affixKey);
-
-            // Override Rarity Logic for Volatile
-            // 10% Legendary, 90% Common (or config based). User said "Can drop Blue" -> Bug.
-            const isLegendary = Math.random() < 0.1; // 10% chance
-            const rarityId = isLegendary ? 'legendary' : 'common';
-            newItem.rarity = config.rarity.find(r => r.id === rarityId);
-
-            itemsToProcess.push(newItem);
-        } else if (pool.affixKey === 'fragmented') {
+        if (pool.affixKey === 'fragmented') {
             for (let i = 0; i < 3; i++) {
                 const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
                 itemsToProcess.push(createItem(pool, tpl, 'fragmented'));

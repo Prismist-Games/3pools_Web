@@ -38,8 +38,8 @@ export const INITIAL_STAGE_CONFIG = [
             "common": 0.8,
             "uncommon": 0.19,
             "rare": 0.01,
-            "epic": 0,
-            "legendary": 0,
+            "epic": 0.005,
+            "legendary": 0.001,
             "mythic": 0
         },
         "orderRarityWeights": {
@@ -87,8 +87,8 @@ export const INITIAL_STAGE_CONFIG = [
             "common": 0.8,
             "uncommon": 0.19,
             "rare": 0.01,
-            "epic": 0,
-            "legendary": 0,
+            "epic": 0.005,
+            "legendary": 0.001,
             "mythic": 0
         },
         "orderRarityWeights": {
@@ -137,8 +137,8 @@ export const INITIAL_STAGE_CONFIG = [
             "common": 0.8,
             "uncommon": 0.19,
             "rare": 0.01,
-            "epic": 0,
-            "legendary": 0,
+            "epic": 0.005,
+            "legendary": 0.001,
             "mythic": 0
         },
         "orderRarityWeights": {
@@ -188,8 +188,8 @@ export const INITIAL_STAGE_CONFIG = [
             "common": 0.8,
             "uncommon": 0.19,
             "rare": 0.01,
-            "epic": 0,
-            "legendary": 0,
+            "epic": 0.005,
+            "legendary": 0.001,
             "mythic": 0
         },
         "orderRarityWeights": {
@@ -247,7 +247,14 @@ export const INITIAL_AFFIXES_CONFIG = [
         "desc": "稀有度更高，但物品带有【绝育】效果，无法合成。",
         "type": "passive",
         "weight": 10,
-        "cost": 2
+        "cost": 2,
+        "rarityWeights": {
+            "common": 0,
+            "uncommon": 0.2,
+            "rare": 0.7,
+            "epic": 0.09,
+            "legendary": 0.01
+        }
     },
     {
         "id": "purified",
@@ -255,7 +262,14 @@ export const INITIAL_AFFIXES_CONFIG = [
         "desc": "保底产出稀有、史诗或传说物品。",
         "type": "passive",
         "weight": 10,
-        "cost": 3
+        "cost": 3,
+        "rarityWeights": {
+            "common": 0,
+            "uncommon": 0,
+            "rare": 0.67,
+            "epic": 0.3,
+            "legendary": 0.03
+        }
     },
     {
         "id": "volatile",
@@ -263,7 +277,14 @@ export const INITIAL_AFFIXES_CONFIG = [
         "desc": "有更高的概率出现传说物品，但只会产出普通和传说物品",
         "type": "passive",
         "weight": 10,
-        "cost": 1
+        "cost": 1,
+        "rarityWeights": {
+            "common": 0.9,
+            "uncommon": 0,
+            "rare": 0,
+            "epic": 0,
+            "legendary": 0.1
+        }
     },
     {
         "id": "fragmented",
@@ -292,72 +313,12 @@ export const INITIAL_AFFIXES_CONFIG = [
 ];
 
 export const INITIAL_RARITY_CONFIG = [
-    {
-        "id": "common",
-        "name": "普通",
-        "color": "border-slate-300 bg-slate-50 text-slate-600",
-        "dotColor": "bg-slate-400",
-        "bonus": 0,
-        "prob": 0.4,
-        "shadow": "",
-        "starColor": "text-slate-400",
-        "recycleValue": 0
-    },
-    {
-        "id": "uncommon",
-        "name": "优秀",
-        "color": "border-green-400 bg-green-50 text-green-700",
-        "dotColor": "bg-green-500",
-        "bonus": 0.1,
-        "prob": 0.3,
-        "shadow": "shadow-green-200",
-        "starColor": "text-green-500",
-        "recycleValue": 0
-    },
-    {
-        "id": "rare",
-        "name": "稀有",
-        "color": "border-blue-400 bg-blue-50 text-blue-700",
-        "dotColor": "bg-blue-500",
-        "bonus": 0.2,
-        "prob": 0.19,
-        "shadow": "shadow-blue-200",
-        "starColor": "text-blue-500",
-        "recycleValue": 1
-    },
-    {
-        "id": "epic",
-        "name": "史诗",
-        "color": "border-purple-400 bg-purple-50 text-purple-700",
-        "dotColor": "bg-purple-500",
-        "bonus": 0.4,
-        "prob": 0.1,
-        "shadow": "shadow-purple-200",
-        "starColor": "text-purple-500",
-        "recycleValue": 2
-    },
-    {
-        "id": "legendary",
-        "name": "传说",
-        "color": "border-orange-400 bg-orange-50 text-orange-700",
-        "dotColor": "bg-orange-500",
-        "bonus": 1,
-        "prob": 0.01,
-        "shadow": "shadow-orange-200",
-        "starColor": "text-orange-500",
-        "recycleValue": 4
-    },
-    {
-        "id": "mythic",
-        "name": "神话",
-        "color": "border-rose-500 bg-rose-50 text-rose-700",
-        "dotColor": "bg-rose-500",
-        "bonus": 3,
-        "prob": 0,
-        "shadow": "shadow-rose-200",
-        "starColor": "text-rose-600",
-        "recycleValue": 10
-    }
+    { id: 'common', name: '普通', color: 'border-slate-300 bg-slate-50 text-slate-600', dotColor: 'bg-slate-400', starColor: 'text-slate-400', shadow: '', bonus: 0, recycleValue: 1 },
+    { id: 'uncommon', name: '优秀', color: 'border-green-400 bg-green-50 text-green-700', dotColor: 'bg-green-500', starColor: 'text-green-500', shadow: 'shadow-green-200', bonus: 0.1, recycleValue: 2 },
+    { id: 'rare', name: '稀有', color: 'border-blue-400 bg-blue-50 text-blue-700', dotColor: 'bg-blue-500', starColor: 'text-blue-500', shadow: 'shadow-blue-200', bonus: 0.25, recycleValue: 5 },
+    { id: 'epic', name: '史诗', color: 'border-purple-400 bg-purple-50 text-purple-700', dotColor: 'bg-purple-500', starColor: 'text-purple-500', shadow: 'shadow-purple-200', bonus: 0.5, recycleValue: 15 },
+    { id: 'legendary', name: '传说', color: 'border-orange-400 bg-orange-50 text-orange-700', dotColor: 'bg-orange-500', starColor: 'text-orange-500', shadow: 'shadow-orange-200', bonus: 1.0, recycleValue: 50 },
+    { id: 'mythic', name: '神话', color: 'border-rose-500 bg-rose-50 text-rose-700', dotColor: 'bg-rose-500', starColor: 'text-rose-600', shadow: 'shadow-rose-200', bonus: 2.0, recycleValue: 200 }
 ];
 
 export const INITIAL_POOLS_DATA = [
