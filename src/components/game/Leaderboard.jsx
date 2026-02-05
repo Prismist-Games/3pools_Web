@@ -101,7 +101,7 @@ const Leaderboard = ({ currentScore, onRestart }) => {
                 <div className="bg-red-50 border-2 border-red-200 rounded-xl p-3 flex items-start gap-2 text-red-800 text-sm font-bold animate-pulse">
                     <AlertCircle size={20} className="shrink-0 mt-0.5" />
                     <div className="flex flex-col text-left">
-                        <span>无法连接排行榜</span>
+                        <span>{t("无法连接排行榜")}</span>
                         <span className="font-mono text-xs opacity-80 mt-1">{fetchError}</span>
                         {fetchError.includes('404') && (
                             <span className="text-xs text-red-600 mt-1">⚠️ 提示：数据库表没找到。请检查 Supabase 表名是否为 "leaderboard" (全小写)。</span>

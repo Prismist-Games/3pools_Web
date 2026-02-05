@@ -4,9 +4,10 @@ import GameCore from './GameCore';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { INITIAL_GAME_CONFIG, SKILL_DEFINITIONS } from './data/constants';
 import ErrorBoundary from './components/ErrorBoundary';
-import { LanguageProvider } from './contexts/LanguageContext';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 export default function App() {
+    const { t } = useLanguage();
     const [config, setConfig] = useState(INITIAL_GAME_CONFIG);
     const [gameId, setGameId] = useState(0);
     const [showSettings, setShowSettings] = useState(false);
@@ -141,7 +142,7 @@ export default function App() {
     }, [config.pools, selectedSpawnPoolId]);
 
     return (
-        <LanguageProvider>
+        <>
             <ErrorBoundary key={gameId}>
                 <GameCore
                     key={gameId}
@@ -157,8 +158,8 @@ export default function App() {
 
             {resetConfirmOpen && (
                 <ConfirmDialog
-                    title="重新开始游戏？"
-                    message="确定要重新开始游戏吗？当前进度（金币、背包、技能）将丢失。"
+                    title={t("重新开始游戏？")}
+                    message={t("确定要重新开始游戏吗？当前进度（金币、背包、技能）将丢失。")}
                     onConfirm={handleHardReset}
                     onCancel={() => setResetConfirmOpen(false)}
                 />
@@ -166,8 +167,8 @@ export default function App() {
 
             {defaultResetConfirmOpen && (
                 <ConfirmDialog
-                    title="恢复默认配置？"
-                    message="确定要将所有配置参数恢复为默认值吗？此操作不可撤销。"
+                    title={t("恢复默认配置？")}
+                    message={t("确定要将所有配置参数恢复为默认值吗？此操作不可撤销。")}
                     onConfirm={handleResetDefaults}
                     onCancel={() => setDefaultResetConfirmOpen(false)}
                 />
@@ -1269,10 +1270,9 @@ export default function App() {
                                 </button>
                             </div>
                         </div>
-                    </div >
-                </div >
-            )
-            }
-        </LanguageProvider >
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

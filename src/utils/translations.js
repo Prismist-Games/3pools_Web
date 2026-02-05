@@ -1,6 +1,7 @@
 export const EN_TRANSLATIONS = {
     // --- UI General ---
     "当前订单": "Orders",
+    "刷新所有订单": "Refresh All",
     "刷新物品": "Refresh Items",
     "点击卡片购买": "Click to Buy",
     "剩余刷新": "Refreshes",
@@ -10,7 +11,6 @@ export const EN_TRANSLATIONS = {
     "回收": "Recycle",
     "重置": "Reset",
     "设置": "Settings",
-    "排行榜": "Leaderboard",
     "排行榜": "Leaderboard",
     "抽取物品": "Draw Items",
     "背包栏位": "Inventory Slots",
@@ -48,12 +48,13 @@ export const EN_TRANSLATIONS = {
     "阶段解锁": "Stage Unlocked",
     "继续挑战": "Continue",
     "收下": "Accept",
+    "重新开始": "Restart",
     "解锁新内容": "New Content Unlocked",
     "需要": "Need",
     "奖励": "Reward",
     "免费": "Free",
     "阶段": "Stage",
-    "刷新所有订单": "Refresh Orders",
+    "刷新此订单": "Refresh Order",
     "购买更多刷新次数": "Buy Refreshes",
     "必出": "Guaranteed",
     "可能是 90% 普通物品...": "Probably 90% common...",
@@ -71,6 +72,21 @@ export const EN_TRANSLATIONS = {
     "可回收价值": "Recycle Value",
     "个物品": "Items",
     "预计获得": "Est. Reward",
+
+    // --- New Game Core UI ---
+    "当前积分": "Current Score",
+    "生命值": "Health",
+    "持有金币": "Gold Held",
+    "撤离难度": "Evac Difficulty",
+    "折叠面板": "Collapse",
+    "展开面板": "Expand",
+    "初始": "Initial",
+    "需求品质+": "Req Quality+",
+    "Patience Stability": "Patience Stability",
+    "Passive Skills": "Passive Skills",
+    "积分订单": "Score Order",
+    "已完成": "Completed",
+    "撤离时未完成扣1血": "Lose 1 HP if incomplete",
 
     // --- Rarity ---
     "普通": "Common",
@@ -98,16 +114,15 @@ export const EN_TRANSLATIONS = {
     "放弃新技能": "Discard New Skill",
     "确认替换": "Confirm Swap",
     "全部回收": "Recycle All",
-    "刷新此订单": "Refresh Order",
     "可提交": "Ready",
     "撤离需求": "Evacuation Req",
     "暂无订单": "No Orders",
-    "已完成": "Completed",
     "回合后刷新": "Refreshing",
     "顾客情绪": "Customer Mood",
     "撤离时未完成此订单顾客情绪+1": "Mood +1 if incomplete on evacuation",
     "撤离（重置金币）": "Evacuate (Reset Gold)",
     "撤离成功！金币已重置为": "Evacuated! Gold reset to",
+    "积分目标": "Score Target",
 
     // --- Stages & Mechanics ---
     "阶段 1": "Stage 1",
@@ -126,7 +141,7 @@ export const EN_TRANSLATIONS = {
     "厨具": "Kitchenware",
     "电器": "Electronics",
 
-    // --- Items (Common/Uncommon/Rare/Epic/Legendary) ---
+    // --- Items ---
     "西瓜": "Watermelon", "柠檬": "Lemon", "芒果": "Mango", "苹果": "Apple", "橙子": "Orange",
     "冲剂": "Granules", "滴眼液": "Eye Drops", "注射器": "Syringe", "胶囊": "Capsule", "绷带": "Bandage",
     "铅笔": "Pencil", "橡皮": "Eraser", "订书机": "Stapler", "笔记本": "Notebook", "尺子": "Ruler",
@@ -143,62 +158,77 @@ export const EN_TRANSLATIONS = {
     // --- Affixes ---
     "以旧换新的": "Trade-in",
     "用背包内的 1 个物品随机置换 1 个同品质的物品。": "Exchange 1 item from inventory for a random item of same rarity.",
-
     "硬化的": "Hardened",
     "稀有度更高，但物品带有【绝育】效果，无法合成。": "Higher rarity, but items are [Sterile] and cannot be synthesized.",
-
     "提纯的": "Purified",
     "保底产出稀有、史诗或传说物品。": "Guaranteed Rare, Epic, or Legendary.",
-
     "波动的": "Volatile",
     "有更高的概率出现传说物品，但只会产出普通和传说物品": "High chance for Legendary, but only drops Common or Legendary.",
-
     "稀碎的": "Fragmented",
     "一次抽取获得 3 个物品，但必定为普通品质。": "Get 3 items at once, but they are guaranteed to be Common.",
-
     "精准的": "Precise",
     "从 2 个不同的候选物品中任选其一。": "Choose 1 from 2 candidate items.",
-
     "有的放矢的": "Targeted",
     "指定一个想要的物品类型。": "Target a specific item type.",
 
     // --- Skills ---
     "贫困救济": "Poverty Relief",
     "持有金币 < 5 时，完成订单的金币奖励额外 +5。": "+5 Gold reward if current Gold < 5.",
-
     "幸运 7": "Lucky 7",
     "当前金币数量的尾数为 7 时，抽取传说物品的概率翻倍。": "Double Legendary chance if Gold ends in 7.",
-
     "炼金术": "Alchemy",
     "回收“稀有”及以上品质物品时，25% 概率获得 5 金币。": "25% chance for +5 Gold when recycling Rare+ items.",
-
     "贵宾折扣": "VIP Discount",
     "“精准”和“有的放矢”词缀的奖池金币消耗减少 1。": "Cost -1 for Precise/Targeted pools.",
-
     "谈判专家": "Negotiator",
     "抽到“史诗”或以上品质物品时，所有订单获得 1 次刷新次数。": "+1 Refresh for all orders when drawing Epic+ item.",
-
     "安慰奖": "Consolation",
     "连续抽到 5 个“普通”品质物品后，下次抽奖获得的物品必定是稀有以上品质。": "Guaranteed Rare+ after 5 consecutive Common draws.",
-
     "偷工减料": "Cut Corners",
     "刷新出新订单时，20% 概率使订单需求物品数量 -1（最低为1）。": "20% chance for Order Req -1 when spawned.",
-
     "时间冻结": "Time Freeze",
     "刷新单个订单时，20% 概率不消耗该订单的剩余刷新次数。": "20% chance to not consume Refresh count.",
-
     "强迫症": "OCD",
     "提交的订单若所有物品属于同一种类，金币奖励翻倍。": "Double Gold if Order items are all same type.",
-
     "自动补货": "Auto Restock",
     "完成任意订单后，下次抽奖获得的物品会多获得 1 个。": "+1 Item in next draw after completing any Order.",
-
     "时来运转": "Turn Fortune",
     "完成任意订单后，下次抽奖获得的物品必定是稀有以上品质。": "Next draw guaranteed Rare+ after completing any Order.",
-
     "大订单专家": "Big Order",
     "完成需求物品数为 4 个的订单时，额外获得 5 金币。": "+5 Gold for Orders with 4 items.",
-
     "困难订单专家": "Hard Order",
-    "完成需要史诗以上品质物品的订单时，额外获得 10 金币。": "+10 Gold for Orders requiring Epic+ items."
+    "完成需要史诗以上品质物品的订单时，额外获得 10 金币。": "+10 Gold for Orders requiring Epic+ items.",
+
+    // --- App Setup / Alerts ---
+    "重新开始游戏？": "Restart Game?",
+    "确定要重新开始游戏吗？当前进度（金币、背包、技能）将丢失。": "Are you sure you want to restart? All progress (gold, inventory, skills) will be lost.",
+    "恢复默认配置？": "Restore Defaults?",
+    "确定要将所有配置参数恢复为默认值吗？此操作不可撤销。": "Are you sure you want to restore all defaults? This action cannot be undone.",
+    "主线任务奖励": "Mainline Quest Reward",
+    "点击获取": "Click to Get",
+    "未知技能": "Unknown Skill",
+    "无法连接排行榜": "Cannot connect to leaderboard",
+    "暂无更多可学习技能！": "No more skills available!",
+    "已获取": "Obtained",
+    "获得了技能：": "Learned Skill: ",
+    "替换技能：": "Replaced Skill: ",
+    "库存种类过载！请选择一种物品进行批量替换，或丢弃新物品。": "Inventory Overload! Select a type to batch replace, or discard new item.",
+    "【谈判专家】触发：订单刷新次数+1": "[Negotiator] Triggered: +1 Order Refresh",
+    "传说降临！": "Legendary Arrival!",
+    "获得了稀有的主线道具！": "Obtained a rare mainline item!",
+    "金色传说！": "Golden Legendary!",
+    "史诗物品": "Epic Item",
+    "意外收获": "Unexpected Find",
+    "来自主线池的意外收获": "Surprise from the mainline pool",
+    "游戏结束": "Game Over",
+    "生命值耗尽，游戏结束！": "HP depleted, Game Over!",
+    "再接再厉": "Better luck next time",
+    "本次撤离未提交任何急单": "No emergency orders submitted this evacuation.",
+    "耐心耗尽": "Patience Run Out",
+    "你的耐心值已耗尽！": "Your patience has run out!",
+    "生命耗尽": "Life Depleted",
+    "你的生命值已归零！": "Your health has reached zero!",
+    "撤离需求超时！": "Evacuation timeout!",
+    "未能在规定时间内完成撤离需求！": "Failed to evacuate within time!",
+    "撤离需求超时": "Evacuation Timeout"
 };

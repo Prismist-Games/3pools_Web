@@ -8,8 +8,10 @@ import {
     getRandomItems
 } from '../utils/helpers';
 import { SKILL_DEFINITIONS } from '../data/constants';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
+    const { t } = useLanguage();
     // Patience System
     const [patience, setPatience] = useState(config.patience.initialPatience);
     const [patienceStage, setPatienceStage] = useState(0);
@@ -184,7 +186,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return true;
         });
         if (availableSkills.length === 0) {
-            showToast("暂无更多可学习技能！");
+            showToast(t("暂无更多可学习技能！"));
             return;
         }
         const candidates = getRandomItems(availableSkills, Math.min(3, availableSkills.length));
@@ -224,9 +226,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         };
         if (inventory.length < maxInventorySize) {
             setInventory(prev => [...prev, newItem]);
-            showToast(`已获取: ${newItem.name} (${rarity.name})`, 'success');
+            showToast(`${t("已获取")}: ${t(newItem.name)} (${t(rarity.name)})`, 'success');
         } else {
-            showToast('背包已满！', 'error');
+            showToast(t('背包已满！'), 'error');
         }
     };
 
@@ -238,14 +240,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (skills.length < 3) {
             setSkills(prev => [...prev, skill.id]);
             setSkillSelectionCandidates(null);
-            showToast(`获得了技能：${skill.name}`);
+            showToast(`${t("获得了技能：")}${t(skill.name)}`);
         }
     };
 
     const handleSkillReplace = (oldSkillId, newSkill) => {
         setSkills(prev => prev.map(id => id === oldSkillId ? newSkill.id : id));
         setSkillSelectionCandidates(null);
-        showToast(`替换技能：${newSkill.name}`);
+        showToast(`${t("替换技能：")}${t(newSkill.name)}`);
     };
 
     // ===== 耐心值阶段机制核心函数 =====
@@ -618,7 +620,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
                 if (isOverload) {
                     nextItem.isOverload = true;
-                    showToast("库存种类过载！请选择一种物品进行批量替换，或丢弃新物品。", "warning");
+                    showToast(t("库存种类过载！请选择一种物品进行批量替换，或丢弃新物品。"), "warning");
                 }
 
                 setPendingItem(nextItem);
@@ -650,7 +652,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             });
             if (triggered) {
                 setOrders(prev => prev.map(o => ({ ...o, remainingRefreshes: o.remainingRefreshes + 1 })));
-                showToast("【谈判专家】触发：订单刷新次数+1");
+                showToast(t("【谈判专家】触发：订单刷新次数+1"));
             }
         }
 
@@ -677,7 +679,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     if (!localPendingItem) {
                         localPendingItem = item;
                         setPendingItem(item);
-                        showToast("库存种类过载！请选择一种物品进行批量替换，或丢弃新物品。", "warning");
+                        showToast(t("库存种类过载！请选择一种物品进行批量替换，或丢弃新物品。"), "warning");
                     } else {
                         remainingQueue.push(item);
                     }
@@ -709,7 +711,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 if (!localPendingItem) {
                     localPendingItem = item;
                     setPendingItem(item);
-                    showToast("背包已满！", "warning");
+                    showToast(t("背包已满！"), "warning");
                 } else {
                     remainingQueue.push(item);
                 }
@@ -744,9 +746,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             };
 
             setModalContent({
-                title: "传说降临！",
+                title: t("传说降临！"),
                 item: newItem,
-                message: "获得了稀有的主线道具！",
+                message: t("获得了稀有的主线道具！"),
                 type: 'resource',
                 actualItem: newItem
             });
@@ -779,9 +781,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             };
 
             setModalContent({
-                title: rarity.id === 'legendary' ? "金色传说！" : (rarity.id === 'epic' ? "史诗物品" : "意外收获"),
+                title: rarity.id === 'legendary' ? t("金色传说！") : (rarity.id === 'epic' ? t("史诗物品") : t("意外收获")),
                 item: newItem,
-                message: "来自主线池的意外收获",
+                message: t("来自主线池的意外收获"),
                 type: 'normal',
                 actualItem: newItem
             });
@@ -1519,17 +1521,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!modalContent) {
             if (config.patience?.enabled !== false && patience <= 0) {
                 setModalContent({
-                    title: "游戏结束",
-                    item: { name: '耐心耗尽', icon: '💔', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
-                    message: "你的耐心值已耗尽！",
+                    title: t("游戏结束"),
+                    item: { name: t('耐心耗尽'), icon: '💔', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
+                    message: t("你的耐心值已耗尽！"),
                     type: 'game_over',
                     score: drawCount
                 });
             } else if (config.emergency?.health?.enabled && health <= 0) {
                 setModalContent({
-                    title: "游戏结束",
-                    item: { name: '生命耗尽', icon: '💀', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
-                    message: `你的生命值已归零！`,
+                    title: t("游戏结束"),
+                    item: { name: t('生命耗尽'), icon: '💀', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
+                    message: t("你的生命值已归零！"),
                     type: 'game_over',
                     score: score // 使用积分作为最终得分
                 });
@@ -1554,7 +1556,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                         const decreaseAmount = healthConfig.decreaseOnTimeout || 1;
                         const newHealth = Math.max(0, health - decreaseAmount);
                         setHealth(newHealth);
-                        showToast(`撤离需求超时！生命值 -${decreaseAmount}（${newHealth}/${healthConfig.maxHealth}）`, "error");
+                        showToast(`${t("撤离需求超时！")}${t("生命值")} -${decreaseAmount}（${newHealth}/${healthConfig.maxHealth}）`, "error");
 
                         const newDifficulty = emergencyDifficulty;
 
@@ -1568,9 +1570,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     } else {
                         // 如果未启用急躁值系统，则直接游戏结束
                         setModalContent({
-                            title: "游戏结束",
-                            item: { name: '撤离需求超时', icon: '⏰', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
-                            message: "未能在规定时间内完成撤离需求！",
+                            title: t("游戏结束"),
+                            item: { name: t('撤离需求超时'), icon: '⏰', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
+                            message: t("未能在规定时间内完成撤离需求！"),
                             type: 'game_over',
                             score: drawCount
                         });

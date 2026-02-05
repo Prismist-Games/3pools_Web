@@ -101,7 +101,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                 <div className="flex flex-col items-center gap-4 py-4 w-full">
                                     <div className="text-4xl animate-bounce">{modalContent.item?.icon}</div>
                                     <div className="w-full bg-white/50 rounded-xl p-4 border border-blue-200">
-                                        <h4 className="font-bold text-blue-800 mb-3 text-left">解锁新内容：</h4>
+                                        <h4 className="font-bold text-blue-800 mb-3 text-left">{t("解锁新内容")}：</h4>
                                         <ul className="text-left space-y-2">
                                             {modalContent.unlocks.map((text, idx) => (
                                                 <li key={idx} className="flex items-start gap-2 text-sm font-bold text-slate-600">
@@ -115,7 +115,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         onClick={handleCloseModal}
                                         className="mt-2 w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95"
                                     >
-                                        继续挑战
+                                        {t("继续挑战")}
                                     </button>
                                 </div>
                             ) : modalContent.type === 'game_over' ? (
@@ -136,7 +136,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         onClick={onReset}
                                         className="mt-4 font-bold py-3 px-12 rounded-full shadow-lg transition-transform active:scale-95 bg-red-600 text-white hover:bg-red-700"
                                     >
-                                        重新开始
+                                        {t("重新开始")}
                                     </button>
                                 </>
                             ) : (
@@ -157,7 +157,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         onClick={handleCloseModal}
                                         className="mt-4 font-bold py-3 px-12 rounded-full shadow-lg transition-transform active:scale-95 bg-slate-800 text-white hover:bg-slate-700"
                                     >
-                                        收下
+                                        {t("收下")}
                                     </button>
                                 </>
                             )}
@@ -196,7 +196,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                 {config.patience?.enabled !== false && (
                                     <div className="flex items-center gap-1.5 opacity-60">
                                         <span className={`w-2 h-2 rounded-full ${patience > 60 ? 'bg-green-400' : patience > 30 ? 'bg-yellow-400' : 'bg-red-500'}`} />
-                                        <span className="text-[10px] font-bold tracking-widest uppercase">{t("STAGE")} {state.patienceStage}</span>
+                                        <span className="text-[10px] font-bold tracking-widest uppercase">{t("阶段")} {state.patienceStage + 1}</span>
                                     </div>
                                 )}
                             </div>
