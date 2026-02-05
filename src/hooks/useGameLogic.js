@@ -104,9 +104,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             order1.maxDeadline = deadline;
             order1.difficulty = emergencyDifficulty;
 
-            // Generate second order (ensure different item types)
-            const usedNames = new Set(order1.requirements.map(r => r.name));
-            const availableForSecond = allNormalItems.filter(i => !usedNames.has(i.name));
+            // Generate second order (ensure different item types AND CATEGORIES)
+            const usedPoolIds = new Set(order1.requirements.map(r => r.poolId));
+            const availableForSecond = allNormalItems.filter(i => !usedPoolIds.has(i.poolId));
 
             // Fallback if no items left (unlikely but safe)
             const itemsForOrder2 = availableForSecond.length >= (config.emergency?.reqCountMin || 1) ? availableForSecond : allNormalItems;
@@ -1610,8 +1610,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         order1.maxDeadline = deadline;
         order1.difficulty = newDifficulty;
 
-        const usedNames = new Set(order1.requirements.map(r => r.name));
-        const availableForSecond = allNormalItems.filter(i => !usedNames.has(i.name));
+        const usedPoolIds = new Set(order1.requirements.map(r => r.poolId));
+        const availableForSecond = allNormalItems.filter(i => !usedPoolIds.has(i.poolId));
         const itemsForOrder2 = availableForSecond.length >= (config.emergency?.reqCountMin || 1) ? availableForSecond : allNormalItems;
 
         const order2 = generateOrder(itemsForOrder2, config, hasSkill, currentStageConfig, true, newDifficulty);

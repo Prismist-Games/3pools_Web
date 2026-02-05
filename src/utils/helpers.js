@@ -85,6 +85,23 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
     // 检查是否有精确的难度需求配置（优先级最高）
     const difficultyRequirements = isEmergency && config.emergency?.difficultyRequirements?.[emergencyDifficulty];
 
+    // Helper: Get unique pool items
+    const getUniquePoolItems = (sourceItems, num) => {
+        const poolGroups = {};
+        sourceItems.forEach(item => {
+            if (!poolGroups[item.poolId]) poolGroups[item.poolId] = [];
+            poolGroups[item.poolId].push(item);
+        });
+
+        const availablePoolIds = Object.keys(poolGroups);
+        const selectedPoolIds = getRandomItems(availablePoolIds, Math.min(num, availablePoolIds.length));
+
+        return selectedPoolIds.map(pid => {
+            const itemsInPool = poolGroups[pid];
+            return itemsInPool[Math.floor(Math.random() * itemsInPool.length)];
+        });
+    };
+
     let count;
     let requirements;
 
@@ -92,8 +109,24 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         // 使用精确配置模式 - 数量由配置的总物品数决定
         count = difficultyRequirements.reduce((sum, req) => sum + req.count, 0);
 
+        // 如果是紧急订单，限制数量为可用池子数量，保证种类唯一
+        if (isEmergency) {
+            const availablePoolCount = new Set(allNormalItems.map(i => i.poolId)).size;
+            if (count > availablePoolCount) {
+                count = availablePoolCount;
+                // 需调整 difficultyRequirements 以匹配新数量 (简单截断)
+                // 这里稍微复杂，简单起见我们只调整生成的 rawRequirements 数量
+                // 但 rarityList 也需要调整
+            }
+        }
+
         // 随机选择物品
-        const rawRequirements = getRandomItems(allNormalItems, count);
+        let rawRequirements;
+        if (isEmergency) {
+            rawRequirements = getUniquePoolItems(allNormalItems, count);
+        } else {
+            rawRequirements = getRandomItems(allNormalItems, count);
+        }
 
         // 将配置的品质需求展开成数组
         const rarityList = [];
@@ -105,6 +138,11 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
                 }
             }
         });
+
+        // 截断 rarityList 以匹配实际 count (如果因唯一性被缩减)
+        if (rarityList.length > count) {
+            rarityList.length = count;
+        }
 
         // 随机打乱品质列表，避免每次都是相同顺序
         const shuffledRarities = rarityList.sort(() => Math.random() - 0.5);
@@ -171,7 +209,18 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
             count -= 1;
         }
 
-        const rawRequirements = getRandomItems(allNormalItems, count);
+        // Enforce unique pools for emergency orders
+        if (isEmergency) {
+            const availablePoolCount = new Set(allNormalItems.map(i => i.poolId)).size;
+            if (count > availablePoolCount) count = availablePoolCount;
+        }
+
+        let rawRequirements;
+        if (isEmergency) {
+            rawRequirements = getUniquePoolItems(allNormalItems, count);
+        } else {
+            rawRequirements = getRandomItems(allNormalItems, count);
+        }
 
         // 使用随机品质生成
         requirements = rawRequirements.map(item => ({
