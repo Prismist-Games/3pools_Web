@@ -466,9 +466,9 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                             >
                                                 <div className={`${isPrecise ? 'text-6xl' : 'text-4xl'} filter drop-shadow-sm transition-transform group-hover:scale-110`}>{item.icon}</div>
                                                 <div className="flex flex-col items-center gap-1">
-                                                    <span className={`font-black ${isPrecise ? 'text-xl' : 'text-sm text-slate-700'}`}>{item.name}</span>
+                                                    <span className={`font-black ${isPrecise ? 'text-xl' : 'text-sm text-slate-700'}`}>{t(item.name)}</span>
                                                     {item.rarity && (
-                                                        <span className={`text-[10px] font-bold uppercase tracking-wider opacity-60`}>{item.rarity.name}</span>
+                                                        <span className={`text-[10px] font-bold uppercase tracking-wider opacity-60`}>{t(item.rarity.name)}</span>
                                                     )}
                                                 </div>
                                             </button>
