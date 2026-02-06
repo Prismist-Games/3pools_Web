@@ -750,7 +750,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                 </div>
 
                                 {/* Action Buttons (Moved to prevent overlap) */}
-                                <div className="flex flex-col gap-2 shrink-0 justify-end pb-2">
+                                <div className={`flex flex-col gap-2 shrink-0 justify-end pb-2 w-40 min-h-[88px] ${pendingItem ? 'hidden' : ''}`}>
                                     {!isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode && (
                                         <>
                                             <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">
@@ -796,22 +796,22 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                                 {/* Pending Queue Popup */}
                                 {pendingItem && (
-                                    <div className="absolute right-0 bottom-full mb-4 lg:mb-0 lg:static lg:bottom-auto flex flex-col items-end lg:items-start gap-2 animate-in slide-in-from-right-4 fade-in duration-300 z-40 max-w-full">
+                                    <div className="flex flex-col gap-2 shrink-0 z-40 w-40 animate-in slide-in-from-right-4 fade-in duration-300">
 
-                                        <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl border-2 border-red-200 shadow-2xl flex flex-col gap-2 max-w-[95vw] lg:max-w-xl">
+                                        <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl border-2 border-red-200 shadow-2xl flex flex-col gap-2 w-full max-h-[500px]">
 
                                             <div className="flex justify-between items-center border-b border-red-100 pb-2">
-                                                <div className="flex items-center gap-2 text-red-600 font-bold text-sm">
-                                                    <AlertCircle size={16} />
-                                                    <span>{pendingItem.isOverload ? t("种类过载：点击下方物品清除同类！") : `${t("背包已满！待处理队列")} (${pendingQueue.length + 1})`}</span>
+                                                <div className="flex items-center gap-2 text-red-600 font-bold text-sm w-full">
+                                                    <AlertCircle size={16} className="shrink-0" />
+                                                    <span className="truncate">{pendingItem.isOverload ? t("种类过载") : `${t("待处理")} (${pendingQueue.length + 1})`}</span>
                                                 </div>
                                                 <div className="text-xs text-slate-400">
                                                     {t("按顺序处理")}
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-start gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
-                                                <div className="flex flex-col gap-2 shrink-0 snap-center items-center p-2 bg-red-50 rounded-xl border border-red-100 min-w-[100px]">
+                                            <div className="flex flex-col items-center gap-3 overflow-y-auto pb-2 scrollbar-thin px-1">
+                                                <div className="flex flex-col gap-2 shrink-0 snap-center items-center p-2 bg-red-50 rounded-xl border border-red-100 w-full">
                                                     <div className="text-[10px] font-black text-red-500 bg-white px-2 py-0.5 rounded-full shadow-sm">{t("当前处理")}</div>
 
                                                     <div className="relative transform hover:scale-105 transition-transform">
