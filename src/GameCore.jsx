@@ -13,7 +13,7 @@ import { PoolCard } from './components/game/PoolCard';
 import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
 
-const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
+const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
     const [isSkillsCollapsed, setIsSkillsCollapsed] = useState(true);
 
@@ -30,7 +30,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
     const {
         gold, patience, patienceStage, score, upgradedOrderItems, currentStageConfig, maxInventorySize,
-        drawCount, activePools, orders, orderCandidates, orderCandidateQueue, emergencyOrders, health, emergencyDifficulty, inventory,
+        drawCount, activePools, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, health, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
@@ -63,7 +63,8 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
         toggleEvacuationMode,
         handleConfirmEvacuation,
         handleEvacuationContinue,
-        handleEvacuationExtract
+        handleEvacuationExtract,
+        debugGetOrderItems
     } = actions;
 
     const { hasSkill } = helpers;
@@ -306,6 +307,13 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                 {language === 'zh' ? 'EN' : '中'}
                             </button>
                             <div className="w-[1px] h-4 bg-slate-700"></div>
+                            <button 
+                                onClick={() => setDebugMode(!debugMode)} 
+                                title={t("调试模式")} 
+                                className={`p-2 rounded-lg transition-all ${debugMode ? 'bg-red-500/20 text-red-500' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                            >
+                                <Zap size={18} fill={debugMode ? "currentColor" : "none"} />
+                            </button>
                             <button onClick={onOpenSettings} title={t("设置")} className="p-2 hover:bg-slate-700 rounded-lg transition-all text-slate-400 hover:text-white">
                                 <Settings size={18} />
                             </button>
@@ -400,6 +408,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                                     selectedItemNames={selectedItemNames}
                                                     upgradedOrderItems={state.upgradedOrderItems}
                                                     isBeingReplaced={false}
+                                                    onDebugGetItems={debugMode ? debugGetOrderItems : null}
                                                 />
                                             ))}
                                         </div>
@@ -408,18 +417,21 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                                 {/* Normal Orders (no mainline) */}
                                 {orders.map((order, idx) => (
-                                    <OrderCard
-                                        key={order ? order.id : `empty-${idx}`}
-                                        order={order}
-                                        index={idx}
-                                        isScoreOrder={true}
-                                        isSubmitMode={isSubmitMode}
-                                        isEvacuationMode={isEvacuationMode}
-                                        canSatisfy={satisfiableOrders.find(r => r.index === idx)}
-                                        potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === idx)} // Pass preview
-                                        onClick={handleOrderClick}
-                                        onRefresh={handleRefreshSingleOrder}
-                                        currentStageConfig={currentStageConfig}
+                                        <OrderCard
+                                            key={order ? order.id : `empty-${idx}`}
+                                            order={order}
+                                            index={idx}
+                                            isScoreOrder={true}
+                                            isSubmitMode={isSubmitMode}
+                                            isEvacuationMode={isEvacuationMode}
+                                            canSatisfy={satisfiableOrders.find(r => r.index === idx)}
+                                            potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === idx)} // Pass preview
+                                            onClick={handleOrderClick}
+                                            onRefresh={handleRefreshSingleOrder}
+                                            orderRefreshCount={orderRefreshCount}
+                                            REFRESH_MAX={REFRESH_MAX}
+                                            onDebugGetItems={debugMode ? debugGetOrderItems : null}
+                                            currentStageConfig={currentStageConfig}
                                         config={config}
                                         inventory={inventory}
                                         selectedIndices={selectedIndices}

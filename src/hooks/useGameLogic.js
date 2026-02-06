@@ -28,6 +28,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // Gold System
     const [gold, setGold] = useState(config.global?.initialGold || 30);
 
+    const [orderRefreshCount, setOrderRefreshCount] = useState(4);
+    const REFRESH_MAX = 4;
+
     const [drawCount, setDrawCount] = useState(0);
 
     const [activePools, setActivePools] = useState([]);
@@ -248,6 +251,39 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         } else {
             showToast(t("背包已满！"), 'error');
         }
+    };
+
+    const debugGetOrderItems = (orderIndex) => {
+        let order;
+        if (orderIndex >= 998) {
+            order = emergencyOrders[orderIndex - 998];
+        } else {
+            order = orders[orderIndex];
+        }
+
+        if (!order) return;
+
+        const itemsToAdd = order.requirements.map(req => {
+            const allItems = getAllNormalItems(config.pools, currentStageConfig);
+            const baseItem = allItems.find(i => i.name === req.name);
+            return {
+                ...baseItem,
+                id: Math.random().toString(36).substr(2, 9),
+                rarity: req.requiredRarity,
+                obtainCount: drawCount
+            };
+        });
+
+        setInventory(prev => {
+            const newInv = [...prev];
+            itemsToAdd.forEach(item => {
+                if (newInv.length < maxInventorySize) {
+                    newInv.push(item);
+                }
+            });
+            return newInv;
+        });
+        showToast(t("调试：已获取订单所需物品"), 'success');
     };
 
     const handleSkillSelect = (skill) => {
@@ -686,7 +722,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 if (item.rarity.bonus >= 0.4) triggered = true;
             });
             if (triggered) {
-                setOrders(prev => prev.map(o => ({ ...o, remainingRefreshes: o.remainingRefreshes + 1 })));
+                setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + 1));
                 showToast(t("【谈判专家】触发：订单刷新次数+1"));
             }
         }
@@ -1216,19 +1252,21 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
 
         const currentOrder = orders[index];
-        if (currentOrder.remainingRefreshes <= 0) return;
+        if (orderRefreshCount <= 0) return;
 
-        let newRefreshes = currentOrder.remainingRefreshes - 1;
+        let usedRefresh = true;
         if (hasSkill('time_freeze') && Math.random() < 0.20) {
-            newRefreshes = currentOrder.remainingRefreshes;
+            usedRefresh = false;
             showToast(t("【时间冻结】触发：刷新次数未消耗！"));
+        }
+
+        if (usedRefresh) {
+            setOrderRefreshCount(prev => Math.max(0, prev - 1));
         }
 
         // 生成2个候选订单，让玩家选择
         const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
         const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
-        candidate1.remainingRefreshes = newRefreshes;
-        candidate2.remainingRefreshes = newRefreshes;
 
         setOrderCandidates({ slotIndex: index, candidates: [candidate1, candidate2] });
     };
@@ -1469,6 +1507,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         setPatience(prev => prev + gainedPatience);
         setScore(prev => prev + gainedScore);
+
+        // 每次完成订单，增加刷新次数
+        if (completedIndices.length > 0) {
+            setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + completedIndices.length));
+        }
 
         // 只有手动“离开关卡”会提升难度，因此这里删除了完成订单时的难度提升逻辑
 
@@ -1739,6 +1782,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             drawCount,
             activePools,
             orders,
+            orderRefreshCount,
+            REFRESH_MAX,
             orderCandidates, orderCandidateQueue,
             inventory,
             pendingItem, pendingQueue,
@@ -1783,7 +1828,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             refreshPools,
             addInventoryItem,
             handleEvacuationContinue,
-            handleEvacuationExtract
+            handleEvacuationExtract,
+            debugGetOrderItems
         },
         helpers: {
             hasSkill

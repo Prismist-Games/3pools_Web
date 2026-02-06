@@ -19,6 +19,9 @@ const OrderCardBase = ({
     // Interactions
     onClick,
     onRefresh,
+    orderRefreshCount,
+    REFRESH_MAX,
+    onDebugGetItems, // 新增：调试获取物品
 
     // Context
     currentStageConfig,
@@ -91,6 +94,16 @@ const OrderCardBase = ({
                 ${isBeingReplaced ? '!ring-8 !ring-yellow-400 !border-yellow-500 !border-4 !bg-yellow-100 animate-pulse shadow-2xl !scale-[1.05] relative z-20' : ''}
             `}
         >
+            {/* 调试获取物品按钮 - 仅在 index !== -1 且 onDebugGetItems 存在时显示 */}
+            {onDebugGetItems && index !== -1 && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onDebugGetItems(index); }}
+                    className="absolute -top-2 -left-2 z-50 bg-red-500 text-white p-1 rounded-full shadow-lg hover:bg-red-600 active:scale-90 transition-all"
+                    title="调试：获取所需物品"
+                >
+                    <Zap size={14} fill="currentColor" />
+                </button>
+            )}
             {/* 被替换订单的额外高亮标记 */}
             {isBeingReplaced && (
                 <>
@@ -289,10 +302,10 @@ const OrderCardBase = ({
                     <div className="flex-none pl-2">
                         <button
                             onClick={(e) => { e.stopPropagation(); onRefresh(index); }}
-                            disabled={remainingRefreshes <= 0}
+                            disabled={orderRefreshCount <= 0}
                             className={`
                                 relative w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm
-                                ${remainingRefreshes > 0
+                                ${orderRefreshCount > 0
                                     ? 'bg-orange-100 text-orange-500 hover:bg-orange-200 hover:scale-105 active:scale-95'
                                     : 'bg-slate-50 text-slate-300 cursor-not-allowed'}
                             `}
@@ -300,7 +313,7 @@ const OrderCardBase = ({
                         >
                             <RefreshCw size={18} />
                             <div className="absolute -bottom-1 -right-1 bg-white text-[10px] font-black text-slate-500 px-1.5 py-0.5 rounded-full shadow border border-slate-100">
-                                {remainingRefreshes}
+                                {orderRefreshCount}
                             </div>
                         </button>
                     </div>

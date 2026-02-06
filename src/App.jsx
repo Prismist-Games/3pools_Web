@@ -11,6 +11,7 @@ export default function App() {
     const [config, setConfig] = useState(INITIAL_GAME_CONFIG);
     const [gameId, setGameId] = useState(0);
     const [showSettings, setShowSettings] = useState(false);
+    const [debugMode, setDebugMode] = useState(false);
     const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
     const [defaultResetConfirmOpen, setDefaultResetConfirmOpen] = useState(false);
 
@@ -150,6 +151,9 @@ export default function App() {
                     initialSkills={initialSkills}
                     initialProgress={initialStage}
                     onOpenSettings={() => setShowSettings(true)}
+                    showSettings={showSettings}
+                    debugMode={debugMode}
+                    setDebugMode={setDebugMode}
                     onReset={() => setResetConfirmOpen(true)}
                     debugAddItem={debugAddItemPulse}
                     onDebugAddItemHandled={() => setDebugAddItemPulse(null)}
