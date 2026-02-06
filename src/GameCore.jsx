@@ -30,7 +30,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
     const {
         gold, patience, patienceStage, score, upgradedOrderItems, currentStageConfig, maxInventorySize,
-        drawCount, activePools, orders, emergencyOrders, health, emergencyDifficulty, inventory,
+        drawCount, activePools, orders, orderCandidates, orderCandidateQueue, emergencyOrders, health, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
@@ -47,6 +47,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
         handleDiscardNew,
         handleRefreshAllOrders,
         handleRefreshSingleOrder,
+        handleSelectOrderCandidate,
         handleOrderClick,
         handleConfirmSubmission,
         toggleSubmitMode,
@@ -273,24 +274,24 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                     </div>
 
                     <div className="flex items-center gap-6">
-                        {/* Secondary Stats Group (Gold & Difficulty) */}
-                        <div className="flex items-center gap-6 pr-6 border-r border-slate-800">
+                        {/* Secondary Stats Group (Gold & Difficulty) - Enlarged */}
+                        <div className="flex items-center gap-8 pr-6 border-r border-slate-800">
                             {/* Gold Display */}
-                            <div className="flex flex-col gap-0.5 items-end">
-                                <span className="text-[9px] font-black uppercase tracking-widest opacity-30 text-yellow-100">{t("持有金币")}</span>
-                                <div className="flex items-center gap-2 text-yellow-400/90">
-                                    <Coins size={16} />
-                                    <span className="text-xl font-black font-mono tracking-tighter leading-none">{gold}</span>
+                            <div className="flex flex-col gap-1 items-end">
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-yellow-100">{t("持有金币")}</span>
+                                <div className="flex items-center gap-2.5 text-yellow-400">
+                                    <Coins size={20} className="drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" />
+                                    <span className="text-3xl font-black font-mono tracking-tighter leading-none">{gold}</span>
                                 </div>
                             </div>
 
                             {/* Difficulty Display */}
                             {emergencyOrders.length > 0 && (
-                                <div className="flex flex-col gap-0.5 items-end">
-                                    <span className="text-[9px] font-black uppercase tracking-widest opacity-30 text-orange-100">{t("离开关卡难度")}</span>
-                                    <div className="flex items-center gap-1.5 text-orange-400/90">
-                                        <ChevronsUp size={16} />
-                                        <span className="text-xl font-black font-mono tracking-tighter leading-none">LV.{emergencyDifficulty}</span>
+                                <div className="flex flex-col gap-1 items-end">
+                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-orange-100">{t("离开关卡难度")}</span>
+                                    <div className="flex items-center gap-2 text-orange-400">
+                                        <ChevronsUp size={20} className="drop-shadow-[0_0_8px_rgba(251,146,60,0.4)]" />
+                                        <span className="text-3xl font-black font-mono tracking-tighter leading-none">LV.{emergencyDifficulty}</span>
                                     </div>
                                 </div>
                             )}
@@ -319,38 +320,63 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
 
                     {/* LEFT COLUMN: ORDERS */}
                     <section className={`
-                     flex-none lg:w-5/12 h-full flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 transition-all
+                     flex-none lg:w-[45%] xl:w-[42%] h-full flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 transition-all
                      ${selectionMode?.type === 'targeted' ? 'hidden md:block md:w-1/4' : ''}
                   `}>
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                            <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-50/95 p-2 rounded-lg z-10 backdrop-blur-sm shadow-sm ring-1 ring-slate-200/50">
-                                <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
-                                    <Package size={16} /> {t("当前订单")}
-                                </h2>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleRefreshAllOrders(); }}
-                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !currentStageConfig.mechanics.refresh || isEvacuationMode}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-200 text-sm shadow-sm
-                          ${pendingItem || isSubmitMode || isRecycleMode || selectionMode || !currentStageConfig.mechanics.refresh || isEvacuationMode
-                                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                            : 'bg-orange-50 text-orange-600 hover:bg-orange-100 ring-1 ring-orange-200 hover:ring-orange-300 hover:scale-105'}`}
-                                >
-                                    {!currentStageConfig.mechanics.refresh ? <Lock size={14} /> : <RotateCcw size={14} />}
-                                    <span>{t("刷新所有订单")}</span>
-                                </button>
-                            </div>
-
                             <div className="flex flex-col gap-3">
 
                                 {/* Emergency Orders */}
                                 {state.emergencyOrders && state.emergencyOrders.length > 0 && (
-                                    <div className="mb-2 relative flex flex-col gap-2">
-                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg z-20 flex items-center gap-1">
-                                            <Timer size={10} />
-                                            <span>{t("离开关卡需求")} {t("(完成任意其一)")}</span>
+                                    <div className="mb-2 relative flex flex-col gap-2 p-3 bg-orange-50/50 rounded-2xl border-2 border-orange-200 shadow-sm">
+                                        <div className="flex items-center justify-between gap-4 mb-3 flex-nowrap border-b border-orange-200/50 pb-2">
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <div className="bg-red-600 text-white p-1.5 rounded-lg shadow-lg shrink-0">
+                                                    <Timer size={14} className="animate-pulse" />
+                                                </div>
+                                                <div className="flex flex-col min-w-0">
+                                                    <h3 className="text-sm font-black text-slate-800 leading-none truncate uppercase tracking-tight">
+                                                        {t("离开关卡需求")}
+                                                    </h3>
+                                                    <span className="text-[10px] text-slate-500 font-bold leading-none mt-1 opacity-80">
+                                                        {t("(完成任意其一)")}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                {/* 离开此关卡按钮 - 嵌入在需求区域 (放大版) */}
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleEvacuate(); }}
+                                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!orderCandidates}
+                                                    className={`
+                                                        flex items-center justify-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-black transition-all duration-200 text-[10px] sm:text-sm shadow-lg border-2 whitespace-nowrap
+                                                        ${isEvacuationMode
+                                                            ? 'bg-orange-600 text-white ring-4 ring-orange-300 border-orange-400 animate-pulse scale-105'
+                                                            : (pendingItem || isSubmitMode || isRecycleMode || selectionMode || orderCandidates
+                                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200'
+                                                                : 'bg-orange-500 text-white hover:bg-orange-600 border-orange-600 hover:scale-110 active:scale-95')
+                                                        }
+                                                    `}
+                                                >
+                                                    {isEvacuationMode ? <Check size={14} className="sm:size-[18px]" /> : <Truck size={14} className="sm:size-[18px]" />}
+                                                    <span>{isEvacuationMode ? t("选择中...") : t("离开关卡")}</span>
+                                                </button>
+
+                                                {/* 放弃按钮 - 嵌入在需求区域 (放大版) */}
+                                                {!isEvacuationMode && !isSubmitMode && !isRecycleMode && !selectionMode && !orderCandidates && (
+                                                    <button
+                                                        onClick={onReset}
+                                                        className="flex items-center justify-center gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl font-black transition-all duration-200 text-[10px] sm:text-xs shadow-md bg-red-50 text-red-600 border-2 border-red-200 hover:bg-red-500 hover:text-white hover:border-red-600 hover:scale-105 active:scale-95 whitespace-nowrap"
+                                                    >
+                                                        <AlertCircle size={14} className="sm:size-[16px]" />
+                                                        <span>{t("放弃")}</span>
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        <div className="flex flex-col gap-2 mt-2">
+                                        <div className="flex flex-col gap-2">
                                             {state.emergencyOrders.map((order, idx) => (
                                                 <OrderCard
                                                     key={order.id}
@@ -373,38 +399,10 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                                     hoveredPoolItemNames={hoveredPoolItemNames}
                                                     selectedItemNames={selectedItemNames}
                                                     upgradedOrderItems={state.upgradedOrderItems}
+                                                    isBeingReplaced={false}
                                                 />
                                             ))}
                                         </div>
-
-                                        {/* Evacuate Button */}
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleEvacuate(); }}
-                                            disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
-                                            className={`
-                                            mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold transition-all duration-200 text-sm shadow-sm
-                                            ${isEvacuationMode
-                                                    ? 'bg-orange-600 text-white ring-4 ring-orange-300 scale-[1.02]'
-                                                    : (pendingItem || isSubmitMode || isRecycleMode || selectionMode
-                                                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                        : 'bg-orange-500 text-white hover:bg-orange-600 hover:scale-[1.02] active:scale-95 ring-2 ring-orange-300')
-                                                }
-                                        `}
-                                        >
-                                            {isEvacuationMode ? <Check size={16} /> : <Truck size={16} />}
-                                            <span>{isEvacuationMode ? t("正在选择离开关卡的物品...") : t("离开此关卡（重置金币）")}</span>
-                                        </button>
-
-                                        {/* Give Up Stage Button */}
-                                        {emergencyOrders && emergencyOrders.length > 0 && !isEvacuationMode && !isSubmitMode && !isRecycleMode && !selectionMode && (
-                                            <button
-                                                onClick={onReset}
-                                                className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold transition-all duration-200 text-sm shadow-sm bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 active:scale-95"
-                                            >
-                                                <AlertCircle size={16} />
-                                                <span>{t("放弃关卡")}</span>
-                                            </button>
-                                        )}
                                     </div>
                                 )}
 
@@ -431,9 +429,80 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         hoveredPoolItemNames={hoveredPoolItemNames}
                                         selectedItemNames={selectedItemNames}
                                         upgradedOrderItems={state.upgradedOrderItems}
+                                        isBeingReplaced={orderCandidates?.slotIndex === idx}
                                     />
                                 ))}
                             </div>
+
+                            {/* 候选订单选择区域 - 从订单栏底部升起 */}
+                            {orderCandidates && (
+                                <div className="mt-4 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                                    {/* 指向箭头 */}
+                                    <div className="flex items-center justify-center -mb-2 relative z-10">
+                                        <div className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-black flex items-center gap-1.5 shadow-lg border-2 border-yellow-500 animate-bounce">
+                                            <ChevronUp size={14} strokeWidth={3} />
+                                            <span>{t("替换上方订单")}</span>
+                                            <ChevronUp size={14} strokeWidth={3} />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-4 border-blue-300 rounded-2xl p-4 shadow-2xl ring-4 ring-blue-200">
+                                        <div className="flex flex-col gap-3">
+                                            {/* 标题栏 */}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="bg-blue-500 text-white rounded-full p-1.5 shadow-lg">
+                                                        <Package size={16} />
+                                                    </div>
+                                                    <h3 className="text-base font-black text-slate-800">{t("选择一个订单")}</h3>
+                                                </div>
+                                                {orderCandidateQueue.length > 0 && (
+                                                    <div className="text-xs text-slate-500 font-bold bg-white/60 px-2 py-1 rounded-full">
+                                                        {t("待选订单")}: {orderCandidateQueue.length + 1}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <p className="text-xs text-slate-600 font-medium">{t("请从以下2个订单中选择1个")}</p>
+
+                                            {/* 候选订单卡片 - 使用完整的 OrderCard 组件 */}
+                                            <div className="flex flex-col gap-2">
+                                                {orderCandidates.candidates.map((candidate, idx) => (
+                                                    <div
+                                                        key={candidate.id}
+                                                        onClick={() => handleSelectOrderCandidate(idx)}
+                                                        className="cursor-pointer hover:scale-[1.01] transition-transform duration-200"
+                                                    >
+                                                        <OrderCard
+                                                            order={candidate}
+                                                            index={-1}
+                                                            isScoreOrder={true}
+                                                            isSubmitMode={false}
+                                                            isEvacuationMode={false}
+                                                            canSatisfy={null}
+                                                            potentialSatisfy={null}
+                                                            onClick={() => handleSelectOrderCandidate(idx)}
+                                                            onRefresh={() => {}}
+                                                            currentStageConfig={currentStageConfig}
+                                                            config={config}
+                                                            inventory={inventory}
+                                                            selectedIndices={[]}
+                                                            hasSkill={hasSkill}
+                                                            hoveredPoolId={hoveredPoolId}
+                                                            hoveredItemName={hoveredItemName}
+                                                            hoveredPoolItemNames={hoveredPoolItemNames}
+                                                            selectedItemNames={[]}
+                                                            upgradedOrderItems={[]}
+                                                            isBeingReplaced={false}
+                                                            isCandidate={true}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </section>
 
@@ -441,11 +510,12 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                     <section className="flex-1 flex flex-col h-full overflow-hidden relative">
                         {/* POOLS SCROLLABLE AREA */}
                         <div className="flex-1 overflow-y-auto p-4 lg:p-8 relative custom-scrollbar">
-                            <div className="flex justify-between items-center mb-4">
+                            <div className="flex justify-between items-center mb-4 gap-4">
                                 <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
                                     <RefreshCw size={16} /> {t("抽取物品")}
                                 </h2>
-                                <span className="text-xs text-slate-400">{t("点击卡片购买")}</span>
+                                
+                                <span className="text-xs text-slate-400 hidden md:block">{t("点击卡片购买")}</span>
                             </div>
 
                             <div className={`
@@ -481,7 +551,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                             onMouseLeave={handlePoolLeave}
                                             isHovered={hoveredPoolId === (pool.originalId || pool.id)}
                                             relevantRequirements={relevantRequirements}
-                                            disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode}
+                                            disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
                                         />
                                     )
                                 })}

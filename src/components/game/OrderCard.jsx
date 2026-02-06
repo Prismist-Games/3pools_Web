@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { RefreshCw, Check, Ticket, Coins, Clock, Zap, Crown, Trophy, TrendingUp, Star } from 'lucide-react';
+import { RefreshCw, Check, Ticket, Coins, Clock, Zap, Crown, Trophy, TrendingUp, Star, AlertCircle } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const OrderCardBase = ({
@@ -13,6 +13,8 @@ const OrderCardBase = ({
     canSatisfy, // { index, finalReward, rewardType, isScoreOrder, reqCount, requirements }
     potentialSatisfy, // { index, finalReward ... } (Preview)
     emergencyOrderCompleted, // 限时订单已完成标记
+    isBeingReplaced, // 新增：是否正在被二选一替换
+    isCandidate, // 新增：是否是候选订单（用于压缩显示）
 
     // Interactions
     onClick,
@@ -72,7 +74,9 @@ const OrderCardBase = ({
         <div
             onClick={() => onClick(index, isScoreOrder)}
             className={`
-                relative bg-white rounded-2xl p-3 shadow-sm border-2 transition-all duration-200
+                relative bg-white rounded-2xl shadow-sm border-2 transition-all duration-200
+                ${isCandidate ? 'p-2' : 'p-3'}
+                ${isCandidate ? 'hover:border-blue-500 hover:shadow-lg cursor-pointer' : ''}
                 ${isScoreOrder
                     ? 'border-blue-300 bg-blue-50 ring-4 ring-blue-50'
                     : order.isEmergency
@@ -84,18 +88,35 @@ const OrderCardBase = ({
                     ? (isScoreOrder ? 'ring-4 ring-green-400 border-green-500 bg-green-50' : 'ring-4 ring-green-400 border-green-500 bg-green-50 transform scale-[1.02]')
                     : ((isSubmitMode && !isScoreOrder) ? 'opacity-60 grayscale-[0.8] scale-95' : '')
                 }
+                ${isBeingReplaced ? '!ring-8 !ring-yellow-400 !border-yellow-500 !border-4 !bg-yellow-100 animate-pulse shadow-2xl !scale-[1.05] relative z-20' : ''}
             `}
         >
+            {/* 被替换订单的额外高亮标记 */}
+            {isBeingReplaced && (
+                <>
+                    {/* 顶部闪烁标签 */}
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-black shadow-lg z-30 animate-bounce flex items-center gap-1">
+                        <AlertCircle size={12} />
+                        <span>{t("正在替换")}</span>
+                    </div>
+                    {/* 四角光效 */}
+                    <div className="absolute -top-1 -left-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping" />
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0.1s' }} />
+                    <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0.2s' }} />
+                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0.3s' }} />
+                </>
+            )}
+            
             {/* Content Container */}
             <div className="flex justify-between items-center w-full gap-2">
 
                 {/* Left Side: Info & Reqs */}
-                <div className="flex flex-col gap-1.5 flex-1">
+                <div className={`flex flex-col flex-1 ${isCandidate ? 'gap-1' : 'gap-1.5'}`}>
 
                     {/* Header / Reward Badge */}
                     <div className="flex flex-wrap items-center gap-2">
                         {/* Label & Status */}
-                        {isScoreOrder && (
+                        {isScoreOrder && !isCandidate && (
                             <div className="flex items-center">
                                 <span className="text-[10px] font-black text-blue-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-full border border-blue-200 whitespace-nowrap">
                                     <Star size={10} fill="currentColor" /> {t("积分订单")}
@@ -124,10 +145,10 @@ const OrderCardBase = ({
                             </div>
                         ) : (
                             /* Rewards Badge for Normal/Score Orders */
-                            <div className="flex items-center gap-2">
+                            <div className={`flex items-center ${isCandidate ? 'gap-1' : 'gap-2'}`}>
                                 {/* Patience Reward */}
                                 {(config.patience?.enabled !== false) && (
-                                    <div className={`flex items-center gap-1 px-2 py-1 rounded-lg font-black text-[10px] shadow-sm ${canSatisfy ? 'bg-pink-500 text-white' : 'bg-pink-100 text-pink-700'}`}>
+                                    <div className={`flex items-center gap-1 rounded-lg font-black text-[10px] shadow-sm ${isCandidate ? 'px-1.5 py-0.5' : 'px-2 py-1'} ${canSatisfy ? 'bg-pink-500 text-white' : 'bg-pink-100 text-pink-700'}`}>
                                         <span>{basePatienceReward}</span>
                                         {canSatisfy && (
                                             <>
@@ -139,7 +160,7 @@ const OrderCardBase = ({
                                     </div>
                                 )}
                                 {/* Score Reward */}
-                                <div className={`flex items-center gap-1 px-2 py-1 rounded-lg font-black text-[10px] shadow-sm ${canSatisfy ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'}`}>
+                                <div className={`flex items-center gap-1 rounded-lg font-black text-[10px] shadow-sm ${isCandidate ? 'px-1.5 py-0.5' : 'px-2 py-1'} ${canSatisfy ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'}`}>
                                     <span>{baseScoreReward}</span>
                                     {canSatisfy && (
                                         <>
@@ -154,7 +175,7 @@ const OrderCardBase = ({
                     </div>
 
                     {/* Requirements */}
-                    <div className="flex flex-wrap gap-2">
+                    <div className={`flex ${isCandidate ? 'flex-wrap gap-1.5' : 'flex-nowrap gap-1.5'}`}>
                         {requirements.map((req, rIdx) => {
                             let matchedItem = null;
 
@@ -222,14 +243,15 @@ const OrderCardBase = ({
 
                             return (
                                 <div key={rIdx} className={`
-                                relative flex items-center gap-1 text-sm border-2 rounded px-2 py-1 transition-all duration-200
+                                relative flex items-center gap-1 border-2 rounded transition-all duration-200 shrink-0
+                                ${isCandidate ? 'text-xs px-1.5 py-0.5' : 'text-xs px-1.5 py-1'}
                                 ${borderStyle} ${borderColorClass} ${bgColorClass} ${textColorClass}
                                 ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}
                                 ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
                             `}>
                                     <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-white/50 shrink-0`} title={`${t("需要")}: ${t(req.requiredRarity.name)}`}></div>
-                                    <span className={`${iconFilterClass}`}>{req.icon}</span>
-                                    <span className={`font-bold ${iconFilterClass}`}>{t(req.name)}</span>
+                                    <span className={`shrink-0 ${iconFilterClass}`}>{req.icon}</span>
+                                    <span className={`font-bold ${iconFilterClass} max-w-[80px] truncate`} title={t(req.name)}>{t(req.name)}</span>
 
                                     {/* 已提交标记 */}
                                     {isSubmitted && isQualitySatisfied && (
@@ -263,7 +285,7 @@ const OrderCardBase = ({
                 </div>
 
                 {/* Right Side: Refresh Button (Centered) */}
-                {!order.isEmergency && !isSubmitMode && !isEvacuationMode && currentStageConfig.mechanics.refresh && (
+                {!order.isEmergency && !isSubmitMode && !isEvacuationMode && !isCandidate && currentStageConfig.mechanics.refresh && (
                     <div className="flex-none pl-2">
                         <button
                             onClick={(e) => { e.stopPropagation(); onRefresh(index); }}
@@ -285,7 +307,7 @@ const OrderCardBase = ({
                 )}
             </div>
 
-            {isSatisfied && (
+            {isSatisfied && !isCandidate && (
                 <div className="absolute bottom-3 left-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-sm animate-bounce flex items-center gap-1">
                     <Check size={12} /> {t("可提交")}
                 </div>

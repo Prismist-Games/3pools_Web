@@ -267,5 +267,15 @@ export const EN_TRANSLATIONS = {
     "继续挑战 (难度提升)": "Continue (Diff Up)",
     "提取分数 (结束游戏)": "Extract Score (End Game)",
     "离开此关卡（重置金币）": "Leave Stage (Reset Gold)",
-    "放弃关卡": "Give Up Stage"
+    "放弃关卡": "Give Up Stage",
+
+    // --- Order Candidate Selection ---
+    "选择一个订单": "Choose an Order",
+    "请从以下2个订单中选择1个": "Choose 1 from 2 orders",
+    "待选订单": "Pending Selections",
+    "替换上方订单": "Replace Order Above",
+    "正在替换": "Replacing",
+    "离开关卡": "Leave Stage",
+    "选择中...": "Selecting...",
+    "放弃": "Give Up"
 };

@@ -51,6 +51,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [isRecycleMode, setIsRecycleMode] = useState(false);
     const [selectedIndices, setSelectedIndices] = useState([]);
 
+    // 候选订单选择系统: { slotIndex, candidates: [order1, order2] }
+    const [orderCandidates, setOrderCandidates] = useState(null);
+    const [orderCandidateQueue, setOrderCandidateQueue] = useState([]);
+
     const [modalContent, setModalContent] = useState(null);
     const [selectionMode, setSelectionMode] = useState(null);
 
@@ -651,6 +655,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [pendingItem, pendingQueue, inventory, maxInventorySize, currentStageConfig]);
 
+    // 候选订单队列处理：当前选择完毕后自动弹出下一个
+    useEffect(() => {
+        if (!orderCandidates && orderCandidateQueue.length > 0) {
+            const [next, ...rest] = orderCandidateQueue;
+            setOrderCandidates(next);
+            setOrderCandidateQueue(rest);
+        }
+    }, [orderCandidates, orderCandidateQueue]);
+
     const createItem = (pool, itemTemplate, affixKey = null) => {
         const rarity = rollRarity(config, affixKey, patience, hasSkill, skillState, currentStageConfig);
         return {
@@ -866,7 +879,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleDraw = (pool) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates) return;
 
         // Use pool cost (from affix config)
         let finalCost = pool.cost || config.patience.drawCost;
@@ -1171,23 +1184,31 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleRefreshAllOrders = () => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode || orderCandidates) return;
         if (config.patience?.enabled !== false && patience < config.global.refreshCost) return;
         if (!currentStageConfig.mechanics.refresh) {
             showToast(t("当前时代尚未解锁订单刷新技术！"), "error");
             return;
         }
 
-        const newOrders = Array(currentStageConfig.orderSlots).fill(null).map(() => generateOrder(allNormalItems, config, hasSkill, currentStageConfig));
+        // 为每个槽位生成2个候选订单，逐个让玩家选择
+        const allCandidates = [];
+        for (let i = 0; i < currentStageConfig.orderSlots; i++) {
+            const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            allCandidates.push({ slotIndex: i, candidates: [candidate1, candidate2] });
+        }
 
-        // 应用槽位升级
-        const { orders: upgradedOrders, updatedUpgrades, hasChanges } = applySlotUpgrades(newOrders);
-        setOrders(upgradedOrders);
-        if (hasChanges) setUpgradedOrderItems(updatedUpgrades);
+        if (allCandidates.length > 0) {
+            setOrderCandidates(allCandidates[0]);
+            if (allCandidates.length > 1) {
+                setOrderCandidateQueue(allCandidates.slice(1));
+            }
+        }
     };
 
     const handleRefreshSingleOrder = (index) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode || orderCandidates) return;
 
         if (!currentStageConfig.mechanics.refresh) {
             showToast(t("当前时代尚未解锁订单刷新技术！"), "error");
@@ -1197,22 +1218,36 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const currentOrder = orders[index];
         if (currentOrder.remainingRefreshes <= 0) return;
 
-        const newOrder = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
-
         let newRefreshes = currentOrder.remainingRefreshes - 1;
         if (hasSkill('time_freeze') && Math.random() < 0.20) {
             newRefreshes = currentOrder.remainingRefreshes;
             showToast(t("【时间冻结】触发：刷新次数未消耗！"));
         }
-        newOrder.remainingRefreshes = newRefreshes;
+
+        // 生成2个候选订单，让玩家选择
+        const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+        const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+        candidate1.remainingRefreshes = newRefreshes;
+        candidate2.remainingRefreshes = newRefreshes;
+
+        setOrderCandidates({ slotIndex: index, candidates: [candidate1, candidate2] });
+    };
+
+    const handleSelectOrderCandidate = (candidateIndex) => {
+        if (!orderCandidates) return;
+        const { slotIndex, candidates } = orderCandidates;
+        const selectedOrder = candidates[candidateIndex];
 
         const newOrders = [...orders];
-        newOrders[index] = newOrder;
+        newOrders[slotIndex] = selectedOrder;
 
-        // 应用槽位升级 - 仅针对新生成的订单
-        const { orders: upgradedOrders, updatedUpgrades, hasChanges } = applySlotUpgrades(newOrders, [index]);
+        // 应用槽位升级
+        const { orders: upgradedOrders, updatedUpgrades, hasChanges } = applySlotUpgrades(newOrders, [slotIndex]);
         setOrders(upgradedOrders);
         if (hasChanges) setUpgradedOrderItems(updatedUpgrades);
+
+        setOrderCandidates(null);
+        // 队列中的下一个候选由 useEffect 自动处理
     };
 
     const handleOrderClick = (orderIndex) => {
@@ -1458,18 +1493,28 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }
         }
 
+        // 为已完成的普通订单槽位生成候选订单，让玩家选择
+        const candidateQueue = [];
         completedIndices.forEach(idx => {
             if (idx >= 998) {
                 // Emergency orders handled via Evacuate button now
             } else {
-                newOrders[idx] = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+                // 保留旧订单显示，直到玩家选择新订单后再替换
+                const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+                const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+                candidateQueue.push({ slotIndex: idx, candidates: [candidate1, candidate2] });
             }
         });
 
-        // 应用槽位升级 - 仅针对新生成的订单
-        const { orders: upgradedOrders, updatedUpgrades, hasChanges } = applySlotUpgrades(newOrders, completedIndices);
-        setOrders(upgradedOrders);
-        if (hasChanges) setUpgradedOrderItems(updatedUpgrades);
+        // 不立即更新订单数组，等选择完成后再更新
+
+        // 启动候选订单选择队列
+        if (candidateQueue.length > 0) {
+            setOrderCandidates(candidateQueue[0]);
+            if (candidateQueue.length > 1) {
+                setOrderCandidateQueue(candidateQueue.slice(1));
+            }
+        }
 
         const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
         setInventory(newInventory);
@@ -1694,6 +1739,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             drawCount,
             activePools,
             orders,
+            orderCandidates, orderCandidateQueue,
             inventory,
             pendingItem, pendingQueue,
             selectedSlot,
@@ -1722,6 +1768,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleDiscardNew,
             handleRefreshAllOrders,
             handleRefreshSingleOrder,
+            handleSelectOrderCandidate,
             handleOrderClick,
             toggleEvacuationMode,
             handleConfirmEvacuation,

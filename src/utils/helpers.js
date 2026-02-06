@@ -263,7 +263,7 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         requirements,
         basePatienceReward,
         baseScoreReward,
-        remainingRefreshes: 2,
+        remainingRefreshes: 1,
         isScoreOrder: !isEmergency
     };
 };
