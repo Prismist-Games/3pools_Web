@@ -302,7 +302,7 @@ export default function App() {
 
                                         {/* Emergency Order Config */}
                                         <div className="mt-4 pt-4 border-t border-slate-200">
-                                            <h5 className="text-sm font-bold text-red-700 flex items-center gap-1 mb-3"><Timer size={14} /> 撤离需求配置</h5>
+                                            <h5><Timer size={14} /> {t("离开关卡需求配置")}</h5>
 
                                             {/* Deadline */}
                                             <div className="mb-3">
@@ -407,7 +407,7 @@ export default function App() {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-[8px] text-red-600 block mb-1">完成撤离需求难度+</label>
+                                                        <label className="text-[8px] text-red-600 block mb-1">离开关卡难度提升+</label>
                                                         <input
                                                             type="number"
                                                             min="0"
@@ -605,7 +605,7 @@ export default function App() {
                             {/* Emergency Order Difficulty Levels Config */}
                             <section className="bg-gradient-to-br from-orange-50 to-red-50 p-5 rounded-xl border-2 border-orange-200">
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-orange-500 pl-3 flex items-center gap-2">
-                                    🎚️ 撤离需求难度等级配置 (1-{config.emergency?.difficulty?.maxDifficulty || 10})
+                                    🎚️ 离开关卡难度等级配置 (1-{config.emergency?.difficulty?.maxDifficulty || 10})
                                 </h4>
                                 <div className="text-xs text-slate-600 mb-4 bg-white/60 p-3 rounded-lg border border-orange-100">
                                     为每个难度等级配置精确的品质需求。难度越高，可以设置更高品质的要求。

@@ -17,8 +17,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [patienceStage, setPatienceStage] = useState(0);
     const [score, setScore] = useState(initialScore);
 
-    // 生命值系统（原急躁值）
-    const [health, setHealth] = useState(config.emergency?.health?.maxHealth || 3);
     const [emergencyDifficulty, setEmergencyDifficulty] = useState(config.emergency?.difficulty?.initial || 1);
 
     // Upgraded items tracking: [{ orderId, itemIndex, originalRarityId }]
@@ -1238,7 +1236,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 }
             }
             if (!canSatisfyAny) {
-                showToast(t("库存中没有满足该撤离需求的物品"), "error");
+                showToast(t("库存中没有满足该离开关卡需求的物品"), "error");
                 return;
             }
 
@@ -1437,7 +1435,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setPatience(prev => prev + gainedPatience);
         setScore(prev => prev + gainedScore);
 
-        // 只有手动“撤离”会提升难度，因此这里删除了完成订单时的难度提升逻辑
+        // 只有手动“离开关卡”会提升难度，因此这里删除了完成订单时的难度提升逻辑
 
         // 完成积分订单后，降低限时订单难度
         if (completedScoreCount > 0) {
@@ -1450,7 +1448,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     setEmergencyDifficulty(prev => {
                         const newDiff = Math.max(minDifficulty, prev - decreaseAmount);
                         if (newDiff < prev) {
-                            showToast(`${t("积分订单达成，撤离需求难度降低至")} ${newDiff}！`, "success");
+                            showToast(`${t("积分订单达成，离开关卡需求难度降低至")} ${newDiff}！`, "success");
                         }
                         return newDiff;
                     });
@@ -1581,22 +1579,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         toggleEvacuationMode();
     };
 
-    const handleConfirmEvacuation = () => {
-        if (emergencyOrders.length === 0) return;
-
-        // Find satisfies emergency order
-        // satisfiableOrders calculates based on *selection* and *isEvacuationMode* (which is true)
-        // It returns an array of satisfied orders (indices 998, 999)
-
-        const satisfied = satisfiableOrders.filter(o => o.index >= 998);
-
-        if (satisfied.length === 0) {
-            showToast(t("所选物品不足以完成任意撤离需求！"), "error");
-            return;
-        }
-
-        // Execution: Remove items, Reset Gold, Increase Difficulty, Regenerate Orders
-
+    const handleEvacuationContinue = () => {
         // 1. Increase Difficulty
         const difficultyConfig = config.emergency?.difficulty;
         const increaseOnTimeout = difficultyConfig?.increaseOnNewOrder || 1;
@@ -1632,10 +1615,40 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
         setInventory(newInventory);
 
-        showToast(`撤离成功！金币已重置为 ${initialGold}`, "success");
+        showToast(`${t("离开此关卡成功！金币已重置为")} ${initialGold}`, "success");
 
         setIsEvacuationMode(false);
         setSelectedIndices([]);
+        setModalContent(null);
+    };
+
+    const handleEvacuationExtract = () => {
+        setModalContent({
+            type: 'victory',
+            score: score,
+            title: t("离开关卡成功"),
+            message: t("你带着战利品成功离开了此关卡！")
+        });
+    };
+
+    const handleConfirmEvacuation = () => {
+        if (emergencyOrders.length === 0) return;
+
+        // Find satisfies emergency order
+        // satisfiableOrders calculates based on *selection* and *isEvacuationMode* (which is true)
+        // It returns an array of satisfied orders (indices 998, 999)
+
+        const satisfied = satisfiableOrders.filter(o => o.index >= 998);
+
+        if (satisfied.length === 0) {
+            showToast(t("所选物品不足以完成离开关卡需求！"), "error");
+            return;
+        }
+
+        setModalContent({
+            type: 'evacuation_success',
+            score: score
+        });
     };
 
     // Patience Check: Game Over when patience <= 0
@@ -1649,14 +1662,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     message: t("你的耐心值已耗尽！"),
                     type: 'game_over',
                     score: drawCount
-                });
-            } else if (config.emergency?.health?.enabled && health <= 0) {
-                setModalContent({
-                    title: t("游戏结束"),
-                    item: { name: t('生命耗尽'), icon: '💀', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
-                    message: t("你的生命值已归零！"),
-                    type: 'game_over',
-                    score: score // 使用积分作为最终得分
                 });
             } else if (emergencyOrders.length > 0 && emergencyOrders[0].deadline <= 0) {
                 // Timeout logic removed or simplified if deadlines are still relevant as "Evacuate Time"
@@ -1673,7 +1678,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 // For now, disable auto-timeout refresh to focus on manual evacuation.
             }
         }
-    }, [patience, modalContent, score, config, emergencyOrders, health, emergencyDifficulty, allNormalItems, hasSkill, currentStageConfig]);
+    }, [patience, modalContent, score, config, emergencyOrders, emergencyDifficulty, allNormalItems, hasSkill, currentStageConfig]);
 
     return {
         state: {
@@ -1681,7 +1686,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             patience,
             patienceStage,
             emergencyOrders,
-            health,
             emergencyDifficulty,
             score,
             upgradedOrderItems,
@@ -1730,7 +1734,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handlePoolLeave,
             handleEvacuate,
             refreshPools,
-            addInventoryItem
+            addInventoryItem,
+            handleEvacuationContinue,
+            handleEvacuationExtract
         },
         helpers: {
             hasSkill

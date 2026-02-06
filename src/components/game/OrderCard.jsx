@@ -105,14 +105,10 @@ const OrderCardBase = ({
 
                         {order.isEmergency ? (
                             <div className="flex flex-wrap items-center gap-2">
-                                {emergencyOrderCompleted ? (
+                                {emergencyOrderCompleted && (
                                     <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-green-300">
                                         <Check size={12} />
                                         <span>✅ {t("已完成")}</span>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-1 bg-rose-100 text-rose-700 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-rose-200">
-                                        <span>⚠️ {t("撤离时未完成扣1血")}</span>
                                     </div>
                                 )}
                                 {order.difficulty && (

@@ -60,7 +60,9 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
         handlePoolLeave,
         handleEvacuate,
         toggleEvacuationMode,
-        handleConfirmEvacuation
+        handleConfirmEvacuation,
+        handleEvacuationContinue,
+        handleEvacuationExtract
     } = actions;
 
     const { hasSkill } = helpers;
@@ -97,7 +99,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                             {isVictory ? (
                                 <Leaderboard
                                     currentScore={modalContent.score}
-                                    onRestart={handleCloseModal}
+                                    onRestart={onReset}
                                 />
                             ) : isStageUp ? (
                                 <div className="flex flex-col items-center gap-4 py-4 w-full">
@@ -140,6 +142,59 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     >
                                         {t("重新开始")}
                                     </button>
+                                </>
+                            ) : modalContent.type === 'evacuation_success' ? (
+                                // Evacuation Success Modal
+                                <>
+                                    <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center text-5xl shadow-inner mb-2">
+                                        <Truck size={40} className="text-orange-500" />
+                                    </div>
+
+                                    <div className="flex flex-col gap-2">
+                                        {/* Title is already rendered by parent container if strict structure, 
+                                            but parent container renders h3 title from modalContent.title. 
+                                            Let's just use what's here or rely on parent? 
+                                            Parent renders: <h3 ...>{modalContent.title}</h3> at line 95.
+                                            Let's rely on that if we set title, or override. 
+                                            Wait, line 95 is: <h3 className="text-2xl font-black text-slate-800">{modalContent.title}</h3>
+                                            The `evacuation_success` logic I set: setModalContent({ type: 'evacuation_success', score })
+                                            I did NOT set title. I should probably set title in useGameLogic or just ignore 
+                                            lines 95 if I can't control it easily. 
+                                            Actually, line 95 is executed BEFORE these checks. 
+                                            So I should ensure modalContent has a title or provide empty string and render my own.
+                                            
+                                            Let's check useGameLogic again.
+                                            setModalContent({ type: 'evacuation_success', score: score });
+                                            Title is undefined.
+                                            So <h3> will be empty.
+                                            I'll add the title manually here.
+                                         */}
+                                        <h3 className="text-3xl font-black text-slate-800">{t("离开此关卡成功！")}</h3>
+                                        <p className="text-slate-500 font-medium text-lg">
+                                            {t("当前积分")}: <span className="font-bold text-blue-600 font-mono text-xl">{modalContent.score}</span>
+                                        </p>
+                                        <p className="text-slate-400 text-sm">
+                                            {t("你可以选择继续挑战以获得更高分数，或者现在带着战利品离开。")}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex flex-col w-full gap-3 mt-4">
+                                        <button
+                                            onClick={handleEvacuationContinue}
+                                            className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                                        >
+                                            <RotateCcw size={20} />
+                                            {t("继续挑战 (难度提升)")}
+                                        </button>
+
+                                        <button
+                                            onClick={handleEvacuationExtract}
+                                            className="w-full bg-white border-2 border-slate-200 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <Flag size={20} />
+                                            {t("提取分数 (结束游戏)")}
+                                        </button>
+                                    </div>
                                 </>
                             ) : (
                                 // Standard Item Modal
@@ -214,29 +269,6 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     <span className="text-3xl font-black font-mono tracking-tighter leading-none">{score}</span>
                                 </div>
                             </div>
-
-                            {/* Divider */}
-                            <div className="w-px h-8 bg-slate-700/50" />
-
-                            {/* Health Display */}
-                            {config.emergency?.health?.enabled && (
-                                <div className="flex flex-col gap-1 items-center">
-                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 text-rose-200 leading-none">{t("生命值")}</span>
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex gap-1">
-                                            {Array.from({ length: config.emergency.health.maxHealth }).map((_, i) => (
-                                                <Heart
-                                                    key={i}
-                                                    size={16}
-                                                    fill={i < health ? "currentColor" : "none"}
-                                                    className={`${i < health ? "text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.4)]" : "text-slate-700"} transition-all duration-300`}
-                                                />
-                                            ))}
-                                        </div>
-                                        <span className="text-2xl font-black font-mono tracking-tighter leading-none text-rose-400">{health}</span>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -255,7 +287,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                             {/* Difficulty Display */}
                             {emergencyOrders.length > 0 && (
                                 <div className="flex flex-col gap-0.5 items-end">
-                                    <span className="text-[9px] font-black uppercase tracking-widest opacity-30 text-orange-100">{t("撤离难度")}</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest opacity-30 text-orange-100">{t("离开关卡难度")}</span>
                                     <div className="flex items-center gap-1.5 text-orange-400/90">
                                         <ChevronsUp size={16} />
                                         <span className="text-xl font-black font-mono tracking-tighter leading-none">LV.{emergencyDifficulty}</span>
@@ -321,7 +353,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     <div className="mb-2 relative flex flex-col gap-2">
                                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg z-20 flex items-center gap-1">
                                             <Timer size={10} />
-                                            <span>{t("撤离需求")} {t("(完成任意其一)")}</span>
+                                            <span>{t("离开关卡需求")} {t("(完成任意其一)")}</span>
                                         </div>
 
                                         <div className="flex flex-col gap-2 mt-2">
@@ -366,8 +398,19 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                         `}
                                         >
                                             {isEvacuationMode ? <Check size={16} /> : <Truck size={16} />}
-                                            <span>{isEvacuationMode ? t("正在选择撤离物品...") : t("撤离（重置金币）")}</span>
+                                            <span>{isEvacuationMode ? t("正在选择离开关卡的物品...") : t("离开此关卡（重置金币）")}</span>
                                         </button>
+
+                                        {/* Give Up Stage Button */}
+                                        {emergencyOrders && emergencyOrders.length > 0 && !isEvacuationMode && !isSubmitMode && !isRecycleMode && !selectionMode && (
+                                            <button
+                                                onClick={onReset}
+                                                className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold transition-all duration-200 text-sm shadow-sm bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 active:scale-95"
+                                            >
+                                                <AlertCircle size={16} />
+                                                <span>{t("放弃关卡")}</span>
+                                            </button>
+                                        )}
                                     </div>
                                 )}
 
@@ -783,7 +826,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                                     {isEvacuationMode && (
                                         <div className="flex flex-col gap-2">
                                             <button onClick={handleConfirmEvacuation} disabled={satisfiableOrders.filter(o => o.index >= 998).length === 0} className={`w-full flex items-center justify-center gap-2 font-bold py-3 px-6 rounded-xl shadow-md ${satisfiableOrders.filter(o => o.index >= 998).length > 0 ? 'bg-orange-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                                <Truck size={16} /> {t("确认撤离")}
+                                                <Truck size={16} /> {t("确认离开此关卡")}
                                             </button>
                                             <button onClick={() => toggleEvacuationMode()} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
                                         </div>
