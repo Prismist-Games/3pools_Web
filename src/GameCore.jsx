@@ -297,13 +297,7 @@ const GameCore = ({ config, onOpenSettings, onReset, initialSkills = [], initial
                         </div>
 
                         {/* Stage Info (Compact) */}
-                        <div className="hidden lg:flex flex-col items-end border-r border-slate-800 pr-6">
-                            <div className="flex items-center gap-2">
-                                <Layers size={14} className="text-purple-400" />
-                                <span className="text-[12px] font-black text-white whitespace-nowrap">{t(currentStageConfig.name)}</span>
-                            </div>
-                            <span className="text-[9px] font-bold text-slate-500">{t(currentStageConfig.mechanicDesc)}</span>
-                        </div>
+
 
                         {/* Quick Actions */}
                         <div className="flex items-center gap-2 bg-slate-800/80 rounded-xl p-1 border border-slate-700 shadow-inner">
