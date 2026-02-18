@@ -28,8 +28,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // Gold System
     const [gold, setGold] = useState(config.global?.initialGold || 30);
 
-    const [orderRefreshCount, setOrderRefreshCount] = useState(4);
-    const REFRESH_MAX = 4;
+    const [orderRefreshCount, setOrderRefreshCount] = useState(config.global?.initialRefreshCount ?? 4);
+    const REFRESH_MAX = config.global?.maxRefreshCount ?? 4;
 
     const [drawCount, setDrawCount] = useState(0);
 

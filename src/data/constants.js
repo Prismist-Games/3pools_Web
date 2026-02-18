@@ -13,7 +13,7 @@ export const INITIAL_STAGE_CONFIG = [
         "mechanicDesc": "基础机制生效",
         "desc": "普通模式 (Base)",
         "inventorySize": 10,
-        "orderSlots": 4,
+        "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
         "fixedPrice": null,
@@ -67,7 +67,7 @@ export const INITIAL_STAGE_CONFIG = [
         "mechanicDesc": "奖池的价格随机波动",
         "desc": "波动模式 (Volatility)",
         "inventorySize": 10,
-        "orderSlots": 4,
+        "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
         "fixedPrice": null,
@@ -117,7 +117,7 @@ export const INITIAL_STAGE_CONFIG = [
         "mechanicDesc": "背包内物品种类数量受限",
         "desc": "专业化模式 (Specialization)",
         "inventorySize": 20,
-        "orderSlots": 4,
+        "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
         "fixedPrice": null,
@@ -167,7 +167,7 @@ export const INITIAL_STAGE_CONFIG = [
         "mechanicDesc": "物品随时间腐烂衰变",
         "desc": "熵增模式 (Entropy)",
         "inventorySize": 10,
-        "orderSlots": 4,
+        "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
         "fixedPrice": null,
@@ -621,7 +621,9 @@ export const INITIAL_GAME_CONFIG = {
     ],
     global: {
         "refreshCost": 5,
-        "initialGold": 30
+        "initialGold": 30,
+        "initialRefreshCount": 4,
+        "maxRefreshCount": 4
     }
 };
 

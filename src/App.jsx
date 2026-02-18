@@ -72,7 +72,8 @@ export default function App() {
                                 orderRarityWeights: impStage.orderRarityWeights || s.orderRarityWeights,
                                 orderCountWeights: impStage.orderCountWeights || s.orderCountWeights,
                                 baseRewards: impStage.baseRewards || s.baseRewards,
-                                entropyDecayValue: impStage.entropyDecayValue || s.entropyDecayValue
+                                entropyDecayValue: impStage.entropyDecayValue || s.entropyDecayValue,
+                                orderSlots: impStage.orderSlots ?? s.orderSlots
                             };
                         });
                     }
@@ -965,6 +966,26 @@ export default function App() {
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-slate-500">初始订单刷新次数</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={config.global.initialRefreshCount ?? 4}
+                                            onChange={(e) => setConfig({ ...config, global: { ...config.global, initialRefreshCount: parseInt(e.target.value) || 0 } })}
+                                            className="border rounded px-3 py-2 font-mono"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-slate-500">订单刷新次数上限</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={config.global.maxRefreshCount ?? 4}
+                                            onChange={(e) => setConfig({ ...config, global: { ...config.global, maxRefreshCount: parseInt(e.target.value) || 0 } })}
+                                            className="border rounded px-3 py-2 font-mono"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
                                         <label className="text-xs font-bold text-slate-500">主线道具出现概率 (0-1)</label>
                                         <input
                                             type="number" step="0.05"
@@ -985,6 +1006,21 @@ export default function App() {
                                                 setConfig({ ...config, stages: newStages });
                                             }}
                                             className="border rounded px-3 py-2 font-mono"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-slate-500">订单槽数量</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="8"
+                                            value={config.stages[0].orderSlots ?? 3}
+                                            onChange={(e) => {
+                                                const val = Math.max(1, parseInt(e.target.value) || 1);
+                                                const newStages = config.stages.map(s => ({ ...s, orderSlots: val }));
+                                                setConfig({ ...config, stages: newStages });
+                                            }}
+                                            className="border rounded px-3 py-2 font-mono w-20"
                                         />
                                     </div>
                                 </div>
