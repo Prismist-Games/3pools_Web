@@ -35,7 +35,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
         modalContent, selectionMode,
-        skills, skillSelectionCandidates,
+        skills, skillSelectionCandidates, skillState,
         toast, satisfiableOrders, totalRecycleValue, selectedItemNames
     } = state;
 
@@ -64,7 +64,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleConfirmEvacuation,
         handleEvacuationContinue,
         handleEvacuationExtract,
-        debugGetOrderItems
+        debugGetOrderItems,
+        handleToolItemUse
     } = actions;
 
     const { hasSkill } = helpers;
@@ -307,9 +308,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 {language === 'zh' ? 'EN' : '中'}
                             </button>
                             <div className="w-[1px] h-4 bg-slate-700"></div>
-                            <button 
-                                onClick={() => setDebugMode(!debugMode)} 
-                                title={t("调试模式")} 
+                            <button
+                                onClick={() => setDebugMode(!debugMode)}
+                                title={t("调试模式")}
                                 className={`p-2 rounded-lg transition-all ${debugMode ? 'bg-red-500/20 text-red-500' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}
                             >
                                 <Zap size={18} fill={debugMode ? "currentColor" : "none"} />
@@ -351,7 +352,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     </span>
                                                 </div>
                                             </div>
-                                            
+
                                             <div className="flex items-center gap-2 shrink-0">
                                                 {/* 离开此关卡按钮 - 嵌入在需求区域 (放大版) */}
                                                 <button
@@ -417,21 +418,21 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                 {/* Normal Orders (no mainline) */}
                                 {orders.map((order, idx) => (
-                                        <OrderCard
-                                            key={order ? order.id : `empty-${idx}`}
-                                            order={order}
-                                            index={idx}
-                                            isScoreOrder={true}
-                                            isSubmitMode={isSubmitMode}
-                                            isEvacuationMode={isEvacuationMode}
-                                            canSatisfy={satisfiableOrders.find(r => r.index === idx)}
-                                            potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === idx)} // Pass preview
-                                            onClick={handleOrderClick}
-                                            onRefresh={handleRefreshSingleOrder}
-                                            orderRefreshCount={orderRefreshCount}
-                                            REFRESH_MAX={REFRESH_MAX}
-                                            onDebugGetItems={debugMode ? debugGetOrderItems : null}
-                                            currentStageConfig={currentStageConfig}
+                                    <OrderCard
+                                        key={order ? order.id : `empty-${idx}`}
+                                        order={order}
+                                        index={idx}
+                                        isScoreOrder={true}
+                                        isSubmitMode={isSubmitMode}
+                                        isEvacuationMode={isEvacuationMode}
+                                        canSatisfy={satisfiableOrders.find(r => r.index === idx)}
+                                        potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === idx)} // Pass preview
+                                        onClick={handleOrderClick}
+                                        onRefresh={handleRefreshSingleOrder}
+                                        orderRefreshCount={orderRefreshCount}
+                                        REFRESH_MAX={REFRESH_MAX}
+                                        onDebugGetItems={debugMode ? debugGetOrderItems : null}
+                                        currentStageConfig={currentStageConfig}
                                         config={config}
                                         inventory={inventory}
                                         selectedIndices={selectedIndices}
@@ -457,7 +458,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             <ChevronUp size={14} strokeWidth={3} />
                                         </div>
                                     </div>
-                                    
+
                                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-4 border-blue-300 rounded-2xl p-4 shadow-2xl ring-4 ring-blue-200">
                                         <div className="flex flex-col gap-3">
                                             {/* 标题栏 */}
@@ -494,7 +495,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                             canSatisfy={null}
                                                             potentialSatisfy={null}
                                                             onClick={() => handleSelectOrderCandidate(idx)}
-                                                            onRefresh={() => {}}
+                                                            onRefresh={() => { }}
                                                             currentStageConfig={currentStageConfig}
                                                             config={config}
                                                             inventory={inventory}
@@ -526,7 +527,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
                                     <RefreshCw size={16} /> {t("抽取物品")}
                                 </h2>
-                                
+
                                 <span className="text-xs text-slate-400 hidden md:block">{t("点击卡片购买")}</span>
                             </div>
 
@@ -846,7 +847,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 index={idx}
                                                 item={item}
                                                 isSelected={isSelected}
-                                                isTarget={!!sourceItem && !isSourceSelf} // If we are dragging/selecting something, this slot is a target
+                                                isTarget={!!sourceItem && !isSourceSelf}
                                                 isSubmitMode={isSubmitMode || isEvacuationMode}
                                                 isRecycleMode={isRecycleMode}
                                                 isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
@@ -855,14 +856,16 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 canSynthesize={canSynthesize}
                                                 isNeededForOrder={isNeeded}
                                                 isMaxSatisfied={isMaxSatisfied}
-                                                hasUpgradePair={hasUpgradePair} // Pass the new prop
+                                                hasUpgradePair={hasUpgradePair}
                                                 isOverloadTarget={isOverloadTarget}
 
                                                 onClick={handleSlotClick}
+                                                onContextMenu={handleToolItemUse}
                                                 onMouseEnter={(i, item) => { state.setHoveredSlotIndex(i); if (item) state.setHoveredItemName(item.name); }}
                                                 onMouseLeave={() => { state.setHoveredSlotIndex(null); state.setHoveredItemName(null); }}
                                                 isHovered={hoveredSlotIndex === idx}
                                                 className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24"
+                                                nextDrawEnhanced={skillState?.nextDrawEnhanced}
                                             />
                                         )
                                     })}

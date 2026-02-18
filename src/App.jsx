@@ -99,6 +99,7 @@ export default function App() {
                     if (imported.progress) next.progress = { ...prev.progress, ...imported.progress };
                     if (imported.emergency) next.emergency = { ...prev.emergency, ...imported.emergency };
                     if (imported.global) next.global = { ...prev.global, ...imported.global };
+                    if (imported.toolItems) next.toolItems = { ...prev.toolItems, ...imported.toolItems };
 
                     // 4. 特殊字段：品质属性 (Rarity Details)
                     // 只继承加成（bonus）和回收价值（recycleValue），不继承 id, name, color
@@ -1115,7 +1116,98 @@ export default function App() {
                                 </div>
                             </section>
 
-                            {/* 技能配置 */}
+                            {/* 工具物品配置 */}
+                            <section>
+                                <h4 className="text-lg font-bold mb-4 border-l-4 border-amber-500 pl-3">🔧 工具物品配置</h4>
+                                <div className="space-y-4 bg-amber-50/30 p-4 rounded-xl border border-amber-200">
+                                    {/* 掉落概率 */}
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-slate-500">每次抽取掉落工具物品概率</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="1"
+                                                value={config.toolItems?.dropChance || 0}
+                                                onChange={(e) => setConfig({
+                                                    ...config,
+                                                    toolItems: { ...config.toolItems, dropChance: parseFloat(e.target.value) || 0 }
+                                                })}
+                                                className="border rounded px-3 py-2 font-mono w-24"
+                                            />
+                                            <span className="text-sm text-slate-500 font-bold">{((config.toolItems?.dropChance || 0) * 100).toFixed(0)}%</span>
+                                        </div>
+                                    </div>
+
+                                    {/* 各工具物品权重 */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-slate-500">各工具物品相对权重</label>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {[
+                                                { id: 'tool_reforge', name: '🔥 命运熔炉', desc: '重roll品质' },
+                                                { id: 'tool_transmute', name: '🔮 万象棱镜', desc: '同类替换' },
+                                                { id: 'tool_enhance', name: '✨ 星辉祝福', desc: '品质+1' },
+                                            ].map(tool => (
+                                                <div key={tool.id} className="flex flex-col gap-1 bg-white p-2 rounded-lg border border-amber-100 shadow-sm">
+                                                    <span className="text-xs font-bold text-amber-700">{tool.name}</span>
+                                                    <span className="text-[10px] text-slate-400">{tool.desc}</span>
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        min="0"
+                                                        value={config.toolItems?.weights?.[tool.id] || 0}
+                                                        onChange={(e) => {
+                                                            const newWeights = { ...config.toolItems?.weights, [tool.id]: parseFloat(e.target.value) || 0 };
+                                                            setConfig({
+                                                                ...config,
+                                                                toolItems: { ...config.toolItems, weights: newWeights }
+                                                            });
+                                                        }}
+                                                        className="border rounded px-2 py-1 font-mono text-sm w-full"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 命运熔炉品质分布 */}
+                                    <details className="border rounded-lg overflow-hidden bg-white shadow-sm">
+                                        <summary className="p-3 cursor-pointer hover:bg-slate-50 font-bold text-sm flex items-center gap-2 select-none">
+                                            🔥 命运熔炉 - 品质概率分布
+                                        </summary>
+                                        <div className="p-3 space-y-2 bg-slate-50">
+                                            {['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].map(rKey => (
+                                                <div key={rKey} className="flex items-center gap-2">
+                                                    <label className="text-xs font-bold text-slate-600 w-20 capitalize">{rKey}</label>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        max="1"
+                                                        value={config.toolItems?.reforgeRarityWeights?.[rKey] || 0}
+                                                        onChange={(e) => {
+                                                            const newWeights = {
+                                                                ...config.toolItems?.reforgeRarityWeights,
+                                                                [rKey]: parseFloat(e.target.value) || 0
+                                                            };
+                                                            setConfig({
+                                                                ...config,
+                                                                toolItems: { ...config.toolItems, reforgeRarityWeights: newWeights }
+                                                            });
+                                                        }}
+                                                        className="border rounded px-2 py-1 font-mono text-sm flex-1"
+                                                    />
+                                                </div>
+                                            ))}
+                                            <div className="text-xs text-slate-400 mt-1">
+                                                总和: {Object.values(config.toolItems?.reforgeRarityWeights || {}).reduce((sum, v) => sum + v, 0).toFixed(2)}
+                                            </div>
+                                        </div>
+                                    </details>
+                                </div>
+                            </section>
+
                             <section>
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-indigo-500 pl-3">可用技能 (勾选以启用掉落)</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

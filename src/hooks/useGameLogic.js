@@ -7,7 +7,7 @@ import {
     getRandomAffix,
     getRandomItems
 } from '../utils/helpers';
-import { SKILL_DEFINITIONS } from '../data/constants';
+import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
@@ -67,6 +67,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         consecutiveCommons: 0,
         nextDrawGuaranteedRare: false,
         nextDrawExtraItem: false,
+        nextDrawEnhanced: false,
     });
 
     const [toast, setToast] = useState(null);
@@ -866,26 +867,33 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         let itemsToProcess = [];
 
+        // 星辉祝福辅助：创建物品后立即提升品质，确保每个物品（包括稀碎的3个）都被提升
+        const withEnhancement = (item) => {
+            if (!skillState.nextDrawEnhanced) return item;
+            const nextRarity = getNextRarity(item.rarity.id, config);
+            return nextRarity ? { ...item, rarity: nextRarity } : item;
+        };
+
         if (pool.affixKey === 'fragmented') {
             for (let i = 0; i < 3; i++) {
                 const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-                itemsToProcess.push(createItem(pool, tpl, 'fragmented'));
+                // 稀碎一次出3个，星辉祝福只提升第一个
+                itemsToProcess.push(i === 0 ? withEnhancement(createItem(pool, tpl, 'fragmented')) : createItem(pool, tpl, 'fragmented'));
             }
         } else {
             const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-            const newItem = createItem(pool, tpl, pool.affixKey);
-            itemsToProcess.push(newItem);
+            itemsToProcess.push(withEnhancement(createItem(pool, tpl, pool.affixKey)));
         }
 
         if (skillState.nextDrawExtraItem) {
             const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-            const extraItem = createItem(pool, tpl, pool.affixKey);
-            itemsToProcess.push(extraItem);
+            itemsToProcess.push(withEnhancement(createItem(pool, tpl, pool.affixKey)));
         }
 
         const newSkillState = { ...skillState };
         newSkillState.nextDrawExtraItem = false;
         newSkillState.nextDrawGuaranteedRare = false;
+        newSkillState.nextDrawEnhanced = false;
 
         let allCommon = true;
         itemsToProcess.forEach(item => {
@@ -909,9 +917,155 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Apply Entropy (Time passes on draw)
         const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
 
-        handleIncomingItems(itemsToProcess, decayedInventory);
+        handleIncomingItems(tryDropToolItem(itemsToProcess), decayedInventory);
 
         refreshPools(true);
+    };
+
+    // 尝试提附工具物品：按概率判断是否在物品列表末尾添加一个工具物品
+    const tryDropToolItem = (items) => {
+        const toolConfig = config.toolItems;
+        if (!toolConfig || Math.random() >= (toolConfig.dropChance || 0)) return items;
+        const toolItem = rollToolItem(toolConfig);
+        return toolItem ? [...items, toolItem] : items;
+    };
+
+    // 根据权重随机选择一个工具物品并创建实例
+    const rollToolItem = (toolConfig) => {
+        const weights = toolConfig.weights || {};
+        const entries = TOOL_ITEMS.filter(t => (weights[t.id] || 0) > 0);
+        if (entries.length === 0) return null;
+
+        const totalWeight = entries.reduce((sum, t) => sum + (weights[t.id] || 0), 0);
+        let r = Math.random() * totalWeight;
+        let selected = entries[0];
+        for (const entry of entries) {
+            r -= (weights[entry.id] || 0);
+            if (r <= 0) { selected = entry; break; }
+        }
+
+        const commonRarity = config.rarity.find(r => r.id === 'common') || config.rarity[0];
+        return {
+            ...selected,
+            name: selected.name,
+            icon: selected.icon,
+            uid: Math.random().toString(36).substr(2, 9),
+            rarity: commonRarity,
+            isToolItem: true,
+            toolId: selected.id,
+            toolDesc: selected.desc,
+            toolEffectType: selected.effectType,
+            sterile: true, // 工具物品无法合成
+        };
+    };
+
+    // 右键使用工具物品
+    const handleToolItemUse = (index) => {
+        const item = inventory[index];
+        if (!item || !item.isToolItem) return;
+
+        // 不允许在特殊模式中使用
+        if (pendingItem || isSubmitMode || isRecycleMode || isEvacuationMode || selectionMode) {
+            showToast(t("当前状态下无法使用工具物品"), 'error');
+            return;
+        }
+
+        const effectType = item.toolEffectType;
+
+        if (effectType === 'reforge_left') {
+            // 命运熔炉：随机改变左侧物品品质
+            if (index === 0) {
+                showToast(t("左侧没有物品！"), 'error');
+                return;
+            }
+            const leftItem = inventory[index - 1];
+            if (!leftItem) {
+                showToast(t("左侧没有物品！"), 'error');
+                return;
+            }
+            if (leftItem.isToolItem) {
+                showToast(t("无法对工具物品使用！"), 'error');
+                return;
+            }
+
+            // 使用 reforgeRarityWeights 概率分布
+            const reforgeWeights = config.toolItems?.reforgeRarityWeights || {};
+            const newRarity = rollWeightedRarity(reforgeWeights);
+            if (!newRarity) return;
+
+            const newInventory = [...inventory];
+            newInventory[index - 1] = { ...leftItem, rarity: newRarity, uid: Math.random().toString(36).substr(2, 9) };
+            newInventory[index] = null; // 消耗工具
+            setInventory(newInventory.filter(i => i !== null));
+            showToast(`${t("命运熔炉")}：${t(leftItem.name)} → ${t(newRarity.name)}`, 'success');
+
+        } else if (effectType === 'transmute_left') {
+            // 万象棱镜：替换左侧物品为同池另一个
+            if (index === 0) {
+                showToast(t("左侧没有物品！"), 'error');
+                return;
+            }
+            const leftItem = inventory[index - 1];
+            if (!leftItem) {
+                showToast(t("左侧没有物品！"), 'error');
+                return;
+            }
+            if (leftItem.isToolItem) {
+                showToast(t("无法对工具物品使用！"), 'error');
+                return;
+            }
+
+            // 找到同奖池的其他物品
+            const sourcePool = config.pools.find(p => p.items.some(pi => pi.name === leftItem.name));
+            if (!sourcePool) {
+                showToast(t("找不到对应的奖池！"), 'error');
+                return;
+            }
+            const candidates = sourcePool.items.filter(pi => pi.name !== leftItem.name);
+            if (candidates.length === 0) {
+                showToast(t("同奖池中没有其他物品！"), 'error');
+                return;
+            }
+            const newTpl = candidates[Math.floor(Math.random() * candidates.length)];
+            const newItem = {
+                ...newTpl,
+                uid: Math.random().toString(36).substr(2, 9),
+                poolName: sourcePool.name,
+                rarity: leftItem.rarity,
+                sterile: leftItem.sterile,
+                decay: leftItem.decay,
+            };
+
+            const newInventory = [...inventory];
+            newInventory[index - 1] = newItem;
+            newInventory[index] = null;
+            setInventory(newInventory.filter(i => i !== null));
+            showToast(`${t("万象棱镜")}：${t(leftItem.name)} → ${t(newTpl.name)}`, 'success');
+
+        } else if (effectType === 'enhance_next') {
+            // 星辉祝福：下一个抽出的物品品质+1
+            setSkillState(prev => ({ ...prev, nextDrawEnhanced: true }));
+            const newInventory = [...inventory];
+            newInventory[index] = null;
+            setInventory(newInventory.filter(i => i !== null));
+            showToast(t("星辉祝福已激活：下次抽取品质+1"), 'success');
+        }
+    };
+
+    // 根据权重表随机选择一个品质
+    const rollWeightedRarity = (weights) => {
+        const entries = Object.entries(weights).filter(([_, w]) => w > 0);
+        if (entries.length === 0) return config.rarity[0];
+
+        const totalWeight = entries.reduce((sum, [_, w]) => sum + w, 0);
+        let r = Math.random() * totalWeight;
+        for (const [rarityId, w] of entries) {
+            r -= w;
+            if (r <= 0) {
+                return config.rarity.find(rr => rr.id === rarityId) || config.rarity[0];
+            }
+        }
+        return config.rarity[0];
     };
 
     const handleDraw = (pool) => {
@@ -987,17 +1141,28 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Fix: Apply Entropy when confirming a selection (Time passes)
         const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
 
+        // 星辉祝福：提升品质1级
+        const applyEnhancement = (item) => {
+            if (!skillState.nextDrawEnhanced) return item;
+            const nextRarity = getNextRarity(item.rarity.id, config);
+            return nextRarity ? { ...item, rarity: nextRarity } : item;
+        };
+
         if (type === 'precise') {
             setDrawCount(prev => prev + 1);
-            handleIncomingItems([selectedItem], decayedInventory);
+            const enhancedItem = applyEnhancement(selectedItem);
+            handleIncomingItems(tryDropToolItem([enhancedItem]), decayedInventory);
             refreshPools(true);
             setSelectionMode(null);
+            if (skillState.nextDrawEnhanced) setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
         } else if (type === 'targeted') {
             const newItem = createItem(pool, selectedItem, pool.affixKey);
+            const enhancedItem = applyEnhancement(newItem);
             setDrawCount(prev => prev + 1);
-            handleIncomingItems([newItem], decayedInventory);
+            handleIncomingItems(tryDropToolItem([enhancedItem]), decayedInventory);
             refreshPools(true);
             setSelectionMode(null);
+            if (skillState.nextDrawEnhanced) setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
         }
     };
 
@@ -1040,6 +1205,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 return;
             }
 
+            if (consumedItem.isToolItem) {
+                showToast(t("工具道具无法用于以旧换新！"), "error");
+                return;
+            }
+
             const pool = selectionMode.pool;
 
             // Apply Entropy (Time passes)
@@ -1078,8 +1248,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
             };
 
+            let finalItem = newItem;
+            if (skillState.nextDrawEnhanced) {
+                const nextRarity = getNextRarity(newItem.rarity.id, config);
+                if (nextRarity) finalItem = { ...newItem, rarity: nextRarity };
+                setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
+            }
+
             setDrawCount(prev => prev + 1);
-            handleIncomingItems([newItem], decayedInv);
+            handleIncomingItems(tryDropToolItem([finalItem]), decayedInv);
             refreshPools(true);
             setSelectionMode(null);
             return;
@@ -1797,7 +1974,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             satisfiableOrders,
             potentialSatisfiableOrders,
             totalRecycleValue,
-            selectedItemNames
+            selectedItemNames,
+            skillState
         },
         actions: {
             showToast,
@@ -1829,7 +2007,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             addInventoryItem,
             handleEvacuationContinue,
             handleEvacuationExtract,
-            debugGetOrderItems
+            debugGetOrderItems,
+            handleToolItemUse
         },
         helpers: {
             hasSkill
