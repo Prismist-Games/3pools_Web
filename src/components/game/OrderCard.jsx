@@ -95,18 +95,24 @@ const OrderCardBase = ({
         if (isSameType) minMultiplier *= 2;
         const minScoreReward = Math.ceil(baseScoreReward * minMultiplier);
 
-        // 2. 槽位预期奖励：根据已放入物品的品质实时计算
+        // 2. 槽位预期奖励：根据已放入物品和幻影物品的品质实时计算
         let hasAnySlot = false;
         const slotBonus = requirements.reduce((sum, req, rIdx) => {
             const key = `${index}-${rIdx}`;
+            // 优先检查直接分配的物品
             const assignedUid = orderSlotAssignments?.[key];
             if (assignedUid) {
                 const assignedItem = inventory.find(i => i && i.uid === assignedUid);
                 if (assignedItem) {
                     hasAnySlot = true;
-                    // 取实际品质和最低需求中的较大值
                     return sum + Math.max(req.requiredRarity.bonus, assignedItem.rarity.bonus);
                 }
+            }
+            // 其次检查幻影物品
+            const phantom = phantomMarks?.[key];
+            if (phantom?.item) {
+                hasAnySlot = true;
+                return sum + Math.max(req.requiredRarity.bonus, phantom.item.rarity.bonus);
             }
             // 未放入物品：使用最低需求品质
             return sum + req.requiredRarity.bonus;
@@ -121,7 +127,7 @@ const OrderCardBase = ({
             hasAnySlot,
             isDifferent: hasAnySlot && slotScoreReward !== minScoreReward
         };
-    }, [requirements, baseScoreReward, index, orderSlotAssignments, inventory, hasSkill, order.isEmergency]);
+    }, [requirements, baseScoreReward, index, orderSlotAssignments, phantomMarks, inventory, hasSkill, order.isEmergency]);
 
     return (
         <div
