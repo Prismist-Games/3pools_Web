@@ -61,6 +61,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [modalContent, setModalContent] = useState(null);
     const [selectionMode, setSelectionMode] = useState(null);
 
+    // 订单槽位分配系统: { "orderIndex-reqIndex": inventoryItemUid }
+    const [orderSlotAssignments, setOrderSlotAssignments] = useState({});
+
     const [skills, setSkills] = useState(initialSkills);
     const [skillSelectionCandidates, setSkillSelectionCandidates] = useState(null);
     const [skillState, setSkillState] = useState({
@@ -243,6 +246,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const newItem = {
             ...baseItem,
             id: Math.random().toString(36).substr(2, 9),
+            uid: Math.random().toString(36).substr(2, 9),
             rarity,
             obtainCount: drawCount
         };
@@ -270,6 +274,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return {
                 ...baseItem,
                 id: Math.random().toString(36).substr(2, 9),
+                uid: Math.random().toString(36).substr(2, 9),
                 rarity: req.requiredRarity,
                 obtainCount: drawCount
             };
@@ -461,6 +466,69 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         });
         return map;
     }, [orders]);
+
+    // === 订单槽位系统：派生状态 ===
+
+    // 已分配到订单的物品 uid 集合
+    const assignedItemUids = useMemo(() => new Set(Object.values(orderSlotAssignments)), [orderSlotAssignments]);
+
+    // 幻影标记：某个普通订单的需求被其他普通订单的同名需求已分配了物品
+    // 返回 { "orderIndex-reqIndex": { item, sourceKey } }
+    const phantomMarks = useMemo(() => {
+        const result = {};
+        // 按类别分别收集已分配的物品名称 -> 实际物品
+        const assignedNormal = {}; // 普通订单的分配
+        const assignedEmergency = {}; // 撤离订单的分配
+        Object.entries(orderSlotAssignments).forEach(([key, uid]) => {
+            const item = inventory.find(i => i && i.uid === uid);
+            if (!item) return;
+            const orderIdx = parseInt(key.split('-')[0]);
+            const target = orderIdx >= 998 ? assignedEmergency : assignedNormal;
+            if (!target[item.name]) target[item.name] = [];
+            target[item.name].push({ key, item });
+        });
+
+        // 普通订单之间产生幻影
+        orders.forEach((order, orderIdx) => {
+            if (!order) return;
+            order.requirements.forEach((req, reqIdx) => {
+                const myKey = `${orderIdx}-${reqIdx}`;
+                if (orderSlotAssignments[myKey]) return;
+                const sources = assignedNormal[req.name];
+                if (sources && sources.length > 0) {
+                    result[myKey] = { item: sources[0].item, sourceKey: sources[0].key };
+                }
+            });
+        });
+
+        // 撤离订单之间产生幻影
+        emergencyOrders.forEach((order, idx) => {
+            if (!order) return;
+            const orderIdx = 998 + idx;
+            order.requirements.forEach((req, reqIdx) => {
+                const myKey = `${orderIdx}-${reqIdx}`;
+                if (orderSlotAssignments[myKey]) return;
+                const sources = assignedEmergency[req.name];
+                if (sources && sources.length > 0) {
+                    result[myKey] = { item: sources[0].item, sourceKey: sources[0].key };
+                }
+            });
+        });
+
+        return result;
+    }, [orders, emergencyOrders, orderSlotAssignments, inventory]);
+
+    // 清除指定订单索引的所有槽位分配
+    const clearAssignmentsForOrders = (indices) => {
+        setOrderSlotAssignments(prev => {
+            const newAssignments = { ...prev };
+            Object.keys(newAssignments).forEach(key => {
+                const orderIdx = parseInt(key.split('-')[0]);
+                if (indices.includes(orderIdx)) delete newAssignments[key];
+            });
+            return newAssignments;
+        });
+    };
 
     const satisfiableOrders = useMemo(() => {
         if ((!isSubmitMode && !isEvacuationMode) || selectedIndices.length === 0) return [];
@@ -1195,7 +1263,30 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }
 
+    // === 订单槽位系统：操作函数 ===
+
+    const handleAssignToOrder = (orderIndex, reqIndex) => {
+        const item = inventory[selectedSlot];
+        if (!item) return;
+        const key = `${orderIndex}-${reqIndex}`;
+        setOrderSlotAssignments(prev => ({ ...prev, [key]: item.uid }));
+        setSelectedSlot(null);
+    };
+
+    const handleUnassignFromOrder = (orderIndex, reqIndex) => {
+        const key = `${orderIndex}-${reqIndex}`;
+        setOrderSlotAssignments(prev => {
+            const newAssignments = { ...prev };
+            delete newAssignments[key];
+            return newAssignments;
+        });
+    };
+
     const handleSlotClick = (index) => {
+        // 冻结已分配到订单的物品，不可操作
+        const clickedItem = inventory[index];
+        if (clickedItem && assignedItemUids.has(clickedItem.uid)) return;
+
         if (selectionMode?.type === 'trade_in') {
             const consumedItem = inventory[index];
             if (!consumedItem) return;
@@ -1404,6 +1495,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
+        // 刷新所有订单前，清除所有槽位分配
+        const allIndices = Array.from({ length: currentStageConfig.orderSlots }, (_, i) => i);
+        clearAssignmentsForOrders(allIndices);
+
         // 为每个槽位生成2个候选订单，逐个让玩家选择
         const allCandidates = [];
         for (let i = 0; i < currentStageConfig.orderSlots; i++) {
@@ -1441,6 +1536,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setOrderRefreshCount(prev => Math.max(0, prev - 1));
         }
 
+        // 刷新单个订单前，清除该订单的槽位分配
+        clearAssignmentsForOrders([index]);
+
         // 生成2个候选订单，让玩家选择
         const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
         const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
@@ -1466,6 +1564,32 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleOrderClick = (orderIndex) => {
+        // 新增：如果有 selectedSlot，尝试将选中物品放入订单槽位
+        if (selectedSlot !== null && !isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode) {
+            const item = inventory[selectedSlot];
+            if (item && !item.isToolItem && !item.isScoreItem && !assignedItemUids.has(item.uid)) {
+                // 根据 orderIndex 查找对应订单
+                const order = orderIndex >= 998
+                    ? emergencyOrders[orderIndex - 998]
+                    : orders[orderIndex];
+                if (order) {
+                    // 找到第一个名称匹配且未被直接分配的需求
+                    const reqIdx = order.requirements.findIndex((req, rIdx) => {
+                        const key = `${orderIndex}-${rIdx}`;
+                        return req.name === item.name && !orderSlotAssignments[key];
+                    });
+                    if (reqIdx !== -1) {
+                        handleAssignToOrder(orderIndex, reqIdx);
+                        return;
+                    } else {
+                        showToast(t("该订单不需要此物品，或对应槽位已有物品"), "info");
+                    }
+                }
+            }
+            setSelectedSlot(null);
+            return;
+        }
+
         // Handle Emergency Orders click (Evacuation Mode)
         if (orderIndex >= 998) {
             if (!isEvacuationMode) {
@@ -1714,6 +1838,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
 
         // 为已完成的普通订单槽位生成候选订单，让玩家选择
+        // 先清除这些订单的槽位分配
+        const normalCompletedIndices = completedIndices.filter(idx => idx < 998);
+        if (normalCompletedIndices.length > 0) {
+            clearAssignmentsForOrders(normalCompletedIndices);
+        }
+
         const candidateQueue = [];
         completedIndices.forEach(idx => {
             if (idx >= 998) {
@@ -1975,7 +2105,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             potentialSatisfiableOrders,
             totalRecycleValue,
             selectedItemNames,
-            skillState
+            skillState,
+            orderSlotAssignments,
+            assignedItemUids,
+            phantomMarks
         },
         actions: {
             showToast,
@@ -2008,7 +2141,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleEvacuationContinue,
             handleEvacuationExtract,
             debugGetOrderItems,
-            handleToolItemUse
+            handleToolItemUse,
+            handleUnassignFromOrder
         },
         helpers: {
             hasSkill

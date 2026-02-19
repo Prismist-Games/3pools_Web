@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { RefreshCw, Check, Ticket, Coins, Clock, Zap, Crown, Trophy, TrendingUp, Star, AlertCircle } from 'lucide-react';
+import { RefreshCw, Check, Ticket, Coins, Clock, Zap, Crown, Trophy, TrendingUp, Star, AlertCircle, Link, ChevronsUp } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const OrderCardBase = ({
@@ -34,6 +34,11 @@ const OrderCardBase = ({
     hoveredPoolItemNames,
     selectedItemNames,
     upgradedOrderItems, // 新增：升级记录
+
+    // 订单槽位系统
+    orderSlotAssignments,
+    phantomMarks,
+    onUnassign,
 }) => {
     const { t } = useLanguage();
 
@@ -119,7 +124,7 @@ const OrderCardBase = ({
                     <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0.3s' }} />
                 </>
             )}
-            
+
             {/* Content Container */}
             <div className="flex justify-between items-center w-full gap-2">
 
@@ -204,8 +209,7 @@ const OrderCardBase = ({
 
                             // Calculate progress for this requirement
                             const count = inventory.filter(i => i && i.name === req.name && i.rarity.bonus >= req.requiredRarity.bonus).length;
-                            const isMet = count >= 1; // Simplification: we need 1 matching item per requirement slot? Or generally? 
-                            // Current logic implies 1-to-1 mapping in UI but count check here.
+                            const isMet = count >= 1;
 
                             // Visual State: Is selected?
                             const isSelected = selectedIndices.some(idx => {
@@ -214,13 +218,10 @@ const OrderCardBase = ({
                             });
                             const isSubmitted = isSubmitMode && selectedItemNames && selectedItemNames.includes(req.name);
 
-                            // Helpers for UI styling (restored)
-                            // Find "best" candidate to show quality match status if not selected
                             const allCandidates = inventory.filter(i => i && i.name === req.name);
                             allCandidates.sort((a, b) => (b.rarity.bonus || 0) - (a.rarity.bonus || 0));
                             const bestCandidate = allCandidates[0];
 
-                            // If we are selecting, we might have a specific matchedItem
                             if (!matchedItem) {
                                 matchedItem = bestCandidate;
                             }
@@ -254,43 +255,136 @@ const OrderCardBase = ({
                             const upgradeInfo = upgradedItemsMap[rIdx];
                             const isUpgraded = !!upgradeInfo;
 
+                            // 订单槽位：查找已分配的物品或幻影标记
+                            const slotKey = `${index}-${rIdx}`;
+                            const assignedUid = orderSlotAssignments?.[slotKey];
+                            const assignedItem = assignedUid ? inventory.find(i => i && i.uid === assignedUid) : null;
+                            const phantom = phantomMarks?.[slotKey];
+                            const slotItem = assignedItem || (phantom ? phantom.item : null);
+                            const isPhantom = !assignedItem && !!phantom;
+                            const slotQualitySatisfied = slotItem && slotItem.rarity.bonus >= req.requiredRarity.bonus;
+
                             return (
-                                <div key={rIdx} className={`
-                                relative flex items-center gap-1 border-2 rounded transition-all duration-200 shrink-0
-                                ${isCandidate ? 'text-xs px-1.5 py-0.5' : 'text-xs px-1.5 py-1'}
-                                ${borderStyle} ${borderColorClass} ${bgColorClass} ${textColorClass}
-                                ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}
-                                ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
-                            `}>
-                                    <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-white/50 shrink-0`} title={`${t("需要")}: ${t(req.requiredRarity.name)}`}></div>
-                                    <span className={`shrink-0 ${iconFilterClass}`}>{req.icon}</span>
-                                    <span className={`font-bold ${iconFilterClass} max-w-[80px] truncate`} title={t(req.name)}>{t(req.name)}</span>
+                                <div key={rIdx} className="flex flex-col items-center gap-1">
+                                    {/* 原有药丸 */}
+                                    <div className={`
+                                    relative flex items-center gap-1 border-2 rounded transition-all duration-200 shrink-0
+                                    ${isCandidate ? 'text-xs px-1.5 py-0.5' : 'text-xs px-1.5 py-1'}
+                                    ${borderStyle} ${borderColorClass} ${bgColorClass} ${textColorClass}
+                                    ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}
+                                    ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
+                                `}>
+                                        <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-white/50 shrink-0`} title={`${t("需要")}: ${t(req.requiredRarity.name)}`}></div>
+                                        <span className={`shrink-0 ${iconFilterClass}`}>{req.icon}</span>
+                                        <span className={`font-bold ${iconFilterClass} max-w-[80px] truncate`} title={t(req.name)}>{t(req.name)}</span>
 
-                                    {/* 已提交标记 */}
-                                    {isSubmitted && isQualitySatisfied && (
-                                        <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-0.5 shadow">
-                                            <Check size={10} strokeWidth={4} />
-                                        </div>
-                                    )}
-
-                                    {/* 升级标记（完全移至右上角外边缘，杜绝遮挡文字） */}
-                                    {isUpgraded && (
-                                        <>
-                                            <div className={`
-                                                absolute -top-1 -right-1 translate-x-1/2 -translate-y-1/2 text-white rounded px-1.5 py-0.5 shadow-xl z-50 flex items-center gap-0.5
-                                                ${stageColors[upgradeInfo.upgradeStage]?.bg || 'bg-red-500'} ring-2 ring-white
-                                            `}>
-                                                <TrendingUp size={10} strokeWidth={3} />
-                                                <span className="text-[9px] font-black italic tracking-tighter">
-                                                    {stageColors[upgradeInfo.upgradeStage]?.label || `L${upgradeInfo.upgradeStage}`}
-                                                </span>
+                                        {/* 已提交标记 */}
+                                        {isSubmitted && isQualitySatisfied && (
+                                            <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-0.5 shadow">
+                                                <Check size={10} strokeWidth={4} />
                                             </div>
-                                            <div className={`
-                                                absolute inset-0 rounded border-2 pointer-events-none z-10
-                                                ${stageColors[upgradeInfo.upgradeStage]?.border || 'border-red-400'} opacity-30
-                                            `} />
-                                        </>
-                                    )}
+                                        )}
+
+                                        {/* 升级标记 */}
+                                        {isUpgraded && (
+                                            <>
+                                                <div className={`
+                                                    absolute -top-1 -right-1 translate-x-1/2 -translate-y-1/2 text-white rounded px-1.5 py-0.5 shadow-xl z-50 flex items-center gap-0.5
+                                                    ${stageColors[upgradeInfo.upgradeStage]?.bg || 'bg-red-500'} ring-2 ring-white
+                                                `}>
+                                                    <TrendingUp size={10} strokeWidth={3} />
+                                                    <span className="text-[9px] font-black italic tracking-tighter">
+                                                        {stageColors[upgradeInfo.upgradeStage]?.label || `L${upgradeInfo.upgradeStage}`}
+                                                    </span>
+                                                </div>
+                                                <div className={`
+                                                    absolute inset-0 rounded border-2 pointer-events-none z-10
+                                                    ${stageColors[upgradeInfo.upgradeStage]?.border || 'border-red-400'} opacity-30
+                                                `} />
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {/* 订单槽位：放置物品 / 幻影标记 */}
+                                    {slotItem && !isCandidate && (() => {
+                                        // 可升级检测：背包中有同名同品质非绝育物品
+                                        const slotHasUpgradePair = !isPhantom && slotItem && !slotItem.sterile &&
+                                            slotItem.rarity.id !== 'mythic' &&
+                                            inventory.some(other =>
+                                                other && other.uid !== slotItem.uid &&
+                                                other.name === slotItem.name &&
+                                                other.rarity.id === slotItem.rarity.id &&
+                                                !other.sterile
+                                            );
+
+                                        return (
+                                            <div
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!isPhantom && onUnassign) {
+                                                        onUnassign(index, rIdx);
+                                                    }
+                                                }}
+                                                className={`
+                                                    relative w-16 h-16 rounded-xl border-2 flex flex-col items-center justify-center
+                                                    transition-all duration-200 text-[10px]
+                                                    ${isPhantom
+                                                        ? 'border-dashed border-slate-300 bg-slate-50/50 opacity-40 cursor-default'
+                                                        : slotQualitySatisfied
+                                                            ? `border-solid ${slotItem.rarity.color.split(' ')[0]} ${slotItem.rarity.color} cursor-pointer hover:scale-105 hover:shadow-md`
+                                                            : `border-solid ${slotItem.rarity.color.split(' ')[0]} bg-slate-50 cursor-pointer hover:scale-105 hover:shadow-md`
+                                                    }
+                                                    ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode && !isPhantom ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
+                                                `}
+                                                title={isPhantom ? t("已在其他订单中使用") : t("点击取回")}
+                                            >
+                                                {/* 左上角：要求品质圆形色块 */}
+                                                <div className={`absolute -top-1 -left-1 w-3 h-3 rounded-full ${req.requiredRarity.dotColor} border border-white shadow-sm z-10`} />
+
+                                                {/* 图标 */}
+                                                <span className={`text-xl leading-none ${isPhantom ? 'opacity-30' : (slotQualitySatisfied ? '' : 'grayscale opacity-50')}`}>
+                                                    {slotItem.icon}
+                                                </span>
+
+                                                {/* 物品名称 */}
+                                                <span className={`font-bold truncate max-w-[56px] mt-0.5 ${isPhantom ? 'opacity-30' : (slotQualitySatisfied ? 'text-slate-700' : 'text-slate-400')}`}>
+                                                    {t(slotItem.name)}
+                                                </span>
+
+                                                {/* 右下角：达标✓ 或 幻影链接标记 */}
+                                                {isPhantom ? (
+                                                    <div className="absolute -bottom-1 -right-1 bg-slate-400 text-white rounded-full p-0.5 shadow z-10">
+                                                        <Link size={8} />
+                                                    </div>
+                                                ) : slotQualitySatisfied ? (
+                                                    <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-0.5 shadow z-10">
+                                                        <Check size={8} strokeWidth={4} />
+                                                    </div>
+                                                ) : null}
+
+                                                {/* 可升级角标 */}
+                                                {slotHasUpgradePair && (
+                                                    <div className="absolute -top-1.5 -right-1.5 bg-yellow-400 text-yellow-900 rounded-full p-0.5 shadow-md z-10 ring-1 ring-white animate-bounce">
+                                                        <ChevronsUp size={10} strokeWidth={3} />
+                                                    </div>
+                                                )}
+
+                                                {/* 绝育标签 */}
+                                                {slotItem.sterile && !isPhantom && (
+                                                    <div className="absolute bottom-0 left-0 p-0.5 bg-gray-800/80 rounded-tr-lg text-white z-10 text-[7px] px-1 font-bold">
+                                                        {t("绝育")}
+                                                    </div>
+                                                )}
+
+                                                {/* 腐朽计数 */}
+                                                {slotItem.decay !== undefined && !isPhantom && (
+                                                    <div className={`absolute bottom-0 left-0 text-[7px] px-0.5 rounded-tr font-bold ${slotItem.decay <= 5 ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                                        {slotItem.decay}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             );
                         })}
