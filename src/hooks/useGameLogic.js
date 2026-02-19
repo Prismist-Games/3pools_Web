@@ -1730,10 +1730,22 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const finalIndicesToAdd = [];
             const usedInThisSearch = new Set(selectedIndices);
 
-            requirements.forEach(req => {
-                // Find if any CURRENTLY selected item matches this req (that isn't already "used" for another req in this loop)
-                // This is complex to do perfectly in one pass, let's just use the logic from before but better.
+            requirements.forEach((req, rIdx) => {
+                // 1. 优先使用已分配到该订单槽位的物品
+                const slotKey = `${orderIndex}-${rIdx}`;
+                const assignedUid = orderSlotAssignments[slotKey];
+                if (assignedUid) {
+                    const assignedIdx = inventory.findIndex(i => i && i.uid === assignedUid);
+                    if (assignedIdx !== -1 && !usedInThisSearch.has(assignedIdx) &&
+                        inventory[assignedIdx].rarity.bonus >= req.requiredRarity.bonus &&
+                        (!inventory[assignedIdx].decay || inventory[assignedIdx].decay > 0)) {
+                        finalIndicesToAdd.push(assignedIdx);
+                        usedInThisSearch.add(assignedIdx);
+                        return;
+                    }
+                }
 
+                // 2. 回退：从背包搜索最优候选
                 const candidates = inventory
                     .map((item, idx) => ({ item, idx }))
                     .filter(({ item, idx }) =>
