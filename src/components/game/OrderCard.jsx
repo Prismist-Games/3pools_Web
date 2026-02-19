@@ -308,135 +308,128 @@ const OrderCardBase = ({
                             const isPhantom = !assignedItem && !!phantom;
                             const slotQualitySatisfied = slotItem && slotItem.rarity.bonus >= req.requiredRarity.bonus;
 
+                            const isSlotMode = !!slotItem && !isCandidate;
+                            const slotHasUpgradePair = !isPhantom && slotItem && !slotItem.sterile &&
+                                slotItem.rarity.id !== 'mythic' &&
+                                inventory.some(other =>
+                                    other && other.uid !== slotItem.uid &&
+                                    other.name === slotItem.name &&
+                                    other.rarity.id === slotItem.rarity.id &&
+                                    !other.sterile
+                                );
+
+                            const displayIcon = isSlotMode ? slotItem.icon : req.icon;
+                            const displayName = isSlotMode ? t(slotItem.name) : t(req.name);
+
                             return (
-                                <div key={rIdx} className="flex flex-col items-stretch gap-1">
-                                    {/* 药丸：放入物品后彻底隐藏，使列宽收缩至物品槽宽度，以保证槽位之间间距一致 */}
-                                    <div className={`
-                                        relative flex items-center gap-1 rounded transition-all duration-200 shrink-0
-                                        ${slotItem && !isCandidate
-                                            ? '!hidden'
-                                            : `border-2 ${isCandidate ? 'text-xs px-1.5 py-0.5' : 'text-xs px-1.5 py-1'}
-                                               ${borderStyle} ${borderColorClass} ${bgColorClass} ${textColorClass}
-                                               ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}
-                                               ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}`
-                                        }
-                                    `}>
-                                        <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-white/50 shrink-0`} title={`${t("需要")}: ${t(req.requiredRarity.name)}`}></div>
-                                        <span className={`shrink-0 ${iconFilterClass}`}>{req.icon}</span>
-                                        <span className={`font-bold ${iconFilterClass} max-w-[80px] truncate`} title={t(req.name)}>{t(req.name)}</span>
+                                <div key={rIdx} className="flex flex-col items-stretch gap-1 relative">
+                                    <div
+                                        onClick={(e) => {
+                                            if (isSlotMode && !isPhantom && onUnassign) {
+                                                e.stopPropagation();
+                                                onUnassign(index, rIdx);
+                                            }
+                                        }}
+                                        className={`
+                                            relative flex items-center shrink-0 overflow-visible
+                                            transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                                            ${isSlotMode
+                                                ? `w-16 h-16 rounded-xl flex-col justify-center border-2 ${isPhantom ? 'border-dashed ' + slotItem.rarity.color.split(' ')[0] + ' bg-transparent' : 'border-solid ' + slotItem.rarity.color.split(' ')[0] + ' ' + (slotQualitySatisfied ? slotItem.rarity.color : 'bg-slate-50')} ${!isPhantom ? 'cursor-pointer hover:scale-105 hover:shadow-md' : 'cursor-default'}`
+                                                : `h-[28px] ${isCandidate ? 'h-[24px]' : ''} rounded border-2 ${isCandidate ? 'px-1.5' : 'px-1.5'} ${borderStyle} ${borderColorClass} ${bgColorClass} ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}`
+                                            }
+                                            ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
+                                        `}
+                                        title={isSlotMode ? (isPhantom ? t("已在其他订单中使用") : t("点击取回")) : ''}
+                                    >
+                                        {/* Invisible layout ghost to hold natural width in Capsule Mode */}
+                                        <div className={`flex items-center gap-1 opacity-0 pointer-events-none transition-all ${isSlotMode ? 'hidden' : ''}`}>
+                                            <div className="w-2 h-2 shrink-0" />
+                                            <span className={`shrink-0 ${isCandidate ? 'text-[10px]' : 'text-xs'}`}>{req.icon}</span>
+                                            <span className={`font-bold ${isCandidate ? 'text-[10px]' : 'text-xs'} max-w-[80px] truncate`}>{t(req.name)}</span>
+                                        </div>
 
-                                        {/* 已提交标记 */}
-                                        {isSubmitted && isQualitySatisfied && (
-                                            <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-0.5 shadow">
-                                                <Check size={10} strokeWidth={4} />
-                                            </div>
-                                        )}
+                                        {/* Shared Animated Dot */}
+                                        <div className={`
+                                            absolute rounded-full shadow-sm border
+                                            transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-20
+                                            ${req.requiredRarity.dotColor}
+                                            ${isSlotMode
+                                                ? '-top-1 -left-1 w-3 h-3 border-white scale-100'
+                                                : `left-[7px] top-[50%] -translate-y-1/2 w-2 h-2 border-white/50`
+                                            }
+                                        `} title={`${t("需要")}: ${t(req.requiredRarity.name)}`} />
 
-                                        {/* 升级标记 */}
-                                        {isUpgraded && (
-                                            <>
-                                                <div className={`
-                                                    absolute -top-1 -right-1 translate-x-1/2 -translate-y-1/2 text-white rounded px-1.5 py-0.5 shadow-xl z-50 flex items-center gap-0.5
-                                                    ${stageColors[upgradeInfo.upgradeStage]?.bg || 'bg-red-500'} ring-2 ring-white
-                                                `}>
-                                                    <TrendingUp size={10} strokeWidth={3} />
-                                                    <span className="text-[9px] font-black italic tracking-tighter">
-                                                        {stageColors[upgradeInfo.upgradeStage]?.label || `L${upgradeInfo.upgradeStage}`}
-                                                    </span>
+                                        {/* Shared Animated Icon */}
+                                        <div className={`
+                                            absolute flex items-center justify-center pointer-events-none
+                                            transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                                            ${isSlotMode
+                                                ? `left-[50%] top-[4px] -translate-x-1/2 translate-y-0 text-[26px] scale-100 origin-top ${slotQualitySatisfied ? '' : 'grayscale opacity-50'}`
+                                                : `left-[20px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-xs'} scale-100 origin-center ${iconFilterClass}`
+                                            }
+                                        `}>
+                                            {displayIcon}
+                                        </div>
+
+                                        {/* Shared Animated Text */}
+                                        <span className={`
+                                            absolute font-bold truncate pointer-events-none
+                                            transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                                            ${isSlotMode
+                                                ? `left-[50%] top-[42px] -translate-x-1/2 translate-y-0 text-[10px] w-full text-center px-1 ${slotQualitySatisfied ? 'text-slate-700' : 'text-slate-400'}`
+                                                : `left-[38px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-xs'} max-w-[80px] text-left ${textColorClass}`
+                                            }
+                                        `}>
+                                            {displayName}
+                                        </span>
+
+                                        {/* Capsule-Specific Modifiers (fade out in slot mode) */}
+                                        <div className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${isSlotMode ? 'opacity-0' : 'opacity-100'}`}>
+                                            {isSubmitted && isQualitySatisfied && (
+                                                <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-0.5 shadow">
+                                                    <Check size={10} strokeWidth={4} />
                                                 </div>
-                                                <div className={`
-                                                    absolute inset-0 rounded border-2 pointer-events-none z-10
-                                                    ${stageColors[upgradeInfo.upgradeStage]?.border || 'border-red-400'} opacity-30
-                                                `} />
-                                            </>
-                                        )}
-                                    </div>
-
-                                    {/* 订单槽位：放置物品 / 幻影标记 */}
-                                    {slotItem && !isCandidate && (() => {
-                                        // 可升级检测：背包中有同名同品质非绝育物品
-                                        const slotHasUpgradePair = !isPhantom && slotItem && !slotItem.sterile &&
-                                            slotItem.rarity.id !== 'mythic' &&
-                                            inventory.some(other =>
-                                                other && other.uid !== slotItem.uid &&
-                                                other.name === slotItem.name &&
-                                                other.rarity.id === slotItem.rarity.id &&
-                                                !other.sterile
-                                            );
-
-                                        return (
-                                            <div className="relative flex flex-col items-center">
-                                                <div
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (!isPhantom && onUnassign) {
-                                                            onUnassign(index, rIdx);
-                                                        }
-                                                    }}
-                                                    className={`
-                                                        relative w-16 h-16 rounded-xl border-2 flex flex-col items-center justify-center
-                                                        transition-all duration-200 text-[10px]
-                                                        ${isPhantom
-                                                            ? `border-dashed ${slotItem.rarity.color.split(' ')[0]} bg-transparent cursor-default`
-                                                            : slotQualitySatisfied
-                                                                ? `border-solid ${slotItem.rarity.color.split(' ')[0]} ${slotItem.rarity.color} cursor-pointer hover:scale-105 hover:shadow-md`
-                                                                : `border-solid ${slotItem.rarity.color.split(' ')[0]} bg-slate-50 cursor-pointer hover:scale-105 hover:shadow-md`
-                                                        }
-                                                        ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
-                                                    `}
-                                                    title={isPhantom ? t("已在其他订单中使用") : t("点击取回")}
-                                                >
-                                                    {/* 左上角：要求品质圆形色块 */}
-                                                    <div className={`absolute -top-1 -left-1 w-3 h-3 rounded-full ${req.requiredRarity.dotColor} border border-white shadow-sm z-10`} />
-
-                                                    {/* 图标 */}
-                                                    <span className={`text-xl leading-none ${slotQualitySatisfied ? '' : 'grayscale opacity-50'}`}>
-                                                        {slotItem.icon}
-                                                    </span>
-
-                                                    {/* 物品名称 */}
-                                                    <span className={`font-bold truncate max-w-[56px] mt-0.5 ${slotQualitySatisfied ? 'text-slate-700' : 'text-slate-400'}`}>
-                                                        {t(slotItem.name)}
-                                                    </span>
-
-                                                    {/* 右下角：达标✓ */}
-                                                    {slotQualitySatisfied && (
-                                                        <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-0.5 shadow z-10">
-                                                            <Check size={8} strokeWidth={4} />
-                                                        </div>
-                                                    )}
-
-                                                    {/* 可升级角标 */}
-                                                    {slotHasUpgradePair && (
-                                                        <div className="absolute -top-1.5 -right-1.5 bg-yellow-400 text-yellow-900 rounded-full p-0.5 shadow-md z-10 ring-1 ring-white animate-bounce">
-                                                            <ChevronsUp size={10} strokeWidth={3} />
-                                                        </div>
-                                                    )}
-
-                                                    {/* 绝育标签 */}
-                                                    {slotItem.sterile && (
-                                                        <div className="absolute bottom-0 left-0 p-0.5 bg-gray-800/80 rounded-tr-lg text-white z-10 text-[7px] px-1 font-bold">
-                                                            {t("绝育")}
-                                                        </div>
-                                                    )}
-
-                                                    {/* 腐朽计数 */}
-                                                    {slotItem.decay !== undefined && (
-                                                        <div className={`absolute bottom-0 left-0 text-[7px] px-0.5 rounded-tr font-bold ${slotItem.decay <= 5 ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                                                            {slotItem.decay}
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* 幻影链接图标：底部居中，圆心与下边框齐平 */}
-                                                {isPhantom && (
-                                                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-slate-400 text-white rounded-full p-0.5 shadow z-20">
-                                                        <Link size={12} />
+                                            )}
+                                            {isUpgraded && upgradeInfo && (
+                                                <>
+                                                    <div className={`absolute -top-1 -right-1 translate-x-1/2 -translate-y-1/2 text-white rounded px-1.5 py-0.5 shadow-xl z-50 flex items-center gap-0.5 ${stageColors[upgradeInfo.upgradeStage]?.bg || 'bg-red-500'} ring-2 ring-white`}>
+                                                        <TrendingUp size={10} strokeWidth={3} />
+                                                        <span className="text-[9px] font-black italic tracking-tighter">{stageColors[upgradeInfo.upgradeStage]?.label || `L${upgradeInfo.upgradeStage}`}</span>
                                                     </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
+                                                    <div className={`absolute inset-0 rounded border-2 z-10 ${stageColors[upgradeInfo.upgradeStage]?.border || 'border-red-400'} opacity-30`} />
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {/* Slot-Specific Modifiers (fade in in slot mode) */}
+                                        <div className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${isSlotMode ? 'opacity-100' : 'opacity-0'}`}>
+                                            {isSlotMode && slotQualitySatisfied && (
+                                                <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-0.5 shadow z-10 pointer-events-auto">
+                                                    <Check size={8} strokeWidth={4} />
+                                                </div>
+                                            )}
+                                            {isSlotMode && slotHasUpgradePair && (
+                                                <div className="absolute -top-1.5 -right-1.5 bg-yellow-400 text-yellow-900 rounded-full p-0.5 shadow-md z-10 ring-1 ring-white animate-bounce pointer-events-auto">
+                                                    <ChevronsUp size={10} strokeWidth={3} />
+                                                </div>
+                                            )}
+                                            {isSlotMode && slotItem?.sterile && (
+                                                <div className="absolute bottom-0 left-0 p-0.5 bg-gray-800/80 rounded-tr-lg text-white z-10 text-[7px] px-1 font-bold pointer-events-auto">
+                                                    {t("绝育")}
+                                                </div>
+                                            )}
+                                            {isSlotMode && slotItem?.decay !== undefined && (
+                                                <div className={`absolute bottom-0 left-0 text-[7px] px-0.5 rounded-tr font-bold pointer-events-auto ${slotItem.decay <= 5 ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                                    {slotItem.decay}
+                                                </div>
+                                            )}
+                                            {isSlotMode && isPhantom && (
+                                                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-slate-400 text-white rounded-full p-0.5 shadow z-20 pointer-events-auto">
+                                                    <Link size={12} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         })}
