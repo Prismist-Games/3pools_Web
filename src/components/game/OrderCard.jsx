@@ -309,15 +309,18 @@ const OrderCardBase = ({
                             const slotQualitySatisfied = slotItem && slotItem.rarity.bonus >= req.requiredRarity.bonus;
 
                             return (
-                                <div key={rIdx} className="flex flex-col items-center gap-1">
-                                    {/* 原有药丸 */}
+                                <div key={rIdx} className="flex flex-col items-stretch gap-1">
+                                    {/* 药丸：放入物品后彻底隐藏，使列宽收缩至物品槽宽度，以保证槽位之间间距一致 */}
                                     <div className={`
-                                    relative flex items-center gap-1 border-2 rounded transition-all duration-200 shrink-0
-                                    ${isCandidate ? 'text-xs px-1.5 py-0.5' : 'text-xs px-1.5 py-1'}
-                                    ${borderStyle} ${borderColorClass} ${bgColorClass} ${textColorClass}
-                                    ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}
-                                    ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
-                                `}>
+                                        relative flex items-center gap-1 rounded transition-all duration-200 shrink-0
+                                        ${slotItem && !isCandidate
+                                            ? '!hidden'
+                                            : `border-2 ${isCandidate ? 'text-xs px-1.5 py-0.5' : 'text-xs px-1.5 py-1'}
+                                               ${borderStyle} ${borderColorClass} ${bgColorClass} ${textColorClass}
+                                               ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}
+                                               ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}`
+                                        }
+                                    `}>
                                         <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-white/50 shrink-0`} title={`${t("需要")}: ${t(req.requiredRarity.name)}`}></div>
                                         <span className={`shrink-0 ${iconFilterClass}`}>{req.icon}</span>
                                         <span className={`font-bold ${iconFilterClass} max-w-[80px] truncate`} title={t(req.name)}>{t(req.name)}</span>
