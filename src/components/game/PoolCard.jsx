@@ -5,8 +5,8 @@ import { useLanguage } from '../../contexts/LanguageContext';
 const PoolCardBase = ({
     pool,
     gold,
-    tickets,
     hasSkill,
+    config = {}, // Add default empty obj safety
     inventory = [],
     onDraw,
     onMouseEnter,
@@ -17,18 +17,15 @@ const PoolCardBase = ({
     disabled = false
 }) => {
     const { t } = useLanguage();
-    // Cost Calculation
+    // Cost Calculation - all pools now use gold
     let finalCost = pool.cost;
-    if (pool.currency === 'gold' && hasSkill('calculated') && gold < 10) {
-        finalCost = Math.max(1, finalCost - 2);
-    }
-    if (pool.currency === 'gold' && hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
+    if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
         finalCost = Math.max(0, finalCost - 1);
     }
 
-    const canAfford = pool.currency === 'gold' ? gold >= finalCost : tickets >= finalCost;
+    const canAfford = gold >= finalCost;
     const isEffectiveDisabled = disabled || !canAfford;
-    const isMainline = pool.type === 'mainline';
+    const isScorePool = pool.type === 'score';
 
     return (
         <button
@@ -53,20 +50,17 @@ const PoolCardBase = ({
                 <span className="text-4xl filter drop-shadow-sm">{pool.icon}</span>
                 <span className="font-black text-xl leading-tight">{t(pool.name)}</span>
 
-                {/* Price Pill - Directly after name, NOT pushed to right */}
+                {/* Price Pill - Gold cost */}
                 <div className={`
                     flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
                     bg-white
-                    ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-slate-200'}
+                    ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-yellow-400'}
                 `}>
                     {finalCost < pool.cost && (
                         <span className="line-through text-xs text-slate-400">{pool.cost}</span>
                     )}
                     {finalCost === 0 ? t("免费") : finalCost}
-                    {pool.currency === 'gold'
-                        ? <Coins size={20} className={canAfford ? "text-yellow-500" : "text-slate-400"} />
-                        : <Ticket size={20} className={canAfford ? "text-pink-500" : "text-slate-400"} />
-                    }
+                    <span className={canAfford ? "text-yellow-500" : "text-slate-400"}>🪙</span>
                 </div>
             </div>
 
@@ -81,9 +75,9 @@ const PoolCardBase = ({
 
             {/* Row 3: Content Area */}
             <div className="flex-1 w-full">
-                {isMainline ? (
+                {isScorePool ? (
                     <div className="flex flex-col gap-1 text-base font-bold opacity-80">
-                        <p>🔥 {t("主线目标")}: {t(pool.targetItem?.name)}</p>
+                        <p>🔥 {t("积分目标")}: {t(pool.targetItem?.name)}</p>
                         <p className="text-sm opacity-60">{t("可能是 90% 普通物品...")}</p>
                     </div>
                 ) : (
@@ -95,55 +89,7 @@ const PoolCardBase = ({
                             </p>
                         )}
 
-                        {/* Requirements or Item Preview */}
-                        {relevantRequirements.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 mt-1">
-                                {relevantRequirements.map((req, i) => {
-                                    const candidates = inventory.filter(item => item && item.name === req.name);
-                                    candidates.sort((a, b) => b.rarity.bonus - a.rarity.bonus);
-                                    const matchedItem = candidates[0];
 
-                                    const hasItem = !!matchedItem;
-                                    const isQualitySatisfied = matchedItem && matchedItem.rarity.bonus >= req.requiredRarity.bonus;
-
-                                    const borderStyle = hasItem ? 'border-solid' : 'border-dashed';
-
-                                    let bgColorClass = 'bg-white/90';
-                                    let iconFilterClass = 'grayscale opacity-70';
-                                    let textColorClass = 'text-slate-500';
-                                    let borderColorClass = 'border-slate-300';
-
-                                    if (hasItem && isQualitySatisfied) {
-                                        bgColorClass = matchedItem.rarity.color;
-                                        iconFilterClass = '';
-                                        textColorClass = 'text-slate-700';
-                                        borderColorClass = matchedItem.rarity.color.split(' ')[0];
-                                    } else if (hasItem) {
-                                        bgColorClass = 'bg-slate-50';
-                                        borderColorClass = matchedItem.rarity.color.split(' ')[0];
-                                    }
-
-                                    return (
-                                        <div key={i} className={`
-                                            relative flex items-center gap-1 text-sm border-2 rounded px-2 py-1 transition-all duration-200 shadow-sm
-                                            ${borderStyle} ${borderColorClass} ${bgColorClass} ${textColorClass}
-                                        `}>
-                                            <div className={`w-2 h-2 rounded-full ${req.requiredRarity.dotColor} shadow-sm border border-black/10 shrink-0`} title={`${t("需要")}: ${t(req.requiredRarity.name)}`}></div>
-                                            <span className={`${iconFilterClass}`}>{req.icon}</span>
-                                            <span className={`font-bold ${iconFilterClass} opacity-90`}>{t(req.name)}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="flex flex-wrap gap-2 mt-1 opacity-80">
-                                {pool.items.slice(0, 4).map(item => (
-                                    <div key={item.name} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-lg border border-white/40 text-lg shadow-sm">
-                                        {item.icon}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 )}
             </div>

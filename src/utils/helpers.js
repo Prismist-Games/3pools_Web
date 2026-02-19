@@ -1,4 +1,4 @@
-import { MAINLINE_ITEMS } from '../data/constants.js';
+// helpers.js - utility functions for game logic
 
 export const getAllNormalItems = (pools, currentStageConfig) => {
     // 修正：限制池子类型（allowedPoolCount）和池内物品数量（poolSize）
@@ -26,9 +26,26 @@ export const getRandomItems = (array, count) => {
     return shuffled.slice(0, count);
 };
 
-export const rollRequirementRarity = (config, currentStageConfig) => {
+export const rollRequirementRarity = (config, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
     // P0: Use orderRarityWeights if available (specific to orders), otherwise fallback to general rarityWeights
-    const weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
+    // For emergency orders, use emergency-specific weights if available
+    let weights;
+    if (isEmergency && config.emergency) {
+        // 优先使用难度相关的品质权重
+        const difficultyWeights = config.emergency.difficultyRarityWeights?.[emergencyDifficulty];
+        if (difficultyWeights) {
+            weights = difficultyWeights;
+        } else if (config.emergency.rarityWeights) {
+            weights = config.emergency.rarityWeights;
+        } else if (config.emergency.baseRarityWeights) {
+            weights = config.emergency.baseRarityWeights;
+        } else {
+            weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
+        }
+    } else {
+        weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
+    }
+
     const r = Math.random();
 
     // 累积概率计算
@@ -64,174 +81,262 @@ export const rollRequirementRarity = (config, currentStageConfig) => {
     return config.rarity.find(r => r.id === 'common');
 };
 
-export const generateOrder = (allNormalItems, config, hasSkill = () => false, currentStageConfig) => {
-    // P0: Use orderCountWeights for configurable requirement counts (2, 3, or 4)
-    let count = 3;
-    if (currentStageConfig.orderCountWeights) {
-        const weights = currentStageConfig.orderCountWeights;
-        const w2 = weights[2] || 0;
-        const w3 = weights[3] || 0;
-        const w4 = weights[4] || 0;
-        const totalWeight = w2 + w3 + w4;
+export const generateOrder = (allNormalItems, config, hasSkill = () => false, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
+    // 检查是否有精确的难度需求配置（优先级最高）
+    const difficultyRequirements = isEmergency && config.emergency?.difficultyRequirements?.[emergencyDifficulty];
 
-        // Safety check to avoid infinite loops or errors if weights are 0
-        if (totalWeight <= 0) {
-            count = 3;
-        } else {
-            let random = Math.random() * totalWeight;
-            if (random < w2) count = 2;
-            else if (random < w2 + w3) count = 3;
-            else count = 4;
+    // Helper: Get unique pool items
+    const getUniquePoolItems = (sourceItems, num) => {
+        const poolGroups = {};
+        sourceItems.forEach(item => {
+            if (!poolGroups[item.poolId]) poolGroups[item.poolId] = [];
+            poolGroups[item.poolId].push(item);
+        });
+
+        const availablePoolIds = Object.keys(poolGroups);
+        const selectedPoolIds = getRandomItems(availablePoolIds, Math.min(num, availablePoolIds.length));
+
+        return selectedPoolIds.map(pid => {
+            const itemsInPool = poolGroups[pid];
+            return itemsInPool[Math.floor(Math.random() * itemsInPool.length)];
+        });
+    };
+
+    let count;
+    let requirements;
+
+    if (difficultyRequirements && difficultyRequirements.length > 0) {
+        // 使用精确配置模式 - 数量由配置的总物品数决定
+        count = difficultyRequirements.reduce((sum, req) => sum + req.count, 0);
+
+        // 如果是紧急订单，限制数量为可用池子数量，保证种类唯一
+        if (isEmergency) {
+            const availablePoolCount = new Set(allNormalItems.map(i => i.poolId)).size;
+            if (count > availablePoolCount) {
+                count = availablePoolCount;
+                // 需调整 difficultyRequirements 以匹配新数量 (简单截断)
+                // 这里稍微复杂，简单起见我们只调整生成的 rawRequirements 数量
+                // 但 rarityList 也需要调整
+            }
         }
+
+        // 随机选择物品
+        let rawRequirements;
+        if (isEmergency) {
+            rawRequirements = getUniquePoolItems(allNormalItems, count);
+        } else {
+            rawRequirements = getRandomItems(allNormalItems, count);
+        }
+
+        // 将配置的品质需求展开成数组
+        const rarityList = [];
+        difficultyRequirements.forEach(req => {
+            const rarityObj = config.rarity.find(r => r.id === req.rarity);
+            if (rarityObj) {
+                for (let i = 0; i < req.count; i++) {
+                    rarityList.push(rarityObj);
+                }
+            }
+        });
+
+        // 截断 rarityList 以匹配实际 count (如果因唯一性被缩减)
+        if (rarityList.length > count) {
+            rarityList.length = count;
+        }
+
+        // 随机打乱品质列表，避免每次都是相同顺序
+        const shuffledRarities = rarityList.sort(() => Math.random() - 0.5);
+
+        requirements = rawRequirements.map((item, index) => ({
+            ...item,
+            requiredRarity: shuffledRarities[index] || config.rarity.find(r => r.id === 'common')
+        }));
     } else {
-        // Fallback legacy logic
-        const { orderCountRange } = currentStageConfig;
-        count = Math.floor(Math.random() * (orderCountRange[1] - orderCountRange[0] + 1)) + orderCountRange[0];
+        // 使用随机模式
+        // P0: Use orderCountWeights for configurable requirement counts (2, 3, or 4)
+        count = 3; // Default value
+
+        // Emergency orders use their own config if available
+        if (isEmergency && config.emergency) {
+            const emergencyConfig = config.emergency;
+
+            // 使用难度配置来决定需求数量（如果有）
+            const difficultyWeights = emergencyConfig.difficultyReqCountWeights?.[emergencyDifficulty];
+            if (difficultyWeights) {
+                // 根据难度等级的权重分布随机选择需求数量
+                const entries = Object.entries(difficultyWeights);
+                const totalWeight = entries.reduce((sum, [_, weight]) => sum + weight, 0);
+                let random = Math.random() * totalWeight;
+
+                for (const [reqCount, weight] of entries) {
+                    random -= weight;
+                    if (random <= 0) {
+                        count = parseInt(reqCount);
+                        break;
+                    }
+                }
+            } else if (emergencyConfig.reqCountMin !== undefined && emergencyConfig.reqCountMax !== undefined) {
+                const min = emergencyConfig.reqCountMin || 1;
+                const max = emergencyConfig.reqCountMax || 4;
+                count = Math.floor(Math.random() * (max - min + 1)) + min;
+            } else if (emergencyConfig.reqCount !== undefined) {
+                count = emergencyConfig.reqCount;
+            }
+        } else if (currentStageConfig.orderCountWeights) {
+            const weights = currentStageConfig.orderCountWeights;
+            const w2 = weights[2] || 0;
+            const w3 = weights[3] || 0;
+            const w4 = weights[4] || 0;
+            const totalWeight = w2 + w3 + w4;
+
+            // Safety check to avoid infinite loops or errors if weights are 0
+            if (totalWeight <= 0) {
+                count = 3;
+            } else {
+                let random = Math.random() * totalWeight;
+                if (random < w2) count = 2;
+                else if (random < w2 + w3) count = 3;
+                else count = 4;
+            }
+        } else {
+            // Fallback legacy logic
+            const { orderCountRange } = currentStageConfig;
+            count = Math.floor(Math.random() * (orderCountRange[1] - orderCountRange[0] + 1)) + orderCountRange[0];
+        }
+
+        // 技能【偷工减料】- does not affect emergency orders
+        if (!isEmergency && hasSkill('cut_corners') && Math.random() < 0.20 && count > 1) {
+            count -= 1;
+        }
+
+        // Enforce unique pools for emergency orders
+        if (isEmergency) {
+            const availablePoolCount = new Set(allNormalItems.map(i => i.poolId)).size;
+            if (count > availablePoolCount) count = availablePoolCount;
+        }
+
+        let rawRequirements;
+        if (isEmergency) {
+            rawRequirements = getUniquePoolItems(allNormalItems, count);
+        } else {
+            rawRequirements = getRandomItems(allNormalItems, count);
+        }
+
+        // 使用随机品质生成
+        requirements = rawRequirements.map(item => ({
+            ...item,
+            requiredRarity: rollRequirementRarity(config, currentStageConfig, isEmergency, emergencyDifficulty)
+        }));
     }
-
-    // 技能【偷工减料】
-    if (hasSkill('cut_corners') && Math.random() < 0.20 && count > 1) {
-        count -= 1;
-    }
-
-    const rawRequirements = getRandomItems(allNormalItems, count);
-
-    const requirements = rawRequirements.map(item => ({
-        ...item,
-        requiredRarity: rollRequirementRarity(config, currentStageConfig)
-    }));
 
     const totalReqBonus = requirements.reduce((sum, req) => sum + req.requiredRarity.bonus, 0);
 
-    // P2 Refactor: Always Gold, Configurable Base
-    const rewardType = 'gold';
+    // Patience System: Base rewards for both patience and progress
+    const defaultBaseReward = config.patience?.orderCompletionReward || 15;
+    const baseRewards = currentStageConfig.baseRewards || { 2: defaultBaseReward, 3: defaultBaseReward, 4: defaultBaseReward };
 
-    // Default fallback if config is missing (compatibility)
-    const defaultBaseRewards = { 2: 7, 3: 10, 4: 15 };
-    const baseRewards = currentStageConfig.baseRewards || defaultBaseRewards;
+    const rawBaseReward = baseRewards[count] || defaultBaseReward;
 
-    const rawBaseReward = baseRewards[count] || 15;
+    // Fixed patience reward (no rarity multiplier)
+    const basePatienceReward = rawBaseReward;
 
-    const baseReward = Math.ceil(rawBaseReward * (1 + totalReqBonus));
+    // Base score reward (calculated ONLY by sum of per-rarity weights)
+    // Emergency orders DON'T give score rewards
+    let baseScoreReward = 0;
+
+    if (!isEmergency) {
+        const rarityWeights = config.progress?.rarityWeights || {};
+        const offset = config.progress?.progressOffset || 0;
+
+        // Formula: sum of weights of each required item's rarity + offset
+        const totalRarityScore = requirements.reduce((sum, req) => {
+            const rKey = req.requiredRarity?.id || 'common';
+            return sum + (rarityWeights[rKey] || 0);
+        }, 0);
+
+        const calculatedScore = Math.floor(totalRarityScore + offset);
+        baseScoreReward = Math.max(1, calculatedScore);
+    }
 
     return {
         id: Math.random().toString(36).substr(2, 9),
         requirements,
-        baseReward,
-        rewardType,
-        remainingRefreshes: 2,
-        isMainline: false
+        basePatienceReward,
+        baseScoreReward,
+        isScoreOrder: !isEmergency
     };
 };
 
-export const generateMainlineOrder = (level, config, currentStageConfig) => {
-    // P3 Update: Configurable Mainline Requirements
-    const count = currentStageConfig.mainlineReqCount || 2;
-    const rarityId = currentStageConfig.mainlineReqRarity || 'epic';
-    const targetRarity = config.rarity.find(r => r.id === rarityId) || config.rarity.find(r => r.id === 'epic');
+// generateMainlineOrder removed - mainline orders are replaced by progress system
 
-    const pools = config.pools.slice(0, currentStageConfig.allowedPoolCount);
-    // Select 'count' random pool items (can be same pool or different, let's keep it diverse if possible, but distinct pools logic was nice)
-    // If count > allowedPoolCount, we must reuse.
-    // Let's just pick 'count' random items from 'allowedPools' entirely? OR pick pools then items?
-    // Previous logic: Pick 2 distinct pools.
-    // New logic: Pick 'count' random items from 'getAllNormalItems' but that might be too broad.
-    // Let's stick to "Pick N random pools (can contain duplicates if needed), then 1 item from each".
-
-    // Actually, picking N distinct pools is better for variety if count <= pools.length.
-
-    const requirements = [];
-    // We need 'count' items.
-    const availablePools = [...pools]; // Copy to shuffle/pick
-
-    // Strategy: Randomly pick 'count' times from available pools.
-    for (let i = 0; i < count; i++) {
-        // Simple random pick to support count > pools.length
-        const randomPool = pools[Math.floor(Math.random() * pools.length)];
-        const item = getRandomItems(randomPool.items, 1)[0];
-
-        requirements.push({
-            ...item,
-            poolId: randomPool.id,
-            poolName: randomPool.name,
-            requiredRarity: targetRarity
-        });
-    }
-
-    return {
-        id: `mainline_order_${Math.random().toString(36).substr(2, 9)}`,
-        requirements,
-        baseReward: 0,
-        rewardType: 'none',
-        remainingRefreshes: 0,
-        isMainline: true,
-        level: level + 1,
-        name: `主线订单`
-    };
-};
 
 export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = () => false, skillState = {}, currentStageConfig) => {
-    const { rarity: rarityConfig } = config;
-    const weights = currentStageConfig.rarityWeights;
+    const { rarity: rarityConfig, affixes } = config;
+    const stageWeights = currentStageConfig.rarityWeights;
 
-    // 词缀处理优先于技能保底
-    if (affixKey === 'hardened' || affixKey === 'purified') {
-        if (weights.legendary > 0) {
-            const r = Math.random();
-            if (r < 0.67) return rarityConfig.find(r => r.id === 'rare');
-            if (r < 0.97) return rarityConfig.find(r => r.id === 'epic');
-            return rarityConfig.find(r => r.id === 'legendary');
-        } else if (weights.epic > 0) {
-            const r = Math.random();
-            return r < 0.7 ? rarityConfig.find(r => r.id === 'rare') : rarityConfig.find(r => r.id === 'epic');
-        } else if (weights.rare > 0) {
-            return rarityConfig.find(r => r.id === 'rare');
-        }
-        return rarityConfig.find(r => r.id === 'uncommon'); // Fallback
-    }
+    // --- 1. 确定逻辑约束（Logic: 哪些品质是允许产出的） ---
+    const orderedRarityIds = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+    let allowedRarityIds = [...orderedRarityIds];
 
     if (affixKey === 'volatile') {
-        const r = Math.random();
-        // P3: Volatile always has a small chance (0.5%) for Legendary, regardless of global weights
-        if (r < 0.995) return rarityConfig.find(r => r.id === 'common');
-        return rarityConfig.find(r => r.id === 'legendary');
+        allowedRarityIds = ['common', 'legendary']; // 波动逻辑：只有普通或传说
+    } else if (affixKey === 'fragmented') {
+        allowedRarityIds = ['common']; // 稀碎逻辑：只有普通
+    } else if (affixKey === 'hardened' || affixKey === 'purified') {
+        allowedRarityIds = ['rare', 'epic', 'legendary', 'mythic']; // 提纯/硬化逻辑：保底稀有+
     }
 
-    if (affixKey === 'fragmented') {
-        return rarityConfig.find(r => r.id === 'common');
-    }
+    // --- 2. 提取数值驱动（Values: 从配置中获取权重） ---
+    const finalWeights = {};
+    let customWeights = null;
 
-    // 检查技能保底
-    if (skillState.nextDrawGuaranteedRare) {
-        const allowedRarities = rarityConfig.filter(r => weights[r.id] > 0);
-        const highRarities = allowedRarities.filter(r => ['rare', 'epic', 'legendary'].includes(r.id));
-
-        if (highRarities.length > 0) {
-            return highRarities[Math.floor(Math.random() * highRarities.length)];
-        } else {
-            return allowedRarities[allowedRarities.length - 1];
+    // 尝试获取词缀自定义权重
+    if (affixKey && affixes) {
+        const affix = affixes.find(a => a.id === affixKey);
+        if (affix && affix.rarityWeights) {
+            customWeights = affix.rarityWeights;
         }
     }
 
-    // Calcluate Total Weight for Normalization
-    const orderedRarityIds = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
-    let totalWeight = 0;
+    // 应用逻辑过滤后的权重
+    allowedRarityIds.forEach(rid => {
+        // 优先使用词缀权重，没有则使用阶段权重
+        const rawWeight = customWeights ? (customWeights[rid] || 0) : (stageWeights[rid] || 0);
+        finalWeights[rid] = rawWeight;
+    });
 
-    // First pass: sum weights
-    for (const rid of orderedRarityIds) {
-        let w = weights[rid] || 0;
+    // --- 3. 计算总权重并处理技能修正 ---
+    let totalWeight = 0;
+    allowedRarityIds.forEach(rid => {
+        let w = finalWeights[rid];
         if (rid === 'legendary' && hasSkill('lucky_7') && (currentGold % 10 === 7)) {
             w *= 2;
         }
         totalWeight += w;
+    });
+
+    // 容错处理：如果当前配置在该逻辑约束下总权重为 0，则执行强制保底
+    if (totalWeight <= 0) {
+        if (affixKey === 'hardened' || affixKey === 'purified') return rarityConfig.find(r => r.id === 'rare');
+        if (affixKey === 'volatile' || affixKey === 'fragmented') return rarityConfig.find(r => r.id === 'common');
+        return rarityConfig.find(r => r.id === 'common');
     }
 
-    // Roll
+    // --- 4. 抽取逻辑 ---
+    // 技能保底判断（如果是保底抽，且保底品质在允许范围内）
+    if (skillState.nextDrawGuaranteedRare) {
+        const highTierIds = allowedRarityIds.filter(id => ['rare', 'epic', 'legendary', 'mythic'].includes(id));
+        if (highTierIds.length > 0) {
+            const pickId = highTierIds[Math.floor(Math.random() * highTierIds.length)];
+            return rarityConfig.find(r => r.id === pickId);
+        }
+    }
+
     const r = Math.random() * totalWeight;
     let accumulated = 0;
 
-    for (const rid of orderedRarityIds) {
-        let w = weights[rid] || 0;
+    for (const rid of allowedRarityIds) {
+        let w = finalWeights[rid];
         if (rid === 'legendary' && hasSkill('lucky_7') && (currentGold % 10 === 7)) {
             w *= 2;
         }
@@ -244,7 +349,7 @@ export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = 
         }
     }
 
-    return rarityConfig[0];
+    return rarityConfig[0]; // 极端情况回退
 };
 
 export const getNextRarity = (currentRarityId, config) => {

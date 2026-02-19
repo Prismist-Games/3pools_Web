@@ -1,6 +1,7 @@
 export const EN_TRANSLATIONS = {
     // --- UI General ---
     "当前订单": "Orders",
+    "刷新所有订单": "Refresh All",
     "刷新物品": "Refresh Items",
     "点击卡片购买": "Click to Buy",
     "剩余刷新": "Refreshes",
@@ -10,7 +11,6 @@ export const EN_TRANSLATIONS = {
     "回收": "Recycle",
     "重置": "Reset",
     "设置": "Settings",
-    "排行榜": "Leaderboard",
     "排行榜": "Leaderboard",
     "抽取物品": "Draw Items",
     "背包栏位": "Inventory Slots",
@@ -48,12 +48,13 @@ export const EN_TRANSLATIONS = {
     "阶段解锁": "Stage Unlocked",
     "继续挑战": "Continue",
     "收下": "Accept",
+    "重新开始": "Restart",
     "解锁新内容": "New Content Unlocked",
     "需要": "Need",
     "奖励": "Reward",
     "免费": "Free",
     "阶段": "Stage",
-    "刷新所有订单": "Refresh Orders",
+    "刷新此订单": "Refresh Order",
     "购买更多刷新次数": "Buy Refreshes",
     "必出": "Guaranteed",
     "可能是 90% 普通物品...": "Probably 90% common...",
@@ -71,6 +72,22 @@ export const EN_TRANSLATIONS = {
     "可回收价值": "Recycle Value",
     "个物品": "Items",
     "预计获得": "Est. Reward",
+
+    // --- New Game Core UI ---
+    "当前积分": "Current Score",
+    "生命值": "Health",
+    "持有金币": "Gold Held",
+    "离开关卡难度": "Stage Difficulty",
+    "折叠面板": "Collapse",
+    "展开面板": "Expand",
+    "初始": "Initial",
+    "需求品质+": "Req Quality+",
+    "Patience Stability": "Patience Stability",
+    "Passive Skills": "Passive Skills",
+    "积分订单": "Score Order",
+    "已完成": "Completed",
+    "离开关卡时未完成扣1血": "Lose 1 HP if stage requirements unmet",
+    "品质得分加成": "Rarity Score Bonus",
 
     // --- Rarity ---
     "普通": "Common",
@@ -98,9 +115,15 @@ export const EN_TRANSLATIONS = {
     "放弃新技能": "Discard New Skill",
     "确认替换": "Confirm Swap",
     "全部回收": "Recycle All",
-    "刷新此订单": "Refresh Order",
     "可提交": "Ready",
+    "离开关卡需求": "Stage Requirement",
     "暂无订单": "No Orders",
+    "回合后刷新": "Refreshing",
+    "顾客情绪": "Customer Mood",
+    "离开关卡时未完成此订单顾客情绪+1": "Mood +1 if stage requirement unmet",
+    "离开关卡（重置金币）": "Leave Stage (Reset Gold)",
+    "离开此关卡成功！金币已重置为": "Stage Left! Gold reset to",
+    "积分目标": "Score Target",
 
     // --- Stages & Mechanics ---
     "阶段 1": "Stage 1",
@@ -111,6 +134,13 @@ export const EN_TRANSLATIONS = {
     "背包内物品种类数量受限": "Inventory Capacity Limited",
     "阶段 4": "Stage 4",
     "物品随时间腐烂衰变": "Items Decay Over Time",
+    "游戏开始！": "Game Start!",
+    "普通模式": "Normal Mode",
+    "阶段提升": "Stage Up",
+    "波动机制生效": "Volatility Mechanic Active",
+    "7种物品上限生效": "7-Item Limit Active",
+    "物品腐烂机制生效": "Item Decay Mechanic Active",
+    "(完成任意其一)": "(Complete any one)",
 
     // --- Pools ---
     "水果": "Fruit",
@@ -119,7 +149,7 @@ export const EN_TRANSLATIONS = {
     "厨具": "Kitchenware",
     "电器": "Electronics",
 
-    // --- Items (Common/Uncommon/Rare/Epic/Legendary) ---
+    // --- Items ---
     "西瓜": "Watermelon", "柠檬": "Lemon", "芒果": "Mango", "苹果": "Apple", "橙子": "Orange",
     "冲剂": "Granules", "滴眼液": "Eye Drops", "注射器": "Syringe", "胶囊": "Capsule", "绷带": "Bandage",
     "铅笔": "Pencil", "橡皮": "Eraser", "订书机": "Stapler", "笔记本": "Notebook", "尺子": "Ruler",
@@ -136,62 +166,134 @@ export const EN_TRANSLATIONS = {
     // --- Affixes ---
     "以旧换新的": "Trade-in",
     "用背包内的 1 个物品随机置换 1 个同品质的物品。": "Exchange 1 item from inventory for a random item of same rarity.",
-
     "硬化的": "Hardened",
     "稀有度更高，但物品带有【绝育】效果，无法合成。": "Higher rarity, but items are [Sterile] and cannot be synthesized.",
-
     "提纯的": "Purified",
     "保底产出稀有、史诗或传说物品。": "Guaranteed Rare, Epic, or Legendary.",
-
     "波动的": "Volatile",
     "有更高的概率出现传说物品，但只会产出普通和传说物品": "High chance for Legendary, but only drops Common or Legendary.",
-
     "稀碎的": "Fragmented",
     "一次抽取获得 3 个物品，但必定为普通品质。": "Get 3 items at once, but they are guaranteed to be Common.",
-
     "精准的": "Precise",
     "从 2 个不同的候选物品中任选其一。": "Choose 1 from 2 candidate items.",
-
     "有的放矢的": "Targeted",
     "指定一个想要的物品类型。": "Target a specific item type.",
 
     // --- Skills ---
     "贫困救济": "Poverty Relief",
-    "持有金币 < 5 时，完成订单的金币奖励额外 +5。": "+5 Gold reward if current Gold < 5.",
-
+    "耐心值 < 20 时，完成订单的耐心值奖励额外 +5。": "+5 Patience reward if Patience < 20.",
     "幸运 7": "Lucky 7",
-    "当前金币数量的尾数为 7 时，抽取传说物品的概率翻倍。": "Double Legendary chance if Gold ends in 7.",
-
+    "当前耐心值的尾数为 7 时，抽取传说物品的概率翻倍。": "Double Legendary chance if Patience ends in 7.",
     "炼金术": "Alchemy",
-    "回收“稀有”及以上品质物品时，25% 概率获得 5 金币。": "25% chance for +5 Gold when recycling Rare+ items.",
-
+    "回收\"稀有\"及以上品质物品时，25% 概率获得 5 耐心值。": "25% chance for +5 Patience when recycling 'Rare'+ items.",
     "贵宾折扣": "VIP Discount",
-    "“精准”和“有的放矢”词缀的奖池金币消耗减少 1。": "Cost -1 for Precise/Targeted pools.",
-
+    "\"精准\"和\"有的放矢\"词缀的奖池耐心值消耗减少 1。": "Cost -1 for Precise/Targeted pools.",
     "谈判专家": "Negotiator",
-    "抽到“史诗”或以上品质物品时，所有订单获得 1 次刷新次数。": "+1 Refresh for all orders when drawing Epic+ item.",
-
+    "抽到\"史诗\"或以上品质物品时，所有订单获得 1 次刷新次数。": "+1 Refresh for all orders when drawing 'Epic'+ item.",
     "安慰奖": "Consolation",
-    "连续抽到 5 个“普通”品质物品后，下次抽奖获得的物品必定是稀有以上品质。": "Guaranteed Rare+ after 5 consecutive Common draws.",
-
+    "连续抽到 5 个\"普通\"品质物品后，下次抽奖获得的物品必定是稀有以上品质。": "Guaranteed Rare+ after 5 consecutive 'Common' draws.",
     "偷工减料": "Cut Corners",
     "刷新出新订单时，20% 概率使订单需求物品数量 -1（最低为1）。": "20% chance for Order Req -1 when spawned.",
-
     "时间冻结": "Time Freeze",
     "刷新单个订单时，20% 概率不消耗该订单的剩余刷新次数。": "20% chance to not consume Refresh count.",
-
     "强迫症": "OCD",
-    "提交的订单若所有物品属于同一种类，金币奖励翻倍。": "Double Gold if Order items are all same type.",
-
+    "提交的订单若所有物品属于同一种类，耐心值奖励翻倍。": "Double Patience if Order items are all same type.",
     "自动补货": "Auto Restock",
     "完成任意订单后，下次抽奖获得的物品会多获得 1 个。": "+1 Item in next draw after completing any Order.",
-
     "时来运转": "Turn Fortune",
     "完成任意订单后，下次抽奖获得的物品必定是稀有以上品质。": "Next draw guaranteed Rare+ after completing any Order.",
-
     "大订单专家": "Big Order",
-    "完成需求物品数为 4 个的订单时，额外获得 5 金币。": "+5 Gold for Orders with 4 items.",
-
+    "完成需求物品数为 4 个的订单时，额外获得 5 耐心值。": "+5 Patience for Orders with 4 items.",
     "困难订单专家": "Hard Order",
-    "完成需要史诗以上品质物品的订单时，额外获得 10 金币。": "+10 Gold for Orders requiring Epic+ items."
+    "完成需要史诗以上品质物品的订单时，额外获得 10 耐心值。": "+10 Patience for Orders requiring Epic+ items.",
+
+    // --- App Setup / Alerts ---
+    "重新开始游戏？": "Restart Game?",
+    "确定要重新开始游戏吗？当前进度（金币、背包、技能）将丢失。": "Are you sure you want to restart? All progress (gold, inventory, skills) will be lost.",
+    "恢复默认配置？": "Restore Defaults?",
+    "确定要将所有配置参数恢复为默认值吗？此操作不可撤销。": "Are you sure you want to restore all defaults? This action cannot be undone.",
+    "主线任务奖励": "Mainline Quest Reward",
+    "点击获取": "Click to Get",
+    "未知技能": "Unknown Skill",
+    "无法连接排行榜": "Cannot connect to leaderboard",
+    "暂无更多可学习技能！": "No more skills available!",
+    "已获取": "Obtained",
+    "获得了技能：": "Learned Skill: ",
+    "替换技能：": "Replaced Skill: ",
+    "库存种类过载！请选择一种物品进行批量替换，或丢弃新物品。": "Inventory Overload! Select a type to batch replace, or discard new item.",
+    "【谈判专家】触发：订单刷新次数+1": "[Negotiator] Triggered: +1 Order Refresh",
+    "传说降临！": "Legendary Arrival!",
+    "获得了稀有的主线道具！": "Obtained a rare mainline item!",
+    "金色传说！": "Golden Legendary!",
+    "史诗物品": "Epic Item",
+    "意外收获": "Unexpected Find",
+    "来自主线池的意外收获": "Surprise from the mainline pool",
+    "游戏结束": "Game Over",
+    "生命值耗尽，游戏结束！": "HP depleted, Game Over!",
+    "再接再厉": "Better luck next time",
+    "本次离开关卡未完成任何需求": "No stage requirements submitted.",
+    "耐心耗尽": "Patience Run Out",
+    "你的耐心值已耗尽！": "Your patience has run out!",
+    "生命耗尽": "Life Depleted",
+    "你的生命值已归零！": "Your health has reached zero!",
+    "离开关卡需求超时！": "Stage requirement timeout!",
+    "未能在规定时间内完成离开关卡需求！": "Failed to meet stage requirements within time!",
+    "离开关卡需求超时": "Stage Requirement Timeout",
+    "找不到物品": "Item not found",
+    "当前时代尚未解锁订单刷新技术！": "Order refresh technology not unlocked in this era!",
+    "库存中没有满足该离开关卡需求的物品": "No items meet stage requirement.",
+    "库存中没有满足该订单条件的物品": "No items meet order requirement.",
+    "请至少完成一个任务才能提交！": "Complete at least one order to submit!",
+    "所选物品不足以完成离开关卡需求！": "Selected items cannot satisfy stage requirements!",
+    "【安慰奖】触发：下一次必定稀有！": "['Consolation'] Triggered: Next draw guaranteed Rare!",
+    "金币不足！": "Insufficient Gold!",
+    "主线道具无法用于以旧换新！": "Mainline items cannot be traded in!",
+    "【时间冻结】触发：刷新次数未消耗！": "['Time Freeze'] Triggered: Refresh count not consumed!",
+    "【大订单专家】触发：+5耐心值": "['Big Order'] Triggered: +5 Patience",
+    "【困难订单专家】触发：+10耐心值": "['Hard Order'] Triggered: +10 Patience",
+    "积分订单达成，离开关卡需求难度降低至": "Score Order Complete! Stage Difficulty reduced to",
+    "积分订单达成！": "Score Order Complete!",
+    "背包已整理": "Inventory Sorted",
+    "背包已满！": "Inventory Full!",
+    "【炼金术】触发：获得": "['Alchemy'] Triggered: Gained",
+    "正在选择离开关卡的物品...": "Selecting Stage Items...",
+    "确认离开关卡": "Confirm Stage Leave",
+    "确认离开此关卡": "Confirm Leave Stage",
+    "离开关卡成功": "Stage Left Successfully",
+    "离开关卡成功！": "Stage Left Successfully!",
+    "离开此关卡成功！": "Left Stage Successfully!",
+    "你带着战利品成功离开了此关卡！": "You successfully left the stage with your loot!",
+    "你可以选择继续挑战以获得更高分数，或者现在带着战利品离开。": "You can choose to continue for a higher score or leave now with your loot.",
+    "继续挑战 (难度提升)": "Continue (Diff Up)",
+    "提取分数 (结束游戏)": "Extract Score (End Game)",
+    "离开此关卡（重置金币）": "Leave Stage (Reset Gold)",
+    "放弃关卡": "Give Up Stage",
+
+    // --- Order Candidate Selection ---
+    "选择一个订单": "Choose an Order",
+    "请从以下2个订单中选择1个": "Choose 1 from 2 orders",
+    "待选订单": "Pending Selections",
+    "替换上方订单": "Replace Order Above",
+    "正在替换": "Replacing",
+    "离开关卡": "Leave Stage",
+    "选择中...": "Selecting...",
+    "放弃": "Give Up",
+
+    // --- Tool Items ---
+    "命运熔炉": "Fate Forge",
+    "万象棱镜": "Prism Shift",
+    "星辉祝福": "Starlight Blessing",
+    "使用后随机改变左侧物品的品质（品质概率与\"有的放矢\"词缀相同）。": "Randomly reroll the rarity of the item to the left (uses Targeted affix rarity distribution).",
+    "使用后将左侧物品变为同类型（同奖池）的另一个物品，品质不变。": "Replace the item to the left with another of the same type (same pool), keeping rarity.",
+    "使用后下一个抽出的物品品质提升1级。": "The next drawn item's rarity will be upgraded by 1 tier.",
+    "工具": "TOOL",
+    "右键使用": "R-Click",
+    "右键点击使用": "Right-click to use",
+    "左侧没有物品！": "No item to the left!",
+    "无法对工具物品使用！": "Cannot use on tool items!",
+    "找不到对应的奖池！": "Pool not found!",
+    "同奖池中没有其他物品！": "No other items in the same pool!",
+    "星辉祝福已激活：下次抽取品质+1": "Starlight Blessing active: Next draw rarity +1",
+    "当前状态下无法使用工具物品": "Cannot use tool items in current state",
+    "工具道具无法用于以旧换新！": "Tool items cannot be used for trade-in!"
 };
