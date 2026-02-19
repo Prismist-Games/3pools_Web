@@ -89,6 +89,9 @@ export const InventorySlot = ({
     // Tool item state
     nextDrawEnhanced,
 
+    // Order slot assignment
+    isAssigned,
+
     // Style overrides
     className = ""
 }) => {
@@ -99,7 +102,7 @@ export const InventorySlot = ({
     const isMultiSelectMode = isSubmitMode || isRecycleMode;
     const isTradeInMode = isSelectionMode;
     const isToolItem = item?.isToolItem;
-    const isDisabled = (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem)) || isPendingSlot;
+    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem)) || isPendingSlot;
 
     const handleContextMenu = (e) => {
         e.preventDefault();
@@ -145,6 +148,7 @@ export const InventorySlot = ({
                     ${isSelected && isSubmitMode ? 'border-blue-600 bg-blue-50 border-2 z-10' : ''}
                     ${isSelected && isRecycleMode ? 'border-amber-600 bg-amber-50 border-2 z-10' : ''}
                     ${isMultiSelectMode && !isSelected && item && !isPendingSlot ? 'opacity-70 hover:opacity-100 grayscale-[0.3]' : ''}
+                    ${isAssigned ? '!opacity-30 !grayscale cursor-not-allowed !scale-95 pointer-events-none' : ''}
                     ${className}
                 `}
             >
@@ -196,9 +200,9 @@ export const InventorySlot = ({
 
                         {/* Upgrade Badge */}
                         {hasUpgradePair && !isPendingSlot && !item.sterile && (
-                            <div className="absolute top-0 right-0 p-0.5 -mt-1 -mr-1 z-20 animate-bounce">
-                                <div className="bg-purple-100/90 rounded-full p-0.5 border border-purple-300 shadow-sm text-purple-600">
-                                    <CircleArrowUp size={12} strokeWidth={3} />
+                            <div className="absolute -top-1.5 -right-1.5 z-20 animate-bounce">
+                                <div className="bg-yellow-400 text-yellow-900 rounded-full p-0.5 shadow-md ring-1 ring-white">
+                                    <ChevronsUp size={12} strokeWidth={3} />
                                 </div>
                             </div>
                         )}

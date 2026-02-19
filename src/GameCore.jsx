@@ -36,7 +36,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
-        toast, satisfiableOrders, totalRecycleValue, selectedItemNames
+        toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
+        orderSlotAssignments, assignedItemUids, phantomMarks
     } = state;
 
     const {
@@ -65,7 +66,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleEvacuationContinue,
         handleEvacuationExtract,
         debugGetOrderItems,
-        handleToolItemUse
+        handleToolItemUse,
+        handleUnassignFromOrder
     } = actions;
 
     const { hasSkill } = helpers;
@@ -410,6 +412,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     upgradedOrderItems={state.upgradedOrderItems}
                                                     isBeingReplaced={false}
                                                     onDebugGetItems={debugMode ? debugGetOrderItems : null}
+                                                    orderSlotAssignments={orderSlotAssignments}
+                                                    phantomMarks={phantomMarks}
+                                                    onUnassign={handleUnassignFromOrder}
                                                 />
                                             ))}
                                         </div>
@@ -443,6 +448,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         selectedItemNames={selectedItemNames}
                                         upgradedOrderItems={state.upgradedOrderItems}
                                         isBeingReplaced={orderCandidates?.slotIndex === idx}
+                                        orderSlotAssignments={orderSlotAssignments}
+                                        phantomMarks={phantomMarks}
+                                        onUnassign={handleUnassignFromOrder}
                                     />
                                 ))}
                             </div>
@@ -866,6 +874,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 isHovered={hoveredSlotIndex === idx}
                                                 className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24"
                                                 nextDrawEnhanced={skillState?.nextDrawEnhanced}
+                                                isAssigned={item && assignedItemUids.has(item.uid)}
                                             />
                                         )
                                     })}
