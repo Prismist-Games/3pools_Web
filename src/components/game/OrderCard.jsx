@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { RefreshCw, Check, Ticket, Coins, Clock, Zap, Crown, Trophy, TrendingUp, Star, AlertCircle, Link, ChevronsUp } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { RefreshCw, Check, Ticket, Coins, Clock, Zap, Crown, Trophy, TrendingUp, Star, AlertCircle, Link, ChevronsUp, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const OrderCardBase = ({
@@ -39,8 +39,17 @@ const OrderCardBase = ({
     orderSlotAssignments,
     phantomMarks,
     onUnassign,
+    onSlotClick,
+
+    // 交互状态（用于槽位交互）
+    pendingItem,
+    selectedSlotItem,
+    toolSelectionMode,
+    isRecycleMode,
+    selectionMode,
 }) => {
     const { t } = useLanguage();
+    const [hoveredReqIndex, setHoveredReqIndex] = useState(null);
 
     // 阶段颜色配置 (对应耐心条刻度效果)
     const stageColors = {
@@ -318,6 +327,28 @@ const OrderCardBase = ({
                                     !other.sterile
                                 );
 
+                            // 合成高亮计算：检查 pendingItem 或 selectedSlotItem 是否可与当前槽位物品合成
+                            const sourceItem = pendingItem || selectedSlotItem;
+                            const canSynthesizeWithSlot = isSlotMode && !isPhantom && slotItem && sourceItem &&
+                                !slotItem.sterile && !sourceItem.sterile &&
+                                slotItem.name === sourceItem.name &&
+                                slotItem.rarity.id === sourceItem.rarity.id &&
+                                slotItem.rarity.id !== 'mythic' &&
+                                currentStageConfig?.mechanics?.synthesis;
+
+                            // 工具目标高亮：工具选择模式下可作用的槽位
+                            const isToolTarget = isSlotMode && !isPhantom && slotItem && toolSelectionMode && !slotItem.isToolItem;
+
+                            // 回收/以旧换新状态
+                            const isRecycleTarget = isSlotMode && !isPhantom && slotItem && isRecycleMode;
+                            const isTradeInTarget = isSlotMode && !isPhantom && slotItem && selectionMode?.type === 'trade_in' && !slotItem.isToolItem && !slotItem.isScoreItem;
+                            const slotInvIndex = slotItem ? inventory.findIndex(i => i && i.uid === slotItem.uid) : -1;
+                            const isSlotSelected = isRecycleMode && slotInvIndex !== -1 && selectedIndices?.includes(slotInvIndex);
+
+                            // Overload/Replace 目标
+                            const isOverloadTarget = isSlotMode && !isPhantom && slotItem && pendingItem?.isOverload && slotItem.name === pendingItem?.name;
+                            const isReplaceTarget = isSlotMode && !isPhantom && slotItem && pendingItem && !pendingItem.isOverload && !canSynthesizeWithSlot;
+
                             const displayIcon = isSlotMode ? slotItem.icon : req.icon;
                             const displayName = isSlotMode ? t(slotItem.name) : t(req.name);
 
@@ -325,21 +356,34 @@ const OrderCardBase = ({
                                 <div key={rIdx} className="flex flex-col items-stretch gap-1 relative">
                                     <div
                                         onClick={(e) => {
-                                            if (isSlotMode && !isPhantom && onUnassign) {
+                                            if (isSlotMode && !isPhantom) {
                                                 e.stopPropagation();
-                                                onUnassign(index, rIdx);
+                                                if (onSlotClick) {
+                                                    onSlotClick(index, rIdx);
+                                                } else if (onUnassign) {
+                                                    onUnassign(index, rIdx);
+                                                }
                                             }
                                         }}
+                                        onMouseEnter={() => isSlotMode && !isPhantom && setHoveredReqIndex(rIdx)}
+                                        onMouseLeave={() => setHoveredReqIndex(null)}
                                         className={`
                                             relative flex items-center shrink-0 overflow-visible
                                             transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                                             ${isSlotMode
-                                                ? `w-16 h-16 rounded-xl flex-col justify-center border-2 ${isPhantom ? 'border-dashed ' + slotItem.rarity.color.split(' ')[0] + ' bg-transparent' : 'border-solid ' + slotItem.rarity.color.split(' ')[0] + ' ' + (slotQualitySatisfied ? slotItem.rarity.color : 'bg-slate-50')} ${!isPhantom ? 'cursor-pointer hover:scale-105 hover:shadow-md' : 'cursor-default'}`
+                                                ? `w-16 h-16 rounded-xl flex-col justify-center border-2 ${isPhantom ? 'border-dashed ' + slotItem.rarity.color.split(' ')[0] + ' bg-transparent' : 'border-solid ' + slotItem.rarity.color.split(' ')[0] + ' ' + (slotQualitySatisfied ? slotItem.rarity.color : 'bg-slate-50')} ${!isPhantom ? 'cursor-pointer hover:scale-105 hover:shadow-md' : 'cursor-default'}
+                                                    ${canSynthesizeWithSlot ? 'ring-4 ring-yellow-400 scale-105 z-20' : ''}
+                                                    ${isToolTarget ? 'ring-2 ring-cyan-400 ring-offset-1 shadow-lg shadow-cyan-200/50' : ''}
+                                                    ${isRecycleTarget || isTradeInTarget ? 'ring-2 ring-amber-400 ring-offset-1 shadow-amber-200/50' : ''}
+                                                    ${isSlotSelected ? 'ring-2 ring-red-500 ring-offset-1 scale-110 shadow-lg' : ''}
+                                                    ${isOverloadTarget ? 'ring-2 ring-red-400 ring-offset-1 shadow-lg shadow-red-200/50' : ''}
+                                                    ${isReplaceTarget ? 'ring-2 ring-red-300 ring-offset-1 opacity-80' : ''}
+                                                `
                                                 : `h-[28px] ${isCandidate ? 'h-[24px]' : ''} rounded border-2 ${isCandidate ? 'px-1.5' : 'px-1.5'} ${borderStyle} ${borderColorClass} ${bgColorClass} ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}`
                                             }
                                             ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
                                         `}
-                                        title={isSlotMode ? (isPhantom ? t("已在其他订单中使用") : t("点击取回")) : ''}
+                                        title={isSlotMode ? (isPhantom ? t("已在其他订单中使用") : (canSynthesizeWithSlot ? t("点击合成") : (isToolTarget ? t("点击使用工具") : t("点击取回")))) : ''}
                                     >
                                         {/* Invisible layout ghost to hold natural width in Capsule Mode */}
                                         <div className={`flex items-center gap-1 opacity-0 pointer-events-none transition-all ${isSlotMode ? 'hidden' : ''}`}>
@@ -408,9 +452,37 @@ const OrderCardBase = ({
                                                     <Check size={8} strokeWidth={4} />
                                                 </div>
                                             )}
-                                            {isSlotMode && slotHasUpgradePair && (
+                                            {isSlotMode && slotHasUpgradePair && !canSynthesizeWithSlot && (
                                                 <div className="absolute -top-1.5 -right-1.5 bg-yellow-400 text-yellow-900 rounded-full p-0.5 shadow-md z-10 ring-1 ring-white animate-bounce pointer-events-auto">
                                                     <ChevronsUp size={10} strokeWidth={3} />
+                                                </div>
+                                            )}
+                                            {isSlotMode && canSynthesizeWithSlot && hoveredReqIndex === rIdx && (
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-yellow-400/80 rounded-lg transition-opacity z-10 backdrop-blur-[1px] animate-pulse">
+                                                    <ChevronsUp size={36} className="text-white drop-shadow-md" />
+                                                    <span className="text-white text-xs font-black uppercase tracking-wider">{t("升级")}</span>
+                                                </div>
+                                            )}
+                                            {isSlotMode && hoveredReqIndex === rIdx && !canSynthesizeWithSlot && (isOverloadTarget || isReplaceTarget) && (
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/60 rounded-lg transition-opacity z-10 backdrop-blur-[1px]">
+                                                    <Trash2 size={32} className="text-white drop-shadow-md" />
+                                                    <span className="text-white text-[10px] font-black uppercase tracking-wider text-center px-1">{t("回收")}</span>
+                                                    {['rare', 'epic', 'legendary', 'mythic'].includes(slotItem?.rarity?.id) && (
+                                                        <span className="text-amber-200 text-xs font-bold whitespace-nowrap drop-shadow-md">
+                                                            +{slotItem.rarity.recycleValue || 0} 🪙
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {isSlotMode && hoveredReqIndex === rIdx && isRecycleTarget && !isOverloadTarget && !isReplaceTarget && !canSynthesizeWithSlot && (
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/60 rounded-lg transition-opacity z-10 backdrop-blur-[1px]">
+                                                    <Trash2 size={32} className="text-white drop-shadow-md" />
+                                                    <span className="text-white text-[10px] font-black uppercase tracking-wider text-center px-1">{t("回收")}</span>
+                                                    {['rare', 'epic', 'legendary', 'mythic'].includes(slotItem?.rarity?.id) && (
+                                                        <span className="text-amber-200 text-xs font-bold whitespace-nowrap drop-shadow-md">
+                                                            +{slotItem.rarity.recycleValue || 0} 🪙
+                                                        </span>
+                                                    )}
                                                 </div>
                                             )}
                                             {isSlotMode && slotItem?.sterile && (

@@ -37,7 +37,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
-        orderSlotAssignments, assignedItemUids, phantomMarks
+        orderSlotAssignments, assignedItemUids, phantomMarks,
+        toolSelectionMode
     } = state;
 
     const {
@@ -67,7 +68,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleEvacuationExtract,
         debugGetOrderItems,
         handleToolItemUse,
-        handleUnassignFromOrder
+        handleUnassignFromOrder,
+        handleOrderSlotClick,
+        handleCancelToolSelection
     } = actions;
 
     const { hasSkill } = helpers;
@@ -415,6 +418,12 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     orderSlotAssignments={orderSlotAssignments}
                                                     phantomMarks={phantomMarks}
                                                     onUnassign={handleUnassignFromOrder}
+                                                    onSlotClick={handleOrderSlotClick}
+                                                    pendingItem={pendingItem}
+                                                    selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
+                                                    toolSelectionMode={toolSelectionMode}
+                                                    isRecycleMode={isRecycleMode}
+                                                    selectionMode={selectionMode}
                                                 />
                                             ))}
                                         </div>
@@ -451,6 +460,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         orderSlotAssignments={orderSlotAssignments}
                                         phantomMarks={phantomMarks}
                                         onUnassign={handleUnassignFromOrder}
+                                        onSlotClick={handleOrderSlotClick}
+                                        pendingItem={pendingItem}
+                                        selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
+                                        toolSelectionMode={toolSelectionMode}
+                                        isRecycleMode={isRecycleMode}
+                                        selectionMode={selectionMode}
+                                    // selectedIndices={selectedIndices} // Already passed above
+                                    // currentStageConfig={currentStageConfig} // Already passed above
                                     />
                                 ))}
                             </div>
@@ -794,6 +811,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <Repeat size={14} /> {t("以旧换新: 请点击选择一个物品消耗")}
                                     </span>
                                 )}
+                                {toolSelectionMode && (
+                                    <span className="text-xs font-bold text-cyan-600 animate-pulse flex items-center gap-1">
+                                        <Zap size={14} /> {t("请点击选择一个目标物品")}
+                                    </span>
+                                )}
 
 
 
@@ -807,7 +829,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <div className="flex flex-wrap gap-2 justify-center max-w-full">
                                     {Array.from({ length: maxInventorySize }).map((_, idx) => {
                                         const item = inventory[idx];
-                                        const isSelected = selectedSlot === idx || selectedIndices.includes(idx);
+                                        const isSelected = selectedSlot === idx || selectedIndices.includes(idx) || (toolSelectionMode?.toolIndex === idx);
 
                                         // Synthesis Logic: Check against Selected Slot OR Pending Item
                                         const sourceItem = pendingItem || (selectedSlot !== null ? inventory[selectedSlot] : null);
@@ -827,27 +849,27 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             ...orders.filter(Boolean).flatMap(o => o.requirements),
                                             ...emergencyOrders.flatMap(o => o.requirements)
                                         ];
-                                        // Find best requirement? Ideally any requirement that needs this item.
-                                        // We check if ANY requirement matches name.
-                                        // isMaxSatisfied if ANY requirement is satisfied by this quality.
                                         const matchedReqs = item ? activeReqs.filter(r => r.name === item.name) : [];
                                         const isNeeded = matchedReqs.length > 0;
                                         const isMaxSatisfied = isNeeded && matchedReqs.some(r => item.rarity.bonus >= r.requiredRarity.bonus);
 
-                                        // Upgrade Badge Logic: Check if there is ANOTHER item in inventory that matches this one for synthesis
+                                        // Upgrade Badge Logic
                                         const hasUpgradePair = item && !item.sterile && inventory.some((other, otherIdx) =>
-                                            otherIdx !== idx && // Not self
-                                            other && // Exists
-                                            !other.sterile && // Not sterile
-                                            other.name === item.name && // Same name
-                                            other.rarity.id === item.rarity.id && // Same rarity
-                                            item.rarity.id !== 'mythic' // Not max level (mythic usually can't synth)
+                                            otherIdx !== idx &&
+                                            other &&
+                                            !other.sterile &&
+                                            other.name === item.name &&
+                                            other.rarity.id === item.rarity.id &&
+                                            item.rarity.id !== 'mythic'
                                         );
 
                                         // Fix: Show Red Recycle Overlay for ANY pending item replacement logic
                                         const isOverloadTarget =
                                             (pendingItem?.isOverload && item && item.name === hoveredItemName) ||
                                             (pendingItem && !pendingItem.isOverload && hoveredSlotIndex === idx);
+
+                                        // Tool target: in tool selection mode, non-tool items are valid targets
+                                        const isToolTarget = toolSelectionMode && item && !item.isToolItem && toolSelectionMode.toolIndex !== idx;
 
                                         return (
                                             <InventorySlot
@@ -859,9 +881,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 isSubmitMode={isSubmitMode || isEvacuationMode}
                                                 isRecycleMode={isRecycleMode}
                                                 isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
-                                                isReference={selectionMode?.type === 'trade_in'}
+                                                isReference={selectionMode?.type === 'trade_in' || !!toolSelectionMode}
 
-                                                canSynthesize={canSynthesize}
+                                                canSynthesize={canSynthesize || isToolTarget}
                                                 isNeededForOrder={isNeeded}
                                                 isMaxSatisfied={isMaxSatisfied}
                                                 hasUpgradePair={hasUpgradePair}
@@ -922,6 +944,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                     {selectionMode?.type === 'trade_in' && (
                                         <button onClick={handleSelectionCancel} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-6 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
+                                    )}
+                                    {toolSelectionMode && (
+                                        <button onClick={handleCancelToolSelection} className="w-full bg-white border border-cyan-300 text-cyan-700 font-bold py-2 px-6 rounded-xl shadow-sm hover:bg-cyan-50 flex items-center justify-center gap-2">
+                                            <X size={14} /> {t("取消工具使用")}
+                                        </button>
                                     )}
                                 </div>
 

@@ -64,6 +64,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // 订单槽位分配系统: { "orderIndex-reqIndex": inventoryItemUid }
     const [orderSlotAssignments, setOrderSlotAssignments] = useState({});
 
+    // 工具物品选择目标模式: { toolIndex: number, effectType: string }
+    const [toolSelectionMode, setToolSelectionMode] = useState(null);
+
     const [skills, setSkills] = useState(initialSkills);
     const [skillSelectionCandidates, setSkillSelectionCandidates] = useState(null);
     const [skillState, setSkillState] = useState({
@@ -527,6 +530,36 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 if (indices.includes(orderIdx)) delete newAssignments[key];
             });
             return newAssignments;
+        });
+    };
+
+    // 辅助：更新 assignment 中的 uid（合成/工具操作后物品 uid 变化时）
+    const updateAssignmentUid = (oldUid, newUid) => {
+        setOrderSlotAssignments(prev => {
+            const newAssignments = { ...prev };
+            let changed = false;
+            Object.keys(newAssignments).forEach(key => {
+                if (newAssignments[key] === oldUid) {
+                    newAssignments[key] = newUid;
+                    changed = true;
+                }
+            });
+            return changed ? newAssignments : prev;
+        });
+    };
+
+    // 辅助：移除 assignment 中的 uid（物品被消耗/回收/万象棱镜替换后）
+    const removeAssignmentByUid = (uid) => {
+        setOrderSlotAssignments(prev => {
+            const newAssignments = { ...prev };
+            let changed = false;
+            Object.keys(newAssignments).forEach(key => {
+                if (newAssignments[key] === uid) {
+                    delete newAssignments[key];
+                    changed = true;
+                }
+            });
+            return changed ? newAssignments : prev;
         });
     };
 
@@ -1027,97 +1060,36 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         };
     };
 
-    // 右键使用工具物品
+    // 右键使用工具物品：进入选择目标模式（星辉祝福保持直接激活）
     const handleToolItemUse = (index) => {
         const item = inventory[index];
         if (!item || !item.isToolItem) return;
 
         // 不允许在特殊模式中使用
-        if (pendingItem || isSubmitMode || isRecycleMode || isEvacuationMode || selectionMode) {
+        if (pendingItem || isSubmitMode || isRecycleMode || isEvacuationMode || selectionMode || toolSelectionMode) {
             showToast(t("当前状态下无法使用工具物品"), 'error');
             return;
         }
 
         const effectType = item.toolEffectType;
 
-        if (effectType === 'reforge_left') {
-            // 命运熔炉：随机改变左侧物品品质
-            if (index === 0) {
-                showToast(t("左侧没有物品！"), 'error');
-                return;
-            }
-            const leftItem = inventory[index - 1];
-            if (!leftItem) {
-                showToast(t("左侧没有物品！"), 'error');
-                return;
-            }
-            if (leftItem.isToolItem) {
-                showToast(t("无法对工具物品使用！"), 'error');
-                return;
-            }
-
-            // 使用 reforgeRarityWeights 概率分布
-            const reforgeWeights = config.toolItems?.reforgeRarityWeights || {};
-            const newRarity = rollWeightedRarity(reforgeWeights);
-            if (!newRarity) return;
-
-            const newInventory = [...inventory];
-            newInventory[index - 1] = { ...leftItem, rarity: newRarity, uid: Math.random().toString(36).substr(2, 9) };
-            newInventory[index] = null; // 消耗工具
-            setInventory(newInventory.filter(i => i !== null));
-            showToast(`${t("命运熔炉")}：${t(leftItem.name)} → ${t(newRarity.name)}`, 'success');
-
-        } else if (effectType === 'transmute_left') {
-            // 万象棱镜：替换左侧物品为同池另一个
-            if (index === 0) {
-                showToast(t("左侧没有物品！"), 'error');
-                return;
-            }
-            const leftItem = inventory[index - 1];
-            if (!leftItem) {
-                showToast(t("左侧没有物品！"), 'error');
-                return;
-            }
-            if (leftItem.isToolItem) {
-                showToast(t("无法对工具物品使用！"), 'error');
-                return;
-            }
-
-            // 找到同奖池的其他物品
-            const sourcePool = config.pools.find(p => p.items.some(pi => pi.name === leftItem.name));
-            if (!sourcePool) {
-                showToast(t("找不到对应的奖池！"), 'error');
-                return;
-            }
-            const candidates = sourcePool.items.filter(pi => pi.name !== leftItem.name);
-            if (candidates.length === 0) {
-                showToast(t("同奖池中没有其他物品！"), 'error');
-                return;
-            }
-            const newTpl = candidates[Math.floor(Math.random() * candidates.length)];
-            const newItem = {
-                ...newTpl,
-                uid: Math.random().toString(36).substr(2, 9),
-                poolName: sourcePool.name,
-                rarity: leftItem.rarity,
-                sterile: leftItem.sterile,
-                decay: leftItem.decay,
-            };
-
-            const newInventory = [...inventory];
-            newInventory[index - 1] = newItem;
-            newInventory[index] = null;
-            setInventory(newInventory.filter(i => i !== null));
-            showToast(`${t("万象棱镜")}：${t(leftItem.name)} → ${t(newTpl.name)}`, 'success');
-
-        } else if (effectType === 'enhance_next') {
-            // 星辉祝福：下一个抽出的物品品质+1
+        if (effectType === 'enhance_next') {
+            // 星辉祝福：直接激活，不需要选择目标
             setSkillState(prev => ({ ...prev, nextDrawEnhanced: true }));
             const newInventory = [...inventory];
             newInventory[index] = null;
             setInventory(newInventory.filter(i => i !== null));
             showToast(t("星辉祝福已激活：下次抽取品质+1"), 'success');
+        } else {
+            // 命运熔炉 / 万象棱镜：进入选择目标模式
+            setToolSelectionMode({ toolIndex: index, effectType });
+            setSelectedSlot(null);
+            showToast(t("请点击选择一个目标物品"), 'info');
         }
+    };
+
+    const handleCancelToolSelection = () => {
+        setToolSelectionMode(null);
     };
 
     // 根据权重表随机选择一个品质
@@ -1282,10 +1254,246 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         });
     };
 
+    // === 订单槽位点击统一入口 ===
+    const handleOrderSlotClick = (orderIndex, reqIndex) => {
+        const key = `${orderIndex}-${reqIndex}`;
+        const assignedUid = orderSlotAssignments[key];
+        if (!assignedUid) return;
+        const itemIndex = inventory.findIndex(i => i && i.uid === assignedUid);
+        if (itemIndex === -1) return;
+        const item = inventory[itemIndex];
+
+        // 工具选择模式：对订单槽位物品使用工具
+        if (toolSelectionMode) {
+            if (item.isToolItem) {
+                showToast(t("无法对工具物品使用！"), 'error');
+                return;
+            }
+            const { toolIndex, effectType } = toolSelectionMode;
+            const toolItem = inventory[toolIndex];
+            if (!toolItem) { setToolSelectionMode(null); return; }
+
+            if (effectType === 'reforge_left') {
+                const reforgeWeights = config.toolItems?.reforgeRarityWeights || {};
+                const newRarity = rollWeightedRarity(reforgeWeights);
+                if (!newRarity) { setToolSelectionMode(null); return; }
+                const newUid = Math.random().toString(36).substr(2, 9);
+                const newInventory = [...inventory];
+                newInventory[itemIndex] = { ...item, rarity: newRarity, uid: newUid };
+                newInventory[toolIndex] = null;
+                setInventory(newInventory.filter(i => i !== null));
+                updateAssignmentUid(item.uid, newUid);
+                showToast(`${t("命运熔炉")}：${t(item.name)} → ${t(newRarity.name)}`, 'success');
+            } else if (effectType === 'transmute_left') {
+                const sourcePool = config.pools.find(p => p.items.some(pi => pi.name === item.name));
+                if (!sourcePool) { showToast(t("找不到对应的奖池！"), 'error'); setToolSelectionMode(null); return; }
+                const candidates = sourcePool.items.filter(pi => pi.name !== item.name);
+                if (candidates.length === 0) { showToast(t("同奖池中没有其他物品！"), 'error'); setToolSelectionMode(null); return; }
+                const newTpl = candidates[Math.floor(Math.random() * candidates.length)];
+                const newItem = {
+                    ...newTpl,
+                    uid: Math.random().toString(36).substr(2, 9),
+                    poolName: sourcePool.name,
+                    rarity: item.rarity,
+                    sterile: item.sterile,
+                    decay: item.decay,
+                };
+                const newInventory = [...inventory];
+                newInventory[itemIndex] = newItem;
+                newInventory[toolIndex] = null;
+                setInventory(newInventory.filter(i => i !== null));
+                // 名称变了 → 退回背包（清除 assignment）
+                removeAssignmentByUid(item.uid);
+                showToast(`${t("万象棱镜")}：${t(item.name)} → ${t(newTpl.name)}`, 'success');
+            }
+            setToolSelectionMode(null);
+            return;
+        }
+
+        // 以旧换新：消耗订单槽位物品
+        if (selectionMode?.type === 'trade_in') {
+            if (item.isScoreItem) {
+                showToast(t("主线道具无法用于以旧换新！"), "error");
+                return;
+            }
+            if (item.isToolItem) {
+                showToast(t("工具道具无法用于以旧换新！"), "error");
+                return;
+            }
+            // 复用背包的 trade_in 逻辑，通过背包 index 调用
+            removeAssignmentByUid(item.uid);
+            handleSlotClick(itemIndex);
+            return;
+        }
+
+        // 回收模式：选中/取消订单槽位物品
+        if (isRecycleMode) {
+            if (selectedIndices.includes(itemIndex)) {
+                setSelectedIndices(prev => prev.filter(i => i !== itemIndex));
+            } else {
+                setSelectedIndices(prev => [...prev, itemIndex]);
+            }
+            return;
+        }
+
+        // 提交模式 / 撤离模式：选中/取消
+        if (isSubmitMode || isEvacuationMode) {
+            if (selectedIndices.includes(itemIndex)) {
+                setSelectedIndices(prev => prev.filter(i => i !== itemIndex));
+            } else {
+                setSelectedIndices(prev => [...prev, itemIndex]);
+            }
+            return;
+        }
+
+        // PendingItem 合成
+        if (pendingItem) {
+            if (!item.sterile && !pendingItem.sterile &&
+                pendingItem.name === item.name &&
+                pendingItem.rarity.id === item.rarity.id &&
+                pendingItem.rarity.id !== 'mythic') {
+                const nextRarity = getNextRarity(item.rarity.id, config);
+                const upgradedItem = { ...item, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const newInventory = [...inventory];
+                newInventory[itemIndex] = upgradedItem;
+                setInventory(newInventory);
+                updateAssignmentUid(item.uid, upgradedItem.uid);
+                setPendingItem(null);
+                return;
+            }
+
+            // Overload 替换订单槽位物品
+            if (pendingItem.isOverload) {
+                const targetName = item.name;
+                const clearedItems = inventory.filter(i => i && i.name === targetName);
+                clearedItems.forEach(i => {
+                    if (assignedItemUids.has(i.uid)) removeAssignmentByUid(i.uid);
+                });
+                const newInventory = inventory.filter(i => i && i.name !== targetName);
+                const recycleValue = clearedItems.reduce((acc, i) => acc + (i.rarity.recycleValue || 0), 0);
+                if (recycleValue > 0) setGold(prev => prev + recycleValue);
+                const itemToAdd = { ...pendingItem };
+                delete itemToAdd.isOverload;
+                newInventory.push(itemToAdd);
+                setInventory(newInventory);
+                setPendingItem(null);
+                return;
+            }
+
+            // 背包满替换订单槽位物品：回收旧物品，新物品放入背包（不继承订单分配）
+            const recycleGain = item.rarity.recycleValue;
+            if (recycleGain > 0) setGold(prev => prev + recycleGain);
+            removeAssignmentByUid(item.uid);
+            const newInventory = [...inventory];
+            newInventory[itemIndex] = pendingItem;
+            setInventory(newInventory);
+            setPendingItem(null);
+            return;
+        }
+
+        // SelectedSlot 合成
+        if (selectedSlot !== null) {
+            const sourceItem = inventory[selectedSlot];
+            if (sourceItem && !item.sterile && !sourceItem.sterile &&
+                sourceItem.name === item.name &&
+                sourceItem.rarity.id === item.rarity.id &&
+                sourceItem.rarity.id !== 'mythic' &&
+                (!item.decay || item.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0)) {
+                const nextRarity = getNextRarity(sourceItem.rarity.id, config);
+                const upgradedItem = { ...item, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const newInventory = [...inventory];
+                newInventory[itemIndex] = upgradedItem;
+                newInventory[selectedSlot] = null;
+                setInventory(newInventory.filter(i => i !== null));
+                updateAssignmentUid(item.uid, upgradedItem.uid);
+                setSelectedSlot(null);
+                return;
+            }
+            return; // 不可合成，不做任何操作
+        }
+
+        // 默认：点击订单槽位取消分配
+        handleUnassignFromOrder(orderIndex, reqIndex);
+    };
+
     const handleSlotClick = (index) => {
-        // 冻结已分配到订单的物品，不可操作
         const clickedItem = inventory[index];
-        if (clickedItem && assignedItemUids.has(clickedItem.uid)) return;
+        const isAssignedToOrder = clickedItem && assignedItemUids.has(clickedItem.uid);
+
+        // 工具选择模式：点击背包物品作为工具目标
+        if (toolSelectionMode) {
+            if (!clickedItem) return;
+            if (clickedItem.isToolItem) {
+                showToast(t("无法对工具物品使用！"), 'error');
+                return;
+            }
+            const { toolIndex, effectType } = toolSelectionMode;
+            const toolItem = inventory[toolIndex];
+            if (!toolItem) { setToolSelectionMode(null); return; }
+
+            if (effectType === 'reforge_left') {
+                const reforgeWeights = config.toolItems?.reforgeRarityWeights || {};
+                const newRarity = rollWeightedRarity(reforgeWeights);
+                if (!newRarity) { setToolSelectionMode(null); return; }
+                const oldUid = clickedItem.uid;
+                const newUid = Math.random().toString(36).substr(2, 9);
+                const newInventory = [...inventory];
+                newInventory[index] = { ...clickedItem, rarity: newRarity, uid: newUid };
+                newInventory[toolIndex] = null;
+                setInventory(newInventory.filter(i => i !== null));
+                if (isAssignedToOrder) updateAssignmentUid(oldUid, newUid);
+                showToast(`${t("命运熔炉")}：${t(clickedItem.name)} → ${t(newRarity.name)}`, 'success');
+            } else if (effectType === 'transmute_left') {
+                const sourcePool = config.pools.find(p => p.items.some(pi => pi.name === clickedItem.name));
+                if (!sourcePool) { showToast(t("找不到对应的奖池！"), 'error'); setToolSelectionMode(null); return; }
+                const candidates = sourcePool.items.filter(pi => pi.name !== clickedItem.name);
+                if (candidates.length === 0) { showToast(t("同奖池中没有其他物品！"), 'error'); setToolSelectionMode(null); return; }
+                const newTpl = candidates[Math.floor(Math.random() * candidates.length)];
+                const newItem = {
+                    ...newTpl,
+                    uid: Math.random().toString(36).substr(2, 9),
+                    poolName: sourcePool.name,
+                    rarity: clickedItem.rarity,
+                    sterile: clickedItem.sterile,
+                    decay: clickedItem.decay,
+                };
+                const newInventory = [...inventory];
+                newInventory[index] = newItem;
+                newInventory[toolIndex] = null;
+                setInventory(newInventory.filter(i => i !== null));
+                // 名称变了，如果在订单上则退回背包（清除 assignment）
+                if (isAssignedToOrder) removeAssignmentByUid(clickedItem.uid);
+                showToast(`${t("万象棱镜")}：${t(clickedItem.name)} → ${t(newTpl.name)}`, 'success');
+            }
+            setToolSelectionMode(null);
+            return;
+        }
+
+        // 已分配到订单的物品：只允许特定操作通过，阻止选中/交换位置
+        // 允许通过的：合成（pendingItem/selectedSlot）、以旧换新、回收、overload
+        if (isAssignedToOrder) {
+            // 允许以旧换新
+            if (selectionMode?.type === 'trade_in') { /* fall through to trade_in logic below */ }
+            // 允许回收模式
+            else if (isRecycleMode) { /* fall through to recycle logic below */ }
+            // 允许 pendingItem 合成和 overload
+            else if (pendingItem) { /* fall through to pending logic below */ }
+            // 允许 selectedSlot 合成
+            else if (selectedSlot !== null) {
+                const sourceItem = inventory[selectedSlot];
+                if (sourceItem && clickedItem && !clickedItem.sterile && !sourceItem.sterile &&
+                    sourceItem.name === clickedItem.name &&
+                    sourceItem.rarity.id === clickedItem.rarity.id &&
+                    sourceItem.rarity.id !== 'mythic' &&
+                    (!clickedItem.decay || clickedItem.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0)) {
+                    // 合成：fall through
+                } else {
+                    return; // 不可合成，阻止
+                }
+            }
+            // 其他情况（尝试选中等）阻止
+            else { return; }
+        }
 
         if (selectionMode?.type === 'trade_in') {
             const consumedItem = inventory[index];
@@ -1305,6 +1513,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             // Apply Entropy (Time passes)
             const decayedInv = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
+
+            // 如果消耗的物品在订单槽位上，清除 assignment
+            if (assignedItemUids.has(consumedItem.uid)) removeAssignmentByUid(consumedItem.uid);
 
             // Remove item (set to null) from DECAYED inventory
             decayedInv[index] = null;
@@ -1377,8 +1588,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
                 const newInventory = [...inventory];
                 newInventory[index] = upgradedItem;
-                newInventory[index] = upgradedItem;
                 setInventory(newInventory);
+                // 如果目标物品在订单槽位上，更新 uid
+                if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
                 setPendingItem(null);
                 return;
             }
@@ -1392,9 +1604,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 }
 
                 const targetName = targetItem.name;
-                const newInventory = inventory.filter(i => i && i.name !== targetName);
-                // Calculate refund for cleared items
+                // 清除被替换物品的订单槽位分配
                 const clearedItems = inventory.filter(i => i && i.name === targetName);
+                clearedItems.forEach(i => {
+                    if (assignedItemUids.has(i.uid)) removeAssignmentByUid(i.uid);
+                });
+                const newInventory = inventory.filter(i => i && i.name !== targetName);
                 const recycleValue = clearedItems.reduce((acc, i) => acc + (i.rarity.recycleValue || 0), 0);
                 if (recycleValue > 0) setGold(prev => prev + recycleValue);
 
@@ -1402,10 +1617,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 delete itemToAdd.isOverload;
                 newInventory.push(itemToAdd);
 
-                setInventory(newInventory); // No entropy applied on overload resolution
-
+                setInventory(newInventory);
                 setPendingItem(null);
-                // setDrawCount? Maybe not, strictly. But it changes state.
                 return;
             }
 
@@ -1421,10 +1634,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             const recycleGain = targetItem.rarity.recycleValue;
             if (recycleGain > 0) setGold(prev => prev + recycleGain);
+            // 如果被替换的物品在订单槽位上，更新 assignment uid 为新物品
+            if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, pendingItem.uid);
 
             const newInventory = [...inventory];
             newInventory[index] = pendingItem;
-            newInventory[index] = pendingItem; // Duplicated line in original, removing one.
             setInventory(newInventory);
             setPendingItem(null);
             return;
@@ -1457,6 +1671,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 newInventory[index] = upgradedItem;
                 newInventory[selectedSlot] = null;
                 setInventory(newInventory.filter(item => item !== null));
+                // 如果目标物品在订单槽位上，更新 uid
+                if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
                 setSelectedSlot(null);
                 return;
             }
@@ -1903,6 +2119,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         setGold(prev => prev + baseValue + extraGold);
 
+        // 清除被回收物品的订单槽位分配
+        selectedIndices.forEach(idx => {
+            const item = inventory[idx];
+            if (item && assignedItemUids.has(item.uid)) {
+                removeAssignmentByUid(item.uid);
+            }
+        });
+
         const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
         setInventory(newInventory);
         setIsRecycleMode(false);
@@ -2120,7 +2344,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             skillState,
             orderSlotAssignments,
             assignedItemUids,
-            phantomMarks
+            phantomMarks,
+            toolSelectionMode
         },
         actions: {
             showToast,
@@ -2154,7 +2379,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleEvacuationExtract,
             debugGetOrderItems,
             handleToolItemUse,
-            handleUnassignFromOrder
+            handleUnassignFromOrder,
+            handleOrderSlotClick,
+            handleCancelToolSelection
         },
         helpers: {
             hasSkill
