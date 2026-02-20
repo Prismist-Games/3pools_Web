@@ -73,7 +73,8 @@ export default function App() {
                                 orderCountWeights: impStage.orderCountWeights || s.orderCountWeights,
                                 baseRewards: impStage.baseRewards || s.baseRewards,
                                 entropyDecayValue: impStage.entropyDecayValue || s.entropyDecayValue,
-                                orderSlots: impStage.orderSlots ?? s.orderSlots
+                                orderSlots: impStage.orderSlots ?? s.orderSlots,
+                                orderStarWeights: impStage.orderStarWeights || s.orderStarWeights
                             };
                         });
                     }
@@ -101,6 +102,7 @@ export default function App() {
                     if (imported.emergency) next.emergency = { ...prev.emergency, ...imported.emergency };
                     if (imported.global) next.global = { ...prev.global, ...imported.global };
                     if (imported.toolItems) next.toolItems = { ...prev.toolItems, ...imported.toolItems };
+                    if (imported.star) next.star = { ...prev.star, ...imported.star };
 
                     // 4. 特殊字段：品质属性 (Rarity Details)
                     // 只继承加成（bonus）和回收价值（recycleValue），不继承 id, name, color
@@ -1152,10 +1154,230 @@ export default function App() {
                                 </div>
                             </section>
 
+                            {/* 星级系统配置 */}
+                            <section>
+                                <h4 className="text-lg font-bold mb-4 border-l-4 border-amber-500 pl-3">⭐ 星级系统配置</h4>
+                                <div className="space-y-6 bg-amber-50/30 p-4 rounded-xl border border-amber-200">
+                                    {/* 初始升星权重 */}
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-bold text-slate-700">物品抽出初始满星率权重</label>
+                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">
+                                                0-5 星均可配置，不想要的星级请调成 0
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-2">
+                                            {[0, 1, 2, 3, 4, 5].map((level) => {
+                                                const cw = config.star?.initialStarWeights?.[level];
+                                                const weightVal = cw !== undefined ? cw : 0;
+                                                return (
+                                                    <div key={level} className="flex flex-col gap-1 items-center bg-white p-2 border border-slate-200 rounded-lg shadow-sm">
+                                                        <span className="text-xs font-black whitespace-nowrap"><span className="text-amber-500">★</span> {level}</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.05"
+                                                            min="0"
+                                                            value={weightVal}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value) || 0;
+                                                                setConfig({
+                                                                    ...config,
+                                                                    star: {
+                                                                        ...config.star,
+                                                                        initialStarWeights: {
+                                                                            ...(config.star?.initialStarWeights || {}),
+                                                                            [level]: val
+                                                                        }
+                                                                    }
+                                                                });
+                                                            }}
+                                                            className="w-full text-center border-b border-slate-300 px-1 py-0.5 font-mono text-xs focus:outline-none focus:border-amber-400 bg-transparent"
+                                                        />
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* 星级积分奖励逻辑说明 */}
+                                    <div className="flex flex-col gap-2 pt-4 border-t border-amber-200/50">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-sm font-bold text-slate-700">星级奖励全局调整</label>
+                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">
+                                                积分公式 = 基础分 + ( 星级需求 × 调整系数 × 档位系数 )
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                min="0"
+                                                value={config.progress?.starScoreMultiplier ?? 1.0}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    setConfig({
+                                                        ...config,
+                                                        progress: {
+                                                            ...config.progress,
+                                                            starScoreMultiplier: val
+                                                        }
+                                                    });
+                                                }}
+                                                className="w-24 text-center border rounded px-3 py-1.5 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+                                            />
+                                            <span className="text-sm font-bold opacity-60 text-amber-700">星级积分调整系数</span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 italic mt-1">
+                                            * 此系数会全局影响所有星级奖励的产出。
+                                        </p>
+                                    </div>
+
+                                    {/* 订单要求星级总和及掉落概率 */}
+                                    <div className="flex flex-col gap-2 pt-4 border-t border-amber-200/50">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-sm font-bold text-slate-700">平均每件订单物品对星级的需求权重</label>
+                                            <button
+                                                onClick={() => {
+                                                    const reqVal = window.prompt("请输入单件物品附加星级需求范围 (例如：1-3 ；总星数需求将乘以物品数量)：", "");
+                                                    if (reqVal !== null && reqVal.trim() !== '') {
+                                                        const parts = reqVal.split('-');
+                                                        let min, max;
+                                                        if (parts.length === 2) {
+                                                            min = parseFloat(parts[0].trim());
+                                                            max = parseFloat(parts[1].trim());
+                                                        } else {
+                                                            min = max = parseFloat(reqVal.trim());
+                                                        }
+
+                                                        if (!isNaN(min) && !isNaN(max) && min >= 0 && max >= min) {
+                                                            const newStages = [...config.stages];
+                                                            const key = `${min}-${max}`;
+                                                            const currentWeights = newStages[0].orderStarWeights || {};
+                                                            if (currentWeights[key] === undefined) {
+                                                                newStages[0] = {
+                                                                    ...newStages[0],
+                                                                    orderStarWeights: { ...currentWeights, [key]: { weight: 0.1, coefficient: 1.0 } }
+                                                                };
+                                                                setConfig({ ...config, stages: newStages });
+                                                            } else {
+                                                                alert(`需求范围 ${key}★ 已存在。`);
+                                                            }
+                                                        } else {
+                                                            alert("输入无效，请使用有效的数字范围（最大值需大于等于最小值）！");
+                                                        }
+                                                    }
+                                                }}
+                                                className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] px-3 py-1.5 rounded font-black transition-colors shadow-sm"
+                                            >
+                                                + 新增需求
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                                            {Object.keys(config.stages[0].orderStarWeights || {})
+                                                .sort((a, b) => parseFloat(a.split('-')[0]) - parseFloat(b.split('-')[0]))
+                                                .map(reqKey => {
+                                                    const val = config.stages[0].orderStarWeights[reqKey];
+                                                    const displayKey = reqKey.split('-').length === 2 && reqKey.split('-')[0] !== reqKey.split('-')[1] ? reqKey.replace('-', '~') : reqKey.split('-')[0];
+                                                    return (
+                                                        <div key={reqKey} className="flex flex-col bg-white p-2 border border-slate-200 rounded-lg shadow-sm">
+                                                            <div className="flex items-center justify-between pb-1 mb-1 border-b border-slate-100">
+                                                                <span className="text-[11px] font-black text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded" title="游戏中订单将会在该范围内随机选一个数字要求，最终乘上该订单包含的物品总数">
+                                                                    单件附加 ≥ {displayKey}<span className="text-amber-500">★</span>
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (window.confirm(`确定要删除需求范围 ${displayKey}★ 吗？`)) {
+                                                                            const newStages = [...config.stages];
+                                                                            const newWeights = { ...newStages[0].orderStarWeights };
+                                                                            delete newWeights[reqKey];
+                                                                            newStages[0] = {
+                                                                                ...newStages[0],
+                                                                                orderStarWeights: newWeights
+                                                                            };
+                                                                            setConfig({ ...config, stages: newStages });
+                                                                        }
+                                                                    }}
+                                                                    className="text-red-400 hover:text-white hover:bg-red-400 p-0.5 rounded transition-colors"
+                                                                    title="删除此需求"
+                                                                >
+                                                                    <X size={12} strokeWidth={3} />
+                                                                </button>
+                                                            </div>
+                                                            <div className="space-y-1.5 px-1 pb-1">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[9px] font-bold text-slate-400">权重:</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.05"
+                                                                        min="0"
+                                                                        value={typeof val === 'object' ? (val.weight ?? 0) : (val ?? 0)}
+                                                                        onChange={(e) => {
+                                                                            const v = parseFloat(e.target.value) || 0;
+                                                                            const newStages = [...config.stages];
+                                                                            const current = newStages[0].orderStarWeights[reqKey];
+                                                                            const coeff = typeof current === 'object' ? (current.coefficient ?? 1.0) : 1.0;
+                                                                            newStages[0] = {
+                                                                                ...newStages[0],
+                                                                                orderStarWeights: {
+                                                                                    ...(newStages[0].orderStarWeights || {}),
+                                                                                    [reqKey]: { weight: v, coefficient: coeff }
+                                                                                }
+                                                                            };
+                                                                            setConfig({ ...config, stages: newStages });
+                                                                        }}
+                                                                        className="w-16 text-right border-b border-slate-300 px-1 py-0.5 font-mono text-[10px] focus:outline-none focus:border-amber-400 bg-transparent"
+                                                                    />
+                                                                </div>
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[9px] font-bold text-amber-600">系数:</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.1"
+                                                                        min="0"
+                                                                        value={typeof val === 'object' ? (val.coefficient ?? 1.0) : 1.0}
+                                                                        onChange={(e) => {
+                                                                            const v = parseFloat(e.target.value) || 0;
+                                                                            const newStages = [...config.stages];
+                                                                            const current = newStages[0].orderStarWeights[reqKey];
+                                                                            const weight = typeof current === 'object' ? (current.weight ?? 0.1) : (current ?? 0.1);
+                                                                            newStages[0] = {
+                                                                                ...newStages[0],
+                                                                                orderStarWeights: {
+                                                                                    ...(newStages[0].orderStarWeights || {}),
+                                                                                    [reqKey]: { weight: weight, coefficient: v }
+                                                                                }
+                                                                            };
+                                                                            setConfig({ ...config, stages: newStages });
+                                                                        }}
+                                                                        className="w-16 text-right border-b border-amber-200 px-1 py-0.5 font-mono text-[10px] focus:outline-none focus:border-amber-400 bg-transparent text-amber-700 font-bold"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
                             {/* 工具物品配置 */}
                             <section>
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-amber-500 pl-3">🔧 工具物品配置</h4>
                                 <div className="space-y-4 bg-amber-50/30 p-4 rounded-xl border border-amber-200">
+                                    {/* 启用/禁用开关 */}
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-bold text-slate-700">启用工具物品</label>
+                                        <button
+                                            onClick={() => setConfig({
+                                                ...config,
+                                                toolItems: { ...config.toolItems, enabled: !(config.toolItems?.enabled !== false) }
+                                            })}
+                                            className={`relative w-12 h-6 rounded-full transition-colors ${config.toolItems?.enabled !== false ? 'bg-amber-500' : 'bg-slate-300'}`}
+                                        >
+                                            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${config.toolItems?.enabled !== false ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                                        </button>
+                                    </div>
                                     {/* 掉落概率 */}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-xs font-bold text-slate-500">每次抽取掉落工具物品概率</label>
@@ -1401,9 +1623,10 @@ export default function App() {
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    </div >
+                </div >
+            )
+            }
         </>
     );
 }

@@ -295,5 +295,14 @@ export const EN_TRANSLATIONS = {
     "同奖池中没有其他物品！": "No other items in the same pool!",
     "星辉祝福已激活：下次抽取品质+1": "Starlight Blessing active: Next draw rarity +1",
     "当前状态下无法使用工具物品": "Cannot use tool items in current state",
-    "工具道具无法用于以旧换新！": "Tool items cannot be used for trade-in!"
+    "工具道具无法用于以旧换新！": "Tool items cannot be used for trade-in!",
+
+    // --- Star Rating System ---
+    "升星槽": "Star Upgrade",
+    "先选中一个物品": "Select an item first",
+    "放入选中物品": "Place Selected Item",
+    "点击背包中目标升星": "Click target item to upgrade",
+    "升星成功！": "Star Upgrade Success!",
+    "该物品已达到最高星级！": "Item already at max star level!",
+    "被消耗物品的星级必须 ≥ 目标物品的当前星级！": "Consumed item star level must be ≥ target's star level!"
 };

@@ -92,6 +92,10 @@ export const InventorySlot = ({
     // Order slot assignment
     isAssigned,
 
+    // Star upgrade mode
+    isStarUpgradeTarget,
+    isStarUpgradeMode,
+
     // Style overrides
     className = ""
 }) => {
@@ -102,7 +106,7 @@ export const InventorySlot = ({
     const isMultiSelectMode = isSubmitMode || isRecycleMode;
     const isTradeInMode = isSelectionMode;
     const isToolItem = item?.isToolItem;
-    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem)) || isPendingSlot;
+    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem)) || (isStarUpgradeMode && !isStarUpgradeTarget) || isPendingSlot;
 
     const handleContextMenu = (e) => {
         e.preventDefault();
@@ -149,6 +153,8 @@ export const InventorySlot = ({
                     ${isSelected && isRecycleMode ? 'border-amber-600 bg-amber-50 border-2 z-10' : ''}
                     ${isMultiSelectMode && !isSelected && item && !isPendingSlot ? 'opacity-70 hover:opacity-100 grayscale-[0.3]' : ''}
                     ${isAssigned ? '!opacity-30 !grayscale cursor-not-allowed !scale-95 pointer-events-none' : ''}
+                    ${isStarUpgradeTarget ? 'ring-4 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] z-20 cursor-pointer hover:scale-105' : ''}
+                    ${isStarUpgradeMode && !isStarUpgradeTarget ? 'opacity-40 grayscale pointer-events-none' : ''}
                     ${className}
                 `}
             >
@@ -165,11 +171,7 @@ export const InventorySlot = ({
                             <span className={`text-[10px] font-bold leading-none truncate max-w-full px-1 ${isToolItem ? 'text-amber-700' : ''}`}>
                                 {t(item.name)}
                             </span>
-                            {item.rarity?.bonus > 0 && !isToolItem && (
-                                <div className="absolute top-0 right-0 p-0.5 bg-white/50 rounded-bl-lg">
-                                    <Star size={8} fill="currentColor" className={item.rarity?.color ? item.rarity.color.split(' ')[2] : 'text-slate-400'} />
-                                </div>
-                            )}
+
                         </div>
 
                         {/* 工具物品标识 */}
@@ -195,6 +197,13 @@ export const InventorySlot = ({
                         {item.sterile && !isToolItem && (
                             <div className="absolute bottom-0 left-0 p-0.5 bg-gray-800/80 rounded-tr-lg text-white z-10 text-[9px] px-1 font-bold">
                                 {t("绝育")}
+                            </div>
+                        )}
+
+                        {/* Star Level — 顶部居中 */}
+                        {!isToolItem && (item.starLevel || 0) > 0 && (
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 text-amber-500 text-[9px] font-black leading-none bg-white/80 rounded-b-md px-1 py-px">
+                                {'★'.repeat(item.starLevel)}
                             </div>
                         )}
 

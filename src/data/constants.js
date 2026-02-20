@@ -56,6 +56,12 @@ export const INITIAL_STAGE_CONFIG = [
             "synthesis": true,
             "variablePrice": true
         },
+        "orderStarWeights": {
+            "0-0": { "weight": 0.5, "coefficient": 1.0 },
+            "0-1": { "weight": 0.25, "coefficient": 1.2 },
+            "1-2": { "weight": 0.15, "coefficient": 1.5 },
+            "2-3": { "weight": 0.1, "coefficient": 2.0 }
+        },
         "unlocks": [
             "游戏开始！",
             "普通模式"
@@ -105,6 +111,11 @@ export const INITIAL_STAGE_CONFIG = [
             "synthesis": true,
             "variablePrice": true,
             "volatility": true
+        },
+        "orderStarWeights": {
+            "0-0": { "weight": 0.6, "coefficient": 1.0 },
+            "0-1": { "weight": 0.25, "coefficient": 1.4 },
+            "1-2": { "weight": 0.15, "coefficient": 2.0 }
         },
         "unlocks": [
             "阶段提升",
@@ -156,6 +167,12 @@ export const INITIAL_STAGE_CONFIG = [
             "variablePrice": true,
             "specialization": true
         },
+        "orderStarWeights": {
+            "0-0": { "weight": 0.3, "coefficient": 1.0 },
+            "0-1": { "weight": 0.3, "coefficient": 1.6 },
+            "1-2": { "weight": 0.25, "coefficient": 2.2 },
+            "2-3": { "weight": 0.15, "coefficient": 3.0 }
+        },
         "unlocks": [
             "阶段提升",
             "7种物品上限生效"
@@ -206,6 +223,13 @@ export const INITIAL_STAGE_CONFIG = [
             "synthesis": true,
             "variablePrice": true,
             "entropy": true
+        },
+        "orderStarWeights": {
+            "0-0": { "weight": 0.2, "coefficient": 1.0 },
+            "0-1": { "weight": 0.3, "coefficient": 2.0 },
+            "1-2": { "weight": 0.25, "coefficient": 2.8 },
+            "2-3": { "weight": 0.2, "coefficient": 3.6 },
+            "3-4": { "weight": 0.05, "coefficient": 5.0 }
         },
         "unlocks": [
             "阶段提升",
@@ -259,6 +283,7 @@ export const TOOL_ITEMS = [
 
 // --- 工具物品掉落配置 ---
 export const TOOL_ITEM_CONFIG = {
+    enabled: true,                 // 是否启用工具物品系统
     dropChance: 0.2,           // 每次抽奖时掉落工具物品的概率
     weights: {                  // 三种工具物品的相对权重
         tool_reforge: 1,
@@ -497,6 +522,12 @@ export const INITIAL_POOLS_DATA = [
     }
 ];
 
+// --- 星级系统配置 ---
+export const STAR_CONFIG = {
+    maxStarLevel: 5,
+    initialStarWeights: { 0: 0.40, 1: 0.35, 2: 0.20, 3: 0.04, 4: 0.01, 5: 0 },
+};
+
 // --- 耐心值系统配置 ---
 export const PATIENCE_CONFIG = {
     enabled: false,
@@ -584,6 +615,7 @@ export const EMERGENCY_ORDER_CONFIG = {
 export const SCORE_PROGRESS_CONFIG = {
     targetProgress: Infinity,  // 无上限
     progressOffset: 0.0,       // 计算偏移量
+    starScoreMultiplier: 1.0,  // 每点星级需求增加的积分
     // 详细品质权重分配 (累加每个需求物品的值)
     rarityWeights: {
         common: 0.5,
@@ -604,6 +636,7 @@ export const INITIAL_GAME_CONFIG = {
     progress: SCORE_PROGRESS_CONFIG,
     emergency: EMERGENCY_ORDER_CONFIG,
     toolItems: TOOL_ITEM_CONFIG,
+    star: STAR_CONFIG,
     enabledSkillIds: [
         "poverty_relief",
         "lucky_7",

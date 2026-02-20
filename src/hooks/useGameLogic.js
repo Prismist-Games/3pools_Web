@@ -5,7 +5,8 @@ import {
     rollRarity,
     getNextRarity,
     getRandomAffix,
-    getRandomItems
+    getRandomItems,
+    rollStarLevel
 } from '../utils/helpers';
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -53,6 +54,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [isEvacuationMode, setIsEvacuationMode] = useState(false);
     const [isRecycleMode, setIsRecycleMode] = useState(false);
     const [selectedIndices, setSelectedIndices] = useState([]);
+
+    // 升星系统
+    const [upgradeSlotItem, setUpgradeSlotItem] = useState(null); // 升星槽中的被消耗物品
+    const [isStarUpgradeMode, setIsStarUpgradeMode] = useState(false);
 
     // 候选订单选择系统: { slotIndex, candidates: [order1, order2] }
     const [orderCandidates, setOrderCandidates] = useState(null);
@@ -547,6 +552,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const tempHand = JSON.parse(JSON.stringify(handGroups));
             let isSatisfied = true;
             let totalSubmitBonus = 0;
+            let totalStarLevel = 0;
 
             const allReqs = order.requirements;
             let isSameType = false;
@@ -568,9 +574,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 }
                 const matchedItem = availableItems[matchIndex];
                 totalSubmitBonus += matchedItem.rarity.bonus;
+                totalStarLevel += (matchedItem.starLevel || 0);
                 availableItems.splice(matchIndex, 1);
             }
             if (!isSatisfied) return null;
+
+            // 星级总和校验
+            if (order.minTotalStarLevel && order.minTotalStarLevel > 0) {
+                if (totalStarLevel < order.minTotalStarLevel) return null;
+            }
 
             let multiplier = 1 + totalSubmitBonus;
             if (isSameType) multiplier *= 2;
@@ -641,6 +653,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const tempHand = JSON.parse(JSON.stringify(handGroups)); // Deep copy for simulation
             let isSatisfied = true;
             let totalSubmitBonus = 0;
+            let totalStarLevel = 0;
 
             const allReqs = order.requirements;
             let isSameType = false;
@@ -663,9 +676,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 }
                 const matchedItem = availableItems[matchIndex];
                 totalSubmitBonus += matchedItem.rarity.bonus;
+                totalStarLevel += (matchedItem.starLevel || 0);
                 availableItems.splice(matchIndex, 1);
             }
             if (!isSatisfied) return null;
+
+            // 星级总和校验
+            if (order.minTotalStarLevel && order.minTotalStarLevel > 0) {
+                if (totalStarLevel < order.minTotalStarLevel) return null;
+            }
 
             let multiplier = 1 + totalSubmitBonus;
             if (isSameType) multiplier *= 2;
@@ -776,10 +795,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             uid: Math.random().toString(36).substr(2, 9),
             poolName: pool.name,
             rarity: rarity,
+            starLevel: rollStarLevel(config.star),
             sterile: affixKey === 'hardened',
             decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
         };
-
     };
 
 
@@ -993,7 +1012,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // 尝试提附工具物品：按概率判断是否在物品列表末尾添加一个工具物品
     const tryDropToolItem = (items) => {
         const toolConfig = config.toolItems;
-        if (!toolConfig || Math.random() >= (toolConfig.dropChance || 0)) return items;
+        if (!toolConfig || toolConfig.enabled === false || Math.random() >= (toolConfig.dropChance || 0)) return items;
         const toolItem = rollToolItem(toolConfig);
         return toolItem ? [...items, toolItem] : items;
     };
@@ -1335,6 +1354,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 uid: Math.random().toString(36).substr(2, 9),
                 poolName: pool.name,
                 rarity: newRarity,
+                starLevel: consumedItem.starLevel || 0,
                 sterile: consumedItem.sterile,
                 decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
             };
@@ -1373,8 +1393,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
 
                 const nextRarity = getNextRarity(targetItem.rarity.id, config);
-
-                const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const mergedStarLevel = Math.max(pendingItem.starLevel || 0, targetItem.starLevel || 0);
+                const upgradedItem = { ...targetItem, rarity: nextRarity, starLevel: mergedStarLevel, uid: Math.random().toString(36).substr(2, 9) };
                 const newInventory = [...inventory];
                 newInventory[index] = upgradedItem;
                 newInventory[index] = upgradedItem;
@@ -1451,8 +1471,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
 
                 const nextRarity = getNextRarity(sourceItem.rarity.id, config);
-
-                const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const mergedStarLevel = Math.max(sourceItem.starLevel || 0, targetItem.starLevel || 0);
+                const upgradedItem = { ...targetItem, rarity: nextRarity, starLevel: mergedStarLevel, uid: Math.random().toString(36).substr(2, 9) };
                 const newInventory = [...inventory];
                 newInventory[index] = upgradedItem;
                 newInventory[selectedSlot] = null;
@@ -2087,6 +2107,77 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [patience, modalContent, score, config, emergencyOrders, emergencyDifficulty, allNormalItems, hasSkill, currentStageConfig]);
 
+    // --- 升星操作 ---
+
+    /**
+     * 将背包中的物品放入升星槽（作为被消耗物品）
+     */
+    const handleStarUpgradeSlotDrop = (index) => {
+        const item = inventory[index];
+        if (!item || item.isToolItem || item.isScoreItem) return;
+        if (assignedItemUids.has(item.uid)) return;
+
+        // 从背包中移除
+        const newInventory = [...inventory];
+        newInventory[index] = null;
+        setInventory(newInventory.filter(i => i !== null));
+
+        setUpgradeSlotItem(item);
+        setIsStarUpgradeMode(true);
+        setSelectedSlot(null);
+    };
+
+    /**
+     * 点击背包中目标物品执行升星
+     * 条件：被消耗物品.starLevel >= 目标物品.starLevel && 目标星级 < maxStarLevel
+     */
+    const handleStarUpgradeTarget = (index) => {
+        if (!upgradeSlotItem || !isStarUpgradeMode) return;
+
+        const targetItem = inventory[index];
+        if (!targetItem || targetItem.isToolItem || targetItem.isScoreItem) return;
+
+        const maxStarLevel = config.star?.maxStarLevel || 5;
+        const targetStar = targetItem.starLevel || 0;
+        const consumeStar = upgradeSlotItem.starLevel || 0;
+
+        if (targetStar >= maxStarLevel) {
+            showToast(t('该物品已达到最高星级！'), 'error');
+            return;
+        }
+
+        if (consumeStar < targetStar) {
+            showToast(t('被消耗物品的星级必须 ≥ 目标物品的当前星级！'), 'error');
+            return;
+        }
+
+        // 执行升星
+        const newInventory = [...inventory];
+        newInventory[index] = {
+            ...targetItem,
+            starLevel: targetStar + 1,
+            uid: Math.random().toString(36).substr(2, 9)
+        };
+        setInventory(newInventory);
+
+        showToast(`⭐ ${t('升星成功！')} ${targetItem.name} → ${targetStar + 1}★`, 'success');
+
+        // 被消耗物品消失，不获得回收金币
+        setUpgradeSlotItem(null);
+        setIsStarUpgradeMode(false);
+    };
+
+    /**
+     * 取消升星，将物品退回背包
+     */
+    const cancelStarUpgrade = () => {
+        if (upgradeSlotItem) {
+            setInventory(prev => [...prev, upgradeSlotItem]);
+        }
+        setUpgradeSlotItem(null);
+        setIsStarUpgradeMode(false);
+    };
+
     return {
         state: {
             gold,
@@ -2120,7 +2211,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             skillState,
             orderSlotAssignments,
             assignedItemUids,
-            phantomMarks
+            phantomMarks,
+            upgradeSlotItem,
+            isStarUpgradeMode
         },
         actions: {
             showToast,
@@ -2154,7 +2247,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleEvacuationExtract,
             debugGetOrderItems,
             handleToolItemUse,
-            handleUnassignFromOrder
+            handleUnassignFromOrder,
+            handleStarUpgradeSlotDrop,
+            handleStarUpgradeTarget,
+            cancelStarUpgrade
         },
         helpers: {
             hasSkill

@@ -188,7 +188,7 @@ const OrderCardBase = ({
                         {isScoreOrder && !isCandidate && (
                             <div className="flex items-center">
                                 <span className="text-[10px] font-black text-blue-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-full border border-blue-200 whitespace-nowrap">
-                                    <Star size={10} fill="currentColor" /> {t("积分订单")}
+                                    <Trophy size={10} fill="currentColor" /> {t("积分订单")}
                                 </span>
                             </div>
                         )}
@@ -230,7 +230,7 @@ const OrderCardBase = ({
                                             <span className="text-xs">{canSatisfy.finalScoreReward}</span>
                                         </>
                                     )}
-                                    <span className="opacity-70">⭐</span>
+                                    <span className="opacity-70">🏆</span>
                                 </div>
                             </div>
                         )}
@@ -437,6 +437,28 @@ const OrderCardBase = ({
                                 </div>
                             );
                         })}
+                    </div>
+
+                    {/* Star Level Requirement */}
+                    <div className="flex items-center gap-1.5 mt-1">
+                        {order.minTotalStarLevel > 0 && (
+                            <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border w-fit ${isSatisfied
+                                ? 'bg-green-100 text-green-700 border-green-300'
+                                : 'bg-amber-50 text-amber-600 border-amber-200'
+                                }`}>
+                                <span className="text-amber-500">★</span>
+                                <span>≥ {order.minTotalStarLevel}</span>
+                                {isSatisfied && <Check size={10} className="text-green-600 ml-0.5" />}
+                            </div>
+                        )}
+                        {order.starDifficultyLevel > 0 && (
+                            <div className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm border ${isSatisfied
+                                ? 'bg-green-500 text-white border-green-600'
+                                : 'bg-slate-700 text-slate-100 border-slate-800'
+                                }`}>
+                                Lv.{order.starDifficultyLevel}
+                            </div>
+                        )}
                     </div>
                 </div>
 

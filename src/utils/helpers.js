@@ -240,6 +240,47 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
     // Fixed patience reward (no rarity multiplier)
     const basePatienceReward = rawBaseReward;
 
+    // 根据阶段配置决定是否附加星级需求
+    let minTotalStarLevel = 0;
+    let selectedStarCoefficient = 0; // 记录当前档位对应的积分系数
+    let starDifficultyLevel = 0; // 记录难度级别 (1, 2, 3...)
+
+    if (!isEmergency) {
+        // 优先使用 currentStageConfig，缺失则 fallback 到默认阶段 0 配置
+        const starWeights = currentStageConfig.orderStarWeights || { "0-0": 0.5, "1-3": 0.25, "4-6": 0.15, "7-9": 0.1 };
+
+        // 解析权重键 "min-max" 格式，支持小数（如 "0.5-1.5"），兼容旧版单一数字 "min"
+        // 支持 v 是数字 (旧版 weight) 或 对象 ({ weight: 0.5, coefficient: 1.0 })
+        const entries = Object.entries(starWeights).map(([k, v]) => {
+            const parts = k.split('-');
+            const min = parseFloat(parts[0]);
+            const max = parts.length > 1 ? parseFloat(parts[1]) : min;
+            const weight = typeof v === 'object' ? (v.weight ?? 0.1) : v;
+            const coefficient = typeof v === 'object' ? (v.coefficient ?? 1.0) : 1.0;
+            return { key: k, min, max, weight, coefficient };
+        }).sort((a, b) => a.min - b.min); // 按难度从小到大排序
+
+        const totalWeight = entries.reduce((sum, item) => sum + item.weight, 0);
+        if (totalWeight > 0) {
+            let r = Math.random() * totalWeight;
+            for (let i = 0; i < entries.length; i++) {
+                const item = entries[i];
+                r -= item.weight;
+                if (r <= 0) {
+                    const reqCount = requirements.length || 1;
+                    const totalMin = item.min * reqCount;
+                    const totalMax = item.max * reqCount;
+                    // 如果存在小数，则最后得出结果后进行四舍五入
+                    const randomVal = Math.random() * (totalMax - totalMin) + totalMin;
+                    minTotalStarLevel = Math.round(randomVal);
+                    selectedStarCoefficient = item.coefficient;
+                    starDifficultyLevel = i + 1; // 难度从 1 开始
+                    break;
+                }
+            }
+        }
+    }
+
     // Base score reward (calculated ONLY by sum of per-rarity weights)
     // Emergency orders DON'T give score rewards
     let baseScoreReward = 0;
@@ -248,13 +289,15 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         const rarityWeights = config.progress?.rarityWeights || {};
         const offset = config.progress?.progressOffset || 0;
 
-        // Formula: sum of weights of each required item's rarity + offset
+        const starAdjustment = config.progress?.starScoreMultiplier ?? 1.0;
+
+        // Formula: sum of weights of each required item's rarity + offset + (star requirements * global adjustment * current bucket's coefficient)
         const totalRarityScore = requirements.reduce((sum, req) => {
             const rKey = req.requiredRarity?.id || 'common';
             return sum + (rarityWeights[rKey] || 0);
         }, 0);
 
-        const calculatedScore = Math.floor(totalRarityScore + offset);
+        const calculatedScore = Math.floor(totalRarityScore + offset + (minTotalStarLevel * starAdjustment * selectedStarCoefficient));
         baseScoreReward = Math.max(1, calculatedScore);
     }
 
@@ -263,7 +306,9 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         requirements,
         basePatienceReward,
         baseScoreReward,
-        isScoreOrder: !isEmergency
+        isScoreOrder: !isEmergency,
+        minTotalStarLevel,
+        starDifficultyLevel
     };
 };
 
@@ -359,4 +404,24 @@ export const getNextRarity = (currentRarityId, config) => {
         return rarityConfig[currentIndex + 1];
     }
     return null;
+};
+
+/**
+ * 根据星级权重配置随机生成初始星级
+ * @param {object} starConfig - config.star 配置对象
+ * @returns {number} 0-5 的星级
+ */
+export const rollStarLevel = (starConfig) => {
+    if (!starConfig?.initialStarWeights) return 0;
+    const weights = starConfig.initialStarWeights;
+    const entries = Object.entries(weights).map(([k, v]) => [parseInt(k), v]);
+    const totalWeight = entries.reduce((sum, [_, w]) => sum + w, 0);
+    if (totalWeight <= 0) return 0;
+
+    let r = Math.random() * totalWeight;
+    for (const [level, weight] of entries) {
+        r -= weight;
+        if (r <= 0) return level;
+    }
+    return 0;
 };

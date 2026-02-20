@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, Download, Upload, RotateCcw, X, Coins, Ticket, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Briefcase, ShoppingBag, Truck, Trash2, Package, RefreshCw, Lock, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Heart, Timer } from 'lucide-react';
+import { Settings, Download, Upload, RotateCcw, X, Coins, Ticket, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Briefcase, ShoppingBag, Truck, Trash2, Package, RefreshCw, Lock, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Heart, Timer, Trophy } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
@@ -37,7 +37,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
-        orderSlotAssignments, assignedItemUids, phantomMarks
+        orderSlotAssignments, assignedItemUids, phantomMarks,
+        upgradeSlotItem, isStarUpgradeMode
     } = state;
 
     const {
@@ -67,7 +68,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleEvacuationExtract,
         debugGetOrderItems,
         handleToolItemUse,
-        handleUnassignFromOrder
+        handleUnassignFromOrder,
+        handleStarUpgradeSlotDrop,
+        handleStarUpgradeTarget,
+        cancelStarUpgrade
     } = actions;
 
     const { hasSkill } = helpers;
@@ -270,7 +274,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             <div className="flex flex-col gap-0.5 items-center">
                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 text-blue-200 leading-none">{t("当前积分")}</span>
                                 <div className="flex items-center gap-2 text-blue-400">
-                                    <Star size={18} fill="currentColor" className="drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
+                                    <Trophy size={18} fill="currentColor" className="drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
                                     <span className="text-3xl font-black font-mono tracking-tighter leading-none">{score}</span>
                                 </div>
                             </div>
@@ -613,6 +617,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                         {item.rarity && (
                                                             <span className={`text-[10px] font-bold uppercase tracking-wider opacity-60`}>{t(item.rarity.name)}</span>
                                                         )}
+                                                        {(item.starLevel || 0) > 0 && (
+                                                            <span className="text-amber-500 text-xs font-black">{'★'.repeat(item.starLevel)}</span>
+                                                        )}
                                                     </div>
                                                 </button>
                                             )
@@ -867,7 +874,13 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 hasUpgradePair={hasUpgradePair}
                                                 isOverloadTarget={isOverloadTarget}
 
-                                                onClick={handleSlotClick}
+                                                onClick={(idx) => {
+                                                    if (isStarUpgradeMode) {
+                                                        handleStarUpgradeTarget(idx);
+                                                    } else {
+                                                        handleSlotClick(idx);
+                                                    }
+                                                }}
                                                 onContextMenu={handleToolItemUse}
                                                 onMouseEnter={(i, item) => { state.setHoveredSlotIndex(i); if (item) state.setHoveredItemName(item.name); }}
                                                 onMouseLeave={() => { state.setHoveredSlotIndex(null); state.setHoveredItemName(null); }}
@@ -875,6 +888,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24"
                                                 nextDrawEnhanced={skillState?.nextDrawEnhanced}
                                                 isAssigned={item && assignedItemUids.has(item.uid)}
+                                                isStarUpgradeMode={isStarUpgradeMode}
+                                                isStarUpgradeTarget={isStarUpgradeMode && item && !item.isToolItem && !item.isScoreItem && (item.starLevel || 0) < (config.star?.maxStarLevel || 5) && (upgradeSlotItem?.starLevel || 0) >= (item.starLevel || 0)}
                                             />
                                         )
                                     })}
@@ -882,6 +897,42 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                 {/* Action Buttons (Moved to prevent overlap) */}
                                 <div className={`flex flex-col gap-2 shrink-0 justify-end pb-2 w-40 min-h-[88px] ${pendingItem ? 'hidden' : ''}`}>
+
+                                    {/* 升星槽 UI */}
+                                    {!pendingItem && !isSubmitMode && !isRecycleMode && !isEvacuationMode && !selectionMode && (
+                                        <div className="mb-2 p-2 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50">
+                                            <div className="text-[10px] font-black text-amber-600 mb-1 text-center uppercase tracking-wider">⭐ {t("升星槽")}</div>
+                                            {upgradeSlotItem ? (
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <div className={`w-14 h-14 rounded-lg border-2 flex flex-col items-center justify-center ${upgradeSlotItem.rarity?.color || 'bg-slate-100 border-slate-300'}`}>
+                                                        <span className="text-xl">{upgradeSlotItem.icon}</span>
+                                                        <span className="text-[8px] font-bold truncate max-w-full px-0.5">{t(upgradeSlotItem.name)}</span>
+                                                        {(upgradeSlotItem.starLevel || 0) > 0 && (
+                                                            <span className="text-amber-500 text-[8px] font-black">{'★'.repeat(upgradeSlotItem.starLevel)}</span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[9px] text-amber-700 font-bold">{t("点击背包中目标升星")}</span>
+                                                    <button
+                                                        onClick={cancelStarUpgrade}
+                                                        className="w-full text-[10px] bg-white border border-amber-200 text-amber-700 font-bold py-1 rounded-lg hover:bg-amber-100 transition-colors"
+                                                    >
+                                                        {t("取消")}
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                selectedSlot !== null && inventory[selectedSlot] && !inventory[selectedSlot].isToolItem ? (
+                                                    <button
+                                                        onClick={() => { handleStarUpgradeSlotDrop(selectedSlot); }}
+                                                        className="w-full text-[10px] bg-amber-100 border border-amber-300 text-amber-700 font-bold py-1.5 rounded-lg hover:bg-amber-200 transition-colors"
+                                                    >
+                                                        ⭐ {t("放入选中物品")}
+                                                    </button>
+                                                ) : (
+                                                    <div className="text-[9px] text-amber-400 text-center">{t("先选中一个物品")}</div>
+                                                )
+                                            )}
+                                        </div>
+                                    )}
                                     {!isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode && (
                                         <>
                                             <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">
