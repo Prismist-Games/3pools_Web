@@ -50,6 +50,16 @@ const OrderCardBase = ({
         5: { border: 'border-rose-600', bg: 'bg-rose-600', label: 'LV4' }
     };
 
+    // 难度等级标签映射
+    const difficultyLabels = {
+        1: { letter: '1', color: 'bg-slate-50 text-slate-600 border-slate-300' },
+        2: { letter: '2', color: 'bg-emerald-50 text-emerald-600 border-emerald-300' },
+        3: { letter: '3', color: 'bg-blue-50 text-blue-600 border-blue-300' },
+        4: { letter: '4', color: 'bg-purple-50 text-purple-600 border-purple-300' },
+        5: { letter: '5', color: 'bg-orange-50 text-orange-600 border-orange-300' },
+        6: { letter: '6', color: 'bg-rose-50 text-rose-600 border-rose-300' }
+    };
+
     // 检测升级的物品（使用 Map 以包含 upgradeStage）
     const upgradedItemsMap = useMemo(() => {
         if (!order || !upgradedOrderItems) return {};
@@ -128,6 +138,32 @@ const OrderCardBase = ({
             isDifferent: hasAnySlot && slotScoreReward !== minScoreReward
         };
     }, [requirements, baseScoreReward, index, orderSlotAssignments, phantomMarks, inventory, hasSkill, order.isEmergency]);
+
+    // 计算当前已放置物品的总星级
+    const currentTotalStarLevel = useMemo(() => {
+        if (!requirements || !order) return 0;
+        let total = 0;
+        requirements.forEach((req, rIdx) => {
+            let slotItem = null;
+            if (isSubmitMode) {
+                const selectedCandidates = selectedIndices
+                    .map(idx => inventory[idx])
+                    .filter(item => item && item.name === req.name);
+                if (selectedCandidates.length > 0) {
+                    selectedCandidates.sort((a, b) => b.rarity.bonus - a.rarity.bonus);
+                    slotItem = selectedCandidates[0];
+                }
+            } else {
+                const slotKey = `${index}-${rIdx}`;
+                const assignedUid = orderSlotAssignments?.[slotKey];
+                const assignedItem = assignedUid ? inventory.find(i => i && i.uid === assignedUid) : null;
+                const phantom = phantomMarks?.[slotKey];
+                slotItem = assignedItem || (phantom ? phantom.item : null);
+            }
+            total += (slotItem?.starLevel || 0);
+        });
+        return total;
+    }, [requirements, isSubmitMode, selectedIndices, inventory, orderSlotAssignments, phantomMarks, index, order]);
 
     return (
         <div
@@ -396,6 +432,13 @@ const OrderCardBase = ({
                                                         {t(slotItem.name)}
                                                     </span>
 
+                                                    {/* 个人星级显示 */}
+                                                    {(slotItem.starLevel || 0) > 0 && (
+                                                        <div className="flex -mt-0.5 text-amber-500 text-[8px]" style={{ letterSpacing: '-1px' }}>
+                                                            {'★'.repeat(slotItem.starLevel)}
+                                                        </div>
+                                                    )}
+
                                                     {/* 右下角：达标✓ */}
                                                     {slotQualitySatisfied && (
                                                         <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-0.5 shadow z-10">
@@ -441,22 +484,23 @@ const OrderCardBase = ({
 
                     {/* Star Level Requirement */}
                     <div className="flex items-center gap-1.5 mt-1">
-                        {order.minTotalStarLevel > 0 && (
-                            <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border w-fit ${isSatisfied
-                                ? 'bg-green-100 text-green-700 border-green-300'
-                                : 'bg-amber-50 text-amber-600 border-amber-200'
-                                }`}>
-                                <span className="text-amber-500">★</span>
-                                <span>≥ {order.minTotalStarLevel}</span>
-                                {isSatisfied && <Check size={10} className="text-green-600 ml-0.5" />}
-                            </div>
-                        )}
+                        {order.minTotalStarLevel > 0 && (() => {
+                            const isStarSatisfied = currentTotalStarLevel >= order.minTotalStarLevel;
+                            return (
+                                <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border w-fit ${isStarSatisfied
+                                    ? 'bg-green-100 text-green-700 border-green-300'
+                                    : 'bg-amber-50 text-amber-600 border-amber-200'
+                                    }`}>
+                                    <span className={isStarSatisfied ? "text-green-600" : "text-amber-500"}>★</span>
+                                    <span>{currentTotalStarLevel} / {order.minTotalStarLevel}</span>
+                                    {isStarSatisfied && <Check size={10} className="text-green-600 ml-0.5" />}
+                                </div>
+                            );
+                        })()}
                         {order.starDifficultyLevel > 0 && (
-                            <div className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm border ${isSatisfied
-                                ? 'bg-green-500 text-white border-green-600'
-                                : 'bg-slate-700 text-slate-100 border-slate-800'
-                                }`}>
-                                Lv.{order.starDifficultyLevel}
+                            <div className={`flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm border ${difficultyLabels[order.starDifficultyLevel]?.color || 'bg-slate-50 text-slate-600 border-slate-300'}`} title={t("星级需求奖励系数评级")}>
+                                <span className="opacity-70">★{t("难度")}:</span>
+                                <span>{difficultyLabels[order.starDifficultyLevel]?.letter || '1'}</span>
                             </div>
                         )}
                     </div>

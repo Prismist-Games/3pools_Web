@@ -304,5 +304,7 @@ export const EN_TRANSLATIONS = {
     "点击背包中目标升星": "Click target item to upgrade",
     "升星成功！": "Star Upgrade Success!",
     "该物品已达到最高星级！": "Item already at max star level!",
-    "被消耗物品的星级必须 ≥ 目标物品的当前星级！": "Consumed item star level must be ≥ target's star level!"
+    "被消耗物品的星级必须 ≥ 目标物品的当前星级！": "Consumed item star level must be ≥ target's star level!",
+    "星级需求奖励系数评级": "Star Requirement Reward Rating",
+    "难度": "Difficulty"
 };
