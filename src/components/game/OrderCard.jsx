@@ -76,7 +76,7 @@ const OrderCardBase = ({
 
     if (!order) {
         return (
-            <div className="h-40 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center">
+            <div className="min-h-[120px] bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center">
                 <span className="text-slate-300 font-bold text-sm">{t("暂无订单")}</span>
             </div>
         );
@@ -143,7 +143,7 @@ const OrderCardBase = ({
             onClick={() => onClick(index, isScoreOrder)}
             className={`
                 relative bg-white rounded-2xl shadow-sm border-2 transition-all duration-200
-                ${isCandidate ? 'p-2' : 'p-3'}
+                ${isCandidate ? 'p-3' : 'p-6'}
                 ${isCandidate ? 'hover:border-blue-500 hover:shadow-lg cursor-pointer' : ''}
                 ${isScoreOrder
                     ? 'border-blue-300 bg-blue-50 ring-4 ring-blue-50'
@@ -186,18 +186,18 @@ const OrderCardBase = ({
             )}
 
             {/* Content Container */}
-            <div className="flex justify-between items-center w-full gap-2">
+            <div className="flex flex-col w-full gap-3">
 
-                {/* Left Side: Info & Reqs */}
-                <div className={`flex flex-col flex-1 ${isCandidate ? 'gap-1' : 'gap-1.5'}`}>
+                {/* Top: Info & Reqs */}
+                <div className={`flex flex-col flex-1 ${isCandidate ? 'gap-1' : 'gap-3'}`}>
 
                     {/* Header / Reward Badge */}
                     <div className="flex flex-wrap items-center gap-2">
                         {/* Label & Status */}
                         {isScoreOrder && !isCandidate && (
                             <div className="flex items-center">
-                                <span className="text-[10px] font-black text-blue-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-full border border-blue-200 whitespace-nowrap">
-                                    <Star size={10} fill="currentColor" /> {t("积分订单")}
+                                <span className="text-xs font-black text-blue-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2.5 py-1 rounded-full border border-blue-200 whitespace-nowrap">
+                                    <Star size={12} fill="currentColor" /> {t("积分订单")}
                                 </span>
                             </div>
                         )}
@@ -211,7 +211,7 @@ const OrderCardBase = ({
                                     </div>
                                 )}
                                 {order.difficulty && (
-                                    <div className="flex items-center gap-1 bg-orange-100 text-orange-600 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-orange-200">
+                                    <div className="flex items-center gap-1 bg-orange-100 text-orange-600 px-2.5 py-1 rounded-lg font-black text-sm shadow-sm border border-orange-200">
                                         <span>LV.{order.difficulty}</span>
                                     </div>
                                 )}
@@ -225,7 +225,7 @@ const OrderCardBase = ({
                             /* Rewards Badge for Normal/Score Orders */
                             <div className={`flex items-center ${isCandidate ? 'gap-1' : 'gap-2'}`}>
                                 {/* Score Reward */}
-                                <div className={`flex items-center gap-1 rounded-lg font-black text-[10px] shadow-sm ${isCandidate ? 'px-1.5 py-0.5' : 'px-2 py-1'} ${canSatisfy ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'}`}>
+                                <div className={`flex items-center gap-1 rounded-lg font-black shadow-sm ${isCandidate ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2.5 py-1'} ${canSatisfy ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'}`}>
                                     <span>{rewardInfo?.minScoreReward ?? baseScoreReward}</span>
                                     {rewardInfo?.isDifferent && !canSatisfy && (
                                         <>
@@ -246,7 +246,7 @@ const OrderCardBase = ({
                     </div>
 
                     {/* Requirements */}
-                    <div className={`flex ${isCandidate ? 'flex-wrap gap-1.5' : 'flex-nowrap gap-1.5'}`}>
+                    <div className={`flex ${isCandidate ? 'flex-wrap gap-1.5' : 'flex-wrap gap-2'}`}>
                         {requirements.map((req, rIdx) => {
                             let matchedItem = null;
 
@@ -379,7 +379,7 @@ const OrderCardBase = ({
                                                     ${isOverloadTarget ? 'ring-2 ring-red-400 ring-offset-1 shadow-lg shadow-red-200/50' : ''}
                                                     ${isReplaceTarget ? 'ring-2 ring-red-300 ring-offset-1 opacity-80' : ''}
                                                 `
-                                                : `h-[28px] ${isCandidate ? 'h-[24px]' : ''} rounded border-2 ${isCandidate ? 'px-1.5' : 'px-1.5'} ${borderStyle} ${borderColorClass} ${bgColorClass} ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}`
+                                                : `h-[36px] ${isCandidate ? 'h-[26px]' : ''} rounded-lg border-2 ${isCandidate ? 'px-1.5' : 'px-2'} ${borderStyle} ${borderColorClass} ${bgColorClass} ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}`
                                             }
                                             ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
                                         `}
@@ -387,9 +387,9 @@ const OrderCardBase = ({
                                     >
                                         {/* Invisible layout ghost to hold natural width in Capsule Mode */}
                                         <div className={`flex items-center gap-1 opacity-0 pointer-events-none transition-all ${isSlotMode ? 'hidden' : ''}`}>
-                                            <div className="w-2 h-2 shrink-0" />
-                                            <span className={`shrink-0 ${isCandidate ? 'text-[10px]' : 'text-xs'}`}>{req.icon}</span>
-                                            <span className={`font-bold ${isCandidate ? 'text-[10px]' : 'text-xs'} max-w-[80px] truncate`}>{t(req.name)}</span>
+                                            <div className="w-2.5 h-2.5 shrink-0" />
+                                            <span className={`shrink-0 ${isCandidate ? 'text-[10px]' : 'text-sm'}`}>{req.icon}</span>
+                                            <span className={`font-bold ${isCandidate ? 'text-[10px]' : 'text-sm'} max-w-[100px] truncate`}>{t(req.name)}</span>
                                         </div>
 
                                         {/* Shared Animated Dot */}
@@ -409,7 +409,7 @@ const OrderCardBase = ({
                                             transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                                             ${isSlotMode
                                                 ? `left-[50%] top-[4px] -translate-x-1/2 translate-y-0 text-[26px] scale-100 origin-top ${slotQualitySatisfied ? '' : 'grayscale opacity-50'}`
-                                                : `left-[20px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-xs'} scale-100 origin-center ${iconFilterClass}`
+                                                : `left-[22px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-sm'} scale-100 origin-center ${iconFilterClass}`
                                             }
                                         `}>
                                             {displayIcon}
@@ -421,7 +421,7 @@ const OrderCardBase = ({
                                             transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                                             ${isSlotMode
                                                 ? `left-[50%] top-[42px] -translate-x-1/2 translate-y-0 text-[10px] w-full text-center px-1 ${slotQualitySatisfied ? 'text-slate-700' : 'text-slate-400'}`
-                                                : `left-[38px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-xs'} max-w-[80px] text-left ${textColorClass}`
+                                                : `left-[40px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-sm'} max-w-[100px] text-left ${textColorClass}`
                                             }
                                         `}>
                                             {displayName}
@@ -508,9 +508,9 @@ const OrderCardBase = ({
                     </div>
                 </div>
 
-                {/* Right Side: Refresh Button (Centered) */}
+                {/* Refresh Button - positioned at top-right */}
                 {!order.isEmergency && !isSubmitMode && !isEvacuationMode && !isCandidate && currentStageConfig.mechanics.refresh && (
-                    <div className="flex-none pl-2">
+                    <div className="absolute top-3 right-3">
                         <button
                             onClick={(e) => { e.stopPropagation(); onRefresh(index); }}
                             disabled={orderRefreshCount <= 0}

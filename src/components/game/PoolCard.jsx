@@ -37,15 +37,13 @@ const PoolCardBase = ({
                 relative w-full text-left group
                 rounded-2xl border-2 p-4 transition-all duration-200
                 transform-gpu will-change-transform backface-hidden subpixel-antialiased
-                ${pool.color} 
+                ${pool.color}
                 ${isHovered ? 'scale-[1.02] shadow-xl z-10 ring-4 ring-white/50' : 'shadow-sm hover:shadow-md'}
                 ${isEffectiveDisabled ? 'opacity-60 grayscale-[0.8] cursor-not-allowed' : 'active:scale-95 cursor-pointer'}
-                flex flex-col gap-2 min-h-[140px]
+                flex flex-col gap-2
             `}
         >
-            {/* ===== NEW LAYOUT: Centralized Info ===== */}
-
-            {/* Row 1: Icon + Pool Name + Price (all LEFT aligned, grouped together) */}
+            {/* Row 1: Icon + Pool Name + Price */}
             <div className="flex items-center gap-3">
                 <span className="text-4xl filter drop-shadow-sm">{pool.icon}</span>
                 <span className="font-black text-xl leading-tight">{t(pool.name)}</span>
@@ -64,7 +62,7 @@ const PoolCardBase = ({
                 </div>
             </div>
 
-            {/* Row 2: Affix Name (LARGE and prominent) */}
+            {/* Row 2: Affix Name */}
             {pool.affix && (
                 <div className="flex items-center gap-2">
                     <span className="text-base font-black text-slate-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
@@ -82,14 +80,12 @@ const PoolCardBase = ({
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2">
-                        {/* Affix Description - LARGE readable text */}
+                        {/* Affix Description */}
                         {pool.affix && (
                             <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
                                 {t(pool.affix.desc)}
                             </p>
                         )}
-
-
                     </div>
                 )}
             </div>

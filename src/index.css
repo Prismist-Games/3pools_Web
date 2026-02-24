@@ -11,3 +11,10 @@
       scrollbar-width: none;
   }
 }
+
+@layer components {
+  .inventory-slot {
+      width: clamp(4rem, 5.5vw, 6.5rem);
+      height: clamp(4rem, 5.5vw, 6.5rem);
+  }
+}
