@@ -69,6 +69,10 @@ src/contexts/
 - **Tool Items**: Special items (`tool_reforge`, `tool_transmute`, `tool_enhance`) that drop randomly on draws and are activated via right-click in inventory.
 - **Emergency Orders**: Time-limited orders with a health/difficulty system (`EMERGENCY_ORDER_CONFIG`).
 
+### Lessons Learned
+
+Project-specific lessons and conventions are stored in `.claude/lessons/` as categorized markdown files (e.g., `ui-conventions.md`, `architecture.md`). When `/reflect` captures new learnings, they should be appended to the appropriate file under `.claude/lessons/` rather than added directly to this file.
+
 ### External Services
 
 - **Supabase** (`src/utils/supabaseClient.js`): Used only for the leaderboard feature. The URL and publishable key are hardcoded (this is intentional — it's a public anon key).
