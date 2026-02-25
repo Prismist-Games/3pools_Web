@@ -1,9 +1,7 @@
 
 import {
-    RefreshCw, Package, Trophy, RotateCcw, AlertCircle, X, Check, Star, Hand, ArrowLeftRight, ChevronsUp, Sparkles, Layers, Send, Coins, Ticket, Trash2, Ban, Gift, Target, Shuffle, Repeat, Settings, Download, Upload, Save, FileJson, Power, Info, MousePointerClick, Crown, ListOrdered, Flag, FastForward, Zap, ShieldCheck, Clover, TrendingUp, ShoppingBag, Clock, Briefcase, Gem, Scale, Hammer, ArrowRight, Eye, Lock, ZapOff
+    Package, Trophy, Check, Star, ArrowLeftRight, ChevronsUp, Sparkles, Ticket, Gift, Zap, TrendingUp, Clock, ListOrdered
 } from 'lucide-react';
-
-export const ResetIcon = RotateCcw;
 
 // --- 阶段配置定义 ---
 export const INITIAL_STAGE_CONFIG = [
@@ -16,10 +14,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "fixedPrice": null,
         "initialGold": 20,
-        "mainlineReqCount": 2,
-        "mainlineReqRarity": "epic",
         "orderCountRange": [
             2,
             4
@@ -70,10 +65,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "fixedPrice": null,
         "initialGold": 30,
-        "mainlineReqCount": 2,
-        "mainlineReqRarity": "epic",
         "orderCountRange": [
             2,
             4
@@ -120,10 +112,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "fixedPrice": null,
         "initialGold": 40,
-        "mainlineReqCount": 2,
-        "mainlineReqRarity": "epic",
         "orderCountRange": [
             2,
             4
@@ -170,10 +159,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "fixedPrice": null,
         "initialGold": 50,
-        "mainlineReqCount": 2,
-        "mainlineReqRarity": "epic",
         "entropyDecayValue": 25,
         "orderCountRange": [
             2,
@@ -215,7 +201,6 @@ export const INITIAL_STAGE_CONFIG = [
 ];
 
 // --- 技能定义 ---
-// Updated for Patience system
 export const SKILL_DEFINITIONS = [
     { id: 'poverty_relief', name: '贫困救济', desc: '耐心值 < 20 时，完成订单的耐心值奖励额外 +5。', Icon: Gift, type: 'patience', color: 'text-yellow-600 bg-yellow-100' },
     { id: 'lucky_7', name: '幸运 7', desc: '当前耐心值的尾数为 7 时，抽取传说物品的概率翻倍。', Icon: Star, type: 'luck', color: 'text-green-600 bg-green-100' },
@@ -497,15 +482,6 @@ export const INITIAL_POOLS_DATA = [
     }
 ];
 
-// --- 耐心值系统配置 ---
-export const PATIENCE_CONFIG = {
-    enabled: false,
-    initialPatience: 100,
-    drawCost: 5,
-    orderCompletionReward: 15,
-    stages: [100, 80, 60, 40, 20, 10] // 6个阈值定义5个阶段：100-80, 79-60, 59-40, 39-20, 19-10
-};
-
 // --- 限时急单配置 ---
 export const EMERGENCY_ORDER_CONFIG = {
     deadline: 15,           // 时限（回合数）
@@ -600,7 +576,6 @@ export const INITIAL_GAME_CONFIG = {
     rarity: INITIAL_RARITY_CONFIG,
     pools: INITIAL_POOLS_DATA,
     stages: INITIAL_STAGE_CONFIG,
-    patience: PATIENCE_CONFIG,
     progress: SCORE_PROGRESS_CONFIG,
     emergency: EMERGENCY_ORDER_CONFIG,
     toolItems: TOOL_ITEM_CONFIG,

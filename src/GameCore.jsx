@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, Download, Upload, RotateCcw, X, Coins, Ticket, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Briefcase, ShoppingBag, Truck, Trash2, Package, RefreshCw, Lock, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Heart, Timer } from 'lucide-react';
+import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Truck, Trash2, Package, RefreshCw, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Timer } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
@@ -29,7 +29,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     }, [debugAddItem, actions]);
 
     const {
-        gold, patience, patienceStage, score, upgradedOrderItems, currentStageConfig, maxInventorySize,
+        gold, score, currentStageConfig, maxInventorySize,
         drawCount, activePools, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, health, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
@@ -258,12 +258,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             </div>
                             <div className="flex flex-col">
                                 <h1 className="text-xl font-black tracking-tighter leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">ORDER GAME</h1>
-                                {config.patience?.enabled !== false && (
-                                    <div className="flex items-center gap-1.5 opacity-60">
-                                        <span className={`w-2 h-2 rounded-full ${patience > 60 ? 'bg-green-400' : patience > 30 ? 'bg-yellow-400' : 'bg-red-500'}`} />
-                                        <span className="text-[10px] font-bold tracking-widest uppercase">{t("阶段")} {state.patienceStage + 1}</span>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
@@ -412,7 +406,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     hoveredItemName={hoveredItemName}
                                                     hoveredPoolItemNames={hoveredPoolItemNames}
                                                     selectedItemNames={selectedItemNames}
-                                                    upgradedOrderItems={state.upgradedOrderItems}
+
                                                     isBeingReplaced={false}
                                                     onDebugGetItems={debugMode ? debugGetOrderItems : null}
                                                     orderSlotAssignments={orderSlotAssignments}
@@ -455,7 +449,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         hoveredItemName={hoveredItemName}
                                         hoveredPoolItemNames={hoveredPoolItemNames}
                                         selectedItemNames={selectedItemNames}
-                                        upgradedOrderItems={state.upgradedOrderItems}
                                         isBeingReplaced={orderCandidates?.slotIndex === idx}
                                         orderSlotAssignments={orderSlotAssignments}
                                         phantomMarks={phantomMarks}
@@ -530,7 +523,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                             hoveredItemName={hoveredItemName}
                                                             hoveredPoolItemNames={hoveredPoolItemNames}
                                                             selectedItemNames={[]}
-                                                            upgradedOrderItems={[]}
                                                             isBeingReplaced={false}
                                                             isCandidate={true}
                                                         />
@@ -656,76 +648,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                             {/* Skill Bar Area */}
                             <div className="flex flex-col gap-4 items-center mb-4">
-                                {config.patience?.enabled !== false && (
-                                    /* Integrated Patience Bar (Larger but slim) */
-                                    <div className="w-full max-w-3xl px-8 mt-2">
-                                        <div className="flex items-center justify-between mb-1.5">
-                                            <div className="flex items-center gap-2">
-                                                <Heart size={12} className="text-pink-500 animate-pulse" />
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{t("Patience Stability")}</span>
-                                            </div>
-                                            <span className={`text-base font-black font-mono tracking-tighter ${patience > 60 ? 'text-green-600' : patience > 30 ? 'text-amber-600' : 'text-red-600'}`}>
-                                                {patience}%
-                                            </span>
-                                        </div>
-
-                                        <div className="h-2.5 bg-slate-100 rounded-full relative border border-slate-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] group mb-7">
-                                            {/* The Actual Progress Fill */}
-                                            <div
-                                                className={`h-full rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) ${patience > 60 ? 'bg-gradient-to-r from-emerald-500 to-green-400' :
-                                                    patience > 30 ? 'bg-gradient-to-r from-amber-500 to-yellow-400' :
-                                                        'bg-gradient-to-r from-rose-600 to-red-500'
-                                                    }`}
-                                                style={{ width: `${Math.max(0, Math.min(100, patience))}%` }}
-                                            />
-
-                                            {/* Stage Function Threshold Markers */}
-                                            {(config.patience?.stages || []).map((threshold, i) => {
-                                                const stageEffects = [
-                                                    { label: t('初始'), color: 'text-cyan-600' },
-                                                    { label: t('需求品质+'), color: 'text-yellow-600' },
-                                                    { label: t('需求品质+'), color: 'text-orange-600' },
-                                                    { label: t('需求品质+'), color: 'text-red-600' },
-                                                    { label: t('需求品质+'), color: 'text-fuchsia-600' },
-                                                    { label: t('需求品质+'), color: 'text-slate-600' }
-                                                ];
-                                                const nextThreshold = (config.patience?.stages || [])[i + 1] || -1;
-                                                const effect = stageEffects[i] || { label: '', color: 'text-slate-500' };
-
-                                                // Active: patience is within this stage's range (e.g. <= 80 and > 60 for 80 threshold)
-                                                // Special case for top stage (100): active if > next threshold
-                                                const isActive = patience <= threshold && patience > nextThreshold;
-
-                                                // Passed: patience has dropped AT OR BELOW this threshold
-                                                // We only show checks for hazard stages (i>=1, i.e. 80 and below)
-                                                const isPassed = patience <= threshold && i >= 1;
-
-                                                return (
-                                                    <div
-                                                        key={i}
-                                                        className={`absolute top-0 bottom-0 w-px z-10 transition-colors ${patience <= threshold && i > 0 ? 'bg-slate-400' : 'bg-slate-200'}`}
-                                                        style={{ left: `${threshold}%` }}
-                                                    >
-                                                        <div className={`absolute -top-1 left-1/2 -translate-x-1/2 w-0.5 h-1 ${patience <= threshold && i > 0 ? 'bg-slate-600' : 'bg-slate-300'}`} />
-
-                                                        <div
-                                                            className={`absolute top-full mt-1 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none transition-all ${effect.color} ${isActive ? 'scale-105' : 'opacity-40'}`}
-                                                        >
-                                                            <div className="h-3 flex items-center justify-center -mb-0.5">
-                                                                {isPassed && <Check size={10} strokeWidth={4} className="text-green-500 animate-in zoom-in-50 duration-300" />}
-                                                            </div>
-
-                                                            <span className={`text-[8px] font-black whitespace-nowrap`}>
-                                                                {effect.label}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* Passive Skills Row */}
                                 <div className={`transition-all duration-300 overflow-hidden flex flex-col items-center w-full ${isSkillsCollapsed ? 'h-0 opacity-0' : 'h-24 opacity-100 pt-2 border-t border-slate-100/50'}`}>
                                     <div className="flex items-center justify-center gap-4 relative w-full">

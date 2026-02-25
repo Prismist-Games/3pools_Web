@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Settings, Download, Upload, RotateCcw, X, Coins, Ticket, Flag, Power, ChevronsUp, Check, Sparkles, Package, Zap, Timer } from 'lucide-react';
+import { Settings, Download, Upload, RotateCcw, X, Flag, Package, Zap, Timer } from 'lucide-react';
 import GameCore from './GameCore';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { INITIAL_GAME_CONFIG, SKILL_DEFINITIONS } from './data/constants';
@@ -94,9 +94,8 @@ export default function App() {
                         });
                     }
 
-                    // 3. 继承平衡性参数 (Patience, Progress, Emergency, Global)
+                    // 3. 继承平衡性参数 (Progress, Emergency, Global)
                     // 这些通常全是数值，可以较安全地合并
-                    if (imported.patience) next.patience = { ...prev.patience, ...imported.patience };
                     if (imported.progress) next.progress = { ...prev.progress, ...imported.progress };
                     if (imported.emergency) next.emergency = { ...prev.emergency, ...imported.emergency };
                     if (imported.global) next.global = { ...prev.global, ...imported.global };
@@ -250,62 +249,7 @@ export default function App() {
                             <section>
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-emerald-500 pl-3">核心均衡配置 (Balance)</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    {/* Patience Config */}
                                     <div className="space-y-4">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <h5 className="text-sm font-bold text-emerald-700 flex items-center gap-1"><Sparkles size={14} /> 耐心值系统</h5>
-                                            <label className="flex items-center gap-2 cursor-pointer bg-white px-2 py-1 rounded border border-emerald-200 shadow-sm hover:bg-emerald-50">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={config.patience?.enabled !== false}
-                                                    onChange={(e) => setConfig({ ...config, patience: { ...config.patience, enabled: e.target.checked } })}
-                                                    className="accent-emerald-600 w-4 h-4 cursor-pointer"
-                                                />
-                                                <span className="text-[10px] font-bold text-emerald-800">启用</span>
-                                            </label>
-                                        </div>
-                                        <div className={`grid grid-cols-3 gap-3 transition-opacity duration-300 ${config.patience?.enabled === false ? 'opacity-40 pointer-events-none grayscale' : ''}`}>
-                                            <div className="flex flex-col gap-1">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase">初始耐心值</label>
-                                                <input
-                                                    type="number"
-                                                    className="p-2 border rounded font-mono"
-                                                    value={config.patience.initialPatience}
-                                                    onChange={(e) => setConfig({ ...config, patience: { ...config.patience, initialPatience: parseInt(e.target.value) || 0 } })}
-                                                />
-                                            </div>
-                                            <div className="flex flex-col gap-1">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase">抽取消耗</label>
-                                                <input
-                                                    type="number"
-                                                    className="p-2 border rounded font-mono"
-                                                    value={config.patience.drawCost}
-                                                    onChange={(e) => setConfig({ ...config, patience: { ...config.patience, drawCost: parseInt(e.target.value) || 0 } })}
-                                                />
-                                            </div>
-                                            <div className="flex flex-col gap-1">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase text-green-600">订单奖励</label>
-                                                <input
-                                                    type="number"
-                                                    className="p-2 border border-green-200 bg-green-50 rounded font-mono font-bold text-green-600"
-                                                    value={config.patience.orderCompletionReward || 15}
-                                                    onChange={(e) => setConfig({ ...config, patience: { ...config.patience, orderCompletionReward: parseInt(e.target.value) || 0 } })}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase">阶段阈值 (降序，例如 100, 80, 60...)</label>
-                                            <input
-                                                type="text"
-                                                className="p-2 border rounded font-mono text-xs"
-                                                value={config.patience.stages.join(', ')}
-                                                onChange={(e) => {
-                                                    const vals = e.target.value.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
-                                                    setConfig({ ...config, patience: { ...config.patience, stages: vals } });
-                                                }}
-                                            />
-                                        </div>
-
                                         {/* Emergency Order Config */}
                                         <div className="mt-4 pt-4 border-t border-slate-200">
                                             <h5><Timer size={14} /> {t("离开关卡需求配置")}</h5>
@@ -1053,7 +997,7 @@ export default function App() {
                                                         <label className="text-xs font-bold text-slate-600 block mb-2">💰 金币消耗</label>
                                                         <input
                                                             type="number"
-                                                            value={affix.cost || config.patience.drawCost}
+                                                            value={affix.cost || 2}
                                                             onChange={(e) => {
                                                                 const newAffixes = [...config.affixes];
                                                                 newAffixes[idx] = { ...newAffixes[idx], cost: parseInt(e.target.value) || 0 };
