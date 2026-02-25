@@ -15,7 +15,7 @@ No test suite exists in this project.
 
 ## Architecture Overview
 
-This is a React 18 + Vite 6 + Tailwind CSS 3 browser-based resource management game called "反重力游戏" (Antigravity Game / 三池物语). Deployed to GitHub Pages at `/3pools_Web/` (configured in `vite.config.js`).
+This is a React 18 + Vite 6 + Tailwind CSS 3 browser-based resource management game called "三池物语". Deployed to GitHub Pages at `/3pools_Web/` (configured in `vite.config.js`).
 
 ### Data Flow
 
