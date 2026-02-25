@@ -73,6 +73,8 @@ src/contexts/
 
 Project-specific lessons and conventions are stored in `.claude/lessons/` as categorized markdown files (e.g., `ui-conventions.md`, `architecture.md`). When `/reflect` captures new learnings, they should be appended to the appropriate file under `.claude/lessons/` rather than added directly to this file.
 
+**IMPORTANT**: Before tackling any problem or task, check `.claude/lessons/` for relevant prior experience in that domain. Read the appropriate lesson file(s) before proceeding. The same mistake must never be made twice.
+
 ### External Services
 
 - **Supabase** (`src/utils/supabaseClient.js`): Used only for the leaderboard feature. The URL and publishable key are hardcoded (this is intentional — it's a public anon key).
