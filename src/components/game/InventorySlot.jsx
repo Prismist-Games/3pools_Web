@@ -36,21 +36,21 @@ const ToolItemTooltip = ({ item, anchorRef, visible }) => {
             }}
             className="animate-in fade-in zoom-in-95 duration-150"
         >
-            <div className="bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border border-amber-400/30 min-w-[180px] max-w-[240px]">
-                <div className="flex items-center gap-2 mb-1.5 border-b border-slate-700 pb-1.5">
+            <div className="bg-[#2D2A26] text-white rounded-xl px-3 py-2 shadow-2xl border border-amber-400/30 min-w-[180px] max-w-[240px]">
+                <div className="flex items-center gap-2 mb-1.5 border-b border-stone-700 pb-1.5">
                     <span className="text-lg">{item.icon}</span>
                     <span className="font-black text-amber-300 text-sm">{t(item.name)}</span>
                 </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
+                <p className="text-[11px] text-stone-300 leading-relaxed">
                     {t(item.toolDesc || '')}
                 </p>
-                <div className="mt-1.5 pt-1 border-t border-slate-700 text-[10px] text-amber-400/80 font-bold">
+                <div className="mt-1.5 pt-1 border-t border-stone-700 text-[10px] text-amber-400/80 font-bold">
                     {t("右键点击使用")}
                 </div>
             </div>
             {/* Arrow */}
             <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
-                <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-slate-900" />
+                <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-[#2D2A26]" />
             </div>
         </div>,
         document.body
@@ -136,16 +136,16 @@ export const InventorySlot = ({
                     ${item
                         ? isToolItem
                             ? toolItemStyle
-                            : `${item.rarity?.color || 'bg-slate-100 border-slate-300'} ${item.rarity?.shadow || ''} shadow-sm`
-                        : 'bg-slate-50 border-dashed border-slate-200'
+                            : `${item.rarity?.color || 'bg-stone-100 border-stone-300'} ${item.rarity?.shadow || ''} shadow-sm`
+                        : 'bg-stone-50 border-dashed border-stone-200'
                     }
-                    ${!isMultiSelectMode && !isTradeInMode && isSelected ? '-translate-y-4 scale-110 z-10 shadow-xl ring-2 ring-blue-400' : ''}
+                    ${!isMultiSelectMode && !isTradeInMode && isSelected ? '-translate-y-4 scale-110 z-10 shadow-xl ring-2 ring-sky-400' : ''}
                     ${!isMultiSelectMode && !isTradeInMode && isTarget && isPendingSlot ? 'animate-pulse ring-2 ring-red-400 cursor-pointer hover:bg-red-50' : ''}
-                    ${!isMultiSelectMode && !isTradeInMode && isTarget && !isPendingSlot ? 'hover:border-blue-300 cursor-pointer' : ''}
+                    ${!isMultiSelectMode && !isTradeInMode && isTarget && !isPendingSlot ? 'hover:border-sky-300 cursor-pointer' : ''}
                     ${!isMultiSelectMode && canSynthesize && isTarget ? 'ring-4 ring-yellow-400 scale-105 z-20' : ''}
                     ${!isMultiSelectMode && !canSynthesize && isTarget ? 'hover:scale-105' : ''}
                     ${isMultiSelectMode && item && !isPendingSlot ? 'cursor-pointer hover:scale-105' : ''}
-                    ${isSelected && isSubmitMode ? 'border-blue-600 bg-blue-50 border-2 z-10' : ''}
+                    ${isSelected && isSubmitMode ? 'border-sky-600 bg-sky-50 border-2 z-10' : ''}
                     ${isSelected && isRecycleMode ? 'border-amber-600 bg-amber-50 border-2 z-10' : ''}
                     ${isMultiSelectMode && !isSelected && item && !isPendingSlot ? 'opacity-70 hover:opacity-100 grayscale-[0.3]' : ''}
                     ${isAssigned ? '!opacity-30 !grayscale cursor-not-allowed !scale-95 pointer-events-none' : ''}
@@ -153,7 +153,7 @@ export const InventorySlot = ({
                 `}
             >
                 {isPendingSlot && !item && (
-                    <div className="text-slate-300 font-bold text-xs uppercase tracking-widest">{t("排队中")}</div>
+                    <div className="text-stone-300 font-bold text-xs uppercase tracking-widest">{t("排队中")}</div>
                 )}
 
                 {item && (
@@ -167,7 +167,7 @@ export const InventorySlot = ({
                             </span>
                             {item.rarity?.bonus > 0 && !isToolItem && (
                                 <div className="absolute top-0 right-0 p-0.5 bg-white/50 rounded-bl-lg">
-                                    <Star size={8} fill="currentColor" className={item.rarity?.color ? item.rarity.color.split(' ')[2] : 'text-slate-400'} />
+                                    <Star size={8} fill="currentColor" className={item.rarity?.color ? item.rarity.color.split(' ')[2] : 'text-stone-400'} />
                                 </div>
                             )}
                         </div>
@@ -193,7 +193,7 @@ export const InventorySlot = ({
 
                         {/* Status Icons */}
                         {item.sterile && !isToolItem && (
-                            <div className="absolute bottom-0 left-0 p-0.5 bg-gray-800/80 rounded-tr-lg text-white z-10 text-[9px] px-1 font-bold">
+                            <div className="absolute bottom-0 left-0 p-0.5 bg-stone-800/80 rounded-tr-lg text-white z-10 text-[9px] px-1 font-bold">
                                 {t("绝育")}
                             </div>
                         )}
@@ -211,12 +211,12 @@ export const InventorySlot = ({
                         {item.decay !== undefined && (
                             <>
                                 <div className={`absolute top-0 left-0 p-0.5 rounded-br-lg text-[9px] font-mono font-bold z-10 px-1 leading-none
-                                    ${item.decay <= 0 ? 'bg-red-600 text-white' : 'bg-slate-700/80 text-white'}
+                                    ${item.decay <= 0 ? 'bg-red-600 text-white' : 'bg-stone-700/80 text-white'}
                                 `}>
                                     {item.decay <= 0 ? t("损坏") : item.decay}
                                 </div>
                                 {item.decay <= 0 && (
-                                    <div className="absolute inset-0 bg-slate-500/30 rounded-xl z-20 flex items-center justify-center pointer-events-none">
+                                    <div className="absolute inset-0 bg-stone-500/30 rounded-xl z-20 flex items-center justify-center pointer-events-none">
                                         <Ban size={24} className="text-red-800 opacity-60" />
                                     </div>
                                 )}
@@ -225,7 +225,7 @@ export const InventorySlot = ({
 
                         {/* Select/Trash Overlay Icon */}
                         {isSelected && (isSubmitMode || isRecycleMode) && (
-                            <div className={`absolute -top-2 -right-2 text-white rounded-full p-1 shadow-md z-20 animate-in zoom-in ${isRecycleMode ? 'bg-amber-600' : 'bg-blue-600'}`}>
+                            <div className={`absolute -top-2 -right-2 text-white rounded-full p-1 shadow-md z-20 animate-in zoom-in ${isRecycleMode ? 'bg-amber-600' : 'bg-sky-600'}`}>
                                 {isRecycleMode ? <Trash2 size={16} /> : <Check size={16} strokeWidth={4} />}
                             </div>
                         )}
@@ -234,7 +234,7 @@ export const InventorySlot = ({
                         {item && isNeededForOrder && (
                             <div className={`
                                 absolute -bottom-1 -right-1 text-white rounded-full p-0.5 shadow-md border-2 border-white z-10
-                                ${isMaxSatisfied ? 'bg-green-500' : 'bg-slate-300'}
+                                ${isMaxSatisfied ? 'bg-green-500' : 'bg-stone-300'}
                             `}>
                                 <Check size={12} strokeWidth={4} />
                             </div>
@@ -265,7 +265,7 @@ export const InventorySlot = ({
 
                         {/* Priority 3: Swap */}
                         {(!isMultiSelectMode && !isSelectionMode && isHovered && isTarget && !canSynthesize && !isOverloadTarget) && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-blue-500/40 rounded-lg transition-opacity z-10 backdrop-blur-[1px]">
+                            <div className="absolute inset-0 flex items-center justify-center bg-sky-500/40 rounded-lg transition-opacity z-10 backdrop-blur-[1px]">
                                 <ArrowLeftRight size={32} className="text-white drop-shadow-md" />
                             </div>
                         )}

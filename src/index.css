@@ -1,3 +1,18 @@
+:root {
+  --bg-base: #FBF8F3;
+  --bg-card: #FFFFFF;
+  --bg-section: #F5F2ED;
+  --text-primary: #2D2A26;
+  --text-secondary: #8A8580;
+  --text-muted: #B5B0AA;
+  --border: #E8E4DF;
+  --accent-red: #E60012;
+  --accent-gold: #D4940A;
+  --accent-green: #34A853;
+  --shadow-warm: 0 2px 8px rgba(45,42,38,0.08);
+  --shadow-warm-lg: 0 4px 16px rgba(45,42,38,0.12);
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

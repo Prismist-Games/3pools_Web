@@ -76,8 +76,8 @@ const OrderCardBase = ({
 
     if (!order) {
         return (
-            <div className="min-h-[120px] bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center">
-                <span className="text-slate-300 font-bold text-sm">{t("暂无订单")}</span>
+            <div className="min-h-[120px] bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200 flex items-center justify-center">
+                <span className="text-stone-300 font-bold text-sm">{t("暂无订单")}</span>
             </div>
         );
     }
@@ -142,23 +142,30 @@ const OrderCardBase = ({
         <div
             onClick={() => onClick(index, isScoreOrder)}
             className={`
-                relative bg-white rounded-2xl shadow-sm border-2 transition-all duration-200
+                relative overflow-hidden bg-white rounded-2xl shadow-sm border-2 transition-all duration-200
                 ${isCandidate ? 'p-3' : 'p-6'}
-                ${isCandidate ? 'hover:border-blue-500 hover:shadow-lg cursor-pointer' : ''}
+                ${isCandidate ? 'hover:border-sky-500 hover:shadow-lg cursor-pointer' : ''}
                 ${isScoreOrder
-                    ? 'border-blue-300 bg-blue-50 ring-4 ring-blue-50'
+                    ? 'border-sky-300 bg-sky-50 ring-4 ring-sky-50'
                     : order.isEmergency
                         ? 'border-red-400 bg-red-50 ring-4 ring-red-50'
-                        : 'border-slate-100 hover:border-slate-300'
+                        : 'border-stone-100 hover:border-stone-300'
                 }
                 ${isSubmitMode ? (canSatisfy || potentialSatisfy ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed') : ''}
                 ${isSatisfied
-                    ? (isScoreOrder ? 'ring-4 ring-green-400 border-green-500 bg-green-50' : 'ring-4 ring-green-400 border-green-500 bg-green-50 transform scale-[1.02]')
+                    ? (isScoreOrder ? 'ring-4 ring-emerald-400 border-emerald-500 bg-emerald-50' : 'ring-4 ring-emerald-400 border-emerald-500 bg-emerald-50 transform scale-[1.02]')
                     : ((isSubmitMode && !isScoreOrder) ? 'opacity-60 grayscale-[0.8] scale-95' : '')
                 }
                 ${isBeingReplaced ? '!ring-8 !ring-yellow-400 !border-yellow-500 !border-4 !bg-yellow-100 animate-pulse shadow-2xl !scale-[1.05] relative z-20' : ''}
             `}
         >
+            {/* Left Accent Bar */}
+            <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${
+                isScoreOrder ? 'bg-sky-400' :
+                order.isEmergency ? 'bg-rose-400' :
+                'bg-stone-300'
+            }`} />
+
             {/* 调试获取物品按钮 - 仅在 index !== -1 且 onDebugGetItems 存在时显示 */}
             {onDebugGetItems && index !== -1 && (
                 <button
@@ -196,7 +203,7 @@ const OrderCardBase = ({
                         {/* Label & Status */}
                         {isScoreOrder && !isCandidate && (
                             <div className="flex items-center">
-                                <span className="text-xs font-black text-blue-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2.5 py-1 rounded-full border border-blue-200 whitespace-nowrap">
+                                <span className="text-xs font-black text-sky-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2.5 py-1 rounded-full border border-sky-200 whitespace-nowrap">
                                     <Star size={12} fill="currentColor" /> {t("积分订单")}
                                 </span>
                             </div>
@@ -225,7 +232,7 @@ const OrderCardBase = ({
                             /* Rewards Badge for Normal/Score Orders */
                             <div className={`flex items-center ${isCandidate ? 'gap-1' : 'gap-2'}`}>
                                 {/* Score Reward */}
-                                <div className={`flex items-center gap-1 rounded-lg font-black shadow-sm ${isCandidate ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2.5 py-1'} ${canSatisfy ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'}`}>
+                                <div className={`flex items-center gap-1 rounded-lg font-black shadow-sm ${isCandidate ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2.5 py-1'} ${canSatisfy ? 'bg-sky-500 text-white' : 'bg-sky-100 text-sky-700'}`}>
                                     <span>{rewardInfo?.minScoreReward ?? baseScoreReward}</span>
                                     {rewardInfo?.isDifferent && !canSatisfy && (
                                         <>
@@ -286,23 +293,23 @@ const OrderCardBase = ({
                             const isItemHighlighted = hoveredItemName && req.name === hoveredItemName;
 
                             const borderStyle = hasItem ? 'border-solid' : 'border-dashed';
-                            let bgColorClass = 'bg-slate-50';
+                            let bgColorClass = 'bg-stone-50';
                             if (isScoreOrder) bgColorClass = 'bg-white/60';
 
                             let iconFilterClass = 'grayscale opacity-50';
-                            let textColorClass = 'text-slate-400';
+                            let textColorClass = 'text-stone-400';
 
                             if (hasItem && isQualitySatisfied) {
                                 bgColorClass = matchedItem.rarity.color;
                                 iconFilterClass = '';
-                                textColorClass = 'text-slate-700';
+                                textColorClass = 'text-stone-700';
                             } else if (hasItem && !isQualitySatisfied) {
-                                bgColorClass = isScoreOrder ? 'bg-white' : 'bg-slate-50';
+                                bgColorClass = isScoreOrder ? 'bg-white' : 'bg-stone-50';
                                 iconFilterClass = 'grayscale opacity-50';
-                                textColorClass = 'text-slate-500';
+                                textColorClass = 'text-stone-500';
                             }
 
-                            const borderColorClass = hasItem ? matchedItem.rarity.color.split(' ')[0] : (isScoreOrder ? 'border-blue-300' : 'border-slate-300');
+                            const borderColorClass = hasItem ? matchedItem.rarity.color.split(' ')[0] : (isScoreOrder ? 'border-sky-300' : 'border-stone-300');
 
                             // 检测是否被升级
                             const upgradeInfo = upgradedItemsMap[rIdx];
@@ -371,7 +378,7 @@ const OrderCardBase = ({
                                             relative flex items-center shrink-0 overflow-visible
                                             transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                                             ${isSlotMode
-                                                ? `w-16 h-16 rounded-xl flex-col justify-center border-2 ${isPhantom ? 'border-dashed ' + slotItem.rarity.color.split(' ')[0] + ' bg-transparent' : 'border-solid ' + slotItem.rarity.color.split(' ')[0] + ' ' + (slotQualitySatisfied ? slotItem.rarity.color : 'bg-slate-50')} ${!isPhantom ? 'cursor-pointer hover:scale-105 hover:shadow-md' : 'cursor-default'}
+                                                ? `w-16 h-16 rounded-xl flex-col justify-center border-2 ${isPhantom ? 'border-dashed ' + slotItem.rarity.color.split(' ')[0] + ' bg-transparent' : 'border-solid ' + slotItem.rarity.color.split(' ')[0] + ' ' + (slotQualitySatisfied ? slotItem.rarity.color : 'bg-stone-50')} ${!isPhantom ? 'cursor-pointer hover:scale-105 hover:shadow-md' : 'cursor-default'}
                                                     ${canSynthesizeWithSlot ? 'ring-4 ring-yellow-400 scale-105 z-20' : ''}
                                                     ${isToolTarget ? 'ring-2 ring-cyan-400 ring-offset-1 shadow-lg shadow-cyan-200/50' : ''}
                                                     ${isRecycleTarget || isTradeInTarget ? 'ring-2 ring-amber-400 ring-offset-1 shadow-amber-200/50' : ''}
@@ -379,9 +386,9 @@ const OrderCardBase = ({
                                                     ${isOverloadTarget ? 'ring-2 ring-red-400 ring-offset-1 shadow-lg shadow-red-200/50' : ''}
                                                     ${isReplaceTarget ? 'ring-2 ring-red-300 ring-offset-1 opacity-80' : ''}
                                                 `
-                                                : `h-[36px] ${isCandidate ? 'h-[26px]' : ''} rounded-lg border-2 ${isCandidate ? 'px-1.5' : 'px-2'} ${borderStyle} ${borderColorClass} ${bgColorClass} ${isSubmitted ? 'ring-2 ring-blue-500 shadow-md transform scale-105' : ''}`
+                                                : `h-[36px] ${isCandidate ? 'h-[26px]' : ''} rounded-lg border-2 ${isCandidate ? 'px-1.5' : 'px-2'} ${borderStyle} ${borderColorClass} ${bgColorClass} ${isSubmitted ? 'ring-2 ring-sky-500 shadow-md transform scale-105' : ''}`
                                             }
-                                            ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
+                                            ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-stone-200 border-stone-400' : ''}
                                         `}
                                         title={isSlotMode ? (isPhantom ? t("已在其他订单中使用") : (canSynthesizeWithSlot ? t("点击合成") : (isToolTarget ? t("点击使用工具") : t("点击取回")))) : ''}
                                     >
@@ -420,7 +427,7 @@ const OrderCardBase = ({
                                             absolute font-bold truncate pointer-events-none
                                             transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                                             ${isSlotMode
-                                                ? `left-[50%] top-[42px] -translate-x-1/2 translate-y-0 text-[10px] w-full text-center px-1 ${slotQualitySatisfied ? 'text-slate-700' : 'text-slate-400'}`
+                                                ? `left-[50%] top-[42px] -translate-x-1/2 translate-y-0 text-[10px] w-full text-center px-1 ${slotQualitySatisfied ? 'text-stone-700' : 'text-stone-400'}`
                                                 : `left-[40px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-sm'} max-w-[100px] text-left ${textColorClass}`
                                             }
                                         `}>
@@ -430,7 +437,7 @@ const OrderCardBase = ({
                                         {/* Capsule-Specific Modifiers (fade out in slot mode) */}
                                         <div className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${isSlotMode ? 'opacity-0' : 'opacity-100'}`}>
                                             {isSubmitted && isQualitySatisfied && (
-                                                <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-0.5 shadow">
+                                                <div className="absolute -top-2 -right-2 bg-sky-500 text-white rounded-full p-0.5 shadow">
                                                     <Check size={10} strokeWidth={4} />
                                                 </div>
                                             )}
@@ -448,7 +455,7 @@ const OrderCardBase = ({
                                         {/* Slot-Specific Modifiers (fade in in slot mode) */}
                                         <div className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${isSlotMode ? 'opacity-100' : 'opacity-0'}`}>
                                             {isSlotMode && slotQualitySatisfied && (
-                                                <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-0.5 shadow z-10 pointer-events-auto">
+                                                <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 shadow z-10 pointer-events-auto">
                                                     <Check size={8} strokeWidth={4} />
                                                 </div>
                                             )}
@@ -491,12 +498,12 @@ const OrderCardBase = ({
                                                 </div>
                                             )}
                                             {isSlotMode && slotItem?.decay !== undefined && (
-                                                <div className={`absolute bottom-0 left-0 text-[7px] px-0.5 rounded-tr font-bold pointer-events-auto ${slotItem.decay <= 5 ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                                <div className={`absolute bottom-0 left-0 text-[7px] px-0.5 rounded-tr font-bold pointer-events-auto ${slotItem.decay <= 5 ? 'bg-red-500 text-white' : 'bg-stone-200 text-stone-600'}`}>
                                                     {slotItem.decay}
                                                 </div>
                                             )}
                                             {isSlotMode && isPhantom && (
-                                                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-slate-400 text-white rounded-full p-0.5 shadow z-20 pointer-events-auto">
+                                                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-stone-400 text-white rounded-full p-0.5 shadow z-20 pointer-events-auto">
                                                     <Link size={12} />
                                                 </div>
                                             )}
@@ -518,12 +525,12 @@ const OrderCardBase = ({
                                 relative w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm
                                 ${orderRefreshCount > 0
                                     ? 'bg-orange-100 text-orange-500 hover:bg-orange-200 hover:scale-105 active:scale-95'
-                                    : 'bg-slate-50 text-slate-300 cursor-not-allowed'}
+                                    : 'bg-stone-50 text-stone-300 cursor-not-allowed'}
                             `}
                             title={t("刷新此订单")}
                         >
                             <RefreshCw size={18} />
-                            <div className="absolute -bottom-1 -right-1 bg-white text-[10px] font-black text-slate-500 px-1.5 py-0.5 rounded-full shadow border border-slate-100">
+                            <div className="absolute -bottom-1 -right-1 bg-white text-[10px] font-black text-stone-500 px-1.5 py-0.5 rounded-full shadow border border-stone-100">
                                 {orderRefreshCount}
                             </div>
                         </button>
@@ -532,7 +539,7 @@ const OrderCardBase = ({
             </div>
 
             {isSatisfied && !isCandidate && (
-                <div className="absolute bottom-3 left-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-sm animate-bounce flex items-center gap-1">
+                <div className="absolute bottom-3 left-3 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-sm animate-bounce flex items-center gap-1">
                     <Check size={12} /> {t("可提交")}
                 </div>
             )}

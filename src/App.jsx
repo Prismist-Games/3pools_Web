@@ -183,11 +183,11 @@ export default function App() {
             {showSettings && (
                 <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
-                        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-                            <h3 className="text-xl font-black flex items-center gap-2 text-slate-700">
+                        <div className="p-4 border-b flex justify-between items-center bg-stone-50">
+                            <h3 className="text-xl font-black flex items-center gap-2 text-stone-700">
                                 <Settings size={24} /> 游戏配置 & 开发者工具
                             </h3>
-                            <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-slate-200 rounded-full">
+                            <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-stone-200 rounded-full">
                                 <X size={24} />
                             </button>
                         </div>
@@ -266,7 +266,7 @@ export default function App() {
                                         </div>
                                         <div className={`grid grid-cols-3 gap-3 transition-opacity duration-300 ${config.patience?.enabled === false ? 'opacity-40 pointer-events-none grayscale' : ''}`}>
                                             <div className="flex flex-col gap-1">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase">初始耐心值</label>
+                                                <label className="text-[10px] font-bold text-stone-500 uppercase">初始耐心值</label>
                                                 <input
                                                     type="number"
                                                     className="p-2 border rounded font-mono"
@@ -275,7 +275,7 @@ export default function App() {
                                                 />
                                             </div>
                                             <div className="flex flex-col gap-1">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase">抽取消耗</label>
+                                                <label className="text-[10px] font-bold text-stone-500 uppercase">抽取消耗</label>
                                                 <input
                                                     type="number"
                                                     className="p-2 border rounded font-mono"
@@ -284,7 +284,7 @@ export default function App() {
                                                 />
                                             </div>
                                             <div className="flex flex-col gap-1">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase text-green-600">订单奖励</label>
+                                                <label className="text-[10px] font-bold text-stone-500 uppercase text-green-600">订单奖励</label>
                                                 <input
                                                     type="number"
                                                     className="p-2 border border-green-200 bg-green-50 rounded font-mono font-bold text-green-600"
@@ -294,7 +294,7 @@ export default function App() {
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-1">
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase">阶段阈值 (降序，例如 100, 80, 60...)</label>
+                                            <label className="text-[10px] font-bold text-stone-500 uppercase">阶段阈值 (降序，例如 100, 80, 60...)</label>
                                             <input
                                                 type="text"
                                                 className="p-2 border rounded font-mono text-xs"
@@ -307,12 +307,12 @@ export default function App() {
                                         </div>
 
                                         {/* Emergency Order Config */}
-                                        <div className="mt-4 pt-4 border-t border-slate-200">
+                                        <div className="mt-4 pt-4 border-t border-stone-200">
                                             <h5><Timer size={14} /> {t("离开关卡需求配置")}</h5>
 
                                             {/* Deadline */}
                                             <div className="mb-3">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">时限 (回合)</label>
+                                                <label className="text-[10px] font-bold text-stone-500 uppercase block mb-1">时限 (回合)</label>
                                                 <input
                                                     type="number"
                                                     className="w-full p-2 border rounded font-mono"
@@ -460,25 +460,25 @@ export default function App() {
                                             </div>
 
                                             {/* Note about difficulty */}
-                                            <div className="text-[9px] text-slate-400 bg-slate-50 p-2 rounded border border-slate-100 mb-3">
+                                            <div className="text-[9px] text-stone-400 bg-stone-50 p-2 rounded border border-stone-100 mb-3">
                                                 💡 提示：难度等级的详细配置（每个难度的需求数量和品质）在 <code className="bg-white px-1 rounded">constants.js</code> 中的 <code className="bg-white px-1 rounded">difficultyReqCountWeights</code> 和 <code className="bg-white px-1 rounded">difficultyRarityWeights</code> 里配置
                                             </div>
 
                                             {/* Fallback configs - collapsed by default */}
-                                            <details className="mb-3 border border-slate-200 rounded-lg overflow-hidden">
-                                                <summary className="text-[10px] font-bold text-slate-500 uppercase p-2 bg-slate-50 cursor-pointer hover:bg-slate-100 select-none">
+                                            <details className="mb-3 border border-stone-200 rounded-lg overflow-hidden">
+                                                <summary className="text-[10px] font-bold text-stone-500 uppercase p-2 bg-stone-50 cursor-pointer hover:bg-stone-100 select-none">
                                                     ⚙️ 高级：Fallback配置（仅当难度未配置时使用）
                                                 </summary>
                                                 <div className="p-3 space-y-3 bg-white">
                                                     {/* Requirement Count Range (fallback) */}
                                                     <div>
-                                                        <label className="text-[10px] font-bold text-slate-600 block mb-1">基础需求数量范围</label>
-                                                        <div className="text-[9px] text-slate-400 mb-2">
+                                                        <label className="text-[10px] font-bold text-stone-600 block mb-1">基础需求数量范围</label>
+                                                        <div className="text-[9px] text-stone-400 mb-2">
                                                             当某个难度等级未在下方配置时，使用此范围随机生成
                                                         </div>
                                                         <div className="grid grid-cols-2 gap-2">
                                                             <div>
-                                                                <label className="text-[8px] text-slate-400 block">最小</label>
+                                                                <label className="text-[8px] text-stone-400 block">最小</label>
                                                                 <input
                                                                     type="number"
                                                                     min="1"
@@ -495,7 +495,7 @@ export default function App() {
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label className="text-[8px] text-slate-400 block">最大</label>
+                                                                <label className="text-[8px] text-stone-400 block">最大</label>
                                                                 <input
                                                                     type="number"
                                                                     min="1"
@@ -516,8 +516,8 @@ export default function App() {
 
                                                     {/* Base Rarity Weights (fallback) */}
                                                     <div className="pt-3 border-t">
-                                                        <label className="text-[10px] font-bold text-slate-600 block mb-1">基础品质概率</label>
-                                                        <div className="text-[9px] text-slate-400 mb-2">
+                                                        <label className="text-[10px] font-bold text-stone-600 block mb-1">基础品质概率</label>
+                                                        <div className="text-[9px] text-stone-400 mb-2">
                                                             当某个难度等级未在下方配置时，使用此品质分布
                                                         </div>
                                                         <div className="grid grid-cols-3 gap-2">
@@ -556,11 +556,11 @@ export default function App() {
 
                                     {/* Score Config */}
                                     <div className="space-y-4">
-                                        <h5 className="text-sm font-bold text-blue-700 flex items-center gap-1"><Flag size={14} /> 积分订单获取公式</h5>
+                                        <h5 className="text-sm font-bold text-sky-700 flex items-center gap-1"><Flag size={14} /> 积分订单获取公式</h5>
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="flex flex-col gap-1">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase">计算偏移 (Offset)</label>
+                                                <label className="text-[10px] font-bold text-stone-500 uppercase">计算偏移 (Offset)</label>
                                                 <input
                                                     type="number"
                                                     step="0.1"
@@ -570,7 +570,7 @@ export default function App() {
                                                 />
                                             </div>
                                             <div className="flex flex-col gap-1">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase">胜利目标积分</label>
+                                                <label className="text-[10px] font-bold text-stone-500 uppercase">胜利目标积分</label>
                                                 <input
                                                     type="number"
                                                     className="p-2 border rounded font-mono text-sm"
@@ -581,7 +581,7 @@ export default function App() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase">每个需求物品的进度贡献 (Rarity Weights)</label>
+                                            <label className="text-[10px] font-bold text-stone-500 uppercase">每个需求物品的进度贡献 (Rarity Weights)</label>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].map(rKey => (
                                                     <div key={rKey} className="flex flex-col gap-0.5">
@@ -601,7 +601,7 @@ export default function App() {
                                             </div>
                                         </div>
 
-                                        <div className="text-[10px] text-slate-400 font-mono bg-slate-50 p-2 rounded leading-relaxed border border-slate-100">
+                                        <div className="text-[10px] text-stone-400 font-mono bg-stone-50 p-2 rounded leading-relaxed border border-stone-100">
                                             公式: floor(∑(每个需求物品对应权重) + Offset)
                                         </div>
                                     </div>
@@ -613,7 +613,7 @@ export default function App() {
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-orange-500 pl-3 flex items-center gap-2">
                                     🎚️ 离开关卡难度等级配置 (1-{config.emergency?.difficulty?.maxDifficulty || 10})
                                 </h4>
-                                <div className="text-xs text-slate-600 mb-4 bg-white/60 p-3 rounded-lg border border-orange-100">
+                                <div className="text-xs text-stone-600 mb-4 bg-white/60 p-3 rounded-lg border border-orange-100">
                                     为每个难度等级配置精确的品质需求。难度越高，可以设置更高品质的要求。
                                     <br />
                                     <span className="text-orange-600 font-bold">💡 当前最大难度: {config.emergency?.difficulty?.maxDifficulty || 10}，可在上方"难度系统"中调整</span>
@@ -630,7 +630,7 @@ export default function App() {
                                                     }`}>
                                                     难度 {difficulty}
                                                 </span>
-                                                <span className="text-[10px] text-slate-400 font-normal">
+                                                <span className="text-[10px] text-stone-400 font-normal">
                                                     (点击展开编辑)
                                                 </span>
                                             </summary>
@@ -712,7 +712,7 @@ export default function App() {
                                                                         <option value="epic">史诗</option>
                                                                         <option value="legendary">传说</option>
                                                                     </select>
-                                                                    <span className="text-xs text-slate-500">×</span>
+                                                                    <span className="text-xs text-stone-500">×</span>
                                                                     <input
                                                                         type="number"
                                                                         min="1"
@@ -776,7 +776,7 @@ export default function App() {
                                                             </button>
 
                                                             {/* Preview */}
-                                                            <div className="text-[9px] text-slate-500 bg-white p-2 rounded border border-purple-100">
+                                                            <div className="text-[9px] text-stone-500 bg-white p-2 rounded border border-purple-100">
                                                                 <strong>预览:</strong> 总共需要 {(config.emergency?.difficultyRequirements?.[difficulty] || []).reduce((sum, r) => sum + r.count, 0)} 个物品
                                                             </div>
                                                         </div>
@@ -809,7 +809,7 @@ export default function App() {
                                                                 }
                                                             });
                                                         }}
-                                                        className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded font-bold"
+                                                        className="text-[10px] px-2 py-1 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded font-bold"
                                                     >
                                                         恢复默认
                                                     </button>
@@ -822,11 +822,11 @@ export default function App() {
 
                             {/* 3. 概率权重配置 */}
                             <section>
-                                <h4 className="text-lg font-bold mb-4 border-l-4 border-blue-500 pl-3">掉落与需求概率 (Quality Rates)</h4>
-                                <div className="text-xs text-slate-500 mb-2">配置物品掉落和订单需求的品质分布权重。</div>
+                                <h4 className="text-lg font-bold mb-4 border-l-4 border-sky-500 pl-3">掉落与需求概率 (Quality Rates)</h4>
+                                <div className="text-xs text-stone-500 mb-2">配置物品掉落和订单需求的品质分布权重。</div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm border-separate border-spacing-y-2">
-                                        <thead className="text-slate-500 text-left">
+                                        <thead className="text-stone-500 text-left">
                                             <tr>
                                                 <th className="p-2">类别</th>
                                                 <th className="p-2 text-center">普通</th>
@@ -839,7 +839,7 @@ export default function App() {
                                         </thead>
                                         <tbody>
                                             {/* Rarity Drop Rates */}
-                                            <tr className="bg-slate-50 rounded-lg overflow-hidden">
+                                            <tr className="bg-stone-50 rounded-lg overflow-hidden">
                                                 <td className="p-3">
                                                     <div className="font-bold flex items-center gap-2">
                                                         <Package size={16} className="text-orange-500" /> 物品掉落概率
@@ -862,10 +862,10 @@ export default function App() {
                                                 ))}
                                             </tr>
                                             {/* Order Req Rates */}
-                                            <tr className="bg-slate-50 rounded-lg overflow-hidden">
+                                            <tr className="bg-stone-50 rounded-lg overflow-hidden">
                                                 <td className="p-3">
                                                     <div className="font-bold flex items-center gap-2">
-                                                        <Flag size={16} className="text-blue-500" /> 订单需求概率
+                                                        <Flag size={16} className="text-sky-500" /> 订单需求概率
                                                     </div>
                                                 </td>
                                                 {['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].map(rKey => (
@@ -902,16 +902,16 @@ export default function App() {
                             {/* 4. 订单详情配置 */}
                             <section>
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-cyan-500 pl-3">订单数量与奖励 (Order Size & Rewards)</h4>
-                                <div className="text-xs text-slate-500 mb-4">设定不同物品数量订单的出现权重，以及完成后的基础耐心值奖励。</div>
+                                <div className="text-xs text-stone-500 mb-4">设定不同物品数量订单的出现权重，以及完成后的基础耐心值奖励。</div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {[2, 3, 4].map(count => {
                                         const stage = config.stages[0];
                                         const rewards = stage.baseRewards || { 2: 15, 3: 15, 4: 15 };
                                         return (
-                                            <div key={count} className="p-4 border rounded-xl bg-slate-50 space-y-3">
-                                                <div className="font-bold text-center text-slate-700 underline underline-offset-4">{count} 个物品订单</div>
+                                            <div key={count} className="p-4 border rounded-xl bg-stone-50 space-y-3">
+                                                <div className="font-bold text-center text-stone-700 underline underline-offset-4">{count} 个物品订单</div>
                                                 <div className="flex justify-between items-center">
-                                                    <label className="text-xs font-bold text-slate-500">出现权重%</label>
+                                                    <label className="text-xs font-bold text-stone-500">出现权重%</label>
                                                     <input
                                                         type="number"
                                                         className="w-16 p-1 border rounded text-center bg-white font-mono"
@@ -948,7 +948,7 @@ export default function App() {
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-pink-500 pl-3">其他参数 (Misc)</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-slate-500">刷新单个订单消耗</label>
+                                        <label className="text-xs font-bold text-stone-500">刷新单个订单消耗</label>
                                         <input
                                             type="number"
                                             value={config.global.refreshCost}
@@ -957,7 +957,7 @@ export default function App() {
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-slate-500">初始金币</label>
+                                        <label className="text-xs font-bold text-stone-500">初始金币</label>
                                         <input
                                             type="number"
                                             value={config.global.initialGold || 30}
@@ -966,7 +966,7 @@ export default function App() {
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-slate-500">初始订单刷新次数</label>
+                                        <label className="text-xs font-bold text-stone-500">初始订单刷新次数</label>
                                         <input
                                             type="number"
                                             min="0"
@@ -976,7 +976,7 @@ export default function App() {
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-slate-500">订单刷新次数上限</label>
+                                        <label className="text-xs font-bold text-stone-500">订单刷新次数上限</label>
                                         <input
                                             type="number"
                                             min="0"
@@ -986,7 +986,7 @@ export default function App() {
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-slate-500">主线道具出现概率 (0-1)</label>
+                                        <label className="text-xs font-bold text-stone-500">主线道具出现概率 (0-1)</label>
                                         <input
                                             type="number" step="0.05"
                                             value={config.global.mainlineDropRate || 0.3}
@@ -995,7 +995,7 @@ export default function App() {
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-slate-500">熵增模式周期</label>
+                                        <label className="text-xs font-bold text-stone-500">熵增模式周期</label>
                                         <input
                                             type="number"
                                             value={config.stages[0].entropyDecayValue || 40}
@@ -1009,7 +1009,7 @@ export default function App() {
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-slate-500">订单槽数量</label>
+                                        <label className="text-xs font-bold text-stone-500">订单槽数量</label>
                                         <input
                                             type="number"
                                             min="1"
@@ -1036,21 +1036,21 @@ export default function App() {
 
                                         return (
                                             <details key={affix.id} className="border rounded-lg overflow-hidden bg-white shadow-sm">
-                                                <summary className="p-3 cursor-pointer hover:bg-slate-50 font-bold text-sm flex items-center justify-between select-none">
+                                                <summary className="p-3 cursor-pointer hover:bg-stone-50 font-bold text-sm flex items-center justify-between select-none">
                                                     <div className="flex items-center gap-3">
                                                         <span className="text-base">{affix.name}</span>
-                                                        <span className="text-xs text-slate-400 font-normal">({affix.desc})</span>
+                                                        <span className="text-xs text-stone-400 font-normal">({affix.desc})</span>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-slate-500">消耗:</span>
+                                                        <span className="text-xs text-stone-500">消耗:</span>
                                                         <span className="font-mono text-yellow-600">{affix.cost}🪙</span>
                                                     </div>
                                                 </summary>
 
-                                                <div className="p-4 border-t bg-slate-50 space-y-4">
+                                                <div className="p-4 border-t bg-stone-50 space-y-4">
                                                     {/* 消耗配置 */}
                                                     <div>
-                                                        <label className="text-xs font-bold text-slate-600 block mb-2">💰 金币消耗</label>
+                                                        <label className="text-xs font-bold text-stone-600 block mb-2">💰 金币消耗</label>
                                                         <input
                                                             type="number"
                                                             value={affix.cost || config.patience.drawCost}
@@ -1126,14 +1126,14 @@ export default function App() {
                                                                             </div>
                                                                         ))}
                                                                     </div>
-                                                                    <div className="text-xs text-slate-400 mt-2 text-right">
+                                                                    <div className="text-xs text-stone-400 mt-2 text-right">
                                                                         总和: {Object.values(affix.rarityWeights).reduce((sum, v) => sum + v, 0).toFixed(2)}
                                                                     </div>
                                                                 </div>
                                                             )}
 
                                                             {!affix.rarityWeights && (
-                                                                <div className="text-xs text-slate-400 bg-white p-2 rounded border">
+                                                                <div className="text-xs text-stone-400 bg-white p-2 rounded border">
                                                                     当前使用全局物品掉落概率
                                                                 </div>
                                                             )}
@@ -1141,7 +1141,7 @@ export default function App() {
                                                     )}
 
                                                     {!supportsCustomRarity && (
-                                                        <div className="text-xs text-slate-400 bg-yellow-50 p-2 rounded border border-yellow-200">
+                                                        <div className="text-xs text-stone-400 bg-yellow-50 p-2 rounded border border-yellow-200">
                                                             ℹ️ 此词缀有固定的品质逻辑，无法自定义
                                                         </div>
                                                     )}
@@ -1158,7 +1158,7 @@ export default function App() {
                                 <div className="space-y-4 bg-amber-50/30 p-4 rounded-xl border border-amber-200">
                                     {/* 掉落概率 */}
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-slate-500">每次抽取掉落工具物品概率</label>
+                                        <label className="text-xs font-bold text-stone-500">每次抽取掉落工具物品概率</label>
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="number"
@@ -1172,13 +1172,13 @@ export default function App() {
                                                 })}
                                                 className="border rounded px-3 py-2 font-mono w-24"
                                             />
-                                            <span className="text-sm text-slate-500 font-bold">{((config.toolItems?.dropChance || 0) * 100).toFixed(0)}%</span>
+                                            <span className="text-sm text-stone-500 font-bold">{((config.toolItems?.dropChance || 0) * 100).toFixed(0)}%</span>
                                         </div>
                                     </div>
 
                                     {/* 各工具物品权重 */}
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-slate-500">各工具物品相对权重</label>
+                                        <label className="text-xs font-bold text-stone-500">各工具物品相对权重</label>
                                         <div className="grid grid-cols-3 gap-3">
                                             {[
                                                 { id: 'tool_reforge', name: '🔥 命运熔炉', desc: '重roll品质' },
@@ -1187,7 +1187,7 @@ export default function App() {
                                             ].map(tool => (
                                                 <div key={tool.id} className="flex flex-col gap-1 bg-white p-2 rounded-lg border border-amber-100 shadow-sm">
                                                     <span className="text-xs font-bold text-amber-700">{tool.name}</span>
-                                                    <span className="text-[10px] text-slate-400">{tool.desc}</span>
+                                                    <span className="text-[10px] text-stone-400">{tool.desc}</span>
                                                     <input
                                                         type="number"
                                                         step="0.1"
@@ -1209,13 +1209,13 @@ export default function App() {
 
                                     {/* 命运熔炉品质分布 */}
                                     <details className="border rounded-lg overflow-hidden bg-white shadow-sm">
-                                        <summary className="p-3 cursor-pointer hover:bg-slate-50 font-bold text-sm flex items-center gap-2 select-none">
+                                        <summary className="p-3 cursor-pointer hover:bg-stone-50 font-bold text-sm flex items-center gap-2 select-none">
                                             🔥 命运熔炉 - 品质概率分布
                                         </summary>
-                                        <div className="p-3 space-y-2 bg-slate-50">
+                                        <div className="p-3 space-y-2 bg-stone-50">
                                             {['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].map(rKey => (
                                                 <div key={rKey} className="flex items-center gap-2">
-                                                    <label className="text-xs font-bold text-slate-600 w-20 capitalize">{rKey}</label>
+                                                    <label className="text-xs font-bold text-stone-600 w-20 capitalize">{rKey}</label>
                                                     <input
                                                         type="number"
                                                         step="0.01"
@@ -1236,7 +1236,7 @@ export default function App() {
                                                     />
                                                 </div>
                                             ))}
-                                            <div className="text-xs text-slate-400 mt-1">
+                                            <div className="text-xs text-stone-400 mt-1">
                                                 总和: {Object.values(config.toolItems?.reforgeRarityWeights || {}).reduce((sum, v) => sum + v, 0).toFixed(2)}
                                             </div>
                                         </div>
@@ -1248,7 +1248,7 @@ export default function App() {
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-indigo-500 pl-3">可用技能 (勾选以启用掉落)</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {SKILL_DEFINITIONS.map(skill => (
-                                        <label key={skill.id} className="flex items-start gap-2 p-2 border rounded-lg hover:bg-slate-50 cursor-pointer">
+                                        <label key={skill.id} className="flex items-start gap-2 p-2 border rounded-lg hover:bg-stone-50 cursor-pointer">
                                             <input
                                                 type="checkbox"
                                                 checked={config.enabledSkillIds?.includes(skill.id)}
@@ -1263,7 +1263,7 @@ export default function App() {
                                             />
                                             <div className="text-sm">
                                                 <div className="font-bold flex items-center gap-1"><skill.Icon size={14} /> {skill.name}</div>
-                                                <div className="text-xs text-slate-500">{skill.desc}</div>
+                                                <div className="text-xs text-stone-500">{skill.desc}</div>
                                             </div>
                                         </label>
                                     ))}
@@ -1274,7 +1274,7 @@ export default function App() {
                             <section>
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-red-500 pl-3">开发者工具: 直接获取技能</h4>
                                 <div className="flex flex-col gap-3">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border rounded-lg bg-slate-50">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border rounded-lg bg-stone-50">
                                         {SKILL_DEFINITIONS.map(s => {
                                             const isSelected = devSkillsSelected.includes(s.id);
                                             return (
@@ -1287,7 +1287,7 @@ export default function App() {
                                                     }}
                                                     className={`
                                             text-xs p-2 rounded border flex items-center gap-2 transition-all
-                                            ${isSelected ? 'bg-red-100 border-red-400 text-red-800 ring-1 ring-red-400' : 'bg-white border-slate-200 text-slate-600 hover:bg-white'}
+                                            ${isSelected ? 'bg-red-100 border-red-400 text-red-800 ring-1 ring-red-400' : 'bg-white border-stone-200 text-stone-600 hover:bg-white'}
                                         `}
                                                 >
                                                     <s.Icon size={14} />
@@ -1307,7 +1307,7 @@ export default function App() {
                                             disabled={devSkillsSelected.length === 0}
                                             className={`
                                     px-4 py-2 rounded-lg font-bold text-sm shadow transition-all
-                                    ${devSkillsSelected.length > 0 ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}
+                                    ${devSkillsSelected.length > 0 ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}
                                 `}
                                         >
                                             覆盖当前所有技能 ({devSkillsSelected.length})
@@ -1318,7 +1318,7 @@ export default function App() {
                                                 setInitialSkills([]);
                                                 handleHardReset();
                                             }}
-                                            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2"
+                                            className="px-4 py-2 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-lg text-sm font-bold flex items-center gap-2"
                                         >
                                             <RotateCcw size={14} /> 清空并重启
                                         </button>
@@ -1329,10 +1329,10 @@ export default function App() {
                             {/* 品质基础参数 */}
                             <section>
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-purple-500 pl-3">品质属性 (Rarity Details)</h4>
-                                <div className="text-xs text-slate-500 mb-2">配置各品质的加成倍率和回收价值。</div>
+                                <div className="text-xs text-stone-500 mb-2">配置各品质的加成倍率和回收价值。</div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
-                                        <thead className="bg-slate-100 text-slate-500 rounded-t-lg">
+                                        <thead className="bg-stone-100 text-stone-500 rounded-t-lg">
                                             <tr>
                                                 <th className="p-2 text-left">品质名称</th>
                                                 <th className="p-2 text-left">奖励加成 (Bonus)</th>
@@ -1376,18 +1376,18 @@ export default function App() {
 
                         </div >
 
-                        <div className="p-4 bg-slate-100 border-t flex justify-between items-center">
+                        <div className="p-4 bg-stone-100 border-t flex justify-between items-center">
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setDefaultResetConfirmOpen(true)}
-                                    className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-white rounded-lg transition-colors font-bold text-sm"
+                                    className="flex items-center gap-2 px-4 py-2 text-stone-600 hover:bg-white rounded-lg transition-colors font-bold text-sm"
                                 >
                                     <RotateCcw size={16} /> 重置默认
                                 </button>
                             </div>
 
                             <div className="flex gap-3">
-                                <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors font-bold shadow-sm">
+                                <label className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-300 text-stone-700 rounded-lg cursor-pointer hover:bg-stone-50 transition-colors font-bold shadow-sm">
                                     <Upload size={18} />
                                     <span>导入配置</span>
                                     <input type="file" accept=".json" onChange={handleImportConfig} className="hidden" />
@@ -1395,7 +1395,7 @@ export default function App() {
 
                                 <button
                                     onClick={handleExportConfig}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold shadow-lg"
+                                    className="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors font-bold shadow-lg"
                                 >
                                     <Download size={18} /> 导出配置
                                 </button>

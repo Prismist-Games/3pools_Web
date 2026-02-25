@@ -221,7 +221,7 @@ export const SKILL_DEFINITIONS = [
     { id: 'lucky_7', name: '幸运 7', desc: '当前耐心值的尾数为 7 时，抽取传说物品的概率翻倍。', Icon: Star, type: 'luck', color: 'text-green-600 bg-green-100' },
     { id: 'alchemy', name: '炼金术', desc: '回收"稀有"及以上品质物品时，25% 概率获得 5 耐心值。', Icon: Sparkles, type: 'patience', color: 'text-purple-600 bg-purple-100' },
     { id: 'vip_discount', name: '贵宾折扣', desc: '"精准"和"有的放矢"词缀的奖池耐心值消耗减少 1。', Icon: Ticket, type: 'draw', color: 'text-orange-600 bg-orange-100' },
-    { id: 'negotiator', name: '谈判专家', desc: '抽到"史诗"或以上品质物品时，所有订单获得 1 次刷新次数。', Icon: ArrowLeftRight, type: 'utility', color: 'text-slate-600 bg-slate-100' },
+    { id: 'negotiator', name: '谈判专家', desc: '抽到"史诗"或以上品质物品时，所有订单获得 1 次刷新次数。', Icon: ArrowLeftRight, type: 'utility', color: 'text-stone-600 bg-stone-100' },
     { id: 'consolation_prize', name: '安慰奖', desc: '连续抽到 5 个"普通"品质物品后，下次抽奖获得的物品必定是稀有以上品质。', Icon: Check, type: 'luck', color: 'text-teal-600 bg-teal-100' },
     { id: 'cut_corners', name: '偷工减料', desc: '刷新出新订单时，20% 概率使订单需求物品数量 -1（最低为1）。', Icon: Zap, type: 'refresh', color: 'text-red-600 bg-red-100' },
     { id: 'time_freeze', name: '时间冻结', desc: '刷新单个订单时，20% 概率不消耗该订单的剩余刷新次数。', Icon: Clock, type: 'refresh', color: 'text-cyan-600 bg-cyan-100' },
@@ -356,11 +356,11 @@ export const INITIAL_AFFIXES_CONFIG = [
 ];
 
 export const INITIAL_RARITY_CONFIG = [
-    { id: 'common', name: '普通', color: 'border-slate-300 bg-slate-50 text-slate-600', dotColor: 'bg-slate-400', starColor: 'text-slate-400', shadow: '', bonus: 0, recycleValue: 1 },
-    { id: 'uncommon', name: '优秀', color: 'border-green-400 bg-green-50 text-green-700', dotColor: 'bg-green-500', starColor: 'text-green-500', shadow: 'shadow-green-200', bonus: 0.1, recycleValue: 2 },
-    { id: 'rare', name: '稀有', color: 'border-blue-400 bg-blue-50 text-blue-700', dotColor: 'bg-blue-500', starColor: 'text-blue-500', shadow: 'shadow-blue-200', bonus: 0.25, recycleValue: 5 },
-    { id: 'epic', name: '史诗', color: 'border-purple-400 bg-purple-50 text-purple-700', dotColor: 'bg-purple-500', starColor: 'text-purple-500', shadow: 'shadow-purple-200', bonus: 0.5, recycleValue: 15 },
-    { id: 'legendary', name: '传说', color: 'border-orange-400 bg-orange-50 text-orange-700', dotColor: 'bg-orange-500', starColor: 'text-orange-500', shadow: 'shadow-orange-200', bonus: 1.0, recycleValue: 50 },
+    { id: 'common', name: '普通', color: 'border-stone-300 bg-stone-50 text-stone-500', dotColor: 'bg-stone-400', starColor: 'text-stone-400', shadow: '', bonus: 0, recycleValue: 1 },
+    { id: 'uncommon', name: '优秀', color: 'border-emerald-400 bg-emerald-50 text-emerald-700', dotColor: 'bg-emerald-500', starColor: 'text-emerald-500', shadow: 'shadow-emerald-200', bonus: 0.1, recycleValue: 2 },
+    { id: 'rare', name: '稀有', color: 'border-sky-400 bg-sky-50 text-sky-700', dotColor: 'bg-sky-500', starColor: 'text-sky-500', shadow: 'shadow-sky-200', bonus: 0.25, recycleValue: 5 },
+    { id: 'epic', name: '史诗', color: 'border-violet-400 bg-violet-50 text-violet-700', dotColor: 'bg-violet-500', starColor: 'text-violet-500', shadow: 'shadow-violet-200', bonus: 0.5, recycleValue: 15 },
+    { id: 'legendary', name: '传说', color: 'border-amber-400 bg-amber-50 text-amber-700', dotColor: 'bg-amber-500', starColor: 'text-amber-500', shadow: 'shadow-amber-200', bonus: 1.0, recycleValue: 50 },
     { id: 'mythic', name: '神话', color: 'border-rose-500 bg-rose-50 text-rose-700', dotColor: 'bg-rose-500', starColor: 'text-rose-600', shadow: 'shadow-rose-200', bonus: 2.0, recycleValue: 200 }
 ];
 
@@ -370,7 +370,7 @@ export const INITIAL_POOLS_DATA = [
         "name": "水果",
         "type": "normal",
         "currency": "gold",
-        "color": "bg-green-100 text-green-800 border-green-200",
+        "color": "bg-emerald-100 text-emerald-800 border-emerald-200",
         "icon": "🍎",
         "items": [
             {
@@ -396,7 +396,7 @@ export const INITIAL_POOLS_DATA = [
         "name": "药物",
         "type": "normal",
         "currency": "gold",
-        "color": "bg-red-100 text-red-800 border-red-200",
+        "color": "bg-rose-100 text-rose-800 border-rose-200",
         "icon": "💊",
         "items": [
             {
@@ -422,7 +422,7 @@ export const INITIAL_POOLS_DATA = [
         "name": "文具",
         "type": "normal",
         "currency": "gold",
-        "color": "bg-yellow-100 text-yellow-800 border-yellow-200",
+        "color": "bg-amber-100 text-amber-800 border-amber-200",
         "icon": "✏️",
         "items": [
             {
@@ -474,7 +474,7 @@ export const INITIAL_POOLS_DATA = [
         "name": "电器",
         "type": "normal",
         "currency": "gold",
-        "color": "bg-blue-100 text-blue-800 border-blue-200",
+        "color": "bg-sky-100 text-sky-800 border-sky-200",
         "icon": "⚡️",
         "items": [
             {

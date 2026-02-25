@@ -99,10 +99,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className={`bg-white p-6 rounded-3xl shadow-2xl max-w-sm w-full flex flex-col items-center gap-4 text-center border-4 border-white transform scale-100 animate-in zoom-in-95 duration-200
                    ${isVictory ? 'ring-4 ring-yellow-400 bg-white' : ''}
-                   ${isStageUp ? 'ring-4 ring-blue-400 bg-blue-50' : ''}
+                   ${isStageUp ? 'ring-4 ring-sky-400 bg-sky-50' : ''}
                    ${!isVictory && !isStageUp ? 'ring-4 ring-purple-200' : ''}
                 `}>
-                            <h3 className="text-2xl font-black text-slate-800">{modalContent.title}</h3>
+                            <h3 className="text-2xl font-black text-stone-800">{modalContent.title}</h3>
 
                             {isVictory ? (
                                 <Leaderboard
@@ -112,11 +112,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             ) : isStageUp ? (
                                 <div className="flex flex-col items-center gap-4 py-4 w-full">
                                     <div className="text-4xl animate-bounce">{modalContent.item?.icon}</div>
-                                    <div className="w-full bg-white/50 rounded-xl p-4 border border-blue-200">
-                                        <h4 className="font-bold text-blue-800 mb-3 text-left">{t("解锁新内容")}：</h4>
+                                    <div className="w-full bg-white/50 rounded-xl p-4 border border-sky-200">
+                                        <h4 className="font-bold text-sky-800 mb-3 text-left">{t("解锁新内容")}：</h4>
                                         <ul className="text-left space-y-2">
                                             {modalContent.unlocks.map((text, idx) => (
-                                                <li key={idx} className="flex items-start gap-2 text-sm font-bold text-slate-600">
+                                                <li key={idx} className="flex items-start gap-2 text-sm font-bold text-stone-600">
                                                     <Check size={16} className="text-green-500 mt-0.5 shrink-0" />
                                                     <span>{text}</span>
                                                 </li>
@@ -125,7 +125,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     </div>
                                     <button
                                         onClick={handleCloseModal}
-                                        className="mt-2 w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95"
+                                        className="mt-2 w-full bg-sky-600 text-white font-bold py-3 rounded-xl hover:bg-sky-700 transition-colors shadow-lg active:scale-95"
                                     >
                                         {t("继续挑战")}
                                     </button>
@@ -142,7 +142,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <span className="text-lg font-bold text-red-600">
                                             {modalContent.item?.name}
                                         </span>
-                                        <p className="text-slate-500 font-medium">{modalContent.message}</p>
+                                        <p className="text-stone-500 font-medium">{modalContent.message}</p>
                                     </div>
                                     <button
                                         onClick={onReset}
@@ -177,11 +177,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             So <h3> will be empty.
                                             I'll add the title manually here.
                                          */}
-                                        <h3 className="text-3xl font-black text-slate-800">{t("离开此关卡成功！")}</h3>
-                                        <p className="text-slate-500 font-medium text-lg">
-                                            {t("当前积分")}: <span className="font-bold text-blue-600 font-mono text-xl">{modalContent.score}</span>
+                                        <h3 className="text-3xl font-black text-stone-800">{t("离开此关卡成功！")}</h3>
+                                        <p className="text-stone-500 font-medium text-lg">
+                                            {t("当前积分")}: <span className="font-bold text-sky-600 font-mono text-xl">{modalContent.score}</span>
                                         </p>
-                                        <p className="text-slate-400 text-sm">
+                                        <p className="text-stone-400 text-sm">
                                             {t("你可以选择继续挑战以获得更高分数，或者现在带着战利品离开。")}
                                         </p>
                                     </div>
@@ -189,7 +189,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     <div className="flex flex-col w-full gap-3 mt-4">
                                         <button
                                             onClick={handleEvacuationContinue}
-                                            className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                                            className="w-full bg-sky-600 text-white font-bold py-4 rounded-xl hover:bg-sky-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
                                         >
                                             <RotateCcw size={20} />
                                             {t("继续挑战 (难度提升)")}
@@ -197,7 +197,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                         <button
                                             onClick={handleEvacuationExtract}
-                                            className="w-full bg-white border-2 border-slate-200 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-colors flex items-center justify-center gap-2"
+                                            className="w-full bg-white border-2 border-stone-200 text-stone-600 font-bold py-3 rounded-xl hover:bg-stone-50 hover:text-stone-800 transition-colors flex items-center justify-center gap-2"
                                         >
                                             <Flag size={20} />
                                             {t("提取分数 (结束游戏)")}
@@ -207,20 +207,20 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             ) : (
                                 // Standard Item Modal
                                 <>
-                                    <div className={`w-32 h-32 rounded-2xl flex items-center justify-center text-6xl shadow-inner bg-slate-50 border-4 ${modalContent.item?.rarity?.color?.split(' ')[0] || 'border-slate-200'}`}>
+                                    <div className={`w-32 h-32 rounded-2xl flex items-center justify-center text-6xl shadow-inner bg-stone-50 border-4 ${modalContent.item?.rarity?.color?.split(' ')[0] || 'border-stone-200'}`}>
                                         <div className={`flex flex-col items-center`}>
                                             {modalContent.item?.icon || '📦'}
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <span className={`text-lg font-bold ${modalContent.item?.rarity?.starColor?.replace('text-', 'text-') || 'text-slate-800'}`}>
+                                        <span className={`text-lg font-bold ${modalContent.item?.rarity?.starColor?.replace('text-', 'text-') || 'text-stone-800'}`}>
                                             {modalContent.item?.rarity?.name} {modalContent.item?.name}
                                         </span>
-                                        <p className="text-slate-500 font-medium">{modalContent.message}</p>
+                                        <p className="text-stone-500 font-medium">{modalContent.message}</p>
                                     </div>
                                     <button
                                         onClick={handleCloseModal}
-                                        className="mt-4 font-bold py-3 px-12 rounded-full shadow-lg transition-transform active:scale-95 bg-slate-800 text-white hover:bg-slate-700"
+                                        className="mt-4 font-bold py-3 px-12 rounded-full shadow-lg transition-transform active:scale-95 bg-[#2D2A26] text-white hover:bg-stone-700"
                                     >
                                         {t("收下")}
                                     </button>
@@ -241,23 +241,23 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     };
 
     return (
-        <div className="h-screen w-full bg-slate-50 text-slate-800 font-sans selection:bg-blue-100 overflow-hidden flex flex-col animate-in fade-in duration-500 relative">
+        <div className="h-screen w-full bg-[#FBF8F3] text-[#2D2A26] font-sans selection:bg-amber-100 overflow-hidden flex flex-col animate-in fade-in duration-500 relative">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => actions.hideToast()} />}
 
             {renderModal()}
 
-            <div className="w-full max-w-[1920px] mx-auto h-full flex flex-col shadow-2xl bg-white border-x border-slate-200 relative">
+            <div className="w-full max-w-[1920px] mx-auto h-full flex flex-col shadow-2xl bg-[#FBF8F3] border-x border-[#E8E4DF] relative">
 
                 {/* Reorganized Header for better readability */}
-                <header className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center shadow-lg z-20 shrink-0 border-b border-slate-800">
-                    <div className="flex items-center gap-8">
+                <header className="px-5 py-2 bg-[#2D2A26] text-white flex justify-between items-center shadow-lg z-20 shrink-0 border-b border-white/10">
+                    <div className="flex items-center gap-4">
                         {/* Game Title & Stage (Left aligned) */}
                         <div className="flex items-center gap-3">
-                            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2.5 rounded-xl shadow-lg">
+                            <div className="bg-[#E60012] p-2 rounded-lg">
                                 <ListOrdered className="text-white" size={24} />
                             </div>
                             <div className="flex flex-col">
-                                <h1 className="text-xl font-black tracking-tighter leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">ORDER GAME</h1>
+                                <h1 className="text-lg font-bold text-white tracking-tight leading-tight">三池物语</h1>
                                 {config.patience?.enabled !== false && (
                                     <div className="flex items-center gap-1.5 opacity-60">
                                         <span className={`w-2 h-2 rounded-full ${patience > 60 ? 'bg-green-400' : patience > 30 ? 'bg-yellow-400' : 'bg-red-500'}`} />
@@ -268,38 +268,26 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         </div>
 
                         {/* Primary Gameplay Stats (Most Important) */}
-                        <div className="flex items-center bg-slate-800/50 rounded-2xl px-5 py-2 border border-slate-700/50 gap-8 shadow-inner">
-                            {/* Score Display */}
-                            <div className="flex flex-col gap-0.5 items-center">
-                                <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 text-blue-200 leading-none">{t("当前积分")}</span>
-                                <div className="flex items-center gap-2 text-blue-400">
-                                    <Star size={18} fill="currentColor" className="drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
-                                    <span className="text-3xl font-black font-mono tracking-tighter leading-none">{score}</span>
-                                </div>
-                            </div>
+                        <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
+                            <Star size={16} fill="currentColor" className="text-sky-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
+                            <span className="text-xl font-black font-mono tracking-tighter leading-none text-sky-400">{score}</span>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-4">
                         {/* Secondary Stats Group (Gold & Difficulty) - Enlarged */}
-                        <div className="flex items-center gap-8 pr-6 border-r border-slate-800">
+                        <div className="flex items-center gap-4 pr-4 border-r border-white/10">
                             {/* Gold Display */}
-                            <div className="flex flex-col gap-1 items-end">
-                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-yellow-100">{t("持有金币")}</span>
-                                <div className="flex items-center gap-2.5 text-yellow-400">
-                                    <Coins size={20} className="drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" />
-                                    <span className="text-3xl font-black font-mono tracking-tighter leading-none">{gold}</span>
-                                </div>
+                            <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
+                                <Coins size={16} className="text-amber-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" />
+                                <span className="text-xl font-black font-mono tracking-tighter leading-none text-amber-400">{gold}</span>
                             </div>
 
                             {/* Difficulty Display */}
                             {emergencyOrders.length > 0 && (
-                                <div className="flex flex-col gap-1 items-end">
-                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-orange-100">{t("离开关卡难度")}</span>
-                                    <div className="flex items-center gap-2 text-orange-400">
-                                        <ChevronsUp size={20} className="drop-shadow-[0_0_8px_rgba(251,146,60,0.4)]" />
-                                        <span className="text-3xl font-black font-mono tracking-tighter leading-none">LV.{emergencyDifficulty}</span>
-                                    </div>
+                                <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
+                                    <ChevronsUp size={16} className="text-orange-400 drop-shadow-[0_0_8px_rgba(251,146,60,0.4)]" />
+                                    <span className="text-xl font-black font-mono tracking-tighter leading-none text-orange-400">LV.{emergencyDifficulty}</span>
                                 </div>
                             )}
                         </div>
@@ -308,22 +296,22 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
 
                         {/* Quick Actions */}
-                        <div className="flex items-center gap-2 bg-slate-800/80 rounded-xl p-1 border border-slate-700 shadow-inner">
-                            <button onClick={toggleLanguage} className="px-2.5 py-1 hover:bg-slate-700 rounded-lg text-[11px] font-black text-slate-400 hover:text-white transition-all">
+                        <div className="flex items-center gap-2 bg-white/5 rounded-lg p-0.5 border border-white/10">
+                            <button onClick={toggleLanguage} className="px-2.5 py-1 hover:bg-white/10 rounded-lg text-[11px] font-black text-white/40 hover:text-white transition-all">
                                 {language === 'zh' ? 'EN' : '中'}
                             </button>
-                            <div className="w-[1px] h-4 bg-slate-700"></div>
+                            <div className="w-[1px] h-4 bg-white/10"></div>
                             <button
                                 onClick={() => setDebugMode(!debugMode)}
                                 title={t("调试模式")}
-                                className={`p-2 rounded-lg transition-all ${debugMode ? 'bg-red-500/20 text-red-500' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                                className={`p-2 rounded-lg transition-all ${debugMode ? 'bg-red-500/20 text-red-500' : 'text-white/40 hover:bg-white/10 hover:text-white'}`}
                             >
                                 <Zap size={18} fill={debugMode ? "currentColor" : "none"} />
                             </button>
-                            <button onClick={onOpenSettings} title={t("设置")} className="p-2 hover:bg-slate-700 rounded-lg transition-all text-slate-400 hover:text-white">
+                            <button onClick={onOpenSettings} title={t("设置")} className="p-2 hover:bg-white/10 rounded-lg transition-all text-white/40 hover:text-white">
                                 <Settings size={18} />
                             </button>
-                            <button onClick={onReset} title={t("重置")} className="p-2 hover:bg-slate-700 rounded-lg transition-all text-red-500/60 hover:text-red-500">
+                            <button onClick={onReset} title={t("重置")} className="p-2 hover:bg-white/10 rounded-lg transition-all text-red-500/60 hover:text-red-500">
                                 <Power size={18} />
                             </button>
                         </div>
@@ -333,7 +321,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                 <main className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
 
                     {/* ROW 1: POOLS - Horizontal 3-column layout */}
-                    <section className="px-6 py-4 border-b border-slate-200 bg-white shrink-0">
+                    <section className="px-6 py-4 border-b border-[#E8E4DF] bg-[#FBF8F3] shrink-0">
                         <div className="grid grid-cols-3 gap-4">
                             {activePools.map((pool) => {
                                 const relevantRequirements = [...orders]
@@ -369,17 +357,17 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                     {/* ROW 2: EMERGENCY ORDERS - Full width */}
                     {state.emergencyOrders && state.emergencyOrders.length > 0 && (
-                        <section className="px-6 py-3 border-b border-slate-200 bg-orange-50/30 shrink-0">
+                        <section className="px-6 py-3 border-b border-[#E8E4DF] bg-orange-50/20 shrink-0">
                             <div className="flex items-center gap-6">
                                 <div className="flex items-center gap-2 shrink-0">
                                     <div className="bg-red-600 text-white p-2 rounded-lg shadow-lg shrink-0">
                                         <Timer size={18} className="animate-pulse" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <h3 className="text-sm font-black text-slate-800 leading-none uppercase tracking-tight">
+                                        <h3 className="text-sm font-black text-[#2D2A26] leading-none uppercase tracking-tight">
                                             {t("离开关卡需求")}
                                         </h3>
-                                        <span className="text-xs text-slate-500 font-bold leading-none mt-1 opacity-80">
+                                        <span className="text-xs text-stone-500 font-bold leading-none mt-1 opacity-80">
                                             {t("(完成任意其一)")}
                                         </span>
                                     </div>
@@ -432,7 +420,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             ${isEvacuationMode
                                                 ? 'bg-orange-600 text-white ring-4 ring-orange-300 border-orange-400 animate-pulse scale-105'
                                                 : (pendingItem || isSubmitMode || isRecycleMode || selectionMode || orderCandidates
-                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200'
+                                                    ? 'bg-stone-100 text-stone-400 cursor-not-allowed border-stone-200'
                                                     : 'bg-orange-500 text-white hover:bg-orange-600 border-orange-600 hover:scale-105 active:scale-95')
                                             }
                                         `}
@@ -455,8 +443,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         </section>
                     )}
 
+                    <div className="flex items-center gap-3 px-6 py-1.5">
+                      <div className="h-px flex-1 bg-[#E8E4DF]"></div>
+                      <span className="text-[10px] font-bold text-[#B5B0AA] uppercase tracking-[0.2em]">{t("订单")}</span>
+                      <div className="h-px flex-1 bg-[#E8E4DF]"></div>
+                    </div>
+
                     {/* ROW 3: NORMAL ORDERS - 3-column grid */}
-                    <section className="px-6 py-4 shrink-0">
+                    <section className="px-6 py-3 shrink-0">
                         <div className="grid grid-cols-3 gap-5">
                             {orders.map((order, idx) => (
                                 <div key={order ? order.id : `empty-${idx}`}>
@@ -503,20 +497,20 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             <div className="flex items-center gap-6 flex-wrap justify-center mt-3">
                                 {/* Skills */}
                                 <div className="flex items-center gap-3">
-                                    <span className="text-xs font-black text-slate-300 uppercase tracking-wider">{t("Passive Skills")}</span>
+                                    <span className="text-xs font-black text-stone-300 uppercase tracking-wider">{t("Passive Skills")}</span>
                                     <div className="flex gap-2">
                                         {[0, 1, 2].map(i => {
                                             const skillId = skills[i];
                                             const skill = SKILL_DEFINITIONS.find(s => s.id === skillId);
                                             const SkillIcon = skill?.Icon || Zap;
                                             return (
-                                                <div key={i} title={skill ? `${skill.name}: ${skill.desc}` : '空槽位'} className="group relative w-10 h-10 rounded-full border-2 border-slate-200 bg-slate-100 flex items-center justify-center transition-all hover:scale-110">
+                                                <div key={i} title={skill ? `${skill.name}: ${skill.desc}` : '空槽位'} className="group relative w-10 h-10 rounded-full border-2 border-stone-200 bg-stone-100 flex items-center justify-center transition-all hover:scale-110">
                                                     {skill ? (
                                                         <div className={`w-full h-full rounded-full flex items-center justify-center ${skill.color}`}>
                                                             <SkillIcon size={16} />
                                                         </div>
                                                     ) : (
-                                                        <div className="text-slate-300"><Zap size={16} /></div>
+                                                        <div className="text-stone-300"><Zap size={16} /></div>
                                                     )}
                                                 </div>
                                             );
@@ -524,30 +518,30 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     </div>
                                 </div>
 
-                                <div className="w-px h-6 bg-slate-200" />
+                                <div className="w-px h-6 bg-stone-200" />
 
                                 {/* Rarity Bonuses */}
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-xs font-black text-slate-400 uppercase tracking-wider">{t("品质得分加成")}</span>
+                                    <span className="text-xs font-black text-stone-400 uppercase tracking-wider">{t("品质得分加成")}</span>
                                     {config.rarity.map(rarity => (
-                                        <div key={rarity.id} className="flex items-center gap-1 text-xs font-bold text-slate-500 bg-white px-2 py-1 rounded-full shadow-sm border border-slate-100">
+                                        <div key={rarity.id} className="flex items-center gap-1 text-xs font-bold text-stone-500 bg-white px-2 py-1 rounded-full shadow-sm border border-stone-100">
                                             <Star size={10} fill="currentColor" className={rarity.starColor} />
                                             <span>{t(rarity.name)} +{Math.round(rarity.bonus * 100)}%</span>
                                         </div>
                                     ))}
                                 </div>
 
-                                <div className="w-px h-6 bg-slate-200" />
+                                <div className="w-px h-6 bg-stone-200" />
 
                                 {/* Status Messages */}
                                 <div className="flex items-center gap-2">
                                     {selectedSlot !== null && !pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && !isEvacuationMode && (
-                                        <span className="text-sm font-bold text-blue-500 animate-pulse bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                                        <span className="text-sm font-bold text-sky-500 animate-pulse bg-sky-50 px-3 py-1.5 rounded-lg flex items-center gap-2">
                                             <Hand size={14} /> {t("整理模式")}
                                         </span>
                                     )}
                                     {isSubmitMode && (
-                                        <span className="text-sm font-bold text-blue-600 animate-pulse flex items-center gap-2">
+                                        <span className="text-sm font-bold text-sky-600 animate-pulse flex items-center gap-2">
                                             <Layers size={14} /> {t("提交模式: 点击订单卡片可一键选择")}
                                         </span>
                                     )}
@@ -573,7 +567,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         {/* Selection Overlay (精准 / 有的放矢) */}
                         {selectionMode && selectionMode.type !== 'trade_in' && (
                             <div className="flex flex-col items-center justify-center gap-6 py-4 animate-in fade-in cursor-default w-full">
-                                <h3 className="text-2xl font-black text-slate-800 text-center">
+                                <h3 className="text-2xl font-black text-[#2D2A26] text-center">
                                     {selectionMode.type === 'precise' ? t("精准：二选一 (不可取消)") : t("有的放矢：请选择你想要的")}
                                 </h3>
 
@@ -595,12 +589,12 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     flex flex-col items-center justify-center gap-4
                                                     ${isPrecise
                                                         ? `flex-1 aspect-[4/5] rounded-3xl border-[4px] ${item.rarity.color} max-w-[240px]`
-                                                        : `w-32 h-44 rounded-2xl border-2 bg-white border-slate-200 hover:border-slate-400 shadow-sm`}
+                                                        : `w-32 h-44 rounded-2xl border-2 bg-white border-stone-200 hover:border-stone-400 shadow-sm`}
                                                 `}
                                             >
                                                 <div className={`${isPrecise ? 'text-7xl' : 'text-5xl'} filter drop-shadow-sm transition-transform group-hover:scale-110`}>{item.icon}</div>
                                                 <div className="flex flex-col items-center gap-1">
-                                                    <span className={`font-black ${isPrecise ? 'text-2xl' : 'text-base text-slate-700'}`}>{t(item.name)}</span>
+                                                    <span className={`font-black ${isPrecise ? 'text-2xl' : 'text-base text-stone-700'}`}>{t(item.name)}</span>
                                                     {item.rarity && (
                                                         <span className={`text-xs font-bold uppercase tracking-wider opacity-60`}>{t(item.rarity.name)}</span>
                                                     )}
@@ -618,17 +612,17 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         {orderCandidates && (
                             <div className="flex flex-col items-center justify-center gap-4 py-4 animate-in fade-in duration-300 w-full">
                                 <div className="flex items-center gap-3">
-                                    <div className="bg-blue-500 text-white rounded-full p-2 shadow-lg">
+                                    <div className="bg-sky-500 text-white rounded-full p-2 shadow-lg">
                                         <Package size={18} />
                                     </div>
-                                    <h3 className="text-lg font-black text-slate-800">{t("选择一个订单")}</h3>
+                                    <h3 className="text-lg font-black text-[#2D2A26]">{t("选择一个订单")}</h3>
                                     {orderCandidateQueue.length > 0 && (
-                                        <div className="text-sm text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-full">
+                                        <div className="text-sm text-stone-500 font-bold bg-stone-100 px-3 py-1 rounded-full">
                                             {t("待选订单")}: {orderCandidateQueue.length + 1}
                                         </div>
                                     )}
                                 </div>
-                                <p className="text-sm text-slate-600 font-medium">{t("请从以下2个订单中选择1个")}</p>
+                                <p className="text-sm text-stone-600 font-medium">{t("请从以下2个订单中选择1个")}</p>
                                 <div className="flex gap-5 justify-center w-full">
                                     {orderCandidates.candidates.map((candidate, cidx) => (
                                         <div
@@ -668,20 +662,26 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     </section>
                     )}
 
+                    <div className="flex items-center gap-3 px-6 py-1.5">
+                      <div className="h-px flex-1 bg-[#E8E4DF]"></div>
+                      <span className="text-[10px] font-bold text-[#B5B0AA] uppercase tracking-[0.2em]">{t("仓库")}</span>
+                      <div className="h-px flex-1 bg-[#E8E4DF]"></div>
+                    </div>
+
                     {/* ROW 5: INVENTORY - 2x5 grid at bottom */}
                     <section className={`
-                        px-6 py-3 border-t-2 border-slate-200 bg-white/95 backdrop-blur shadow-[0_-4px_15px_rgba(0,0,0,0.05)] z-30 shrink-0 transition-colors duration-300 mt-auto
-                        ${pendingItem ? 'bg-red-50/95 border-red-200' : ''}
-                        ${isSubmitMode ? 'bg-blue-50/95 border-blue-200' : ''}
+                        px-6 py-3 border-t border-[#E8E4DF] bg-white/95 backdrop-blur shadow-[0_-4px_15px_rgba(45,42,38,0.05)] z-30 shrink-0 transition-colors duration-300 mt-auto
+                        ${pendingItem ? 'bg-rose-50/95 border-rose-200' : ''}
+                        ${isSubmitMode ? 'bg-sky-50/95 border-sky-200' : ''}
                         ${isRecycleMode ? 'bg-amber-50/95 border-amber-200' : ''}
                         ${selectionMode?.type === 'trade_in' ? 'bg-purple-50/95 border-purple-200' : ''}
                     `}>
                         <div className="flex items-center gap-3 mb-2 justify-center">
-                            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{t("背包栏位")} ({inventory.length}/{maxInventorySize})</h2>
+                            <h2 className="text-sm font-bold text-stone-400 uppercase tracking-wider">{t("背包栏位")} ({inventory.length}/{maxInventorySize})</h2>
                             {!pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && !isEvacuationMode && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleSortInventory(); }}
-                                    className="flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm text-slate-600 text-xs font-bold py-1.5 px-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95"
+                                    className="flex items-center gap-1.5 bg-white border border-stone-200 shadow-sm text-stone-600 text-xs font-bold py-1.5 px-3 rounded-lg hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-all active:scale-95"
                                 >
                                     <ListOrdered size={14} />
                                     <span>{t("一键整理")}</span>
@@ -696,26 +696,26 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     <button onClick={toggleRecycleMode} className="flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-5 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95 text-base">
                                         <Trash2 size={18} /> {t("回收")}
                                     </button>
-                                    <button onClick={toggleSubmitMode} className="flex items-center justify-center gap-2 bg-slate-800 text-white font-bold py-3 px-5 rounded-xl shadow-md hover:bg-slate-700 transition-transform active:scale-95 text-base">
+                                    <button onClick={toggleSubmitMode} className="flex items-center justify-center gap-2 bg-[#2D2A26] text-white font-bold py-3 px-5 rounded-xl shadow-md hover:bg-stone-700 transition-transform active:scale-95 text-base">
                                         <Layers size={18} /> {t("出牌")}
                                     </button>
                                 </>
                             )}
 
                             {isSubmitMode && (
-                                <button onClick={handleConfirmSubmission} disabled={selectedIndices.length === 0} className={`flex items-center justify-center gap-2 font-bold py-3 px-5 rounded-xl shadow-md text-base ${selectedIndices.length > 0 ? 'bg-blue-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
+                                <button onClick={handleConfirmSubmission} disabled={selectedIndices.length === 0} className={`flex items-center justify-center gap-2 font-bold py-3 px-5 rounded-xl shadow-md text-base ${selectedIndices.length > 0 ? 'bg-sky-600 text-white' : 'bg-stone-300 text-stone-500 cursor-not-allowed'}`}>
                                     <Send size={16} /> {t("确认出牌")}
                                 </button>
                             )}
 
                             {isRecycleMode && (
-                                <button onClick={handleConfirmRecycle} disabled={selectedIndices.length === 0} className={`flex items-center justify-center gap-2 font-bold py-3 px-5 rounded-xl shadow-md text-base ${selectedIndices.length > 0 ? 'bg-amber-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
+                                <button onClick={handleConfirmRecycle} disabled={selectedIndices.length === 0} className={`flex items-center justify-center gap-2 font-bold py-3 px-5 rounded-xl shadow-md text-base ${selectedIndices.length > 0 ? 'bg-amber-600 text-white' : 'bg-stone-300 text-stone-500 cursor-not-allowed'}`}>
                                     <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}🪙)
                                 </button>
                             )}
 
                             {isEvacuationMode && (
-                                <button onClick={handleConfirmEvacuation} disabled={satisfiableOrders.filter(o => o.index >= 998).length === 0} className={`flex items-center justify-center gap-2 font-bold py-3 px-5 rounded-xl shadow-md text-base ${satisfiableOrders.filter(o => o.index >= 998).length > 0 ? 'bg-orange-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
+                                <button onClick={handleConfirmEvacuation} disabled={satisfiableOrders.filter(o => o.index >= 998).length === 0} className={`flex items-center justify-center gap-2 font-bold py-3 px-5 rounded-xl shadow-md text-base ${satisfiableOrders.filter(o => o.index >= 998).length > 0 ? 'bg-orange-600 text-white' : 'bg-stone-300 text-stone-500 cursor-not-allowed'}`}>
                                     <Truck size={16} /> {t("确认离开此关卡")}
                                 </button>
                             )}
@@ -816,7 +816,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             {/* Pending Queue */}
                             {pendingItem && (
                                 <div className="flex items-end gap-3 shrink-0 z-40 animate-in slide-in-from-right-4 fade-in duration-300">
-                                    <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl border-2 border-red-200 shadow-2xl flex items-center gap-3">
+                                    <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl border-2 border-rose-200 shadow-2xl flex items-center gap-3">
                                         <div className="flex flex-col items-center gap-1.5">
                                             <div className="flex items-center gap-1 text-red-600 font-bold text-xs">
                                                 <AlertCircle size={14} className="shrink-0" />
@@ -851,7 +851,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             </div>
                                             <button
                                                 onClick={handleDiscardNew}
-                                                className="flex items-center justify-center gap-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-xs font-bold py-1.5 px-3 rounded-lg transition-colors shadow-sm"
+                                                className="flex items-center justify-center gap-1 bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 text-xs font-bold py-1.5 px-3 rounded-lg transition-colors shadow-sm"
                                             >
                                                 <X size={12} />
                                                 {pendingItem.rarity.recycleValue > 0 ? `${t("回收")} +${pendingItem.rarity.recycleValue}` : t("丢弃")}
@@ -869,7 +869,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                             return (
                                                 <div key={idx} className="flex flex-col items-center gap-1 opacity-60 grayscale-[0.3]">
-                                                    <div className="text-xs font-bold text-slate-400">#{idx + 1}</div>
+                                                    <div className="text-xs font-bold text-stone-400">#{idx + 1}</div>
                                                     <InventorySlot
                                                         item={qItem}
                                                         index={-1}

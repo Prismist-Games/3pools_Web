@@ -25,9 +25,9 @@ class ErrorBoundary extends React.Component {
                             <AlertCircle size={48} />
                             <h1 className="text-3xl font-black">Something went wrong</h1>
                         </div>
-                        <div className="bg-slate-900 text-slate-50 p-6 rounded-xl overflow-auto max-h-[60vh] text-sm font-mono shadow-inner">
+                        <div className="bg-stone-900 text-stone-50 p-6 rounded-xl overflow-auto max-h-[60vh] text-sm font-mono shadow-inner">
                             <p className="text-red-300 font-bold text-lg mb-2">{this.state.error && this.state.error.toString()}</p>
-                            <pre className="whitespace-pre-wrap text-slate-400">
+                            <pre className="whitespace-pre-wrap text-stone-400">
                                 {this.state.errorInfo && this.state.errorInfo.componentStack}
                             </pre>
                         </div>

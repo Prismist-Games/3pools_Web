@@ -80,7 +80,7 @@ const Leaderboard = ({ currentScore, onRestart }) => {
                         <input
                             type="text"
                             placeholder={t("输入名字上榜")}
-                            className="flex-1 px-3 py-2 rounded-lg border border-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 font-bold text-slate-700 placeholder:font-normal"
+                            className="flex-1 px-3 py-2 rounded-lg border border-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 font-bold text-stone-700 placeholder:font-normal"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             maxLength={10}
@@ -112,33 +112,33 @@ const Leaderboard = ({ currentScore, onRestart }) => {
 
             {/* Leaderboard List */}
             {!fetchError && (
-                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden max-h-60 overflow-y-auto shadow-inner">
+                <div className="bg-white rounded-xl border border-stone-200 overflow-hidden max-h-60 overflow-y-auto shadow-inner">
                     {loading ? (
-                        <div className="p-8 flex justify-center text-slate-400">
+                        <div className="p-8 flex justify-center text-stone-400">
                             <Loader2 className="animate-spin" size={32} />
                         </div>
                     ) : (
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-100 text-slate-500 font-bold sticky top-0">
+                            <thead className="bg-stone-100 text-stone-500 font-bold sticky top-0">
                                 <tr>
                                     <th className="p-3 w-12 text-center">#</th>
                                     <th className="p-3">{t("玩家")}</th>
                                     <th className="p-3 text-right">{t("次数")}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-stone-100">
                                 {scores.map((score, idx) => (
-                                    <tr key={score.id} className={`${score.player_name === name && submitted ? 'bg-yellow-50 animate-pulse' : ''} hover:bg-slate-50`}>
-                                        <td className="p-3 text-center font-black text-slate-300">
+                                    <tr key={score.id} className={`${score.player_name === name && submitted ? 'bg-yellow-50 animate-pulse' : ''} hover:bg-stone-50`}>
+                                        <td className="p-3 text-center font-black text-stone-300">
                                             {idx + 1 === 1 ? '🥇' : idx + 1 === 2 ? '🥈' : idx + 1 === 3 ? '🥉' : idx + 1}
                                         </td>
-                                        <td className="p-3 font-bold text-slate-700 truncate max-w-[120px]">{score.player_name}</td>
-                                        <td className="p-3 text-right font-mono font-bold text-slate-600">{score.draw_count}</td>
+                                        <td className="p-3 font-bold text-stone-700 truncate max-w-[120px]">{score.player_name}</td>
+                                        <td className="p-3 text-right font-mono font-bold text-stone-600">{score.draw_count}</td>
                                     </tr>
                                 ))}
                                 {scores.length === 0 && (
                                     <tr>
-                                        <td colSpan="3" className="p-8 text-center text-slate-400 italic">{t("暂无记录，快来抢沙发！")}</td>
+                                        <td colSpan="3" className="p-8 text-center text-stone-400 italic">{t("暂无记录，快来抢沙发！")}</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -150,7 +150,7 @@ const Leaderboard = ({ currentScore, onRestart }) => {
             {/* Restart Button */}
             <button
                 onClick={onRestart}
-                className="mt-2 w-full bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-700 transition-colors shadow-lg active:scale-95"
+                className="mt-2 w-full bg-[#2D2A26] text-white font-bold py-3 rounded-xl hover:bg-stone-700 transition-colors shadow-lg active:scale-95"
             >
                 {submitted ? t("再来一局") : t("跳过并重开")}
             </button>

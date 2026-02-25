@@ -38,8 +38,8 @@ const PoolCardBase = ({
                 rounded-2xl border-2 p-4 transition-all duration-200
                 transform-gpu will-change-transform backface-hidden subpixel-antialiased
                 ${pool.color}
-                ${isHovered ? 'scale-[1.02] shadow-xl z-10 ring-4 ring-white/50' : 'shadow-sm hover:shadow-md'}
-                ${isEffectiveDisabled ? 'opacity-60 grayscale-[0.8] cursor-not-allowed' : 'active:scale-95 cursor-pointer'}
+                ${isHovered ? '-translate-y-0.5 shadow-xl z-10 ring-2 ring-white/60' : 'shadow-warm hover:shadow-md'}
+                ${isEffectiveDisabled ? 'opacity-50 grayscale-[0.3] cursor-not-allowed' : 'active:scale-95 cursor-pointer'}
                 flex flex-col gap-2
             `}
         >
@@ -52,20 +52,20 @@ const PoolCardBase = ({
                 <div className={`
                     flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
                     bg-white
-                    ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-yellow-400'}
+                    ${!canAfford ? 'opacity-60 grayscale' : 'text-stone-800 border-yellow-400'}
                 `}>
                     {finalCost < pool.cost && (
-                        <span className="line-through text-xs text-slate-400">{pool.cost}</span>
+                        <span className="line-through text-xs text-stone-400">{pool.cost}</span>
                     )}
                     {finalCost === 0 ? t("免费") : finalCost}
-                    <span className={canAfford ? "text-yellow-500" : "text-slate-400"}>🪙</span>
+                    <span className={canAfford ? "text-yellow-500" : "text-stone-400"}>🪙</span>
                 </div>
             </div>
 
             {/* Row 2: Affix Name */}
             {pool.affix && (
                 <div className="flex items-center gap-2">
-                    <span className="text-base font-black text-slate-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
+                    <span className="text-base font-black text-stone-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
                         ✨ {t(pool.affix.name)}
                     </span>
                 </div>
@@ -82,7 +82,7 @@ const PoolCardBase = ({
                     <div className="flex flex-col gap-2">
                         {/* Affix Description */}
                         {pool.affix && (
-                            <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
+                            <p className="text-base font-semibold opacity-90 leading-relaxed text-stone-700">
                                 {t(pool.affix.desc)}
                             </p>
                         )}
