@@ -231,14 +231,8 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
 
     const totalReqBonus = requirements.reduce((sum, req) => sum + req.requiredRarity.bonus, 0);
 
-    // Patience System: Base rewards for both patience and progress
-    const defaultBaseReward = config.patience?.orderCompletionReward || 15;
-    const baseRewards = currentStageConfig.baseRewards || { 2: defaultBaseReward, 3: defaultBaseReward, 4: defaultBaseReward };
-
-    const rawBaseReward = baseRewards[count] || defaultBaseReward;
-
-    // Fixed patience reward (no rarity multiplier)
-    const basePatienceReward = rawBaseReward;
+    const baseRewards = currentStageConfig.baseRewards || { 2: 15, 3: 15, 4: 15 };
+    const rawBaseReward = baseRewards[count] || 15;
 
     // Base score reward (calculated ONLY by sum of per-rarity weights)
     // Emergency orders DON'T give score rewards
@@ -261,7 +255,6 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
     return {
         id: Math.random().toString(36).substr(2, 9),
         requirements,
-        basePatienceReward,
         baseScoreReward,
         isScoreOrder: !isEmergency
     };

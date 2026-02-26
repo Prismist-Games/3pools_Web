@@ -15,7 +15,7 @@ No test suite exists in this project.
 
 ## Architecture Overview
 
-This is a React 18 + Vite 6 + Tailwind CSS 3 browser-based resource management game called "反重力游戏" (Antigravity Game / 三池物语). Deployed to GitHub Pages at `/3pools_Web/` (configured in `vite.config.js`).
+This is a React 18 + Vite 6 + Tailwind CSS 3 browser-based resource management game called "三池物语". Deployed to GitHub Pages at `/3pools_Web/` (configured in `vite.config.js`).
 
 ### Data Flow
 
@@ -50,7 +50,6 @@ src/components/
     OrderCard.jsx        ← Individual order display and interaction
     PoolCard.jsx         ← Draw pool card with affix display
     SkillSelectionModal  ← 3-option skill picker shown on era transition
-    Leaderboard.jsx      ← Supabase-backed high score table
   ui/
     ConfirmDialog.jsx    ← Reusable modal confirmation
     Toast.jsx            ← Transient notification display
@@ -63,7 +62,7 @@ src/contexts/
 
 - **Pools**: 3 active draw pools at a time, each with a random affix and gold cost. Drawing spends gold to add items to inventory.
 - **Inventory**: Fixed-size grid (10 slots default). Items can be merged if same name + same rarity → upgrades to next rarity.
-- **Orders**: 3 active regular orders + 1 mainline order. Submit inventory items to fulfill requirements and earn gold.
+- **Orders**: 3 active regular orders + 2 emergency orders. Submit inventory items to fulfill requirements and earn score.
 - **Stages** (`INITIAL_STAGE_CONFIG`): 4 stages with escalating mechanics (volatility, specialization, entropy/decay). Currently `useGameLogic` always uses `stages[0]` — stage progression is managed externally.
 - **Skills**: Passive bonuses selected 3-from-3 at stage transitions. Defined in `SKILL_DEFINITIONS`. Skill effects are implemented as event hooks inside `useGameLogic` (`draw_requested`, `draw_finished`, order completion, recycle events).
 - **Tool Items**: Special items (`tool_reforge`, `tool_transmute`, `tool_enhance`) that drop randomly on draws and are activated via right-click in inventory.
