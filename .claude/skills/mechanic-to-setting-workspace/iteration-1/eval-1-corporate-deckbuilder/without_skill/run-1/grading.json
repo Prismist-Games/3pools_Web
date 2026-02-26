@@ -1,0 +1,44 @@
+{
+  "eval_id": 1,
+  "run_type": "without_skill",
+  "expectations": [
+    {
+      "text": "Output contains a mechanical identity / decomposition section",
+      "passed": false,
+      "evidence": "No structured decomposition. Output begins with 'The Core Problem' (diagnosing the satire risk) and immediately presents one recommended setting. No extraction of core loops, resource dynamics, or tension structure as separate analysis."
+    },
+    {
+      "text": "At least 5 distinct setting concepts are presented",
+      "passed": false,
+      "evidence": "Only 1 setting: 'Mid-Level at a Consultancy, Late 1990s'. No exploration of alternatives."
+    },
+    {
+      "text": "At least one setting moves completely away from the corporate/career metaphor",
+      "passed": false,
+      "evidence": "The only setting is explicitly corporate (management consultancy). The user asked for a setting that makes the mechanics feel 'real rather than satirical' \u2014 the baseline interpreted this as 'be more specific about the corporate setting' rather than exploring completely different contexts."
+    },
+    {
+      "text": "The recommendations section explicitly discusses whether to lean satirical or sincere, with reasoning",
+      "passed": true,
+      "evidence": "The baseline handles this well despite a single-setting approach. 'Satire happens when the corporate world is viewed from outside, at ironic distance. Immersion happens when the player is inside a specific, textured version of that world with something real to lose.' And: 'What the game never does: It never winks at the player about how absurd corporate life is.' Direct, insightful answer to the user's core question."
+    },
+    {
+      "text": "Each setting's Mechanical Mapping explains what 'drawing cards' and 'building a deck' means in that world",
+      "passed": true,
+      "evidence": "The single setting grounds the deck extremely well: 'A deck of communication and analytical tools is exactly what a consultant builds over a career.' Specific cards named with real consulting methodology (Issue Tree, Pyramid Principle, Hypothesis-Driven). The deck architecture section is excellent for the one setting."
+    },
+    {
+      "text": "At least 2 settings explicitly address what the two run-end states (failure vs. success) mean thematically",
+      "passed": true,
+      "evidence": "Both end states addressed for the single setting: 'Getting fired from a consultancy in 1997 means: your visa status may be in question... the firm has institutional memory of why you left.' And: 'Getting promoted means: you clear a bar most people don't clear, you get significantly more money, and you enter a different social world.'"
+    }
+  ],
+  "pass_rate": 0.5,
+  "notes": "The baseline produced unusually high-quality output for a single setting \u2014 the 1997 consultancy framing is specific, well-reasoned, and directly addresses the user's satire concern. However, it completely missed the breadth the skill enables: 6 non-corporate settings that wouldn't exist without the skill.",
+  "summary": {
+    "passed": 3,
+    "failed": 3,
+    "total": 6,
+    "pass_rate": 0.5
+  }
+}

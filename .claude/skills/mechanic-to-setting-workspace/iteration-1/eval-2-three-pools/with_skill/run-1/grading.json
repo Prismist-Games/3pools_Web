@@ -1,0 +1,49 @@
+{
+  "eval_id": 2,
+  "run_type": "with_skill",
+  "expectations": [
+    {
+      "text": "Output contains a mechanical identity / decomposition section identifying the three-pool balancing and transfer cost as core mechanics",
+      "passed": true,
+      "evidence": "Has full '## Mechanical Identity' with 6 sections. Transfer cost explicitly identified: 'Transfers convert one resource into another at a loss (the transfer cost is a friction/tax mechanic).' Mechanical identity statement: 'You are a manager maintaining three interdependent systems against inevitable entropy, trading inefficiency for stability...'"
+    },
+    {
+      "text": "At least 5 distinct setting concepts are presented",
+      "passed": true,
+      "evidence": "7 settings: Tidal Station (\u2605\u2605\u2605\u2605\u2605), The Apothecary's Equilibrium (\u2605\u2605\u2605\u2605\u2605), Watershed (\u2605\u2605\u2605\u2605), Neural Cascade (\u2605\u2605\u2605\u2605), The Candle Archive (\u2605\u2605\u2605\u2605\u2605), Estuary Protocol (\u2605\u2605\u2605\u2605), The Three Cisterns of Ur-Kesh (\u2605\u2605\u2605\u2605\u2605)."
+    },
+    {
+      "text": "Each setting's three pools correspond to three specific named things in the fiction that make intuitive sense",
+      "passed": true,
+      "evidence": "All 7 settings: Tidal Station (tidal turbine fuel / battery storage / grid pressure), Apothecary (Fire Essence / Verdant Extract / Void Compound), Watershed (upstream reservoir / town cistern / irrigation channel), Neural Cascade (dopamine / serotonin / norepinephrine), Candle Archive (East Wing / West Wing / Vault), Estuary Protocol (biodiversity / water quality / vegetation), Ur-Kesh (Temple Cistern / Market Cistern / Field Channels)."
+    },
+    {
+      "text": "At least 2 settings include specific diegetic or semi-diegetic UI concepts for the three pools",
+      "passed": true,
+      "evidence": "Multiple highly specific UI hooks: Tidal Station ('analog needle meters mounted on a control panel, not health bars... The HUD IS the control room'); Candle Archive ('three pools are visualized as candelabra \u2014 the flame count visible on each'); Apothecary ('literal alchemical vats \u2014 cylindrical glass containers with colored liquid at varying fill levels'); Ur-Kesh ('cisterns are drawn as architectural cross-sections \u2014 you can see the waterline dropping')."
+    },
+    {
+      "text": "No setting demands high-fidelity 3D animation, complex physics, or real-time action systems",
+      "passed": true,
+      "evidence": "All settings are flat UI, 2D, or map-based. Specific art directions: 'flat/minimal art' noted, 'hand-drawn or AI-assisted 2D art', 'map view', 'top-down or flat UI view'. No setting implies 3D or real-time action."
+    },
+    {
+      "text": "At least 3 settings' Mechanical Mappings explain why transferring between the three things costs something in the fiction",
+      "passed": true,
+      "evidence": "All 7 settings: Tidal Station ('loses energy to heat and resistance... you lose 15% in transmission'), Apothecary ('transmutation process wastes a portion'), Watershed ('loses water to pipe leakage and evaporation'), Neural Cascade ('drawing from shared biochemical pathways, reducing another'), Candle Archive ('candles tip, drip, extinguish during movement'), Ur-Kesh ('labor-intensive and loses water to spill and evaporation')."
+    },
+    {
+      "text": "At least one setting frames the accelerating drain as something that makes thematic sense, not just a difficulty curve",
+      "passed": true,
+      "evidence": "Multiple settings give narrative reasons: Tidal Station ('storm season worsening \u2014 each era of difficulty is a new week of deteriorating weather'), Watershed ('drought deepening \u2014 The dry season is a natural, visible escalation'), Neural Cascade ('patient's condition worsens over time \u2014 the underlying pathology increases demand'), Candle Archive ('outside world deteriorating \u2014 driving more people into the archive'), Ur-Kesh ('seasonal calendar \u2014 the player can see the months passing, the solstice approaching')."
+    }
+  ],
+  "pass_rate": 1.0,
+  "notes": "Perfect score. The Candle Archive and Ur-Kesh settings are especially impressive \u2014 the former achieves near-perfect mechanic-fiction fusion, the latter is historically unique in the genre. The UI hooks section showed strong understanding of diegetic interface design.",
+  "summary": {
+    "passed": 7,
+    "failed": 0,
+    "total": 7,
+    "pass_rate": 1.0
+  }
+}

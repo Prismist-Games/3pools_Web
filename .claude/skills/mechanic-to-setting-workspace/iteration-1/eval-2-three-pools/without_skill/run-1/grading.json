@@ -1,0 +1,49 @@
+{
+  "eval_id": 2,
+  "run_type": "without_skill",
+  "expectations": [
+    {
+      "text": "Output contains a mechanical identity / decomposition section identifying the three-pool balancing and transfer cost as core mechanics",
+      "passed": false,
+      "evidence": "Has 'The Core Mechanic, Interpreted' (3 sentences) but no structured decomposition of loops, resource dynamics, tension structure etc. Transfer cost is acknowledged ('can be fed into each other at a cost') but not analyzed as a mechanical pillar."
+    },
+    {
+      "text": "At least 5 distinct setting concepts are presented",
+      "passed": true,
+      "evidence": "Exactly 5 settings: Dying Space Station, Medieval Kingdom in Decline, Research Outpost, Underground City, Long-Haul Cargo Ship."
+    },
+    {
+      "text": "Each setting's three pools correspond to three specific named things in the fiction that make intuitive sense",
+      "passed": true,
+      "evidence": "All 5 settings: Space Station (Oxygen/Power/Structural Integrity), Kingdom (Food/Morale/Order), Research Outpost (Data Integrity/Equipment Condition/Researcher Wellbeing), Underground City (Air Quality/Social Cohesion/Infrastructure), Cargo Ship (Fuel/Crew Readiness/Cargo Integrity). All intuitive."
+    },
+    {
+      "text": "At least 2 settings include specific diegetic or semi-diegetic UI concepts for the three pools",
+      "passed": false,
+      "evidence": "No UI/UX Hooks sections in any setting. Recommendations vaguely mention 'an obvious visual language (gauges, readouts, facility maps)' but without specifics. No setting suggests a concrete diegetic UI approach."
+    },
+    {
+      "text": "No setting demands high-fidelity 3D animation, complex physics, or real-time action systems",
+      "passed": true,
+      "evidence": "All settings are appropriate for browser idle. Recommendations explicitly note: 'Both have an obvious visual language (gauges, readouts, facility maps)' \u2014 all 2D/flat appropriate."
+    },
+    {
+      "text": "At least 3 settings' Mechanical Mappings explain why transferring between the three things costs something in the fiction",
+      "passed": true,
+      "evidence": "The 'Cross-Cutting Design Considerations' section addresses this for all settings: 'The cost of transfer should be visible and interpretable.' Individual settings also address it: Space Station ('rerouting power to oxygen scrubbers strains the hull'), Kingdom ('taxing the peasants raises Order but destroys Morale'). The principle section is good but per-setting specificity is inconsistent."
+    },
+    {
+      "text": "At least one setting frames the accelerating drain as something that makes thematic sense, not just a difficulty curve",
+      "passed": true,
+      "evidence": "The 'Cross-Cutting Design Considerations' section: 'The accelerating drain should have a narrative explanation... If it's cascading system failure, political instability compounding, equipment wearing faster because it's already worn \u2014 the player feels like they're losing for reasons they understand.' Space Station description: 'cascading system failure' explained. Kingdom: 'political instability compounding'."
+    }
+  ],
+  "pass_rate": 0.571,
+  "notes": "Without the skill, the baseline hit 4/7 assertions. It generated 5 good settings with correct pool naming, and the Cross-Cutting Design Considerations section showed strong design thinking. Main gaps: no structured mechanical decomposition, no UI/UX hooks. The baseline favors breadth (5 settings) over depth (missing structure).",
+  "summary": {
+    "passed": 4,
+    "failed": 3,
+    "total": 7,
+    "pass_rate": 0.571
+  }
+}

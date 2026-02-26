@@ -1,0 +1,6 @@
+{
+  "eval_id": 0,
+  "eval_name": "roguelike-crew",
+  "prompt": "I'm making a roguelike where you manage a small crew surviving in a post-apocalyptic wasteland. Core mechanics: food/ammo/morale as the three main resources, permadeath for individual crew members (not run-ending), dangerous scavenge sites between missions for risk/reward, and meta-progression unlocks that persist across runs. Turn-based tactical combat. I want a theme that makes the mechanics feel inevitable rather than arbitrary.",
+  "assertions": []
+}
