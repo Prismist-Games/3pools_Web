@@ -1,23 +1,38 @@
 # Evolution Log Protocol
 
-Operational details for maintaining `design_docs/setting-evolution-log.md` — the single
-source of truth for the setting's history and current state.
+Operational details for maintaining setting design documents.
 
 ## Files
 
 | File | Purpose | When to read |
 |------|---------|-------------|
-| `design_docs/setting-evolution-log.md` | Everything: dead ends, current state, reasoning chain, sessions | Every session start |
+| `design_docs/setting-current-state.md` | Snapshot: confirmed decisions, open questions, design principles, reasoning chain | Every session start |
+| `design_docs/setting-evolution-log.md` | Process: dead ends, session narratives | Every session start |
 | `design_docs/setting-evolution-archive.md` | Full narratives of archived sessions | Only when reviewing old details |
 
-## Log Structure
+## Current State File Structure
+
+```
+# 设定当前状态
+
+## 已确定              ← all confirmed decisions, organized by topic
+## 未解决              ← all open questions
+## 设计原则            ← guiding principles for decision-making
+## 当前思考链          ← the active reasoning chain and next step
+```
+
+Update this file in real-time when:
+- A decision is confirmed or reversed
+- A new open question is identified or one gets resolved
+- The reasoning chain advances to a new step
+- A design principle is added or modified
+
+## Evolution Log Structure
 
 ```
 # 设定演变记录
 
 ## 死胡同登记          ← permanent, never deleted
-## 当前状态            ← all confirmed decisions, open questions, design principles
-## 当前思考链          ← the active reasoning chain and next step
 ## 近期会话            ← full detail, last ~3 sessions
 ## 归档               ← compressed, key takeaways only
 ```
@@ -26,14 +41,6 @@ source of truth for the setting's history and current state.
 proposing any new direction. If your idea is structurally similar to a dead end,
 don't propose it — or explicitly acknowledge the similarity and explain why this
 time is different.
-
-**当前状态**: Organized by topic (主题, 机器, 不安, 异品, 部门, etc.). Contains
-all confirmed decisions, all open questions, and design principles. Updated whenever
-a decision is confirmed, reversed, or a new question opens. This replaces the
-former `setting-design-notes.md`.
-
-**当前思考链**: The active line of reasoning — what's been established step by step,
-and what the next question is. The most important section for picking up mid-problem.
 
 **近期会话**: Full session narratives with step-by-step reasoning. Keep last ~3 sessions.
 
@@ -71,9 +78,9 @@ Before archiving:
 
 ## Maintenance
 
-At the start of each session, after reading the log:
+At the start of each session, after reading both files:
 1. Check if there are more than ~3 full session entries in 近期会话
 2. If so, compress the oldest into 归档 format
 3. Move its full narrative to `design_docs/setting-evolution-archive.md`
 4. Ensure dead ends are in 死胡同登记
-5. Ensure 当前状态 and 当前思考链 are up to date
+5. Ensure current state file is up to date

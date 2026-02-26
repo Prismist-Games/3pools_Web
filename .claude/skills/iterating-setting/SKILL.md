@@ -207,19 +207,26 @@ X, commit to X and bring your best thinking to it.
 **Track the state.** At any point, you should be able to summarize: what's decided,
 what's open, what's been rejected. Offer to do this when the conversation gets long.
 
-## Evolution Log
+## Evolution Log and Current State
 
-At the start of every session, read `design_docs/setting-evolution-log.md`
-before contributing anything. This single file contains the dead-end registry,
-current state (all confirmed decisions and open questions), reasoning chain, and
-recent session narratives.
+At the start of every session, read both files before contributing anything:
 
-Update the log **in real-time** during conversation — not every turn, but
-immediately when something significant shifts: a direction confirmed/rejected,
-the user corrects your thinking, a new insight emerges, a dead end is hit,
-or the reasoning chain advances.
+1. **`design_docs/setting-current-state.md`** — The snapshot: all confirmed decisions,
+   open questions, design principles, and the current reasoning chain. This is where
+   you find what's been decided and what the next question is.
 
-Before proposing any new direction, check the dead-end registry in the log.
+2. **`design_docs/setting-evolution-log.md`** — The process: dead-end registry and
+   session narratives. This is where you find what's been tried and rejected, and the
+   reasoning path that got us here.
+
+**Updating during conversation:**
+
+- **Current state file**: Update when a decision is confirmed/reversed, a new question
+  opens, the reasoning chain advances, or a design principle is added/modified.
+- **Evolution log**: Update when a dead end is hit (add to registry), or at the end of
+  a significant conversation segment (add session narrative).
+
+Before proposing any new direction, check the dead-end registry in the evolution log.
 If your idea is structurally similar to a logged dead end, don't propose it.
 
 For log structure, entry format, maintenance, and archiving rules, read
