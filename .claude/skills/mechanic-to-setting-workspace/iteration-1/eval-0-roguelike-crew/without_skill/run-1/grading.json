@@ -1,0 +1,54 @@
+{
+  "eval_id": 0,
+  "run_type": "without_skill",
+  "expectations": [
+    {
+      "text": "Output contains a mechanical identity / decomposition section before any settings",
+      "passed": false,
+      "evidence": "No structured Mechanical Identity section. Output begins with 'The Core Problem' (framing) and jumps directly into a single setting proposal. No extraction of core loops, resource dynamics, or tension structure as separate analysis."
+    },
+    {
+      "text": "At least 5 distinct setting concepts are presented",
+      "passed": false,
+      "evidence": "Only 1 setting presented: 'A Nomadic Convoy in a Dying Desert'. No exploration of alternatives."
+    },
+    {
+      "text": "Every setting concept includes a Mechanical Mapping section that addresses specific mechanics",
+      "passed": false,
+      "evidence": "The single setting has deep mechanic analysis, but it's not structured as per the expected format (no 'Mechanical Mapping' header), and the assertion requires multiple settings each with the section."
+    },
+    {
+      "text": "Every setting concept includes a Fusion Rating using the \u2605 scale",
+      "passed": false,
+      "evidence": "No fusion ratings used anywhere in the output."
+    },
+    {
+      "text": "Output includes a ranked recommendation section after the settings",
+      "passed": false,
+      "evidence": "No recommendation section \u2014 only one setting was generated, so no ranking was possible. Output ends with tonal notes and a summary table."
+    },
+    {
+      "text": "At least one setting avoids the obvious post-apocalyptic/wasteland/sci-fi framing",
+      "passed": false,
+      "evidence": "The only setting ('Nomadic Convoy in a Dying Desert') IS a post-apocalyptic wasteland scenario, which is the most obvious interpretation of the prompt."
+    },
+    {
+      "text": "At least one setting addresses what crew member permadeath MEANS in the fiction",
+      "passed": true,
+      "evidence": "The output has a dedicated section 'Permadeath for Crew Members (Not Run-Ending)' with strong reasoning: 'A convoy survives individuals... People are born on the move. People die on the move. The convoy remembers them but does not stop.' Good depth even without the skill."
+    },
+    {
+      "text": "At least 3 settings describe audio or music direction, not just visual style",
+      "passed": false,
+      "evidence": "No sensory identity sections. The single setting mentions some aesthetic elements but no structured audio/music direction. The output ends with 'exhausted competence' as a tonal note but no sound design direction."
+    }
+  ],
+  "pass_rate": 0.125,
+  "notes": "Without the skill, the agent produced one deeply-analyzed setting instead of 5-8 structured concepts. The depth of the single setting is high quality, but the breadth, structure, and format are entirely absent.",
+  "summary": {
+    "passed": 1,
+    "failed": 7,
+    "total": 8,
+    "pass_rate": 0.125
+  }
+}

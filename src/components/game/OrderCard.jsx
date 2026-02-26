@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { RefreshCw, Check, Ticket, Coins, Clock, Zap, Crown, Trophy, TrendingUp, Star, AlertCircle, Link, ChevronsUp, Trash2 } from 'lucide-react';
+import { RefreshCw, Check, Zap, Star, AlertCircle, Link, ChevronsUp, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const OrderCardBase = ({
@@ -33,8 +33,6 @@ const OrderCardBase = ({
     hoveredItemName,
     hoveredPoolItemNames,
     selectedItemNames,
-    upgradedOrderItems, // 新增：升级记录
-
     // 订单槽位系统
     orderSlotAssignments,
     phantomMarks,
@@ -51,29 +49,6 @@ const OrderCardBase = ({
     const { t } = useLanguage();
     const [hoveredReqIndex, setHoveredReqIndex] = useState(null);
 
-    // 阶段颜色配置 (对应耐心条刻度效果)
-    const stageColors = {
-        2: { border: 'border-yellow-400', bg: 'bg-yellow-500', label: 'LV1' },
-        3: { border: 'border-orange-400', bg: 'bg-orange-500', label: 'LV2' },
-        4: { border: 'border-red-400', bg: 'bg-red-500', label: 'LV3' },
-        5: { border: 'border-rose-600', bg: 'bg-rose-600', label: 'LV4' }
-    };
-
-    // 检测升级的物品（使用 Map 以包含 upgradeStage）
-    const upgradedItemsMap = useMemo(() => {
-        if (!order || !upgradedOrderItems) return {};
-        const map = {};
-        upgradedOrderItems
-            .filter(u => {
-                // 查找该订单槽位的升级
-                return u.orderSlotIndex === index;
-            })
-            .forEach(u => {
-                map[u.itemIndex] = u; // { upgradeStage, itemIndex, orderSlotIndex }
-            });
-        return map;
-    }, [order, upgradedOrderItems, index]);
-
     if (!order) {
         return (
             <div className="h-40 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center">
@@ -82,7 +57,7 @@ const OrderCardBase = ({
         );
     }
 
-    const { id, requirements, basePatienceReward, baseScoreReward, remainingRefreshes } = order;
+    const { id, requirements, baseScoreReward, remainingRefreshes } = order;
 
     // Calculate visualization states
     const isSatisfied = !!canSatisfy;
@@ -215,11 +190,6 @@ const OrderCardBase = ({
                                         <span>LV.{order.difficulty}</span>
                                     </div>
                                 )}
-                                {(config.patience?.enabled !== false) && (
-                                    <div className="flex items-center gap-1 opacity-80 scale-90 origin-left">
-                                        <span className="bg-pink-100 text-pink-700 px-1.5 rounded font-bold text-[10px]">{order.basePatienceReward}💗</span>
-                                    </div>
-                                )}
                             </div>
                         ) : (
                             /* Rewards Badge for Normal/Score Orders */
@@ -303,10 +273,6 @@ const OrderCardBase = ({
                             }
 
                             const borderColorClass = hasItem ? matchedItem.rarity.color.split(' ')[0] : (isScoreOrder ? 'border-blue-300' : 'border-slate-300');
-
-                            // 检测是否被升级
-                            const upgradeInfo = upgradedItemsMap[rIdx];
-                            const isUpgraded = !!upgradeInfo;
 
                             // 订单槽位：查找已分配的物品或幻影标记
                             const slotKey = `${index}-${rIdx}`;
@@ -433,15 +399,6 @@ const OrderCardBase = ({
                                                 <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-0.5 shadow">
                                                     <Check size={10} strokeWidth={4} />
                                                 </div>
-                                            )}
-                                            {isUpgraded && upgradeInfo && (
-                                                <>
-                                                    <div className={`absolute -top-1 -right-1 translate-x-1/2 -translate-y-1/2 text-white rounded px-1.5 py-0.5 shadow-xl z-50 flex items-center gap-0.5 ${stageColors[upgradeInfo.upgradeStage]?.bg || 'bg-red-500'} ring-2 ring-white`}>
-                                                        <TrendingUp size={10} strokeWidth={3} />
-                                                        <span className="text-[9px] font-black italic tracking-tighter">{stageColors[upgradeInfo.upgradeStage]?.label || `L${upgradeInfo.upgradeStage}`}</span>
-                                                    </div>
-                                                    <div className={`absolute inset-0 rounded border-2 z-10 ${stageColors[upgradeInfo.upgradeStage]?.border || 'border-red-400'} opacity-30`} />
-                                                </>
                                             )}
                                         </div>
 

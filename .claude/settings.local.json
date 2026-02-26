@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /Users/ziggy/.claude/plugins/cache/claude-plugins-official/skill-creator/55b58ec6e564/skills/skill-creator && \\\\\npython -m scripts.aggregate_benchmark \\\\\n  /Users/ziggy/GitHub/3pools_Web/.claude/skills/mechanic-to-setting-workspace/iteration-1 \\\\\n  --skill-name \"mechanic-to-setting\" 2>&1)",
+      "Bash(cd /Users/ziggy/.claude/plugins/cache/claude-plugins-official/skill-creator/55b58ec6e564/skills/skill-creator && \\\\\npython3 -m scripts.aggregate_benchmark \\\\\n  /Users/ziggy/GitHub/3pools_Web/.claude/skills/mechanic-to-setting-workspace/iteration-1 \\\\\n  --skill-name \"mechanic-to-setting\" 2>&1)",
+      "Bash(cd /Users/ziggy/.claude/plugins/cache/claude-plugins-official/skill-creator/55b58ec6e564/skills/skill-creator && \\\\\npython3 -m scripts.aggregate_benchmark \\\\\n  /Users/ziggy/GitHub/3pools_Web/.claude/skills/mechanic-to-setting-workspace/iteration-1 \\\\\n  --skill-name \"mechanic-to-setting\" \\\\\n  --skill-path \"/Users/ziggy/GitHub/3pools_Web/.claude/skills/mechanic-to-setting\" 2>&1)",
+      "Bash(open:*)",
+      "Bash(kill 76704:*)",
+      "Bash(python3:*)",
+      "Bash(kill 77586:*)",
+      "Bash(kill 78147:*)",
+      "Bash(cd:*)",
+      "Bash(cd /Users/ziggy/GitHub/3pools_Web/.claude/skills/mechanic-to-setting-workspace && python -m scripts.aggregate_benchmark iteration-3 --skill-name mechanic-to-setting 2>&1 || python /Users/ziggy/.claude/plugins/cache/claude-plugins-official/skill-creator/55b58ec6e564/skills/skill-creator/scripts/aggregate_benchmark.py iteration-3 --skill-name mechanic-to-setting 2>&1)",
+      "Bash(kill 79586:*)",
+      "Bash(echo Not ready yet:*)",
+      "Bash(echo No python listening ports found:*)",
+      "Bash(lsof:*)",
+      "Bash(sleep 120:*)",
+      "Bash(ls:*)",
+      "Bash(sleep 3:*)",
+      "WebFetch(domain:johnnemann.medium.com)",
+      "WebFetch(domain:www.gamedeveloper.com)",
+      "WebSearch"
+    ]
+  }
+}

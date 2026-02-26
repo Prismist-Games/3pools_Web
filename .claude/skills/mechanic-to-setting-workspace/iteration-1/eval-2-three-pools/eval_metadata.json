@@ -1,0 +1,6 @@
+{
+  "eval_id": 2,
+  "eval_name": "three-pools",
+  "prompt": "I have 3 resource pools that slowly drain over time. Players can transfer resources between the pools (at a cost) and complete 'orders' to earn resources back. The challenge is keeping all three pools above zero while the drain rate accelerates. It's a browser-based idle-ish strategy game, single-player, no combat.",
+  "assertions": []
+}

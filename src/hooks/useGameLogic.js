@@ -12,15 +12,9 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
     const { t } = useLanguage();
-    // Patience System
-    const [patience, setPatience] = useState(config.patience.initialPatience);
-    const [patienceStage, setPatienceStage] = useState(0);
     const [score, setScore] = useState(initialScore);
 
     const [emergencyDifficulty, setEmergencyDifficulty] = useState(config.emergency?.difficulty?.initial || 1);
-
-    // Upgraded items tracking: [{ orderId, itemIndex, originalRarityId }]
-    const [upgradedOrderItems, setUpgradedOrderItems] = useState([]);
 
     const currentStageConfig = config.stages[0]; // Always use stage 0 (no stage progression)
     const maxInventorySize = currentStageConfig.inventorySize;
@@ -161,10 +155,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 const affix = getRandomAffix(affixPool);
                 selectedPool.affixKey = affix.id;
                 selectedPool.affix = affix;
-                selectedPool.cost = affix.cost || config.patience.drawCost; // Use affix cost if defined
+                selectedPool.cost = affix.cost || 2; // Use affix cost if defined
                 usedAffixIds.add(affix.id);
             } else {
-                selectedPool.cost = config.patience.drawCost;
+                selectedPool.cost = 2;
             }
             result.push(selectedPool);
             tempPools.splice(selectedIndex, 1);
@@ -196,14 +190,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         refreshPools(false);
     }, [config]);
 
-    useEffect(() => {
-        const newStage = calculatePatienceStage(patience);
-        if (newStage !== patienceStage) {
-            handlePatienceStageChange(newStage, patienceStage);
-            setPatienceStage(newStage);
-        }
-    }, [patience]);
-
     const triggerSkillSelection = () => {
         const availableSkills = SKILL_DEFINITIONS.filter(s => {
             if (!config.enabledSkillIds.includes(s.id)) return false;
@@ -219,23 +205,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
         const candidates = getRandomItems(availableSkills, Math.min(3, availableSkills.length));
         setSkillSelectionCandidates(candidates);
-    };
-
-    const handlePatienceStageChange = (newStage, oldStage) => {
-        if (newStage > oldStage) {
-            if (newStage <= 1) return;
-            const stageDiff = newStage - Math.max(oldStage, 1);
-            if (stageDiff <= 0) return;
-            for (let i = 0; i < stageDiff; i++) {
-                upgradeRandomOrderItem(newStage - i);
-            }
-        } else if (newStage < oldStage) {
-            const stageDiff = oldStage - Math.max(newStage, 1);
-            if (stageDiff <= 0) return;
-            for (let i = 0; i < stageDiff; i++) {
-                revertLastUpgrade();
-            }
-        }
     };
 
     const addInventoryItem = (itemName, rarityId) => {
@@ -311,147 +280,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setSkills(prev => prev.map(id => id === oldSkillId ? newSkill.id : id));
         setSkillSelectionCandidates(null);
         showToast(`${t("替换技能：")}${t(newSkill.name)}`);
-    };
-
-    // ===== 耐心值阶段机制核心函数 =====
-
-    const calculatePatienceStage = (currentPatience) => {
-        const stages = config.patience.stages; // [100, 80, 60, 40, 20, 10]
-        for (let i = 0; i < stages.length; i++) {
-            if (currentPatience >= stages[i]) return i;
-        }
-        return stages.length; // <10 时返回最大阶段
-    };
-
-    const upgradeRandomOrderItem = (currentStage) => {
-        const eligibleOrders = orders
-            .map((order, idx) => ({ order, idx }))
-            .filter(({ order }) => order && order.requirements.length > 0);
-
-        if (eligibleOrders.length === 0) return;
-
-        const { order: randomOrder, idx: orderSlotIndex } = eligibleOrders[
-            Math.floor(Math.random() * eligibleOrders.length)
-        ];
-
-        const eligibleItems = randomOrder.requirements.filter(req => {
-            const nextRarity = getNextRarity(req.requiredRarity.id, config);
-            return nextRarity !== null;
-        });
-
-        if (eligibleItems.length === 0) return;
-
-        const randomReq = eligibleItems[Math.floor(Math.random() * eligibleItems.length)];
-        const itemIndex = randomOrder.requirements.indexOf(randomReq);
-        const nextRarity = getNextRarity(randomReq.requiredRarity.id, config);
-
-        // 更新订单
-        const updatedOrders = orders.map((o, idx) => {
-            if (idx === orderSlotIndex && o) {
-                const newReqs = [...o.requirements];
-                newReqs[itemIndex] = { ...newReqs[itemIndex], requiredRarity: nextRarity };
-                return { ...o, requirements: newReqs };
-            }
-            return o;
-        });
-        setOrders(updatedOrders);
-
-        // 记录升级
-        setUpgradedOrderItems(prev => [...prev, {
-            orderSlotIndex,
-            itemIndex,
-            upgradeStage: currentStage
-        }]);
-    };
-
-    const revertLastUpgrade = () => {
-        if (upgradedOrderItems.length === 0) return;
-
-        const lastUpgrade = upgradedOrderItems[upgradedOrderItems.length - 1];
-        const { orderSlotIndex, itemIndex } = lastUpgrade;
-
-        const order = orders[orderSlotIndex];
-        if (!order) {
-            setUpgradedOrderItems(prev => prev.slice(0, -1));
-            return;
-        }
-
-        // 降级一次
-        const currentReq = order.requirements[itemIndex];
-        const currentRarityId = currentReq.requiredRarity.id;
-        const rarityIndex = config.rarity.findIndex(r => r.id === currentRarityId);
-
-        if (rarityIndex > 0) {
-            const lowerRarity = config.rarity[rarityIndex - 1];
-
-            const updatedOrders = orders.map((o, idx) => {
-                if (idx === orderSlotIndex && o) {
-                    const newReqs = [...o.requirements];
-                    newReqs[itemIndex] = { ...newReqs[itemIndex], requiredRarity: lowerRarity };
-                    return { ...o, requirements: newReqs };
-                }
-                return o;
-            });
-            setOrders(updatedOrders);
-        }
-
-        setUpgradedOrderItems(prev => prev.slice(0, -1));
-    };
-
-
-
-    const applySlotUpgrades = (newOrders, targetIndices = null) => {
-        const result = [...newOrders];
-        const updatedUpgrades = [];
-        let upgradeChanged = false;
-
-        upgradedOrderItems.forEach((upgrade) => {
-            const { orderSlotIndex, itemIndex, upgradeStage } = upgrade;
-
-            // 如果提供了 targetIndices，仅处理指定的槽位
-            if (targetIndices && !targetIndices.includes(orderSlotIndex)) {
-                updatedUpgrades.push(upgrade);
-                return;
-            }
-
-            const order = result[orderSlotIndex];
-
-            if (!order || !order.requirements[itemIndex]) {
-                if (order && order.requirements.length > 0) {
-                    const newIndex = Math.floor(Math.random() * order.requirements.length);
-                    updatedUpgrades.push({ ...upgrade, itemIndex: newIndex });
-                    upgradeChanged = true;
-
-                    let currentRarity = order.requirements[newIndex].requiredRarity;
-                    for (let i = 0; i < upgradeStage; i++) {
-                        const nextRarity = getNextRarity(currentRarity.id, config);
-                        if (nextRarity) currentRarity = nextRarity;
-                    }
-                    result[orderSlotIndex].requirements[newIndex] = {
-                        ...result[orderSlotIndex].requirements[newIndex],
-                        requiredRarity: currentRarity
-                    };
-                } else {
-                    updatedUpgrades.push(upgrade);
-                }
-                return;
-            }
-
-            updatedUpgrades.push(upgrade);
-
-            let currentRarity = order.requirements[itemIndex].requiredRarity;
-            for (let i = 0; i < upgradeStage; i++) {
-                const nextRarity = getNextRarity(currentRarity.id, config);
-                if (nextRarity) currentRarity = nextRarity;
-            }
-
-            result[orderSlotIndex].requirements[itemIndex] = {
-                ...result[orderSlotIndex].requirements[itemIndex],
-                requiredRarity: currentRarity
-            };
-        });
-
-        return { orders: result, updatedUpgrades, hasChanges: upgradeChanged };
     };
 
     const maxRequirementRarityMap = useMemo(() => {
@@ -608,24 +436,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             let multiplier = 1 + totalSubmitBonus;
             if (isSameType) multiplier *= 2;
 
-            let extraPatience = 0;
-            if (hasSkill('poverty_relief') && patience < 20) {
-                extraPatience += 5;
-            }
-            if (hasSkill('big_order_expert') && order.requirements.length === 4) {
-                extraPatience += 5;
-            }
-            if (hasSkill('hard_order_expert')) {
-                const hasHardReq = order.requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
-                if (hasHardReq) extraPatience += 10;
-            }
-
-            const finalPatienceReward = order.basePatienceReward; // Fixed reward as requested
             const finalScoreReward = Math.ceil(order.baseScoreReward * multiplier);
 
             return {
                 index: idx,
-                finalPatienceReward,
                 finalScoreReward,
                 isScoreOrder: isMain,
                 reqCount: order.requirements.length,
@@ -653,7 +467,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
 
         return results;
-    }, [orders, emergencyOrders, isSubmitMode, isEvacuationMode, selectedIndices, inventory, hasSkill, patience, skills]);
+    }, [orders, emergencyOrders, isSubmitMode, isEvacuationMode, selectedIndices, inventory, hasSkill, skills]);
 
     // Preview Potential Rewards (Calculate using BEST items from inventory)
     const potentialSatisfiableOrders = useMemo(() => {
@@ -703,24 +517,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             let multiplier = 1 + totalSubmitBonus;
             if (isSameType) multiplier *= 2;
 
-            let extraPatience = 0;
-            if (hasSkill('poverty_relief') && patience < 20) {
-                extraPatience += 5;
-            }
-            if (hasSkill('big_order_expert') && order.requirements.length === 4) {
-                extraPatience += 5;
-            }
-            if (hasSkill('hard_order_expert')) {
-                const hasHardReq = order.requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
-                if (hasHardReq) extraPatience += 10;
-            }
-
-            const finalPatienceReward = order.basePatienceReward; // Fixed reward as requested
             const finalScoreReward = Math.ceil(order.baseScoreReward * multiplier);
 
             return {
                 index: idx,
-                finalPatienceReward,
                 finalScoreReward,
                 isScoreOrder: isMain,
                 reqCount: order.requirements.length,
@@ -745,7 +545,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         });
 
         return results;
-    }, [inventory, orders, patience, skills, emergencyOrders]);
+    }, [inventory, orders, skills, emergencyOrders]);
 
     const totalRecycleValue = useMemo(() => {
         if (!isRecycleMode || selectedIndices.length === 0) return 0;
@@ -803,7 +603,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     }, [orderCandidates, orderCandidateQueue]);
 
     const createItem = (pool, itemTemplate, affixKey = null) => {
-        const rarity = rollRarity(config, affixKey, patience, hasSkill, skillState, currentStageConfig);
+        const rarity = rollRarity(config, affixKey, gold, hasSkill, skillState, currentStageConfig);
         return {
             ...itemTemplate,
             uid: Math.random().toString(36).substr(2, 9),
@@ -1112,7 +912,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates) return;
 
         // Use pool cost (from affix config)
-        let finalCost = pool.cost || config.patience.drawCost;
+        let finalCost = pool.cost || 2;
 
         if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
             finalCost = Math.max(0, finalCost - 1);
@@ -1209,13 +1009,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const handleSelectionCancel = () => {
         if (selectionMode?.type === 'targeted') {
             // 退回金币
-            const refundCost = selectionMode.cost || config.patience.drawCost;
+            const refundCost = selectionMode.cost || 2;
             setGold(prev => prev + refundCost);
             setSelectionMode(null);
         } else if (selectionMode?.type === 'trade_in') {
             // 退回金币
             const pool = selectionMode.pool;
-            let refundCost = pool.cost || config.patience.drawCost;
+            let refundCost = pool.cost || 2;
             if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
                 refundCost = Math.max(0, refundCost - 1);
             }
@@ -1224,7 +1024,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         } else if (selectionMode?.type === 'precise') {
             // 退回金币
             const pool = selectionMode.pool;
-            let refundCost = pool.cost || config.patience.drawCost;
+            let refundCost = pool.cost || 2;
             if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
                 refundCost = Math.max(0, refundCost - 1);
             }
@@ -1705,7 +1505,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const handleRefreshAllOrders = () => {
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode || orderCandidates) return;
-        if (config.patience?.enabled !== false && patience < config.global.refreshCost) return;
         if (!currentStageConfig.mechanics.refresh) {
             showToast(t("当前时代尚未解锁订单刷新技术！"), "error");
             return;
@@ -1770,10 +1569,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const newOrders = [...orders];
         newOrders[slotIndex] = selectedOrder;
 
-        // 应用槽位升级
-        const { orders: upgradedOrders, updatedUpgrades, hasChanges } = applySlotUpgrades(newOrders, [slotIndex]);
-        setOrders(upgradedOrders);
-        if (hasChanges) setUpgradedOrderItems(updatedUpgrades);
+        setOrders(newOrders);
 
         setOrderCandidates(null);
         // 队列中的下一个候选由 useEffect 自动处理
@@ -1992,7 +1788,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
-        let gainedPatience = 0;
         let gainedScore = 0;
         const newOrders = [...orders];
         const completedIndices = [];
@@ -2003,8 +1798,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         const nextSkillState = { ...skillState };
 
-        satisfiableOrders.forEach(({ index, finalPatienceReward, finalScoreReward, reqCount, requirements, isScoreOrder }) => {
-            gainedPatience += finalPatienceReward;
+        satisfiableOrders.forEach(({ index, finalScoreReward, reqCount, requirements, isScoreOrder }) => {
             gainedScore += finalScoreReward;
 
             if (hasSkill('big_order_expert') && reqCount === 4) {
@@ -2034,7 +1828,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         setSkillState(nextSkillState);
 
-        setPatience(prev => prev + gainedPatience);
         setScore(prev => prev + gainedScore);
 
         // 每次完成订单，增加刷新次数
@@ -2282,19 +2075,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         });
     };
 
-    // Patience Check: Game Over when patience <= 0
-    // Also check Emergency Deadline and Health
+    // Check Emergency Deadline and Health
     useEffect(() => {
         if (!modalContent) {
-            if (config.patience?.enabled !== false && patience <= 0) {
-                setModalContent({
-                    title: t("游戏结束"),
-                    item: { name: t('耐心耗尽'), icon: '💔', rarity: { color: 'bg-red-500', name: 'GAME OVER', starColor: 'text-white' } },
-                    message: t("你的耐心值已耗尽！"),
-                    type: 'game_over',
-                    score: drawCount
-                });
-            } else if (emergencyOrders.length > 0 && emergencyOrders[0].deadline <= 0) {
+            if (emergencyOrders.length > 0 && emergencyOrders[0].deadline <= 0) {
                 // Timeout logic removed or simplified if deadlines are still relevant as "Evacuate Time"
                 // Since rewrite says "Evacuate" button submits, maybe deadline is just visual pressure?
                 // Original logic had "Timeout" penalty. Now user just says "Submit to evacuate".
@@ -2309,17 +2093,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 // For now, disable auto-timeout refresh to focus on manual evacuation.
             }
         }
-    }, [patience, modalContent, score, config, emergencyOrders, emergencyDifficulty, allNormalItems, hasSkill, currentStageConfig]);
+    }, [modalContent, score, config, emergencyOrders, emergencyDifficulty, allNormalItems, hasSkill, currentStageConfig]);
 
     return {
         state: {
             gold,
-            patience,
-            patienceStage,
             emergencyOrders,
             emergencyDifficulty,
             score,
-            upgradedOrderItems,
             currentStageConfig,
             maxInventorySize,
             drawCount,
