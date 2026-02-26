@@ -19,11 +19,10 @@
 9. [游戏组件详解](#9-游戏组件详解)
 10. [UI 基础组件](#10-ui-基础组件)
 11. [国际化系统](#11-国际化系统)
-12. [外部服务：Supabase](#12-外部服务supabase)
-13. [关键算法与流程](#13-关键算法与流程)
-14. [状态交互矩阵](#14-状态交互矩阵)
-15. [已知设计债务与休眠系统](#15-已知设计债务与休眠系统)
-16. [修改指南](#16-修改指南)
+12. [关键算法与流程](#12-关键算法与流程)
+13. [状态交互矩阵](#13-状态交互矩阵)
+14. [已知设计债务与休眠系统](#14-已知设计债务与休眠系统)
+15. [修改指南](#15-修改指南)
 
 ---
 
@@ -35,7 +34,6 @@
 | Vite | 6.x | 构建工具 + HMR 开发服务器 |
 | Tailwind CSS | 3.x | 原子化样式 |
 | Lucide React | 0.469 | 图标库 |
-| Supabase JS | 2.90 | 排行榜远程存储 |
 | ESLint | 9.x | 代码检查 |
 
 ### 构建配置
@@ -84,7 +82,6 @@ npm run lint      # ESLint 检查
 │   ├── utils/
 │   │   ├── helpers.js             ← 纯函数工具 (~14KB)
 │   │   ├── translations.js        ← 英文翻译映射 (~15KB)
-│   │   └── supabaseClient.js      ← Supabase 客户端初始化
 │   │
 │   ├── contexts/
 │   │   └── LanguageContext.jsx     ← 语言切换 Context + t() 翻译函数
@@ -96,7 +93,6 @@ npm run lint      # ESLint 检查
 │       │   ├── OrderCard.jsx       ← 订单卡片 (~33KB)
 │       │   ├── PoolCard.jsx        ← 奖池卡片 (~4KB)
 │       │   ├── SkillSelectionModal.jsx ← 技能选择弹窗 (~10KB)
-│       │   └── Leaderboard.jsx     ← 排行榜 (~7KB)
 │       └── ui/
 │           ├── ConfirmDialog.jsx   ← 通用确认对话框
 │           └── Toast.jsx           ← 浮动提示
@@ -136,7 +132,6 @@ INITIAL_GAME_CONFIG (constants.js)
         ├── OrderCard ← 订单展示 + 提交入口
         ├── InventorySlot ← 背包格子交互
         ├── SkillSelectionModal ← 技能选择
-        └── Leaderboard ← 排行榜
 ```
 
 ### 核心原则
@@ -783,7 +778,7 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 
 优先级顺序：
 1. `skillSelectionCandidates` 非空 → `SkillSelectionModal`
-2. `modalContent.type === 'victory'` → `Leaderboard` + 重开按钮
+2. `modalContent.type === 'victory'` → 奖杯 + 最终积分 + 重开按钮
 3. `modalContent.type === 'stage_up'` → 阶段提升提示
 4. `modalContent.type === 'game_over'` → 游戏结束
 5. `modalContent.type === 'evacuation_success'` → 撤离成功（继续/提取按钮）
@@ -892,18 +887,6 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 - "按住查看"按钮：`isPeeking` 状态使弹窗背景透明、隐藏内容，方便查看游戏状态
 - "放弃新技能"按钮始终可用
 
-### 9.5 Leaderboard.jsx
-
-**Props**: `currentScore, onRestart`
-
-**State**: `scores[], loading, name, submitting, submitted, fetchError`
-
-**行为**：
-- 挂载时从 Supabase `leaderboard` 表获取 top 10（按 `draw_count` 升序）
-- 提交：insert `{ player_name, draw_count: currentScore }` 到 `leaderboard` 表
-- 注意：列名 `draw_count` 实际存储的是 `score`（历史命名问题）
-- 提交后按钮文案从 "跳过并重开" 变为 "再来一局"
-
 ---
 
 ## 10. UI 基础组件
@@ -957,31 +940,9 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
 
 ---
 
-## 12. 外部服务：Supabase
+## 12. 关键算法与流程
 
-### supabaseClient.js
-
-```js
-const supabaseUrl = 'https://mjduqvijyohjqxjvsxwt.supabase.co';
-const supabaseKey = 'sb_publishable_Rx6UWhzGIH3o601-oMS-6Q_sC2QH04R';
-export const supabase = createClient(supabaseUrl, supabaseKey);
-```
-
-公开 anon key，故意硬编码。仅用于排行榜功能。
-
-### 数据表
-
-**`leaderboard`** 表：
-- `player_name`: string
-- `draw_count`: number（实际存储积分，命名有误）
-- 查询：`select('*').order('draw_count', { ascending: true }).limit(10)`
-- 插入：`insert([{ player_name, draw_count: currentScore }])`
-
----
-
-## 13. 关键算法与流程
-
-### 13.1 抽卡完整流程
+### 12.1 抽卡完整流程
 
 ```
 用户点击 PoolCard
@@ -1009,7 +970,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
             └── refreshPools(true) → generateActivePools()
 ```
 
-### 13.2 订单满足算法
+### 12.2 订单满足算法
 
 `satisfiableOrders` 计算（在 `useMemo` 中）：
 
@@ -1024,7 +985,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
   4. 若所有需求满足 → 加入结果
 ```
 
-### 13.3 幻影标记算法
+### 12.3 幻影标记算法
 
 `phantomMarks` 计算：
 
@@ -1035,7 +996,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
   如果能 → 标记为幻影（显示链接图标）
 ```
 
-### 13.4 积分计算公式
+### 12.4 积分计算公式
 
 ```
 baseScoreReward = max(1, floor(Σ req.rarityScoreWeight + progressOffset))
@@ -1046,7 +1007,7 @@ finalScore = ceil(baseScoreReward × multiplier)
 
 ---
 
-## 14. 状态交互矩阵
+## 13. 状态交互矩阵
 
 此矩阵显示不同模式下各种交互的行为：
 
@@ -1064,17 +1025,13 @@ finalScore = ceil(baseScoreReward × multiplier)
 
 ---
 
-## 15. 已知设计债务与休眠系统
+## 14. 已知设计债务与休眠系统
 
 ### 休眠系统
 
 1. **阶段系统**：4 个阶段完整定义在 `INITIAL_STAGE_CONFIG`，但 `useGameLogic` 硬编码 `config.stages[0]`，无阶段切换触发器。
 2. **技能获取流程**：`triggerSkillSelection()` 存在但无自动触发点。技能只能通过调试工具或未来代码手动触发。
 3. **积分进度**：`targetProgress: Infinity`，进度系统框架存在但无具体目标。
-
-### 命名问题
-
-- Supabase `leaderboard` 表的 `draw_count` 列实际存储 score（积分），非抽卡次数。
 
 ### 代码规模
 
@@ -1083,7 +1040,7 @@ finalScore = ceil(baseScoreReward × multiplier)
 
 ---
 
-## 16. 修改指南
+## 15. 修改指南
 
 ### 修改游戏数值
 

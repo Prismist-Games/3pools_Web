@@ -5,7 +5,6 @@ import { useGameLogic } from './hooks/useGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { SkillSelectionModal } from './components/game/SkillSelectionModal';
-import Leaderboard from './components/game/Leaderboard.jsx';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
 import { PoolCard } from './components/game/PoolCard';
@@ -105,10 +104,23 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             <h3 className="text-2xl font-black text-slate-800">{modalContent.title}</h3>
 
                             {isVictory ? (
-                                <Leaderboard
-                                    currentScore={modalContent.score}
-                                    onRestart={onReset}
-                                />
+                                <>
+                                    <div className="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center text-5xl shadow-inner mb-2">
+                                        🏆
+                                    </div>
+                                    <p className="text-slate-500 font-medium text-lg">
+                                        {modalContent.message}
+                                    </p>
+                                    <p className="text-3xl font-black text-blue-600 font-mono">
+                                        {modalContent.score}
+                                    </p>
+                                    <button
+                                        onClick={onReset}
+                                        className="mt-4 font-bold py-3 px-12 rounded-full shadow-lg transition-transform active:scale-95 bg-slate-800 text-white hover:bg-slate-700"
+                                    >
+                                        {t("再来一局")}
+                                    </button>
+                                </>
                             ) : isStageUp ? (
                                 <div className="flex flex-col items-center gap-4 py-4 w-full">
                                     <div className="text-4xl animate-bounce">{modalContent.item?.icon}</div>

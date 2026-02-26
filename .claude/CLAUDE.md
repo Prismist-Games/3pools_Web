@@ -50,7 +50,6 @@ src/components/
     OrderCard.jsx        ← Individual order display and interaction
     PoolCard.jsx         ← Draw pool card with affix display
     SkillSelectionModal  ← 3-option skill picker shown on era transition
-    Leaderboard.jsx      ← Supabase-backed high score table
   ui/
     ConfirmDialog.jsx    ← Reusable modal confirmation
     Toast.jsx            ← Transient notification display
@@ -73,6 +72,3 @@ src/contexts/
 
 Project-specific lessons and conventions are stored in `.claude/lessons/` as categorized markdown files (e.g., `ui-conventions.md`, `architecture.md`). When `/reflect` captures new learnings, they should be appended to the appropriate file under `.claude/lessons/` rather than added directly to this file.
 
-### External Services
-
-- **Supabase** (`src/utils/supabaseClient.js`): Used only for the leaderboard feature. The URL and publishable key are hardcoded (this is intentional — it's a public anon key).
