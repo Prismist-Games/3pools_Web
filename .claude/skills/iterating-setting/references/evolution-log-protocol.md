@@ -1,14 +1,14 @@
 # Evolution Log Protocol
 
-Operational details for maintaining `setting-evolution-log.md` — the single
+Operational details for maintaining `design_docs/setting-evolution-log.md` — the single
 source of truth for the setting's history and current state.
 
 ## Files
 
 | File | Purpose | When to read |
 |------|---------|-------------|
-| `setting-evolution-log.md` | Everything: dead ends, current state, reasoning chain, sessions | Every session start |
-| `setting-evolution-archive.md` | Full narratives of archived sessions | Only when reviewing old details |
+| `design_docs/setting-evolution-log.md` | Everything: dead ends, current state, reasoning chain, sessions | Every session start |
+| `design_docs/setting-evolution-archive.md` | Full narratives of archived sessions | Only when reviewing old details |
 
 ## Log Structure
 
@@ -38,7 +38,7 @@ and what the next question is. The most important section for picking up mid-pro
 **近期会话**: Full session narratives with step-by-step reasoning. Keep last ~3 sessions.
 
 **归档**: Compressed summaries of older sessions. Full narratives moved to
-`setting-evolution-archive.md`.
+`design_docs/setting-evolution-archive.md`.
 
 ## Session Entry Format
 
@@ -67,13 +67,13 @@ When compressing a session for 归档:
 
 Before archiving:
 1. Move any dead ends into the 死胡同登记 table
-2. Move the full narrative to `setting-evolution-archive.md`
+2. Move the full narrative to `design_docs/setting-evolution-archive.md`
 
 ## Maintenance
 
 At the start of each session, after reading the log:
 1. Check if there are more than ~3 full session entries in 近期会话
 2. If so, compress the oldest into 归档 format
-3. Move its full narrative to `setting-evolution-archive.md`
+3. Move its full narrative to `design_docs/setting-evolution-archive.md`
 4. Ensure dead ends are in 死胡同登记
 5. Ensure 当前状态 and 当前思考链 are up to date

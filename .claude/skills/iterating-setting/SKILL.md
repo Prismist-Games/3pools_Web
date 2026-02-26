@@ -209,10 +209,10 @@ what's open, what's been rejected. Offer to do this when the conversation gets l
 
 ## Evolution Log
 
-At the start of every session, read `.claude/setting-evolution-log.md` before
-contributing anything. This single file contains the dead-end registry, current
-state (all confirmed decisions and open questions), reasoning chain, and recent
-session narratives.
+At the start of every session, read `design_docs/setting-evolution-log.md`
+before contributing anything. This single file contains the dead-end registry,
+current state (all confirmed decisions and open questions), reasoning chain, and
+recent session narratives.
 
 Update the log **in real-time** during conversation — not every turn, but
 immediately when something significant shifts: a direction confirmed/rejected,
