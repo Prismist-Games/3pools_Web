@@ -6,46 +6,43 @@ Operational details for maintaining setting design documents.
 
 | File | Purpose | When to read |
 |------|---------|-------------|
-| `design_docs/setting-current-state.md` | Snapshot: confirmed decisions, open questions, design principles, reasoning chain | Every session start |
-| `design_docs/setting-evolution-log.md` | Process: dead ends, session narratives | Every session start |
-| `design_docs/setting-evolution-archive.md` | Full narratives of archived sessions | Only when reviewing old details |
+| `design_docs/setting-current-state.md` | Snapshot: confirmed decisions, dead ends, open questions, design principles, reasoning chain | Every new session start |
+| `design_docs/setting-evolution-log.md` | Session history: how reasoning unfolded over time | New session start if needed; on demand when user asks about history |
+
+There is no separate archive file. Everything lives in these two files.
 
 ## Current State File Structure
 
 ```
 # 设定当前状态
 
-## 已确定              ← all confirmed decisions, organized by topic
-## 未解决              ← all open questions
+## 已确认              ← confirmed decisions, organized by topic
+## 死胡同              ← rejected directions with reasons and dates; checked before proposing anything new
+## 未解决              ← open questions
 ## 设计原则            ← guiding principles for decision-making
 ## 当前思考链          ← the active reasoning chain and next step
 ```
 
-Update this file in real-time when:
-- A decision is confirmed or reversed
-- A new open question is identified or one gets resolved
-- The reasoning chain advances to a new step
-- A design principle is added or modified
+Update this file silently when:
+- A decision is confirmed or reversed → update 已确认
+- A direction is rejected → add to 死胡同 immediately
+- A new open question is identified or one gets resolved → update 未解决
+- The reasoning chain advances → update 当前思考链
+- A design principle is added or modified → update 设计原则
 
 ## Evolution Log Structure
 
 ```
 # 设定演变记录
 
-## 死胡同登记          ← permanent, never deleted
-## 近期会话            ← full detail, last ~3 sessions
-## 归档               ← compressed, key takeaways only
+[entries in chronological order, oldest first]
 ```
 
-**死胡同登记**: Table of rejected directions with reasons and dates. Checked before
-proposing any new direction. If your idea is structurally similar to a dead end,
-don't propose it — or explicitly acknowledge the similarity and explain why this
-time is different.
-
-**近期会话**: Full session narratives with step-by-step reasoning. Keep last ~3 sessions.
-
-**归档**: Compressed summaries of older sessions. Full narratives moved to
-`design_docs/setting-evolution-archive.md`.
+Write when a topic unit concludes — an open question gets resolved, a direction gets
+rejected, or the user shifts to a different question. Don't wait for the conversation
+to end. Each entry covers one topic unit. Write what matters — the key turn, what was
+tried, what was concluded, what was corrected. Skip narration of exploration that
+didn't lead anywhere significant.
 
 ## Session Entry Format
 
@@ -55,32 +52,21 @@ time is different.
 **演变**:
 1. [想法/方向] → [结果/发现]
 2. [下一步] → [结果/发现]
-...
 **确认**: 确认了什么（如果有）
-**否定**: 否定了什么，以及为什么
-**纠正**: 用户纠正了什么错误方向（最重要的部分——这些是不能重复的错误）
+**否定**: 否定了什么，以及为什么（also add these to 死胡同 in current-state）
+**纠正**: 用户纠正了什么错误方向（最重要——这些是不能重复的错误）
 **打开的问题**: 留下了什么未解决的
 ```
 
-## Archive Format
-
-When compressing a session for 归档:
-
-```markdown
-### [YYYY-MM-DD] 简短标题 (归档)
-**关键发现**: [one line]
-**关键纠正**: [one line, if any]
-```
-
-Before archiving:
-1. Move any dead ends into the 死胡同登记 table
-2. Move the full narrative to `design_docs/setting-evolution-archive.md`
+Only include sections that have content. An entry with no corrections doesn't need a
+**纠正** line.
 
 ## Maintenance
 
-At the start of each session, after reading both files:
-1. Check if there are more than ~3 full session entries in 近期会话
-2. If so, compress the oldest into 归档 format
-3. Move its full narrative to `design_docs/setting-evolution-archive.md`
-4. Ensure dead ends are in 死胡同登记
-5. Ensure current state file is up to date
+When writing to the evolution log, review older entries. If an entry's detail has
+become redundant — because the decisions it records are already captured in
+current-state and there's nothing in the reasoning path worth preserving — trim it
+to a single summary line. Do this in place; do not move content to a separate file.
+
+Trim aggressively only when the log is getting long enough to be unwieldy. A log
+with 5-10 full entries is fine. Don't compress just for the sake of it.

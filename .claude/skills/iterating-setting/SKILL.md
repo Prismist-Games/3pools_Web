@@ -16,20 +16,6 @@ This is the counterpart to mechanic-to-setting. That skill *discovers* settings 
 mechanics (divergent, one-shot). This skill *develops* a chosen setting into something
 real (convergent, multi-turn).
 
-## When to Use This Skill
-
-- User has a setting direction and wants to develop it
-- User feels something is "off" but can't articulate it
-- User wants to stress-test a setting's internal logic
-- User wants to connect theme to the world in a non-forced way
-- User wants to explore a specific aspect (narrative core, tone, world rules)
-
-## When NOT to Use This Skill
-
-- User has mechanics but no setting direction yet → use mechanic-to-setting
-- User wants to compare multiple setting options → use mechanic-to-setting
-- First contact with a new project, no direction established yet
-
 ## Core Principles
 
 **1. Theme is the seed, not decoration.**
@@ -63,15 +49,21 @@ forgotten possibilities", no trying to make the pitch sound evocative through
 word choice. If the idea is good, plain language will show it. If it needs
 stylistic embellishment to sound interesting, the idea needs more work.
 
-**6. Concise over comprehensive.**
-Say what matters, skip what doesn't. Don't explain every implication. Don't add
-flavor text. Don't pad with atmosphere descriptions unless specifically asked.
-A setting that takes 3 paragraphs to convey clearly is better than one that
-takes 10 paragraphs to convey elaborately.
+**6. Concise over comprehensive — for setting descriptions.**
+When describing or pitching a setting, say what matters and skip what doesn't. Don't
+add flavor text or atmosphere descriptions unless specifically asked. A pitch that takes
+3 paragraphs to convey clearly is better than one that takes 10 paragraphs to convey
+elaborately.
+
+**7. Depth over brevity — for collaborative thinking.**
+When working through an idea together, depth is the point. Follow an implication to
+its end, surface the tension inside a premise, show your actual reasoning. A short
+response is not automatically better — the question is whether it moves the thinking
+forward.
 
 ## Conversational Discipline
 
-This skill has two failure modes. The fix for one easily creates the other:
+This skill has three failure modes. The fix for one easily creates another:
 
 **Failure 1: Drift.** You follow connections away from the user's topic.
 User says "focus on the theme" → you talk about how the theme connects to mechanics.
@@ -81,16 +73,27 @@ Cause: setting design is interconnected, every hop feels relevant.
 User says "the machine affects everyone" → you say "yes, it affects everyone."
 Cause: "stay focused" gets misread as "don't have your own thoughts."
 
+**Failure 3: Rediscovery.** You present already-confirmed decisions as if they're
+new insights — restating them as analogies, implications, or connections you just
+made. The user confirmed "uncertainty is an unavoidable condition, like weather" two
+sessions ago. Arriving at the same point again — even repackaged as a fresh analogy —
+wastes their time and signals you haven't internalized what's been decided.
+Before responding, check what's in current-state. Don't re-derive what's already there.
+Build *from* confirmed decisions, not *toward* them.
+
 **The target is focused contribution** — stay on the user's topic AND think
 deeply about it. Your value is in new angles, challenges, and implications
-WITHIN the current topic. Not in summarizing, not in changing the subject.
+WITHIN the current topic. Not in summarizing, not in restating, not in changing
+the subject.
 
 How to tell the difference:
 - DRIFT: User discusses the theme → you bring up the core loop. (Wrong topic.)
 - ECHO: User discusses the theme → you restate the theme differently. (No value.)
-- CONTRIBUTION: User discusses the theme → you notice something specific about
-  it that the user hasn't said, or you challenge an assumption, or you extend
-  the thought in a way that deepens it. (Genuine thinking, same topic.)
+- REDISCOVERY: User discusses the theme → you "discover" something already in
+  current-state and present it as a fresh connection. (Wasted time.)
+- CONTRIBUTION: User discusses the theme → you notice something specific that
+  the user hasn't said, challenge an assumption, or extend the thought in a way
+  that deepens it. (Genuine thinking, same topic.)
 
 **When the user makes a statement, advance it.** "The machine's uncertainty
 affects everyone in the company" → don't say "yes, it affects everyone." Think
@@ -108,6 +111,25 @@ is useless. Disagreement within the topic is contribution, not drift.
 **When the user corrects your direction, commit fully and stay active.** Drop
 the old direction — but don't become passive. Contribute actively on the new
 direction with the same energy.
+
+**Preserve what works.** When the user likes something, don't adjust it while
+"improving" other parts. What's confirmed in current-state is protected — work
+around it, not through it.
+
+**Track the state.** At any point you should be able to summarize: what's decided,
+what's open, what's been rejected. Offer to do this when the conversation gets long.
+
+**Understand a constraint fully before proposing directions from it.**
+When the user defines a constraint ("the impact must be automatic, no player choice"),
+the instinct is to immediately generate directions that satisfy it. Resist this.
+Understanding what a constraint means and proposing directions that follow from it are
+two separate steps — collapsing them produces directions that sound plausible but
+haven't been thought through.
+
+First, push the constraint to its edges: What exactly does it rule out? What does it
+require of the world for it to hold? What tension or problem does it create that
+didn't exist before? This is the thinking that makes a direction worth proposing.
+Only once the constraint is clear should you ask what it opens.
 
 ## Process
 
@@ -185,52 +207,53 @@ Before considering a setting "done", test it:
 - **The theme test**: If you stripped all explicit theme references, would the
   theme still come through in how the world works and what the player does?
 
-## Conversation Guidelines
+## File State Management
 
-**Think together.** The user decides what topic to work on. Within that topic,
-you are an equal thinking partner — offer genuine thoughts, challenge weak ideas
-(including your own), and push the thinking forward. Don't just ask questions
-and wait. Don't just agree and restate.
+Two design documents track the setting. Read both once at the start of a NEW
+conversation, then don't read either again during the same conversation.
 
-**One topic at a time.** Stay within the user's current focus. But within that
-focus, think actively and contribute. "One topic" means don't change the subject,
-not "don't have ideas."
+### `design_docs/setting-current-state.md` — Working document + active constraints
 
-**Preserve what works.** When the user likes something, don't change it while
-"improving" other parts. Explicitly track what's established and protected.
+Contains: confirmed decisions, open questions, design principles, reasoning chain,
+and the **dead-end registry** (directions that have been tried and rejected).
 
-**Respect the user's focus, contribute within it.** When the user says "the
-problem is X," think hard about X — not about whether Y is the "real" problem.
-If you genuinely see a different issue, mention it once. If the user stays with
-X, commit to X and bring your best thinking to it.
+**Read**: Once, at the start of a NEW conversation. Already in context after that.
 
-**Track the state.** At any point, you should be able to summarize: what's decided,
-what's open, what's been rejected. Offer to do this when the conversation gets long.
+**Write**: Silently, without announcing it. Update only the relevant section. Triggers:
+- User explicitly accepts a direction: "好，就这样", "定了", "有道理，用这个"
+- User rejects or reverses something previously accepted
+- A new dead end is identified — add it to the dead-end registry immediately
+- A new open question surfaces or gets resolved
+- The reasoning chain moves to a new step
 
-## Evolution Log and Current State
+Do NOT write after every exchange. Exploration and back-and-forth is not a decision.
 
-At the start of every session, read both files before contributing anything:
+### `design_docs/setting-evolution-log.md` — Session history
 
-1. **`design_docs/setting-current-state.md`** — The snapshot: all confirmed decisions,
-   open questions, design principles, and the current reasoning chain. This is where
-   you find what's been decided and what the next question is.
+Contains: session narratives in chronological order, most recent last. No separate
+archive file — everything lives here.
 
-2. **`design_docs/setting-evolution-log.md`** — The process: dead-end registry and
-   session narratives. This is where you find what's been tried and rejected, and the
-   reasoning path that got us here.
+**Read**: Once, at the start of a NEW conversation, only if you need to understand how
+past reasoning unfolded. If the current-state file gives you enough context, skip it.
+Read on demand within the conversation only if the user explicitly asks about history.
 
-**Updating during conversation:**
+**Write**: When a topic unit concludes — not when the conversation ends. Signals:
+- An open question gets answered and accepted
+- A direction is rejected (also add to 死胡同 in current-state immediately)
+- The user shifts focus to a different question
 
-- **Current state file**: Update when a decision is confirmed/reversed, a new question
-  opens, the reasoning chain advances, or a design principle is added/modified.
-- **Evolution log**: Update when a dead end is hit (add to registry), or at the end of
-  a significant conversation segment (add session narrative).
+Write at that moment, not later. This way the log is up to date even if the
+conversation ends without warning. Keep what matters, skip what doesn't — one entry
+per topic unit, capturing the key turn and conclusion, not the full back-and-forth.
 
-Before proposing any new direction, check the dead-end registry in the evolution log.
-If your idea is structurally similar to a logged dead end, don't propose it.
+### Maintenance
 
-For log structure, entry format, maintenance, and archiving rules, read
-`references/evolution-log-protocol.md`.
+When writing to the evolution log, trim entries that have become redundant or whose
+detail no longer adds anything beyond what's in current-state. There is no separate
+archive file — if the log gets long, summarize older entries in place rather than
+moving them elsewhere.
+
+For log entry format, read `references/evolution-log-protocol.md`.
 
 ## Edge Cases
 
