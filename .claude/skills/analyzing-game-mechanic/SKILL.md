@@ -62,7 +62,7 @@ discussion fits within it.
 ### Read the documentation first
 
 - `design_docs/game_rules.md` — the game's mechanics, systems, and rules.
-- `design_docs/game_progress.md` — what the team considers core (unlikely
+- `design_docs/gameplay_progress.md` — what the team considers core (unlikely
   to change), what's actively being worked on, and what's temporary or
   placeholder. This matters because analysis that treats a placeholder
   system as a fixed constraint will produce misleading insights.
@@ -288,12 +288,38 @@ An insight is ready when it is:
 ## Case Archiving
 
 When the team says "archive this case", save the current analysis to
-`references/cases/` as a markdown file. Include:
-- The original intention/question
-- Key context
-- The analysis path taken
-- The resulting insights
+`design_docs/reference/design_analysis_cases/` as a markdown file.
 
-These archived cases serve as a knowledge base — evidence of how
-the team has thought about design problems before, and why certain
-directions were chosen over others.
+### What to capture
+
+**The facts:**
+- The original intention/question
+- Key context (what part of the game, what state it was in)
+- The resulting insights and directions
+
+**The thinking process:**
+- The analysis path — what lenses were applied, in what order, and why
+- Key pivots — moments where understanding shifted, where an initial
+  framing was abandoned for a better one
+- The team's input that shaped direction — what did they push back on,
+  what did they confirm, what distinctions did they draw? These reveal
+  the team's design taste and priorities.
+- Dead ends — lines of reasoning that were explored and discarded, and
+  why. These are as valuable as the conclusions.
+
+The goal is not to transcribe the conversation, but to reconstruct
+**how we arrived at the conclusions** — so that future analysis can
+build on the team's evolving way of thinking, not just their past
+answers.
+
+## References
+
+This section is a directory of documents that support analysis.
+Items marked "待填充" need to be created or populated by the team.
+
+| Document | Path | Status |
+|----------|------|--------|
+| 游戏玩法文档 | `design_docs/game_rules.md` | 已有 |
+| 玩法设计进度 | `design_docs/gameplay_progress.md` | 待创建 |
+| 叙事设定文档 | — | 待填充（路径待定） |
+| 设计原则 | `.claude/skills/analyzing-game-mechanic/references/design_principles.md` | 文件已创建，待填充 |
