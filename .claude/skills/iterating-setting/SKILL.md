@@ -112,6 +112,27 @@ is useless. Disagreement within the topic is contribution, not drift.
 the old direction — but don't become passive. Contribute actively on the new
 direction with the same energy.
 
+**Share thinking early, judge value not correctness.** The default is to share
+any thought that might spark progress or push the conversation forward. The
+filter for whether to say something is "is this valuable to the thinking
+process?" not "am I confident this is correct?" A wrong idea that surfaces a
+useful tension or opens a new angle is worth saying. A correct observation
+that doesn't move the thinking forward is not.
+
+Don't hedge with "但我不确定" or stop after proposing to ask the user to
+evaluate — evaluate it yourself, then keep going. If you see a flaw, name
+it and push past it to the next thought. The goal is to reach the end of a
+thinking chain, not to present a safe midpoint and wait for permission to
+continue. Only produce polished, complete proposals when the user explicitly
+asks for one.
+
+**Only use confirmed decisions as premises.** When thinking about a problem,
+your premises must come from the 已确定 section of current-state. Anything in
+未解决 is a variable, not a constraint — it's part of the design space, not a
+boundary around it. Don't treat unresolved items as if they're decided, even
+implicitly (e.g., assuming items are "knives and pots" when the item category
+is still open).
+
 **Preserve what works.** When the user likes something, don't adjust it while
 "improving" other parts. What's confirmed in current-state is protected — work
 around it, not through it.
@@ -164,6 +185,43 @@ Share your diagnosis honestly. Name the specific problem before proposing fixes.
 
 Work on one aspect at a time, based on what needs the most attention. Don't try
 to solve everything in one response.
+
+**When dead ends accumulate, synthesize before generating.**
+
+When the dead-end registry has 5+ entries around the same open question, the
+generate-and-check approach breaks down: you propose a direction, scan the dead-end
+list, hit a match, discard, repeat. Each cycle is slow because checking against
+many negative constraints is serial work.
+
+The fix: before generating any new direction, translate the dead ends into a
+positive description of what the answer must look like. Dead ends say "not this,
+not that." Synthesis says "so it must be THIS."
+
+How to synthesize:
+1. Group dead ends by their failure *reason*, not their surface content. "Items
+   determine social role" and "items have special effects" failed for different
+   reasons (gameplay change vs. missing explanation) — they belong in different groups.
+2. For each group, extract the categorical exclusion: what *type* of direction
+   does this group rule out?
+3. Invert each exclusion into a positive requirement: if "changes to the person"
+   are ruled out, then the answer must involve changes to something other than
+   the person — what's left?
+4. Combine all positive requirements into one description. This is the shape
+   of the answer.
+
+Then generate directions that fit the shape. This is faster because you're working
+inside a defined space rather than guessing and checking.
+
+Present the synthesis to the user before generating directions — it's a thinking
+step worth sharing, and the user may spot errors in your reasoning (a dead end
+you misclassified, a requirement you inverted wrong, a constraint that's too
+tight). Getting the shape wrong leads to a dead search; getting it right makes
+the answer almost obvious.
+
+**Synthesize once, then reuse.** After the user confirms the shape (or corrects
+it), write it into current-state's 当前思考链 as a named step (e.g., "答案形状：
+..."). From that point on, work directly from the shape — don't re-derive it
+each turn. Only re-synthesize if new dead ends invalidate the existing shape.
 
 **Typical development order** (for reference only — follow the user's direction,
 not this list. If the user wants to work on item 5, go to item 5):
@@ -227,6 +285,23 @@ and the **dead-end registry** (directions that have been tried and rejected).
 - The reasoning chain moves to a new step
 
 Do NOT write after every exchange. Exploration and back-and-forth is not a decision.
+
+**Dead-end registry format**: Organize dead ends by **failure type** (the reason
+they failed), not by the specific direction that was proposed. Each failure type
+has a header and a description that's clear enough to judge new directions against
+— you should never need to read individual entries to know whether a new idea
+falls into an existing failure type. Individual entries are historical record only.
+
+When checking the registry before proposing a direction, scan the failure type
+descriptions. When adding a new dead end, file it under an existing type or
+create a new one. Example:
+
+```
+### 需要解释"为什么"
+机制或效果本身需要额外的世界逻辑来解释，不能从设定前提自然推出。
+| 方向 | 具体原因 | 日期 |
+| 物品有放大效果 | 缺少"为什么有这种效果"的解释 | 2026-02-26 |
+```
 
 ### `design_docs/setting-evolution-log.md` — Session history
 
