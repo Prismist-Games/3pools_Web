@@ -152,6 +152,22 @@ require of the world for it to hold? What tension or problem does it create that
 didn't exist before? This is the thinking that makes a direction worth proposing.
 Only once the constraint is clear should you ask what it opens.
 
+**Test every link in a reasoning chain individually.**
+When building a setting explanation, you'll naturally construct chains: A causes B,
+B leads to C, therefore A leads to C. These chains are dangerous because fluency
+masks weak links. A chain that "sounds right" as a whole can be built on a false
+first step.
+
+The test: take each link out of the chain and ask "does this hold on its own?"
+For example: "you produced X → you're familiar with X → you're specialized in X
+→ you're efficient at X" sounds smooth, but the first link (producing ≠ familiarity)
+is hollow. The rest of the chain collapses with it.
+
+This is especially likely when explaining WHY a setting rule exists. The urge is to
+build a plausible-sounding justification chain. Resist it — check each link. If any
+link requires the rest of the chain to seem reasonable (rather than standing on its
+own), the whole chain is rationalization, not reasoning.
+
 ## Process
 
 ### Phase 1: Understand What Exists
