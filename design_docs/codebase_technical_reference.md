@@ -567,7 +567,7 @@ skillState = {
 - 移除已提交物品
 
 **`handleEvacuationExtract()`**：
-- 设 `modalContent = { type: 'victory' }`（触发排行榜显示）
+- 设 `modalContent = { type: 'victory' }`（触发胜利结算显示）
 
 #### 工具物品使用
 

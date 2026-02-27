@@ -76,4 +76,4 @@ Project-specific lessons and conventions are stored in `.claude/lessons/` as cat
 
 ### External Services
 
-- **Supabase** (`src/utils/supabaseClient.js`): Used only for the leaderboard feature. The URL and publishable key are hardcoded (this is intentional — it's a public anon key).
+- **Supabase** (`src/utils/supabaseClient.js`): Used for online data features. The URL and publishable key are hardcoded (this is intentional — it's a public anon key).

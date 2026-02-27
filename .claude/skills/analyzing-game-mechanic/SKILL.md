@@ -71,7 +71,7 @@ discussion fits within it.
 
 Read what's relevant to the current discussion, not everything. If the
 team is talking about the order system, you don't need to deeply understand
-the leaderboard.
+the skill system.
 
 ### Situate the topic within the whole
 
