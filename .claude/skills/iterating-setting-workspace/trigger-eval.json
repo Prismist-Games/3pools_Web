@@ -1,0 +1,82 @@
+[
+  {
+    "query": "继续想设定上的问题，上次聊到物品产生不可逆后果那块，我有一些新想法",
+    "should_trigger": true
+  },
+  {
+    "query": "公司里不同部门之间的关系应该怎么设计？现在只知道它们代表不同的面对不确定性的哲学，但具体怎么体现",
+    "should_trigger": true
+  },
+  {
+    "query": "现在的设定我总觉得哪里不对但说不上来，你帮我看看是哪里出了问题",
+    "should_trigger": true
+  },
+  {
+    "query": "如果不确定性是被迫的无法避免的，那为什么人们还愿意在这个公司工作？这个逻辑说不通",
+    "should_trigger": true
+  },
+  {
+    "query": "mystery和主题怎么才能更好地结合？现在感觉mystery是独立的谜题，跟\"与不确定性共处\"的主题没关系",
+    "should_trigger": true
+  },
+  {
+    "query": "接着上次的，我想了一下，物品可能不应该是具体的东西，而是某种抽象的产出",
+    "should_trigger": true
+  },
+  {
+    "query": "机器产出的东西到底应该是什么？之前试过案件档案和物资都不行，我需要一个让人真的想要的东西",
+    "should_trigger": true
+  },
+  {
+    "query": "我觉得现在设定里的\"不安\"还是太抽象了，玩家感受不到。怎么让它更具体",
+    "should_trigger": true
+  },
+  {
+    "query": "部门的哲学差异还不够具体，\"不同的面对不确定性的态度\"太笼统了，需要落地",
+    "should_trigger": true
+  },
+  {
+    "query": "这个设定听起来逻辑上说得通，但就是不吸引人，不够有趣。问题出在哪",
+    "should_trigger": true
+  },
+  {
+    "query": "我有个三选一的抽取机制加上库存管理和订单系统，你觉得这种玩法可以对应什么主题？给我几个设定方向看看",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我改一下 PoolCard.jsx，让词缀名字显示在卡片下方，现在的位置挡住了池子名字",
+    "should_trigger": false
+  },
+  {
+    "query": "部门perk的效果数值需要重新平衡，操控部给的bonus太强了，每次都选它",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我写一段游戏内的文本，当玩家第一次操作机器时显示的教程提示",
+    "should_trigger": false
+  },
+  {
+    "query": "我想给游戏加一个成就系统，比如连续完成5个订单、合成出最高稀有度物品之类的",
+    "should_trigger": false
+  },
+  {
+    "query": "紧急订单的健康值机制太复杂了，玩家搞不懂。机制上怎么简化但保留紧迫感",
+    "should_trigger": false
+  },
+  {
+    "query": "src/data/constants.js 里的 RARITY_WEIGHTS 需要调整，普通物品出现率太高了，游戏前期太无聊",
+    "should_trigger": false
+  },
+  {
+    "query": "游戏需要一个新手引导流程，第一局要怎么一步步教会玩家抽取、合成、提交订单",
+    "should_trigger": false
+  },
+  {
+    "query": "公司的UI界面风格应该怎么设计？我想让它体现出不安和不确定性的感觉，用什么色调好",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我把最近几次设定讨论的结论整理到一个干净的文档里，方便我发给朋友看",
+    "should_trigger": false
+  }
+]

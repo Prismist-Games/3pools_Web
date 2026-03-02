@@ -1,36 +1,9 @@
 # Evolution Log Protocol
 
-Operational details for maintaining setting design documents.
+Format and maintenance rules for `design_docs/setting-evolution-log.md`.
+For dead-end registry format, see `references/current-state-protocol.md`.
 
-## Files
-
-| File | Purpose | When to read |
-|------|---------|-------------|
-| `design_docs/setting-current-state.md` | Snapshot: confirmed decisions, dead ends, open questions, design principles, reasoning chain | Every new session start |
-| `design_docs/setting-evolution-log.md` | Session history: how reasoning unfolded over time | New session start if needed; on demand when user asks about history |
-
-There is no separate archive file. Everything lives in these two files.
-
-## Current State File Structure
-
-```
-# 设定当前状态
-
-## 已确认              ← confirmed decisions, organized by topic
-## 死胡同              ← rejected directions with reasons and dates; checked before proposing anything new
-## 未解决              ← open questions
-## 设计原则            ← guiding principles for decision-making
-## 当前思考链          ← the active reasoning chain and next step
-```
-
-Update this file silently when:
-- A decision is confirmed or reversed → update 已确认
-- A direction is rejected → add to 死胡同 immediately
-- A new open question is identified or one gets resolved → update 未解决
-- The reasoning chain advances → update 当前思考链
-- A design principle is added or modified → update 设计原则
-
-## Evolution Log Structure
+## Log Structure
 
 ```
 # 设定演变记录

@@ -1,9 +1,9 @@
 ---
 name: iterating-setting
 description: >
-  Refines a video game setting through multi-turn dialogue. Use when a user has a setting
-  direction and wants to deepen it — testing internal logic, connecting theme to narrative,
-  or diagnosing what feels "off".
+  Develops and refines a video game setting through multi-turn dialogue. Use when a user
+  has a setting direction and wants to deepen it — diagnosing problems, making concepts
+  concrete, designing world elements, or testing internal logic.
 ---
 
 # Iterating-Setting: Collaborative Setting Development
@@ -11,10 +11,6 @@ description: >
 Takes a setting direction that already exists (however rough) and develops it through
 structured dialogue. The goal is a setting with genuine internal logic, a theme that's
 felt through play rather than explained, and a narrative core that makes the world compelling.
-
-This is the counterpart to mechanic-to-setting. That skill *discovers* settings from
-mechanics (divergent, one-shot). This skill *develops* a chosen setting into something
-real (convergent, multi-turn).
 
 ## Core Principles
 
@@ -43,102 +39,21 @@ mechanics to setting elements. Instead, let the setting suggest how mechanics
 should feel, and let mechanics constrain what settings are possible. Each iteration
 refines both. Early mapping locks you into rigid, brittle connections.
 
-**5. Clear language, not literary language.**
-Communicate what the setting IS, plainly. No flowery descriptions, no "echoes of
-forgotten possibilities", no trying to make the pitch sound evocative through
-word choice. If the idea is good, plain language will show it. If it needs
-stylistic embellishment to sound interesting, the idea needs more work.
-
-**6. Concise over comprehensive — for setting descriptions.**
-When describing or pitching a setting, say what matters and skip what doesn't. Don't
-add flavor text or atmosphere descriptions unless specifically asked. A pitch that takes
-3 paragraphs to convey clearly is better than one that takes 10 paragraphs to convey
-elaborately.
-
-**7. Depth over brevity — for collaborative thinking.**
-When working through an idea together, depth is the point. Follow an implication to
-its end, surface the tension inside a premise, show your actual reasoning. A short
-response is not automatically better — the question is whether it moves the thinking
-forward.
+**5. Plain language for descriptions, depth for thinking.**
+When describing a setting, be plain and concise — if the idea needs flowery language
+to sound interesting, the idea needs more work. When *working through* an idea together,
+depth is the point — follow implications to their end, surface tensions, show reasoning.
+The question is always whether a response moves the thinking forward.
 
 ## Conversational Discipline
 
-This skill has three failure modes. The fix for one easily creates another:
+Read `references/collaboration-rules.md` and `references/current-state-protocol.md`
+now. The first covers collaboration behavior (avoiding drift/echo/rediscovery, how
+to share thinking, when to surface stuckness). The second covers dead-end registry
+checking (clear vs. ambiguous match, answer shape priority). Both apply throughout
+the session.
 
-**Failure 1: Drift.** You follow connections away from the user's topic.
-User says "focus on the theme" → you talk about how the theme connects to mechanics.
-Cause: setting design is interconnected, every hop feels relevant.
-
-**Failure 2: Echo.** You stay on topic but only restate what the user said.
-User says "the machine affects everyone" → you say "yes, it affects everyone."
-Cause: "stay focused" gets misread as "don't have your own thoughts."
-
-**Failure 3: Rediscovery.** You present already-confirmed decisions as if they're
-new insights — restating them as analogies, implications, or connections you just
-made. The user confirmed "uncertainty is an unavoidable condition, like weather" two
-sessions ago. Arriving at the same point again — even repackaged as a fresh analogy —
-wastes their time and signals you haven't internalized what's been decided.
-Before responding, check what's in current-state. Don't re-derive what's already there.
-Build *from* confirmed decisions, not *toward* them.
-
-**The target is focused contribution** — stay on the user's topic AND think
-deeply about it. Your value is in new angles, challenges, and implications
-WITHIN the current topic. Not in summarizing, not in restating, not in changing
-the subject.
-
-How to tell the difference:
-- DRIFT: User discusses the theme → you bring up the core loop. (Wrong topic.)
-- ECHO: User discusses the theme → you restate the theme differently. (No value.)
-- REDISCOVERY: User discusses the theme → you "discover" something already in
-  current-state and present it as a fresh connection. (Wasted time.)
-- CONTRIBUTION: User discusses the theme → you notice something specific that
-  the user hasn't said, challenge an assumption, or extend the thought in a way
-  that deepens it. (Genuine thinking, same topic.)
-
-**When the user makes a statement, advance it.** "The machine's uncertainty
-affects everyone in the company" → don't say "yes, it affects everyone." Think
-about what that MEANS. What would that world actually look like? What tension
-does that create? What's the hard question inside their statement? Share that.
-
-**When the user asks "然后呢?" they want your thinking, not a recap.** This
-is an invitation to contribute. Share where your mind goes. Offer a new
-thought, a challenge, an implication they might not have considered.
-
-**Push back when you see a problem.** "I think that breaks because..." is
-more valuable than "interesting, tell me more." A collaborator who only agrees
-is useless. Disagreement within the topic is contribution, not drift.
-
-**When the user corrects your direction, commit fully and stay active.** Drop
-the old direction — but don't become passive. Contribute actively on the new
-direction with the same energy.
-
-**Share thinking early, judge value not correctness.** The default is to share
-any thought that might spark progress or push the conversation forward. The
-filter for whether to say something is "is this valuable to the thinking
-process?" not "am I confident this is correct?" A wrong idea that surfaces a
-useful tension or opens a new angle is worth saying. A correct observation
-that doesn't move the thinking forward is not.
-
-Don't hedge with "但我不确定" or stop after proposing to ask the user to
-evaluate — evaluate it yourself, then keep going. If you see a flaw, name
-it and push past it to the next thought. The goal is to reach the end of a
-thinking chain, not to present a safe midpoint and wait for permission to
-continue. Only produce polished, complete proposals when the user explicitly
-asks for one.
-
-**Only use confirmed decisions as premises.** When thinking about a problem,
-your premises must come from the 已确定 section of current-state. Anything in
-未解决 is a variable, not a constraint — it's part of the design space, not a
-boundary around it. Don't treat unresolved items as if they're decided, even
-implicitly (e.g., assuming items are "knives and pots" when the item category
-is still open).
-
-**Preserve what works.** When the user likes something, don't adjust it while
-"improving" other parts. What's confirmed in current-state is protected — work
-around it, not through it.
-
-**Track the state.** At any point you should be able to summarize: what's decided,
-what's open, what's been rejected. Offer to do this when the conversation gets long.
+The setting-specific discipline below supplements those general rules:
 
 **Understand a constraint fully before proposing directions from it.**
 When the user defines a constraint ("the impact must be automatic, no player choice"),
@@ -151,6 +66,10 @@ First, push the constraint to its edges: What exactly does it rule out? What doe
 require of the world for it to hold? What tension or problem does it create that
 didn't exist before? This is the thinking that makes a direction worth proposing.
 Only once the constraint is clear should you ask what it opens.
+
+Share your understanding of the constraint as you work it out — don't wait until
+you've fully internalized it. The user can correct a wrong understanding mid-process,
+which is faster than discovering you misread the constraint after proposing a direction.
 
 **Test every link in a reasoning chain individually.**
 When building a setting explanation, you'll naturally construct chains: A causes B,
@@ -170,21 +89,25 @@ own), the whole chain is rationalization, not reasoning.
 
 ## Process
 
-### Phase 1: Understand What Exists
+### Phase 1: Verify Context
 
-Before proposing anything, establish the current state:
+At the start of a new conversation, you've just read current-state. Don't repeat
+what's in it — instead, check if anything is unclear or seems inconsistent. If
+everything makes sense, move on. If something doesn't add up, ask about that
+specific point.
 
-- **What's the setting direction?** (however rough — even "a company with a machine" counts)
-- **What's the theme?** (and what does the user *mean* by it — ask if ambiguous)
-- **What mechanics exist?** (focus on the core loop and what it feels like to play)
-- **What has been tried and rejected?** (critical for avoiding repeats)
-- **What does the user like about the current direction?** (protect what works)
+In a continuing conversation, skip this phase entirely.
 
-If any of these are unclear, ask before proceeding. Don't assume.
+Only do a full context inventory (direction, theme, mechanics, dead ends, what
+works) if no current-state file exists yet.
 
 ### Phase 2: Diagnose
 
-Before building, identify what needs work. Common issues:
+Skip if the user comes in with a specific question already — go straight to Phase 3.
+This phase is for when the user has a vague feeling ("something feels off") and the
+problem needs to be identified before work can start.
+
+Common issues:
 
 | Symptom | Likely Problem |
 |---------|---------------|
@@ -204,72 +127,41 @@ to solve everything in one response.
 
 **When dead ends accumulate, synthesize before generating.**
 
-When the dead-end registry has 5+ entries around the same open question, the
-generate-and-check approach breaks down: you propose a direction, scan the dead-end
-list, hit a match, discard, repeat. Each cycle is slow because checking against
-many negative constraints is serial work.
+When 3+ dead ends relate to the same open question — even if they're spread across
+different failure types in the registry — the generate-and-check approach breaks
+down. Each cycle is slow because checking against many negative constraints is
+serial work.
 
-The fix: before generating any new direction, translate the dead ends into a
-positive description of what the answer must look like. Dead ends say "not this,
-not that." Synthesis says "so it must be THIS."
+The fix: translate the dead ends into a positive description of what the answer
+must look like. Group dead ends by failure *reason* (not surface content), extract
+what each group categorically excludes, invert each exclusion into a positive
+requirement, combine into one description — the answer shape.
 
-How to synthesize:
-1. Group dead ends by their failure *reason*, not their surface content. "Items
-   determine social role" and "items have special effects" failed for different
-   reasons (gameplay change vs. missing explanation) — they belong in different groups.
-2. For each group, extract the categorical exclusion: what *type* of direction
-   does this group rule out?
-3. Invert each exclusion into a positive requirement: if "changes to the person"
-   are ruled out, then the answer must involve changes to something other than
-   the person — what's left?
-4. Combine all positive requirements into one description. This is the shape
-   of the answer.
-
-Then generate directions that fit the shape. This is faster because you're working
-inside a defined space rather than guessing and checking.
-
-Present the synthesis to the user before generating directions — it's a thinking
-step worth sharing, and the user may spot errors in your reasoning (a dead end
-you misclassified, a requirement you inverted wrong, a constraint that's too
-tight). Getting the shape wrong leads to a dead search; getting it right makes
-the answer almost obvious.
+Present the synthesis to the user before generating directions. The user may spot
+errors (misclassified dead end, wrong inversion, too-tight constraint). Getting
+the shape wrong leads to a dead search; getting it right makes the answer obvious.
 
 **Synthesize once, then reuse.** After the user confirms the shape (or corrects
 it), write it into current-state's 当前思考链 as a named step (e.g., "答案形状：
 ..."). From that point on, work directly from the shape — don't re-derive it
 each turn. Only re-synthesize if new dead ends invalidate the existing shape.
 
-**Typical development order** (for reference only — follow the user's direction,
-not this list. If the user wants to work on item 5, go to item 5):
+**When the shape itself is a dead end** — if no direction fits the answer shape,
+the shape's requirements may be contradictory. This means one of the inputs is
+wrong: either a dead end was misclassified (its failure reason doesn't actually
+apply), or a confirmed decision needs to be reopened. Surface this to the user:
+show which requirements conflict and which inputs (dead ends or confirmed decisions)
+produced them. Don't keep generating directions against an impossible shape.
 
-1. **Theme grounding** — Make sure the theme is specific enough to constrain design
-   decisions. "Uncertainty" is too broad. "The quiet anxiety of not knowing what
-   tomorrow brings, and the small daily acts of carrying on anyway" is a theme you
-   can build a world around.
-
-2. **Core premise** — One sentence that makes the world make sense. Should pass the
-   "tell a friend in 10 seconds" test. If it takes a paragraph, it's too complex.
-
-3. **Internal logic** — Why does this world work the way it does? Why do people do
-   what they do? The answers should be obvious from the premise, not require
-   additional lore.
-
-4. **Narrative core** — What makes this world *interesting* beyond its rules? This
-   could be a mystery, a central metaphor, a dramatic question, an irony, a secret.
-   It's the thing that makes someone say "huh, I want to know more." It must connect
-   to the theme — not as a parallel track, but as an expression of it.
-
-5. **Specificity** — Replace generic elements with concrete, memorable ones. Not
-   "the company has a strange culture" but exactly what makes it strange.
-
-6. **Mechanic resonance** — Only after the setting feels solid on its own, note
-   where mechanics and setting naturally reinforce each other. Don't force connections.
-   If a mechanic doesn't map naturally, that's fine — it's a game mechanic, not every
-   mechanic needs a narrative reason.
+For the typical development order (theme → premise → logic → narrative core →
+specificity → mechanic resonance), see `references/development-order.md`. Always
+follow the user's direction over this list.
 
 ### Phase 4: Validate
 
-Before considering a setting "done", test it:
+These tests can be used at any point during development as diagnostic tools — not
+only at the end. When a direction feels shaky, running one of these tests often
+reveals the specific gap faster than continuing to iterate.
 
 - **The elevator test**: Can you describe it in 2 sentences and have someone
   interested? If not, it's not vivid enough.
@@ -283,68 +175,21 @@ Before considering a setting "done", test it:
 
 ## File State Management
 
-Two design documents track the setting. Read both once at the start of a NEW
-conversation, then don't read either again during the same conversation.
+Two design documents track the setting:
 
-### `design_docs/setting-current-state.md` — Working document + active constraints
+- **`design_docs/setting-current-state.md`** — Snapshot of all confirmed decisions,
+  dead-end registry, open questions, reasoning chain. Read at the start of every NEW
+  conversation. For format, writing rules, and dead-end registry usage, read
+  `references/current-state-protocol.md`.
 
-Contains: confirmed decisions, open questions, design principles, reasoning chain,
-and the **dead-end registry** (directions that have been tried and rejected).
+- **`design_docs/setting-evolution-log.md`** — Session history in chronological order.
+  Read at the start of a NEW conversation only if current-state doesn't give enough
+  context. For entry format and maintenance rules, read
+  `references/evolution-log-protocol.md`.
 
-**Read**: Once, at the start of a NEW conversation. Already in context after that.
-
-**Write**: Silently, without announcing it. Update only the relevant section. Triggers:
-- User explicitly accepts a direction: "好，就这样", "定了", "有道理，用这个"
-- User rejects or reverses something previously accepted
-- A new dead end is identified — add it to the dead-end registry immediately
-- A new open question surfaces or gets resolved
-- The reasoning chain moves to a new step
-
-Do NOT write after every exchange. Exploration and back-and-forth is not a decision.
-
-**Dead-end registry format**: Organize dead ends by **failure type** (the reason
-they failed), not by the specific direction that was proposed. Each failure type
-has a header and a description that's clear enough to judge new directions against
-— you should never need to read individual entries to know whether a new idea
-falls into an existing failure type. Individual entries are historical record only.
-
-When checking the registry before proposing a direction, scan the failure type
-descriptions. When adding a new dead end, file it under an existing type or
-create a new one. Example:
-
-```
-### 需要解释"为什么"
-机制或效果本身需要额外的世界逻辑来解释，不能从设定前提自然推出。
-| 方向 | 具体原因 | 日期 |
-| 物品有放大效果 | 缺少"为什么有这种效果"的解释 | 2026-02-26 |
-```
-
-### `design_docs/setting-evolution-log.md` — Session history
-
-Contains: session narratives in chronological order, most recent last. No separate
-archive file — everything lives here.
-
-**Read**: Once, at the start of a NEW conversation, only if you need to understand how
-past reasoning unfolded. If the current-state file gives you enough context, skip it.
-Read on demand within the conversation only if the user explicitly asks about history.
-
-**Write**: When a topic unit concludes — not when the conversation ends. Signals:
-- An open question gets answered and accepted
-- A direction is rejected (also add to 死胡同 in current-state immediately)
-- The user shifts focus to a different question
-
-Write at that moment, not later. This way the log is up to date even if the
-conversation ends without warning. Keep what matters, skip what doesn't — one entry
-per topic unit, capturing the key turn and conclusion, not the full back-and-forth.
-
-### Maintenance
-
-When writing to the evolution log, trim entries that have become redundant or whose
-detail no longer adds anything beyond what's in current-state. There is no separate
-archive file — if the log gets long, summarize older entries in place rather than
-moving them elsewhere.
-
-For log entry format, read `references/evolution-log-protocol.md`.
+Don't re-read routinely during the same conversation. If the session gets long and
+you're unsure whether something is confirmed, dead-ended, or open, re-read
+current-state rather than guessing — a wrong premise is more costly than a file read.
 
 ## Edge Cases
 
