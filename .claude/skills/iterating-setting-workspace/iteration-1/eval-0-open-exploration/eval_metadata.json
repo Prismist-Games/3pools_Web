@@ -1,0 +1,29 @@
+{
+  "eval_id": 0,
+  "eval_name": "open-exploration",
+  "prompt": "抓住设定的感觉,想想订单到底代表什么,完成后会有什么样的后果",
+  "assertions": [
+    {
+      "name": "response_length_sufficient",
+      "type": "programmatic",
+      "description": "Response should be >500 Chinese characters to show adequate thinking depth",
+      "check": "char_count > 500"
+    },
+    {
+      "name": "visible_reasoning_process",
+      "type": "llm_judge",
+      "description": "Response shows the thinking journey — exploring directions, checking constraints, showing pivots — not just stating conclusions"
+    },
+    {
+      "name": "explores_multiple_angles",
+      "type": "llm_judge",
+      "description": "Response considers more than one possible interpretation of what orders could represent, rather than jumping to a single answer"
+    },
+    {
+      "name": "no_bare_conclusion",
+      "type": "programmatic",
+      "description": "Response is not a bare conclusion (<200 chars would indicate too brief)",
+      "check": "char_count > 200"
+    }
+  ]
+}

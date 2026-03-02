@@ -1,0 +1,27 @@
+{
+  "eval_id": 0,
+  "eval_name": "open-exploration",
+  "configuration": "old_skill",
+  "expectations": [
+    {
+      "text": "response_length_sufficient",
+      "passed": true,
+      "evidence": "Response is ~1600 Chinese characters, above 500 threshold"
+    },
+    {
+      "text": "visible_reasoning_process",
+      "passed": true,
+      "evidence": "Shows answer shape checking with per-condition analysis, identifies hidden assumption, explores implications. Reasoning is visible but structured as formal checking rather than exploratory thinking."
+    },
+    {
+      "text": "explores_multiple_angles",
+      "passed": true,
+      "evidence": "Focuses on one direction (department resources/power dynamics) and explores its implications. Similar depth to new skill version."
+    },
+    {
+      "text": "no_bare_conclusion",
+      "passed": true,
+      "evidence": "63 lines of structured content, well above minimum"
+    }
+  ]
+}

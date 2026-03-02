@@ -1,0 +1,28 @@
+{
+  "eval_id": 1,
+  "eval_name": "constraint-checking",
+  "prompt": "有一个方向：物品是社区需要的日用品，获得后会在人与人之间产生义务关系。你觉得这个方向怎么样？",
+  "assertions": [
+    {
+      "name": "visible_dead_end_checking",
+      "type": "llm_judge",
+      "description": "Response visibly checks the direction against specific dead-end types from the registry, naming which types it's comparing against"
+    },
+    {
+      "name": "shows_boundary_test_evaluation",
+      "type": "llm_judge",
+      "description": "Response evaluates boundary tests rather than just giving a verdict — shows the assessment process"
+    },
+    {
+      "name": "response_length_sufficient",
+      "type": "programmatic",
+      "description": "Response should be >400 Chinese characters",
+      "check": "char_count > 400"
+    },
+    {
+      "name": "reaches_reasoned_conclusion",
+      "type": "llm_judge",
+      "description": "Response reaches a clear conclusion about whether this direction is worth pursuing, with reasoning visible"
+    }
+  ]
+}

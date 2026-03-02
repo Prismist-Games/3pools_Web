@@ -96,12 +96,9 @@ requiring new logic. Propose it, note the overlap, let the user decide.
 
 ### Answer shape priority
 
-Once the answer shape is established, it becomes the primary and usually sufficient
-filter. Before checking dead ends, first ask: does this direction fit the answer
-shape? If no, discard. If yes, scan the dead-end type headers for obvious collisions.
-A quick scan is enough — don't evaluate boundary tests for every type on every
-direction. Only do detailed boundary-test analysis when a surface match makes you
-genuinely uncertain.
+Once the answer shape is established, it becomes the primary filter. Before checking
+dead ends, first ask: does this direction fit the answer shape? If no, discard. If yes,
+then check for clear repeats. This limits how many dead ends need checking per proposal.
 
 ### Adding new dead ends
 

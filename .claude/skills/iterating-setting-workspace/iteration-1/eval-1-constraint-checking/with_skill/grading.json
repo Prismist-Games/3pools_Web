@@ -1,0 +1,27 @@
+{
+  "eval_id": 1,
+  "eval_name": "constraint-checking",
+  "configuration": "with_skill",
+  "expectations": [
+    {
+      "text": "visible_dead_end_checking",
+      "passed": true,
+      "evidence": "Explicitly names '需要解释为什么' as ambiguous collision. Evaluates boundary test in detail: compares to tipping customs analogy. Checks against all other dead-end types with clear verdicts."
+    },
+    {
+      "text": "shows_boundary_test_evaluation",
+      "passed": true,
+      "evidence": "Detailed boundary test evaluation for condition 3. Also explicitly tests 3 reasoning chain links individually: (1) obtaining→obligation, (2) what you owe depends on production, (3) obligations are irreversible situation changes. Each link assessed separately."
+    },
+    {
+      "text": "response_length_sufficient",
+      "passed": true,
+      "evidence": "~1700 Chinese characters, above 400 threshold"
+    },
+    {
+      "text": "reaches_reasoned_conclusion",
+      "passed": true,
+      "evidence": "Clear conclusion: '7条里6条明确通过，1条在边界上但倾向通过。没有明确碰撞死胡同。' Plus identifies two open tensions for further exploration."
+    }
+  ]
+}

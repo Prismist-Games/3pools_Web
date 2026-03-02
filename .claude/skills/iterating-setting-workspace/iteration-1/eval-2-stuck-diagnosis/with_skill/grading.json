@@ -1,0 +1,27 @@
+{
+  "eval_id": 2,
+  "eval_name": "stuck-diagnosis",
+  "configuration": "with_skill",
+  "expectations": [
+    {
+      "text": "visible_diagnostic_reasoning",
+      "passed": true,
+      "evidence": "Goes through each of the 7 answer shape conditions checking whether each is a 'real constraint' or a 'blank'. Shows the checking process: '第3条是关键问题。答案形状要求从世界设定不言自明，但世界设定本身是未知数。'"
+    },
+    {
+      "text": "identifies_specific_problem",
+      "passed": true,
+      "evidence": "Specific diagnosis: condition 3 is the question itself, not a filter. Two interdependent unknowns being solved simultaneously creates multiplicative complexity."
+    },
+    {
+      "text": "response_length_sufficient",
+      "passed": true,
+      "evidence": "~1400 Chinese characters, above 500 threshold"
+    },
+    {
+      "text": "suggests_actionable_next_step",
+      "passed": true,
+      "evidence": "Two specific approaches (fix items first vs fix consequence type first) with trade-off analysis for each. Recommends approach B with reasoning."
+    }
+  ]
+}
