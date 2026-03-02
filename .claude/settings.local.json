@@ -20,7 +20,9 @@
       "Bash(sleep 3:*)",
       "WebFetch(domain:johnnemann.medium.com)",
       "WebFetch(domain:www.gamedeveloper.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(echo:*)",
+      "Bash(env)"
     ]
   }
 }

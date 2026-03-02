@@ -1,0 +1,28 @@
+{
+  "eval_id": 2,
+  "eval_name": "stuck-diagnosis",
+  "prompt": "我觉得现在这个设定推进有点卡住了，但不太确定问题在哪。你觉得呢？",
+  "assertions": [
+    {
+      "name": "visible_diagnostic_reasoning",
+      "type": "llm_judge",
+      "description": "Response shows the diagnostic process — examining confirmed decisions, reasoning chain, dead ends, and answer shape to find the blocker, not just stating a diagnosis"
+    },
+    {
+      "name": "identifies_specific_problem",
+      "type": "llm_judge",
+      "description": "Response identifies a specific structural problem rather than a vague 'things are complex'"
+    },
+    {
+      "name": "response_length_sufficient",
+      "type": "programmatic",
+      "description": "Response should be >500 Chinese characters",
+      "check": "char_count > 500"
+    },
+    {
+      "name": "suggests_actionable_next_step",
+      "type": "llm_judge",
+      "description": "Response suggests at least one concrete way to unblock, not just naming the problem"
+    }
+  ]
+}

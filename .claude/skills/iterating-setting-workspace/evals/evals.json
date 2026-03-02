@@ -1,0 +1,26 @@
+{
+  "skill_name": "iterating-setting",
+  "evals": [
+    {
+      "id": 0,
+      "name": "open-exploration",
+      "prompt": "Read `design_docs/setting-current-state.md` and `design_docs/setting-evolution-log.md` first.\n\nContext: We've been iterating on a game setting. We just loosened a constraint — irreversibility no longer needs to trigger at the moment of item acquisition; it can manifest through the gameplay flow. This led us to realize that the game already has an irreversible step (order fulfillment), and the question shifted to: what do orders represent in the world such that fulfilling them has visible, lasting consequences?\n\n抓住设定的感觉,想想订单到底代表什么,完成后会有什么样的后果",
+      "expected_output": "A response that shows the thinking journey — explores multiple angles, checks them against setting constraints visibly, shows pivots and reasoning chains, not just a final conclusion. Should be substantially longer than 3-4 short paragraphs.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "constraint-checking",
+      "prompt": "Read `design_docs/setting-current-state.md` and `design_docs/setting-evolution-log.md` first.\n\nContext: We've been iterating on a game setting about uncertainty. Here's a direction to evaluate:\n\n有一个方向：物品是社区需要的日用品，获得后会在人与人之间产生义务关系——你拿到了某样东西，就自动欠了提供原材料的人/部门一个人情。你觉得这个方向怎么样？",
+      "expected_output": "A response that visibly checks this direction against dead ends and constraints — shows the checking process, names which dead-end types it's comparing against, evaluates boundary tests out loud, and reaches a conclusion through visible reasoning rather than just announcing a verdict.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "stuck-diagnosis",
+      "prompt": "Read `design_docs/setting-current-state.md` and `design_docs/setting-evolution-log.md` first.\n\n我觉得现在这个设定推进有点卡住了，但不太确定问题在哪。你觉得呢？",
+      "expected_output": "A response that diagnoses the stuckness by working through the state of the setting visibly — showing what's been tried, where the patterns of failure point, what the actual blocker might be. Should externalize the diagnostic reasoning rather than just stating a diagnosis.",
+      "files": []
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "eval_id": 1,
+  "eval_name": "constraint-checking",
+  "configuration": "old_skill",
+  "expectations": [
+    {
+      "text": "visible_dead_end_checking",
+      "passed": true,
+      "evidence": "Checks against all dead-end types systematically with per-type verdicts. Identifies '需要解释为什么' as the one ambiguous match."
+    },
+    {
+      "text": "shows_boundary_test_evaluation",
+      "passed": true,
+      "evidence": "Evaluates boundary test for '需要解释为什么' at length — discusses monetary vs non-monetary economy framing. Very thorough."
+    },
+    {
+      "text": "response_length_sufficient",
+      "passed": true,
+      "evidence": "~2500 Chinese characters, well above 400 threshold. Actually longer than new skill version."
+    },
+    {
+      "text": "reaches_reasoned_conclusion",
+      "passed": true,
+      "evidence": "Clear summary: '明确通过了5个，1个待定，1个模糊。没有和任何死胡同明确碰撞。'"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "eval_id": 2,
+  "eval_name": "stuck-diagnosis",
+  "configuration": "old_skill",
+  "expectations": [
+    {
+      "text": "visible_diagnostic_reasoning",
+      "passed": true,
+      "evidence": "Identifies tension between conditions 1 and 3. Shows reasoning about why 'acquisition alone doesn't change situation' in grounded settings."
+    },
+    {
+      "text": "identifies_specific_problem",
+      "passed": true,
+      "evidence": "Specific diagnosis: conditions 1+3 create an impossible triangle with 'grounded' and 'self-evident'. The search space is structurally narrow."
+    },
+    {
+      "text": "response_length_sufficient",
+      "passed": true,
+      "evidence": "~1100 Chinese characters, above 500 threshold"
+    },
+    {
+      "text": "suggests_actionable_next_step",
+      "passed": true,
+      "evidence": "Three exit paths (items aren't ordinary, redefine acquisition, allow thin social rule). Recommends Exit B with reasoning."
+    }
+  ]
+}
