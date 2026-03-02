@@ -19,7 +19,8 @@ Once, at the start of a NEW conversation. Already in context after that.
 
 ## Writing
 
-Silently, without announcing it. Update only the relevant section.
+Update only the relevant section. Most sections are written silently — the
+exception is 已确定, which requires post-write notification (see below).
 
 **Triggers:**
 - User explicitly accepts a direction: "好，就这样", "定了", "有道理，用这个"
@@ -32,6 +33,20 @@ Silently, without announcing it. Update only the relevant section.
 "有意思", "嗯", "继续说" are engagement signals, not acceptance. Only write to 已确定
 when the user gives clear, unambiguous confirmation. When in doubt, it's not a confirmation.
 
+**已确定 post-write notification:** Every time you write to 已确定, add a brief
+notification at the end of your response in italics:
+
+*已写入已确定：[one-line summary of what was added/changed]*
+
+This is not a question — don't ask for approval before writing. Write first, then
+notify. The user will glance at it and continue the conversation if correct, or say
+"不对" to trigger a revert. This catches misclassification without interrupting the
+creative flow.
+
+Only 已确定 needs this. Writes to 死胡同, 搁置中, 设计原则, and 当前思考链
+happen silently — these are low-risk (wrong entries have minimal downstream impact
+and are easy to fix).
+
 **When a confirmed decision is reversed**, check whether other confirmed decisions
 were built on it. Flag any that lose their foundation — they may need to move to
 搁置中 or be re-examined. Don't silently keep dependent decisions that no longer
@@ -39,8 +54,8 @@ have support.
 
 **Periodic review:** When writing to evolution-log at a topic-unit boundary, briefly
 mention to the user what was added to 已确定 during this topic unit (if anything).
-This catches misclassification at a natural pause — the user can correct without
-every individual write interrupting the conversation flow.
+This is a second layer of protection on top of per-write notification — it catches
+any writes the user might have missed in the flow of conversation.
 
 ## 搁置中
 
