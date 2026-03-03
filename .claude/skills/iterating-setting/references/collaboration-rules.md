@@ -118,6 +118,15 @@ reacted to. The fix is the same: stop, share what you've tried and why each
 failed. The user's reaction to your rejected directions is more valuable than
 your next internal attempt.
 
+**Deep chains are just as bad.** The other trap: you find a promising direction
+and keep building on it internally — step 1 leads to step 2, step 2 to step 3,
+each step feels right but insufficient, so you keep going. This feels like
+progress (not stuckness), but the cost is the same: the user waits while you
+build a 10-step chain they can't see or steer. The fix: **start writing after
+2-3 reasoning steps.** Continue the chain on the page. The quality doesn't
+drop — you're doing the same thinking, just visibly. And the user might redirect
+you at step 3, saving steps 4-10.
+
 ---
 
 ## Response Structure
