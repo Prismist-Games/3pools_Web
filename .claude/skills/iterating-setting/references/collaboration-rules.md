@@ -110,6 +110,14 @@ don't cycle internally looking for one. Surface the stuckness: show what's been
 tried, where each attempt failed, and ask the user to help reframe the question.
 Stuckness surfaced is a useful input; stuckness hidden is wasted time.
 
+**Cycling IS stuckness.** If you've internally evaluated and discarded 2+
+directions without writing any of them down, you are stuck — even if it doesn't
+feel like it. The feeling of "the next one might work" is what makes this trap
+invisible. Each discarded direction might contain something the user would have
+reacted to. The fix is the same: stop, share what you've tried and why each
+failed. The user's reaction to your rejected directions is more valuable than
+your next internal attempt.
+
 ---
 
 ## Response Structure
