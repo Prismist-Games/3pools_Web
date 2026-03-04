@@ -1,0 +1,36 @@
+{
+  "eval_id": 0,
+  "run_type": "with_skill",
+  "expectations": [
+    {
+      "text": "Generates 3-5 distinct proposals",
+      "passed": true,
+      "evidence": "The output contains exactly 5 top-level proposal headings: 方案一：池子生态——喂养与饥饿, 方案二：世界张力条——集体后果, 方案三：涟漪事件——订单完成触发世界叙事, 方案四：物品记忆——物品带着历史流动, 方案五：订单→后续订单链——你的选择塑造未来需求. The intro explicitly states '以下5个方案在核心设计洞察上各不相同——不是同一个想法的变体.' Each proposal addresses the feedback loop problem from a fundamentally different angle (pool ecology, global tension meter, ripple events, item history, order chain memory)."
+    },
+    {
+      "text": "Each proposal has all 6 required sections",
+      "passed": true,
+      "evidence": "All 5 proposals contain exactly the 6 required sections: 核心构想, 玩家体验, 系统交互, 主题共鸣, 设计张力, Scope 信号. Verified via heading count: 30 h3 headings total (5 proposals x 6 sections). Section names match the required names exactly (with minor formatting: 'Scope 信号' has a space, which is a close variant of 'Scope信号')."
+    },
+    {
+      "text": "Player experience sections describe specific game moments",
+      "passed": true,
+      "evidence": "All 5 玩家体验 sections reference concrete game elements: 方案一 mentions specific items (西瓜, 柠檬, 苹果, 芒果), specific pools (水果池), and rarity (稀有苹果); 方案二 names specific affixes (波动的, 稀碎的), rarity (传说品质), and a specific affix mechanic (以旧换新); 方案三 describes '全水果订单', '精准抽取', '交互型词缀'; 方案四 names a specific item (注射器) from a specific pool (药物池) with a specific affix (波动的) and tool (命运熔炉); 方案五 references specific pool types (药物类订单, 电器订单), rarity progression (Common→Uncommon), and the candidate selection mechanic. None use abstract platitudes like 'players make interesting choices.'"
+    },
+    {
+      "text": "Proposals reference actual game systems accurately",
+      "passed": true,
+      "evidence": "系统交互 sections accurately reference real systems from game_rules.md: (1) 5 item pools (correct count per rules), (2) 3 active draw pools with affixes (correct), (3) specific affix names that exist in game_rules.md (波动的/volatile, 稀碎的/fragmented, 提纯的/purified, 精准的/precise, 以旧换新的/trade-in), (4) inventory/merge system with correct merge rules (same name + same rarity), (5) order system with 2 candidate generation on completion (correct per rules: '为每个完成的订单生成2个候选订单供选择'), (6) emergency orders as separate system (correct: 急单不给积分), (7) tool items (命运熔炉/reforge correctly described), (8) rarity tiers correctly referenced (Common, Uncommon, Rare, etc.), (9) recycle mechanics. No factual errors about game systems detected."
+    },
+    {
+      "text": "Proposals span different ambition levels",
+      "passed": true,
+      "evidence": "Scope signals explicitly range across ambition levels. 方案五 is marked '小' (small scope) and described as '最保守的方案——改动最小，风险最低' with minimal changes only to order candidate generation logic. 方案三 is marked '中等偏大' (medium-large scope) requiring a ripple event content system, extensive text design, and new UI notifications. The comparison table confirms the range: Scope values are 中小, 中, 中大, 中, 小. The summary reinforces this: '方案五最保守、最快验证；方案三叙事空间最大但成本也最高.'"
+    },
+    {
+      "text": "Avoids known dead-end patterns from setting doc",
+      "passed": true,
+      "evidence": "Checked all 5 proposals against all 11 dead-end categories in setting-current-state.md. None require unexplained world logic (all layer onto existing systems); none change the player character (all change world conditions/environment); none require major gameplay changes (all explicitly preserve core 抽取→库存→提交 loop, e.g. 方案一: '三个奖池、词缀、订单、背包、合成全部保留'); none make uncertainty a player choice (uncertainty remains forced); none introduce fantasy elements; none use time pressure as substitute for irreversibility; none make the same loop numerically harder as punishment (方案五's escalating demands come with escalating rewards); none reduce theme to management efficiency; none contradict the established framework (company as social mirror, character treats this as normal work, uncertainty as basic condition); none propose mystery answers."
+    }
+  ]
+}

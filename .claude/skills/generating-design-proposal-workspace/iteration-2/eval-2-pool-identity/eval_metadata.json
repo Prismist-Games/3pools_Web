@@ -1,0 +1,13 @@
+{
+  "eval_id": 2,
+  "eval_name": "pool-identity",
+  "prompt": "三个池子现在感觉都差不多，玩家抽的时候选择感不够强。我想让每个池子更有个性。",
+  "assertions": [
+    {"id": "proposal_count", "description": "Generates 3-5 distinct proposals"},
+    {"id": "format_compliance", "description": "Each proposal has all 3 required sections (想法/规则变更/分析)"},
+    {"id": "rule_concreteness", "description": "Rule changes specify actual modifications to pool mechanics"},
+    {"id": "system_awareness", "description": "Proposals reference actual pool mechanics accurately"},
+    {"id": "proposal_range", "description": "Proposals span different ambition levels"},
+    {"id": "handles_vague_input", "description": "Handles vague input appropriately"}
+  ]
+}

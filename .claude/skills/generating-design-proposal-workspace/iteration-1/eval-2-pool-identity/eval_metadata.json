@@ -1,0 +1,37 @@
+{
+  "eval_id": 2,
+  "eval_name": "pool-identity",
+  "prompt": "三个池子现在感觉都差不多，玩家抽的时候选择感不够强。我想让每个池子更有个性。",
+  "assertions": [
+    {
+      "id": "proposal_count",
+      "description": "Generates 3-5 distinct proposals",
+      "check": "Count top-level proposal headings. Must be between 3 and 5 inclusive."
+    },
+    {
+      "id": "format_compliance",
+      "description": "Each proposal has all 6 required sections",
+      "check": "Each proposal contains: 核心构想, 玩家体验, 系统交互, 主题共鸣, 设计张力, Scope信号 (or close variants)"
+    },
+    {
+      "id": "experience_concreteness",
+      "description": "Player experience sections describe specific game moments",
+      "check": "玩家体验 sections reference concrete game elements rather than abstract statements"
+    },
+    {
+      "id": "system_awareness",
+      "description": "Proposals reference actual pool mechanics accurately",
+      "check": "References real pool mechanics (affixes, gold costs, item tables, refresh cycles) and describes interactions correctly"
+    },
+    {
+      "id": "proposal_range",
+      "description": "Proposals span different ambition levels",
+      "check": "At least one conservative and one ambitious proposal"
+    },
+    {
+      "id": "handles_vague_input",
+      "description": "Handles vague input appropriately",
+      "check": "Either asks 1-2 brief clarifying questions before proposing, or proceeds with reasonable interpretation and acknowledges the ambiguity"
+    }
+  ]
+}
