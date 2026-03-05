@@ -12,7 +12,7 @@ const OrderCardBase = ({
     isEvacuationMode,
     canSatisfy, // { index, finalReward, rewardType, isScoreOrder, reqCount, requirements }
     potentialSatisfy, // { index, finalReward ... } (Preview)
-    emergencyOrderCompleted, // 限时订单已完成标记
+    emergencyOrderCompleted, // 撤离订单已完成标记
     isBeingReplaced, // 新增：是否正在被二选一替换
     isCandidate, // 新增：是否是候选订单（用于压缩显示）
 

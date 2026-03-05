@@ -254,70 +254,6 @@ export default function App() {
                                         <div className="mt-4 pt-4 border-t border-slate-200">
                                             <h5><Timer size={14} /> {t("离开关卡需求配置")}</h5>
 
-                                            {/* Deadline */}
-                                            <div className="mb-3">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">时限 (回合)</label>
-                                                <input
-                                                    type="number"
-                                                    className="w-full p-2 border rounded font-mono"
-                                                    value={config.emergency?.deadline || 15}
-                                                    onChange={(e) => setConfig({ ...config, emergency: { ...config.emergency, deadline: parseInt(e.target.value) || 15 } })}
-                                                />
-                                            </div>
-
-                                            {/* Health System */}
-                                            <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-lg">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <label className="text-xs font-bold text-rose-700">❤️ 生命值系统</label>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={config.emergency?.health?.enabled !== false}
-                                                        onChange={(e) => setConfig({
-                                                            ...config,
-                                                            emergency: {
-                                                                ...config.emergency,
-                                                                health: { ...(config.emergency?.health || {}), enabled: e.target.checked }
-                                                            }
-                                                        })}
-                                                        className="accent-rose-600 w-4 h-4"
-                                                    />
-                                                </div>
-                                                <div className={`grid grid-cols-2 gap-2 ${config.emergency?.health?.enabled === false ? 'opacity-40 pointer-events-none' : ''}`}>
-                                                    <div>
-                                                        <label className="text-[8px] text-rose-600 block mb-1">最大生命值</label>
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            className="w-full p-1 border rounded font-mono text-sm"
-                                                            value={config.emergency?.health?.maxHealth || 3}
-                                                            onChange={(e) => setConfig({
-                                                                ...config,
-                                                                emergency: {
-                                                                    ...config.emergency,
-                                                                    health: { ...(config.emergency?.health || {}), maxHealth: parseInt(e.target.value) || 3 }
-                                                                }
-                                                            })}
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[8px] text-rose-600 block mb-1">超时扣除值</label>
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            className="w-full p-1 border rounded font-mono text-sm"
-                                                            value={config.emergency?.health?.decreaseOnTimeout || 1}
-                                                            onChange={(e) => setConfig({
-                                                                ...config,
-                                                                emergency: {
-                                                                    ...config.emergency,
-                                                                    health: { ...(config.emergency?.health || {}), decreaseOnTimeout: parseInt(e.target.value) || 1 }
-                                                                }
-                                                            })}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-
                                             {/* Difficulty System */}
                                             <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                                                 <label className="text-xs font-bold text-red-700 block mb-2">🔥 难度系统</label>
@@ -846,7 +782,7 @@ export default function App() {
                             {/* 4. 订单详情配置 */}
                             <section>
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-cyan-500 pl-3">订单数量与奖励 (Order Size & Rewards)</h4>
-                                <div className="text-xs text-slate-500 mb-4">设定不同物品数量订单的出现权重，以及完成后的基础耐心值奖励。</div>
+                                <div className="text-xs text-slate-500 mb-4">设定不同物品数量订单的出现权重，以及完成后的基础积分奖励。</div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {[2, 3, 4].map(count => {
                                         const stage = config.stages[0];
@@ -1280,7 +1216,7 @@ export default function App() {
                                             <tr>
                                                 <th className="p-2 text-left">品质名称</th>
                                                 <th className="p-2 text-left">奖励加成 (Bonus)</th>
-                                                <th className="p-2 text-left">回收耐心值</th>
+                                                <th className="p-2 text-left">回收金币</th>
                                             </tr>
                                         </thead>
                                         <tbody>

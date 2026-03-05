@@ -202,19 +202,19 @@ export const INITIAL_STAGE_CONFIG = [
 
 // --- 技能定义 ---
 export const SKILL_DEFINITIONS = [
-    { id: 'poverty_relief', name: '贫困救济', desc: '耐心值 < 20 时，完成订单的耐心值奖励额外 +5。', Icon: Gift, type: 'patience', color: 'text-yellow-600 bg-yellow-100' },
-    { id: 'lucky_7', name: '幸运 7', desc: '当前耐心值的尾数为 7 时，抽取传说物品的概率翻倍。', Icon: Star, type: 'luck', color: 'text-green-600 bg-green-100' },
-    { id: 'alchemy', name: '炼金术', desc: '回收"稀有"及以上品质物品时，25% 概率获得 5 耐心值。', Icon: Sparkles, type: 'patience', color: 'text-purple-600 bg-purple-100' },
-    { id: 'vip_discount', name: '贵宾折扣', desc: '"精准"和"有的放矢"词缀的奖池耐心值消耗减少 1。', Icon: Ticket, type: 'draw', color: 'text-orange-600 bg-orange-100' },
+    { id: 'poverty_relief', name: '贫困救济', desc: '金币 < 20 时，完成订单额外获得 +5 金币。', Icon: Gift, type: 'gold', color: 'text-yellow-600 bg-yellow-100' },
+    { id: 'lucky_7', name: '幸运 7', desc: '当前金币的尾数为 7 时，抽取传说物品的概率翻倍。', Icon: Star, type: 'luck', color: 'text-green-600 bg-green-100' },
+    { id: 'alchemy', name: '炼金术', desc: '回收"稀有"及以上品质物品时，25% 概率获得 5 金币。', Icon: Sparkles, type: 'gold', color: 'text-purple-600 bg-purple-100' },
+    { id: 'vip_discount', name: '贵宾折扣', desc: '"精准"和"有的放矢"词缀的奖池金币消耗减少 1。', Icon: Ticket, type: 'draw', color: 'text-orange-600 bg-orange-100' },
     { id: 'negotiator', name: '谈判专家', desc: '抽到"史诗"或以上品质物品时，所有订单获得 1 次刷新次数。', Icon: ArrowLeftRight, type: 'utility', color: 'text-slate-600 bg-slate-100' },
     { id: 'consolation_prize', name: '安慰奖', desc: '连续抽到 5 个"普通"品质物品后，下次抽奖获得的物品必定是稀有以上品质。', Icon: Check, type: 'luck', color: 'text-teal-600 bg-teal-100' },
     { id: 'cut_corners', name: '偷工减料', desc: '刷新出新订单时，20% 概率使订单需求物品数量 -1（最低为1）。', Icon: Zap, type: 'refresh', color: 'text-red-600 bg-red-100' },
     { id: 'time_freeze', name: '时间冻结', desc: '刷新单个订单时，20% 概率不消耗该订单的剩余刷新次数。', Icon: Clock, type: 'refresh', color: 'text-cyan-600 bg-cyan-100' },
-    { id: 'ocd', name: '强迫症', desc: '提交的订单若所有物品属于同一种类，耐心值奖励翻倍。', Icon: ListOrdered, type: 'order', color: 'text-indigo-600 bg-indigo-100' },
+    { id: 'ocd', name: '强迫症', desc: '提交的订单若所有物品属于同一种类，积分奖励翻倍。', Icon: ListOrdered, type: 'order', color: 'text-indigo-600 bg-indigo-100' },
     { id: 'auto_restock', name: '自动补货', desc: '完成任意订单后，下次抽奖获得的物品会多获得 1 个。', Icon: Package, type: 'draw', color: 'text-lime-600 bg-lime-100' },
     { id: 'turn_fortune', name: '时来运转', desc: '完成任意订单后，下次抽奖获得的物品必定是稀有以上品质。', Icon: ChevronsUp, type: 'luck', color: 'text-rose-600 bg-rose-100' },
-    { id: 'big_order_expert', name: '大订单专家', desc: '完成需求物品数为 4 个的订单时，额外获得 5 耐心值。', Icon: Package, type: 'order', color: 'text-amber-600 bg-amber-600' },
-    { id: 'hard_order_expert', name: '困难订单专家', desc: '完成需要史诗以上品质物品的订单时，额外获得 10 耐心值。', Icon: Trophy, type: 'order', color: 'text-fuchsia-600 bg-fuchsia-100' },
+    { id: 'big_order_expert', name: '大订单专家', desc: '完成需求物品数为 4 个的订单时，额外获得 5 金币。', Icon: Package, type: 'order', color: 'text-amber-600 bg-amber-600' },
+    { id: 'hard_order_expert', name: '困难订单专家', desc: '完成需要史诗以上品质物品的订单时，额外获得 10 金币。', Icon: Trophy, type: 'order', color: 'text-fuchsia-600 bg-fuchsia-100' },
 ];
 
 // --- 工具物品定义 ---
@@ -482,21 +482,12 @@ export const INITIAL_POOLS_DATA = [
     }
 ];
 
-// --- 限时急单配置 ---
+// --- 撤离订单配置 ---
 export const EMERGENCY_ORDER_CONFIG = {
-    deadline: 15,           // 时限（回合数）
-
-    // 生命值系统（原顾客急躁值）
-    health: {
-        enabled: true,      // 是否启用生命值系统
-        maxHealth: 3,       // 最大生命值（减少到0后游戏失败）
-        decreaseOnTimeout: 1 // 每次超时减少的生命值
-    },
-
     // 难度系统
     difficulty: {
         initial: 1,         // 初始难度
-        increaseOnNewOrder: 1,  // 每个新限时订单难度增加值
+        increaseOnNewOrder: 1,  // 每个新撤离订单难度增加值
         decreaseOnScoreOrder: 1,  // 完成积分订单时难度减少值
         minDifficulty: 1,   // 最小难度
         maxDifficulty: 10   // 最大难度（可选）
