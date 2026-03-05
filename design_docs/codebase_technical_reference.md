@@ -241,12 +241,10 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 | `kitchenware` | 厨具 | 🍳 | 平底锅🍳 菜刀🔪 砧板🪵 汤勺🥄 |
 | `electronics` | 电器 | ⚡️ | 手机📱 耳机🎧 空调❄️ 电脑💻 |
 
-### 4.8 `EMERGENCY_ORDER_CONFIG`
+### 4.8 `EMERGENCY_ORDER_CONFIG`（撤离订单配置）
 
 ```js
 {
-  deadline: 15,
-  health: { enabled: true, maxHealth: 3, decreaseOnTimeout: 1 },
   difficulty: { initial: 1, increaseOnNewOrder: 1, decreaseOnScoreOrder: 1, min: 1, max: 10 },
   reqCountMin: 1, reqCountMax: 4,
   baseRarityWeights: { ... },
@@ -255,6 +253,8 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
   difficultyRequirements: {}  // 空=使用随机模式；可配置精确模式
 }
 ```
+
+> 撤离订单没有时限和生命值系统。胜负由"金币耗尽前能否完成撤离订单"决定。
 
 ### 4.9 `SCORE_PROGRESS_CONFIG`
 
@@ -302,7 +302,7 @@ Fisher-Yates 洗牌后取前 `count` 个。
 ### `rollRequirementRarity(config, stageConfig, isEmergency, difficulty) → RarityId`
 
 确定订单需求的品质：
-- 急单：先查 `difficultyRarityWeights[difficulty]`，fallback 到 `baseRarityWeights`，再 fallback 到 `stageConfig.orderRarityWeights`
+- 撤离订单：先查 `difficultyRarityWeights[difficulty]`，fallback 到 `baseRarityWeights`，再 fallback 到 `stageConfig.orderRarityWeights`
 - 普通订单：使用 `stageConfig.orderRarityWeights`
 - 累积概率法随机选取
 
@@ -311,7 +311,7 @@ Fisher-Yates 洗牌后取前 `count` 个。
 完整订单生成流程：
 1. 检查 `difficultyRequirements[difficulty]` 是否存在精确模式（固定品质列表）
 2. 否则随机模式：按权重选需求数量 → 为每个需求选物品 + 品质
-3. 急单强制不同池子（`getUniquePoolItems` 辅助函数）
+3. 撤离订单强制不同池子（`getUniquePoolItems` 辅助函数）
 4. `cut_corners` 技能：20% 概率减少1个需求
 5. 计算 `baseScoreReward = max(1, floor(Σ rarityWeights + offset))`
 6. 返回 `{ id, requirements, baseScoreReward, isScoreOrder }`
@@ -348,7 +348,7 @@ Fisher-Yates 洗牌后取前 `count` 个。
 | `score` | number | 当前积分 |
 | `gold` | number | 当前金币 |
 | `drawCount` | number | 累计抽卡次数 |
-| `emergencyDifficulty` | number | 当前急单难度 |
+| `emergencyDifficulty` | number | 当前撤离订单难度 |
 | `orderRefreshCount` | number | 剩余订单刷新次数 |
 | `REFRESH_MAX` | number | 最大刷新次数（来自 config） |
 
@@ -363,7 +363,7 @@ Fisher-Yates 洗牌后取前 `count` 个。
 |------|------|------|
 | `activePools` | Pool[3] | 当前3个活跃奖池（含词缀） |
 | `orders` | Order[3] | 普通订单数组 |
-| `emergencyOrders` | Order[2] | 急单数组 |
+| `emergencyOrders` | Order[2] | 撤离订单数组 |
 | `inventory` | (Item\|null)[] | 背包数组（null 为空格） |
 | `skills` | string[] | 已拥有技能 ID（最多3个） |
 
@@ -419,7 +419,7 @@ skillState = {
 
 ### 6.3 Effects（副作用）
 
-1. **订单初始化**：组件挂载时填充 `orders` 至 `orderSlots` 个，初始化 2 个急单。
+1. **订单初始化**：组件挂载时填充 `orders` 至 `orderSlots` 个，初始化 2 个撤离订单。
 2. **奖池初始化**：`config` 变化时调用 `refreshPools(false)`。
 3. **待定队列处理**：`pendingItem` 为 null 且 `pendingQueue` 非空时，自动取出队首设为 `pendingItem`。
 4. **候选队列处理**：`orderCandidates` 为 null 且 `orderCandidateQueue` 非空时，自动取出队首设为当前候选。
@@ -510,7 +510,7 @@ skillState = {
 
 **`handleOrderClick(orderIndex)`**：
 - 若 `selectedSlot` 有值：自动分配物品到该订单匹配的需求槽位
-- 急单（index ≥ 998）：自动从背包选择物品
+- 撤离订单（index ≥ 998）：自动从背包选择物品
 - 普通订单：自动进入 submit 模式，用算法填充 `selectedIndices` 为最佳候选
 
 **`handleAssignToOrder(orderIdx, reqIdx)` / `handleUnassignFromOrder(orderIdx, reqIdx)`**：
@@ -557,12 +557,12 @@ skillState = {
 **`handleEvacuate()`** → `toggleEvacuationMode()` — 进入撤离模式
 
 **`handleConfirmEvacuation()`**：
-- 验证至少1个急单可满足
+- 验证至少1个撤离订单可满足
 - 设 `modalContent = { type: 'evacuation_success' }`
 
 **`handleEvacuationContinue()`**：
 - 难度 +1
-- 生成新急单（新难度）
+- 生成新撤离订单（新难度）
 - 重置金币为 `currentStageConfig.initialGold`
 - 移除已提交物品
 
@@ -690,8 +690,8 @@ skillState = {
 
 一个 85vh 可滚动模态框，包含以下配置区：
 1. 调试物品生成（选择池/物品/品质，点击添加）
-2. 急单配置（时限、生命系统、难度系统）
-3. 急单难度精确需求配置（1-10级折叠面板）
+2. 撤离订单配置（难度系统）
+3. 撤离订单难度精确需求配置（1-10级折叠面板）
 4. 品质概率表（`rarityWeights` + `orderRarityWeights`）
 5. 订单数量权重与奖励
 6. 杂项参数（刷新费用、初始金币等）
@@ -731,12 +731,12 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│ HEADER: 标题 | 积分 | 金币 | 急单难度 | 语言/调试/设置/重置 │
+│ HEADER: 标题 | 积分 | 金币 | 撤离难度 | 语言/调试/设置/重置 │
 ├────────────────────┬────────────────────────────────┤
 │  LEFT (45%)        │  RIGHT (flex-1)                │
 │                    │                                │
 │  ┌──────────────┐  │  ┌─────────────────────────┐   │
-│  │ 急单区域     │  │  │ 奖池区域 (3× PoolCard)  │   │
+│  │ 撤离订单区域 │  │  │ 奖池区域 (3× PoolCard)  │   │
 │  │ (2× OrderCard│  │  └─────────────────────────┘   │
 │  │  idx 998,999)│  │                                │
 │  └──────────────┘  │  ┌─────────────────────────┐   │
@@ -1096,4 +1096,4 @@ finalScore = ceil(baseScoreReward × multiplier)
 ---
 
 *文档版本：基于 `code_simplify` 分支 commit `4c22ee4` 全量源码分析生成*
-*最后更新：2026-02-26*
+*最后更新：2026-03-05*

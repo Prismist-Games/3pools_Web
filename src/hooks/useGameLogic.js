@@ -101,13 +101,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         // Initialize Emergency Orders if none
         if (emergencyOrders.length === 0) {
-            const deadline = config.emergency?.deadline || 15;
-
             // Generate first order
             const order1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, emergencyDifficulty);
             order1.isEmergency = true;
-            order1.deadline = deadline;
-            order1.maxDeadline = deadline;
             order1.difficulty = emergencyDifficulty;
 
             // Generate second order (ensure different item types AND CATEGORIES)
@@ -119,8 +115,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             const order2 = generateOrder(itemsForOrder2, config, hasSkill, currentStageConfig, true, emergencyDifficulty);
             order2.isEmergency = true;
-            order2.deadline = deadline;
-            order2.maxDeadline = deadline;
             order2.difficulty = emergencyDifficulty;
 
             setEmergencyOrders([order1, order2]);
@@ -183,7 +177,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }));
         }
 
-        // NOTE: Emergency orders deadline no longer ticks down - player evacuates manually
+        // NOTE: Evacuation orders have no deadline - player evacuates manually
     };
 
     useEffect(() => {
@@ -1802,13 +1796,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             gainedScore += finalScoreReward;
 
             if (hasSkill('big_order_expert') && reqCount === 4) {
-                showToast(t("【大订单专家】触发：+5耐心值"));
+                showToast(t("【大订单专家】触发：+5金币"));
             }
 
             if (hasSkill('hard_order_expert')) {
                 const hasHardReq = requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
                 if (hasHardReq) {
-                    showToast(t("【困难订单专家】触发：+10耐心值"));
+                    showToast(t("【困难订单专家】触发：+10金币"));
                 }
             }
 
@@ -1820,7 +1814,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 completedEmergencyOrder = true;
             }
 
-            // 积分订单的奖励通常更高，这里将其视为所有非限时订单都能获得积分
+            // 积分订单的奖励通常更高，这里将其视为所有非撤离订单都能获得积分
             if (isScoreOrder) completedScoreCount++;
 
             completedIndices.push(index);
@@ -1837,7 +1831,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         // 只有手动“离开关卡”会提升难度，因此这里删除了完成订单时的难度提升逻辑
 
-        // 完成积分订单后，降低限时订单难度
+        // 完成积分订单后，降低撤离订单难度
         if (completedScoreCount > 0) {
             const difficultyConfig = config.emergency?.difficulty;
             if (difficultyConfig) {
@@ -2006,17 +2000,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const handleEvacuationContinue = () => {
         // 1. Increase Difficulty
         const difficultyConfig = config.emergency?.difficulty;
-        const increaseOnTimeout = difficultyConfig?.increaseOnNewOrder || 1;
+        const increaseOnEvacuation = difficultyConfig?.increaseOnNewOrder || 1;
         const maxDifficulty = difficultyConfig?.maxDifficulty || 10;
-        const newDifficulty = Math.min(maxDifficulty, emergencyDifficulty + increaseOnTimeout);
+        const newDifficulty = Math.min(maxDifficulty, emergencyDifficulty + increaseOnEvacuation);
         setEmergencyDifficulty(newDifficulty);
 
         // 2. Generate New Orders
-        const deadline = config.emergency?.deadline || 15;
         const order1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, newDifficulty);
         order1.isEmergency = true;
-        order1.deadline = deadline;
-        order1.maxDeadline = deadline;
         order1.difficulty = newDifficulty;
 
         const usedPoolIds = new Set(order1.requirements.map(r => r.poolId));
@@ -2025,8 +2016,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         const order2 = generateOrder(itemsForOrder2, config, hasSkill, currentStageConfig, true, newDifficulty);
         order2.isEmergency = true;
-        order2.deadline = deadline;
-        order2.maxDeadline = deadline;
         order2.difficulty = newDifficulty;
 
         setEmergencyOrders([order1, order2]);
@@ -2075,25 +2064,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         });
     };
 
-    // Check Emergency Deadline and Health
-    useEffect(() => {
-        if (!modalContent) {
-            if (emergencyOrders.length > 0 && emergencyOrders[0].deadline <= 0) {
-                // Timeout logic removed or simplified if deadlines are still relevant as "Evacuate Time"
-                // Since rewrite says "Evacuate" button submits, maybe deadline is just visual pressure?
-                // Original logic had "Timeout" penalty. Now user just says "Submit to evacuate".
-                // Assuming deadline logic is less relevant or just visually kept. 
-                // If we keep deadline, what happens? 
-                // User didn't specify removing timeout penalty, but the new flow is "Evacuate needs submission".
-                // If timeout -> Auto fail?
-                // For now, I will suppress the timeout-auto-fail-and-refresh logic because it conflicts with the new "Must submit to evacuate" requirement 
-                // (if it autorefreshes, you can't submit).
-                // Actually, if timeout happens, maybe we just take health damage and reset? 
-                // Implementation: Retain timeout logic but adapt to list.
-                // For now, disable auto-timeout refresh to focus on manual evacuation.
-            }
-        }
-    }, [modalContent, score, config, emergencyOrders, emergencyDifficulty, allNormalItems, hasSkill, currentStageConfig]);
 
     return {
         state: {
