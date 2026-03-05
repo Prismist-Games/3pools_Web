@@ -22,7 +22,9 @@
       "WebFetch(domain:www.gamedeveloper.com)",
       "WebSearch",
       "Bash(echo:*)",
-      "Bash(env)"
+      "Bash(env)",
+      "Bash(python:*)",
+      "Bash(cp:*)"
     ]
   }
 }

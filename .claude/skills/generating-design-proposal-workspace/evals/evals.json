@@ -1,0 +1,56 @@
+{
+  "skill_name": "generating-design-proposal",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "我们分析完了，核心问题是游戏缺少反馈循环——玩家的行为不影响世界状态，所以叙事和机制是脱节的。方向是：需要一个机制让玩家的订单完成和物品处理产生世界层面的后果。给我几个具体方案。",
+      "expected_output": "3-5 distinct proposals each with 想法/规则变更/分析, grounded in actual game systems",
+      "files": [],
+      "assertions": [
+        {"id": "proposal_count", "description": "Generates 3-5 distinct proposals"},
+        {"id": "format_compliance", "description": "Each proposal has all required sections (想法/规则变更/分析)"},
+        {"id": "rule_concreteness", "description": "Rule changes specify actual modifications (not abstract concepts)"},
+        {"id": "system_awareness", "description": "Proposals reference actual game systems accurately"},
+        {"id": "proposal_range", "description": "Proposals span different ambition levels"},
+        {"id": "problem_solution_link", "description": "Each proposal's 想法 section explicitly names the problem (feedback loop) and explains the causal chain of how it solves it — not just describes a mechanic"},
+        {"id": "no_coined_jargon", "description": "Proposals use plain descriptive language, not invented compound nouns or coined terms (e.g. no '回声队列', '池子生态', '世界状态板' style naming)"},
+        {"id": "complexity_justified", "description": "When proposals add new systems or state, they justify why that complexity is necessary. Simpler proposals exist alongside complex ones."},
+        {"id": "fun_impact_assessed", "description": "Analysis section addresses whether the proposal risks hurting existing fun (e.g. slowing pace, restricting choices) with explicit tradeoff reasoning"}
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "我想给紧急订单系统加点东西，让它不只是'限时交货'这么简单。现在紧急订单和普通订单体验差别不大，就是多了个时间压力。我想让它感觉上更独特、更有存在感。有什么方案？",
+      "expected_output": "3-5 proposals with specific rule changes for emergency orders",
+      "files": [],
+      "assertions": [
+        {"id": "proposal_count", "description": "Generates 3-5 distinct proposals"},
+        {"id": "format_compliance", "description": "Each proposal has all required sections (想法/规则变更/分析)"},
+        {"id": "rule_concreteness", "description": "Rule changes specify actual modifications to emergency order rules"},
+        {"id": "system_awareness", "description": "Proposals reference actual emergency order mechanics accurately"},
+        {"id": "proposal_range", "description": "Proposals span different ambition levels"},
+        {"id": "problem_solution_link", "description": "Each proposal's 想法 explains HOW it makes emergency orders feel more unique/distinct from regular orders — not just describes a rule change"},
+        {"id": "no_coined_jargon", "description": "Proposals use plain descriptive language, not invented compound nouns or fancy coined mechanic names"},
+        {"id": "complexity_justified", "description": "Proposals that add new systems justify why the added complexity is needed to differentiate emergency orders"},
+        {"id": "fun_impact_assessed", "description": "Analysis addresses whether changes risk making emergency orders frustrating rather than exciting, with explicit reasoning"}
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "三个池子现在感觉都差不多，玩家抽的时候选择感不够强。我想让每个池子更有个性。",
+      "expected_output": "3-5 proposals with specific rule changes for pool differentiation",
+      "files": [],
+      "assertions": [
+        {"id": "proposal_count", "description": "Generates 3-5 distinct proposals"},
+        {"id": "format_compliance", "description": "Each proposal has all required sections (想法/规则变更/分析)"},
+        {"id": "rule_concreteness", "description": "Rule changes specify actual modifications to pool mechanics"},
+        {"id": "system_awareness", "description": "Proposals reference actual pool mechanics accurately"},
+        {"id": "proposal_range", "description": "Proposals span different ambition levels"},
+        {"id": "problem_solution_link", "description": "Each proposal's 想法 explains HOW it creates stronger differentiation between pools and why that leads to meaningful choice"},
+        {"id": "no_coined_jargon", "description": "Proposals describe mechanics in ordinary language, not coined compound terms"},
+        {"id": "complexity_justified", "description": "Proposals don't pile on unnecessary new systems; when complexity is added, it's justified as necessary for differentiation"},
+        {"id": "fun_impact_assessed", "description": "Analysis addresses whether pool differentiation risks making any pool feel bad to draw from or reducing the fun of the current draw experience"}
+      ]
+    }
+  ]
+}
