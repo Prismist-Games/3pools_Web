@@ -1,0 +1,139 @@
+{
+  "metadata": {
+    "skill_name": "generating-design-proposal",
+    "skill_path": ".claude/skills/generating-design-proposal",
+    "executor_model": "claude-opus-4-6",
+    "analyzer_model": "claude-opus-4-6",
+    "timestamp": "2026-03-03T22:01:00Z",
+    "evals_run": ["eval-0-feedback-loop", "eval-1-emergency-orders", "eval-2-pool-identity"],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_name": "eval-0-feedback-loop",
+      "configuration": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 6,
+      "total": 6,
+      "time_seconds": 206.2,
+      "total_tokens": 48495,
+      "assertions": [
+        {"text": "Generates 3-5 distinct proposals", "passed": true},
+        {"text": "Each proposal has all 6 required sections", "passed": true},
+        {"text": "Player experience sections describe specific game moments", "passed": true},
+        {"text": "Proposals reference actual game systems accurately", "passed": true},
+        {"text": "Proposals span different ambition levels", "passed": true},
+        {"text": "Avoids known dead-end patterns from setting doc", "passed": true}
+      ]
+    },
+    {
+      "eval_name": "eval-0-feedback-loop",
+      "configuration": "without_skill",
+      "pass_rate": 0.5,
+      "passed": 3,
+      "total": 6,
+      "time_seconds": 106.3,
+      "total_tokens": 39704,
+      "assertions": [
+        {"text": "Generates 3-5 distinct proposals", "passed": true},
+        {"text": "Each proposal has all 6 required sections", "passed": false},
+        {"text": "Player experience sections describe specific game moments", "passed": false},
+        {"text": "Proposals reference actual game systems accurately", "passed": true},
+        {"text": "Proposals span different ambition levels", "passed": true},
+        {"text": "Avoids known dead-end patterns from setting doc", "passed": false}
+      ]
+    },
+    {
+      "eval_name": "eval-1-emergency-orders",
+      "configuration": "with_skill",
+      "pass_rate": 0.833,
+      "passed": 5,
+      "total": 6,
+      "time_seconds": 173.3,
+      "total_tokens": 46955,
+      "assertions": [
+        {"text": "Generates 3-5 distinct proposals", "passed": true},
+        {"text": "Each proposal has all 6 required sections", "passed": true},
+        {"text": "Player experience sections describe specific game moments", "passed": true},
+        {"text": "Proposals reference actual emergency order mechanics accurately", "passed": true},
+        {"text": "Proposals span different ambition levels", "passed": true},
+        {"text": "Avoids known dead-end patterns", "passed": false}
+      ]
+    },
+    {
+      "eval_name": "eval-1-emergency-orders",
+      "configuration": "without_skill",
+      "pass_rate": 0.667,
+      "passed": 4,
+      "total": 6,
+      "time_seconds": 113.6,
+      "total_tokens": 41037,
+      "assertions": [
+        {"text": "Generates 3-5 distinct proposals", "passed": true},
+        {"text": "Each proposal has all 6 required sections", "passed": false},
+        {"text": "Player experience sections describe specific game moments", "passed": true},
+        {"text": "Proposals reference actual emergency order mechanics accurately", "passed": true},
+        {"text": "Proposals span different ambition levels", "passed": true},
+        {"text": "Avoids known dead-end patterns", "passed": false}
+      ]
+    },
+    {
+      "eval_name": "eval-2-pool-identity",
+      "configuration": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 6,
+      "total": 6,
+      "time_seconds": 203.7,
+      "total_tokens": 47725,
+      "assertions": [
+        {"text": "Generates 3-5 distinct proposals", "passed": true},
+        {"text": "Each proposal has all 6 required sections", "passed": true},
+        {"text": "Player experience sections describe specific game moments", "passed": true},
+        {"text": "Proposals reference actual pool mechanics accurately", "passed": true},
+        {"text": "Proposals span different ambition levels", "passed": true},
+        {"text": "Handles vague input appropriately", "passed": true}
+      ]
+    },
+    {
+      "eval_name": "eval-2-pool-identity",
+      "configuration": "without_skill",
+      "pass_rate": 0.667,
+      "passed": 4,
+      "total": 6,
+      "time_seconds": 82.2,
+      "total_tokens": 49598,
+      "assertions": [
+        {"text": "Generates 3-5 distinct proposals", "passed": true},
+        {"text": "Each proposal has all 6 required sections", "passed": false},
+        {"text": "Player experience sections describe specific game moments", "passed": false},
+        {"text": "Proposals reference actual pool mechanics accurately", "passed": true},
+        {"text": "Proposals span different ambition levels", "passed": true},
+        {"text": "Handles vague input appropriately", "passed": true}
+      ]
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "mean_pass_rate": 0.944,
+      "mean_time_seconds": 194.4,
+      "mean_tokens": 47725
+    },
+    "without_skill": {
+      "mean_pass_rate": 0.611,
+      "mean_time_seconds": 100.7,
+      "mean_tokens": 43446
+    },
+    "delta": {
+      "pass_rate": "+0.333",
+      "time_seconds": "+93.7",
+      "tokens": "+4279"
+    }
+  },
+  "notes": [
+    "with_skill consistently passes format_compliance and experience_concreteness — the structured 6-section format ensures thematic resonance and scope are always covered",
+    "without_skill tends to use analysis-heavy 3-4 section formats that miss thematic resonance and scope signaling",
+    "no_dead_ends failed once for with_skill (eval-1: pool disappearance on failure) — skill needs stronger dead-end awareness",
+    "with_skill takes ~2x longer (194s vs 101s) due to reading game_rules.md + setting docs + following structured format",
+    "experience_concreteness is the biggest differentiator — with_skill paints specific in-game moments while without_skill tends toward abstract descriptions"
+  ]
+}

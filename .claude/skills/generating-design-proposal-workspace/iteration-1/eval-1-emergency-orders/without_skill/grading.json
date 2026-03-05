@@ -1,0 +1,36 @@
+{
+  "eval_id": 1,
+  "run_type": "without_skill",
+  "expectations": [
+    {
+      "text": "Generates 3-5 distinct proposals",
+      "passed": true,
+      "evidence": "The output contains exactly 5 top-level proposals: 方案一 (急单指定池子), 方案二 (急单附带条件约束), 方案三 (急单竞价), 方案四 (急单连锁), 方案五 (急单对池子的污染). Each is a distinct H2 heading."
+    },
+    {
+      "text": "Each proposal has all 6 required sections",
+      "passed": false,
+      "evidence": "Each proposal uses only 3 sections: 核心思路, 为什么有趣, 风险. Of the 6 required dimensions (核心构想, 玩家体验, 系统交互, 主题共鸣, 设计张力, Scope信号): 核心构想 is covered by 核心思路; 玩家体验 and 系统交互 are partially merged into 为什么有趣; 设计张力 is loosely covered by 风险. However, 主题共鸣 is almost entirely absent (only 方案五 briefly mentions '暗合设定中不可逆改变处境的设计原则'), and Scope信号 is completely absent from all individual proposals. Only 2-3 of 6 dimensions are naturally covered."
+    },
+    {
+      "text": "Player experience sections describe specific game moments",
+      "passed": true,
+      "evidence": "The 为什么有趣 sections reference concrete game elements: 方案一 mentions choosing a pool with a bad affix specifically because it matches the emergency order; 方案二 gives a specific scenario '禁合成+稀碎词缀=噩梦，因为稀碎只出普通品质且不能合成升级'; 方案三 describes evaluating candidates based on current backpack state, pool situation, and regular order progress; 方案四 describes holding items after completing one order in anticipation of a chain follow-up. These are concrete game moments, not abstract statements."
+    },
+    {
+      "text": "Proposals reference actual emergency order mechanics accurately",
+      "passed": true,
+      "evidence": "The problem diagnosis section accurately identifies: emergency orders have time limits (倒计时), health penalty on timeout (生命值惩罚), no score reward (不给积分), difficulty only raises quality requirements (难度升高只是品质要求变高). Proposals correctly reference pool affixes by name (稀碎, etc.), rarity levels, merging mechanics, recycling, and tool items. 方案五 references '扣1点生命值' which matches the actual EMERGENCY_ORDER_CONFIG (maxHealth: 1, healthLostOnTimeout: 1). The design principles section correctly references the setting doc principle about punishment. System interactions with pools/inventory are described correctly throughout."
+    },
+    {
+      "text": "Proposals span different ambition levels",
+      "passed": true,
+      "evidence": "方案一 (pool designation) is conservative — it adds a simple constraint (source pool requirement) on top of existing emergency order mechanics without changing the core loop. 方案三 (bidding/selection) is ambitious — it fundamentally changes emergency orders from forced to chosen, adds a reward system, and introduces a new selection UI and decision layer. 方案四 (chaining) is also ambitious — it adds a sequential chain system with escalating risk/reward and requires defining association rules between orders. The range spans from a simple additive constraint to a structural redesign of how emergency orders function."
+    },
+    {
+      "text": "Avoids known dead-end patterns",
+      "passed": false,
+      "evidence": "方案五 (急单对池子的污染) proposes that emergency order timeout causes pool quality degradation ('让某个池子在接下来几轮里概率偏移，更多Common出现'). The setting doc's dead-end registry under '产生厌烦而非不安' (dated 2026-03-02) explicitly lists '惩罚导致池子变少/订单变难' as a dead end, with the rationale '同一循环变难=厌烦，不是不安'. Making pools produce more Commons after timeout is exactly 'making the same loop harder via numerical degradation.' Furthermore, the recommendation section doubles down on this direction as the primary suggestion, proposing '急单超时→指定池子下2轮品质权重中Common+20%' as the quick validation target."
+    }
+  ]
+}

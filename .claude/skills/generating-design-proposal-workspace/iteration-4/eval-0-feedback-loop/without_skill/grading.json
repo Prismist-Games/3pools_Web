@@ -1,0 +1,62 @@
+{
+  "expectations": [
+    {
+      "text": "Generates 3-5 distinct proposals",
+      "passed": true,
+      "evidence": "4 distinct proposals: 方案一(供需机制), 方案二(回收去向), 方案三(世界状态层), 方案四(订单链系统)."
+    },
+    {
+      "text": "Each proposal has all required sections (想法/规则变更/分析)",
+      "passed": true,
+      "evidence": "Each proposal has 核心思路(≈想法), 具体规则变化(≈规则变更), 设计意图+与叙事的连接点(≈分析). Section names differ but content covers all required areas."
+    },
+    {
+      "text": "Rule changes specify actual modifications (not abstract concepts)",
+      "passed": true,
+      "evidence": "方案一: 供需值 ±1/±2 per action, weight formula = 1.0 + 供需值*0.3. 方案二: 3 destinations with threshold=10, specific effects. 方案三: axes from -5 to +5 with specific triggers. 方案四: tag influence system with +1/-2 mechanics."
+    },
+    {
+      "text": "Proposals reference actual game systems accurately",
+      "passed": true,
+      "evidence": "References 5 item pools, 7 affixes by name, order submission flow, recycling mechanics, emergency orders, tool items, score calculation. All accurate per game_rules.md."
+    },
+    {
+      "text": "Proposals span different ambition levels",
+      "passed": true,
+      "evidence": "方案一 is lowest complexity ('最小原型只需要给5个物品池各加一个计数器'). 方案四 is highest ('需要新增标签系统、影响力追踪'). Comparison table explicitly ranks 实现复杂度 from 低 to 中高."
+    },
+    {
+      "text": "Each proposal's 想法 section explicitly names the problem (feedback loop) and explains the causal chain of how it solves it",
+      "passed": true,
+      "evidence": "方案一: '玩家的选择塑造了未来的随机空间' with specific causal path (submit items → supply/demand shifts → pool availability changes). 方案二: 'recovery decisions distribute resources → destinations accumulate → world effects trigger'. All proposals name feedback loop explicitly."
+    },
+    {
+      "text": "Proposals use plain descriptive language, not invented compound nouns or coined terms",
+      "passed": true,
+      "evidence": "Uses '供需值', '去向', '世界状态轴', '订单标签' — all plain descriptive Chinese. No invented jargon like '回声队列' or '池子生态'."
+    },
+    {
+      "text": "When proposals add new systems, they justify why. Simpler proposals exist alongside complex ones.",
+      "passed": true,
+      "evidence": "方案一 explicitly states it's the simplest ('实现最轻量'). 方案三/四 are more complex but justified by the need for irreversibility and narrative space. Comparison table helps reader see the tradeoffs."
+    },
+    {
+      "text": "Analysis addresses whether the proposal risks hurting existing fun with explicit tradeoff reasoning",
+      "passed": false,
+      "evidence": "设计意图 sections focus on positives. No explicit discussion of risks to existing fun — e.g., whether supply/demand shifts could make the game feel punishing, whether world state axes add cognitive load that slows pacing. The comparison table mentions '对现有机制的侵入' but doesn't discuss fun impact."
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 1,
+    "total": 9,
+    "pass_rate": 0.89
+  },
+  "timing": {
+    "total_duration_seconds": 106.8
+  },
+  "claims": [],
+  "eval_feedback": {
+    "overall": "Strong output. The fun_impact_assessed assertion is the only meaningful failure — and it's a genuine gap, not a grading artifact."
+  }
+}
