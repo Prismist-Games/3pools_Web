@@ -3,7 +3,9 @@ name: iterating-setting
 description: >
   Develops and refines a video game setting through multi-turn dialogue. Use when a user
   has a setting direction and wants to deepen it — diagnosing problems, making concepts
-  concrete, designing world elements, or testing internal logic.
+  concrete, designing world elements, or testing internal logic. Also handles /save-setting
+  ("更新文档", "保存设定") and /reload-setting ("我改了文档", "重新读文档", "同步一下")
+  commands for managing design documents during the session.
 ---
 
 # Iterating-Setting: Collaborative Setting Development
@@ -170,6 +172,13 @@ reveals the specific gap faster than continuing to iterate.
   specific details. If not, the setting is still too abstract.
 - **The theme test**: If you stripped all explicit theme references, would the
   theme still come through in how the world works and what the player does?
+
+## Commands
+
+- **/save-setting** — Persist unwritten changes to design documents. Also triggered
+  by "更新文档", "保存设定", "写入文档". Read `commands/save-setting.md`.
+- **/reload-setting** — Re-read design documents after the user edited them directly.
+  Also triggered by "我改了文档", "重新读文档", "同步一下". Read `commands/reload-setting.md`.
 
 ## File State Management
 
