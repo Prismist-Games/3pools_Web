@@ -1,0 +1,16 @@
+{
+  "eval_id": 1,
+  "eval_name": "emergency-orders",
+  "prompt": "我想给紧急订单系统加点东西，让它不只是'限时交货'这么简单。现在紧急订单和普通订单体验差别不大，就是多了个时间压力。我想让它感觉上更独特、更有存在感。有什么方案？",
+  "assertions": [
+    {"id": "proposal_count", "description": "Generates 3-5 distinct proposals"},
+    {"id": "format_compliance", "description": "Each proposal has all required sections (想法/规则变更/分析)"},
+    {"id": "rule_concreteness", "description": "Rule changes specify actual modifications to emergency order rules"},
+    {"id": "system_awareness", "description": "Proposals reference actual emergency order mechanics accurately"},
+    {"id": "proposal_range", "description": "Proposals span different ambition levels"},
+    {"id": "problem_solution_link", "description": "Each proposal explains HOW it makes emergency orders feel more unique/distinct"},
+    {"id": "no_coined_jargon", "description": "Proposals use plain descriptive language, not invented compound nouns"},
+    {"id": "complexity_justified", "description": "Proposals that add new systems justify the added complexity"},
+    {"id": "fun_impact_assessed", "description": "Analysis addresses whether changes risk making emergency orders frustrating rather than exciting"}
+  ]
+}

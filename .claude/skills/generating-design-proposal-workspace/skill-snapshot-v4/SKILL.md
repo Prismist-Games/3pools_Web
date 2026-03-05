@@ -163,11 +163,6 @@ a design for each.
   to condition. If no clear path exists, it's not covered.
 - Potential risks — what might not work, what's uncertain
 
-If notable ideas were considered but filtered out, briefly list
-them with the reason (e.g., too complex, conflicts with design
-positioning). This gives the team visibility into what was
-explored.
-
 **Example:**
 - Conditions: pattern, telegraph, payoff, variation
 - **Candidate A:** Spawns follow zone-weighted tables instead

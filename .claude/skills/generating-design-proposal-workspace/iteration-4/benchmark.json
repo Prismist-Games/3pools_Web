@@ -1,0 +1,195 @@
+{
+  "metadata": {
+    "skill_name": "generating-design-proposal",
+    "skill_path": "/Users/ziggy/GitHub/3pools_Web/.claude/skills/generating-design-proposal",
+    "executor_model": "claude-opus-4-6",
+    "timestamp": "2026-03-05T00:00:00Z",
+    "evals_run": [0, 1, 2],
+    "runs_per_configuration": 1
+  },
+
+  "runs": [
+    {
+      "eval_id": 0,
+      "eval_name": "feedback-loop",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.22,
+        "passed": 2,
+        "failed": 7,
+        "total": 9,
+        "time_seconds": 70.8,
+        "tokens": 37010,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Generates 3-5 distinct proposals", "passed": false, "evidence": "Output contains 0 proposals. Skill decomposed into 5 conditions and paused for confirmation."},
+        {"text": "Each proposal has all required sections", "passed": false, "evidence": "No proposals. Output is condition decomposition."},
+        {"text": "Rule changes specify actual modifications", "passed": false, "evidence": "No rule changes. Output stays at condition level."},
+        {"text": "Proposals reference actual game systems accurately", "passed": true, "evidence": "References core loop, pool contents, order conditions, economic parameters accurately."},
+        {"text": "Proposals span different ambition levels", "passed": false, "evidence": "No proposals."},
+        {"text": "Problem-solution causal link", "passed": false, "evidence": "Conditions explain prerequisites but no solutions."},
+        {"text": "No coined jargon", "passed": true, "evidence": "Plain language throughout."},
+        {"text": "Complexity justified", "passed": false, "evidence": "No proposals to evaluate."},
+        {"text": "Fun impact assessed", "passed": false, "evidence": "No fun-impact analysis."}
+      ]
+    },
+    {
+      "eval_id": 0,
+      "eval_name": "feedback-loop",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.89,
+        "passed": 8,
+        "failed": 1,
+        "total": 9,
+        "time_seconds": 106.8,
+        "tokens": 34305,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Generates 3-5 distinct proposals", "passed": true, "evidence": "4 proposals."},
+        {"text": "Each proposal has all required sections", "passed": true, "evidence": "Equivalent sections present."},
+        {"text": "Rule changes specify actual modifications", "passed": true, "evidence": "Specific numbers and formulas."},
+        {"text": "Proposals reference actual game systems accurately", "passed": true, "evidence": "Accurate references throughout."},
+        {"text": "Proposals span different ambition levels", "passed": true, "evidence": "From low to high complexity."},
+        {"text": "Problem-solution causal link", "passed": true, "evidence": "Each explains feedback loop creation."},
+        {"text": "No coined jargon", "passed": true, "evidence": "Plain descriptive language."},
+        {"text": "Complexity justified", "passed": true, "evidence": "Simpler proposals alongside complex ones."},
+        {"text": "Fun impact assessed", "passed": false, "evidence": "No explicit fun-risk discussion."}
+      ]
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "emergency-orders",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.22,
+        "passed": 2,
+        "failed": 7,
+        "total": 9,
+        "time_seconds": 68.5,
+        "tokens": 37216,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Generates 3-5 distinct proposals", "passed": false, "evidence": "0 proposals. 3 directions presented."},
+        {"text": "Each proposal has all required sections", "passed": false, "evidence": "No proposals."},
+        {"text": "Rule changes specify actual modifications", "passed": false, "evidence": "Directions, not rules."},
+        {"text": "Proposals reference actual emergency order mechanics accurately", "passed": true, "evidence": "Accurate analysis of emergency order decision structure."},
+        {"text": "Proposals span different ambition levels", "passed": false, "evidence": "No proposals."},
+        {"text": "Problem-solution causal link", "passed": false, "evidence": "Analysis is strong but no proposals."},
+        {"text": "No coined jargon", "passed": true, "evidence": "Plain language."},
+        {"text": "Complexity justified", "passed": false, "evidence": "No proposals."},
+        {"text": "Fun impact assessed", "passed": false, "evidence": "No fun-risk analysis."}
+      ]
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "emergency-orders",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.89,
+        "passed": 8,
+        "failed": 1,
+        "total": 9,
+        "time_seconds": 90.5,
+        "tokens": 35317,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Generates 3-5 distinct proposals", "passed": true, "evidence": "4 proposals."},
+        {"text": "Each proposal has all required sections", "passed": true, "evidence": "Equivalent sections."},
+        {"text": "Rule changes specify actual modifications", "passed": true, "evidence": "Specific rules with numbers."},
+        {"text": "Proposals reference actual emergency order mechanics accurately", "passed": true, "evidence": "Accurate references."},
+        {"text": "Proposals span different ambition levels", "passed": true, "evidence": "Low to medium complexity."},
+        {"text": "Problem-solution causal link", "passed": true, "evidence": "Clear causal explanations."},
+        {"text": "No coined jargon", "passed": true, "evidence": "Descriptive language."},
+        {"text": "Complexity justified", "passed": true, "evidence": "Simplest options first."},
+        {"text": "Fun impact assessed", "passed": false, "evidence": "No frustration risk discussion."}
+      ]
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "pool-identity",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.22,
+        "passed": 2,
+        "failed": 7,
+        "total": 9,
+        "time_seconds": 63.7,
+        "tokens": 37057,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Generates 3-5 distinct proposals", "passed": false, "evidence": "0 proposals. 2 directions."},
+        {"text": "Each proposal has all required sections", "passed": false, "evidence": "No proposals."},
+        {"text": "Rule changes specify actual modifications", "passed": false, "evidence": "Directions, not rules."},
+        {"text": "Proposals reference actual pool mechanics accurately", "passed": true, "evidence": "Precisely identifies that item pools have zero mechanical differentiation."},
+        {"text": "Proposals span different ambition levels", "passed": false, "evidence": "No proposals."},
+        {"text": "Problem-solution causal link", "passed": false, "evidence": "Strong analysis but no proposals."},
+        {"text": "No coined jargon", "passed": true, "evidence": "Plain language."},
+        {"text": "Complexity justified", "passed": false, "evidence": "No proposals."},
+        {"text": "Fun impact assessed", "passed": false, "evidence": "No fun-risk analysis."}
+      ]
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "pool-identity",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.89,
+        "passed": 8,
+        "failed": 1,
+        "total": 9,
+        "time_seconds": 92.1,
+        "tokens": 37829,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Generates 3-5 distinct proposals", "passed": true, "evidence": "3 proposals."},
+        {"text": "Each proposal has all required sections", "passed": true, "evidence": "Equivalent sections."},
+        {"text": "Rule changes specify actual modifications", "passed": true, "evidence": "Very specific numbers and rules."},
+        {"text": "Proposals reference actual pool mechanics accurately", "passed": true, "evidence": "Accurate references."},
+        {"text": "Proposals span different ambition levels", "passed": true, "evidence": "Minimal to significant."},
+        {"text": "Problem-solution causal link", "passed": true, "evidence": "Each explains differentiation mechanism."},
+        {"text": "No coined jargon", "passed": true, "evidence": "Descriptive Chinese terms."},
+        {"text": "Complexity justified", "passed": true, "evidence": "Staged approach recommended."},
+        {"text": "Fun impact assessed", "passed": false, "evidence": "No explicit fun-risk discussion."}
+      ]
+    }
+  ],
+
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {"mean": 0.22, "stddev": 0.0, "min": 0.22, "max": 0.22},
+      "time_seconds": {"mean": 67.7, "stddev": 3.6, "min": 63.7, "max": 70.8},
+      "tokens": {"mean": 37094, "stddev": 106, "min": 37010, "max": 37216}
+    },
+    "without_skill": {
+      "pass_rate": {"mean": 0.89, "stddev": 0.0, "min": 0.89, "max": 0.89},
+      "time_seconds": {"mean": 96.5, "stddev": 8.8, "min": 90.5, "max": 106.8},
+      "tokens": {"mean": 35817, "stddev": 1810, "min": 34305, "max": 37829}
+    },
+    "delta": {
+      "pass_rate": "-0.67",
+      "time_seconds": "-28.8",
+      "tokens": "+1277"
+    }
+  },
+
+  "notes": [
+    "CRITICAL: The with_skill runs consistently score 22% because the skill pauses at process checkpoints (condition decomposition, direction selection) rather than generating proposals directly. All 7 proposal-related assertions systematically fail because the skill's output is an intermediate step, not the final deliverable.",
+    "The without_skill runs score 89% — the only failing assertion across all 3 evals is 'fun impact assessed', suggesting this is a genuine blind spot for Claude without skill guidance as well.",
+    "The skill produces HIGHER QUALITY intermediate outputs: precise structural analysis, accurate root cause identification, well-decomposed conditions. But current assertions cannot measure this.",
+    "With-skill runs are faster (67.7s avg vs 96.5s) because they stop earlier in the process. Token usage is comparable.",
+    "The assertions are miscalibrated for a multi-turn skill. They measure single-turn proposal output, but the skill is designed for multi-turn dialogue with pause points. A fair evaluation would either: (a) simulate the full multi-turn flow, or (b) add assertions for intermediate output quality."
+  ]
+}

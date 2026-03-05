@@ -1,0 +1,80 @@
+{
+  "expectations": [
+    {
+      "text": "Generates 3-5 distinct proposals",
+      "passed": false,
+      "evidence": "Output contains 0 proposals. Skill identified input as insufficiently specific, performed structural analysis, and presented 3 directions (A: change demand structure, B: change completion method, C: create friction with core loop). Paused for team to choose direction."
+    },
+    {
+      "text": "Each proposal has all required sections (想法/规则变更/分析)",
+      "passed": false,
+      "evidence": "No proposals. Output has 输入检查/结构分析/方向 sections."
+    },
+    {
+      "text": "Rule changes specify actual modifications to emergency order rules",
+      "passed": false,
+      "evidence": "No rule changes. Directions describe what would change at a high level but not specific rules."
+    },
+    {
+      "text": "Proposals reference actual emergency order mechanics accurately",
+      "passed": true,
+      "evidence": "Analysis accurately describes: same decision structure as regular orders, time pressure doesn't create new decision type, identical interaction with pools/inventory/merging. States '急单只加了一个显而易见的优先级权重' which correctly characterizes the 15-turn timer + health=1 system."
+    },
+    {
+      "text": "Proposals span different ambition levels",
+      "passed": false,
+      "evidence": "No proposals. The 3 directions do differ in scope (A changes demands, B changes completion, C changes system interaction) but these aren't proposals with ambition levels."
+    },
+    {
+      "text": "Each proposal explains HOW it makes emergency orders feel more unique/distinct from regular orders",
+      "passed": false,
+      "evidence": "No proposals. The analysis explains WHY emergency orders feel similar (no unique decision type), and directions sketch HOW each would differentiate, but at direction level not proposal level."
+    },
+    {
+      "text": "Proposals use plain descriptive language, not invented compound nouns",
+      "passed": true,
+      "evidence": "Uses plain language throughout: '需求结构', '完成方式', '独特的摩擦'. No coined terms."
+    },
+    {
+      "text": "Proposals that add new systems justify the added complexity",
+      "passed": false,
+      "evidence": "No proposals to evaluate."
+    },
+    {
+      "text": "Analysis addresses whether changes risk making emergency orders frustrating rather than exciting",
+      "passed": false,
+      "evidence": "No analysis of frustration risk. The output focuses on problem identification and direction framing, not risk assessment of solutions."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 7,
+    "total": 9,
+    "pass_rate": 0.22
+  },
+  "timing": {
+    "total_duration_seconds": 68.5
+  },
+  "claims": [
+    {
+      "claim": "The user's input was not specific enough per the skill's check",
+      "type": "quality",
+      "verified": true,
+      "evidence": "User said '体验差别不大' and '更独特、更有存在感' — this names a system but doesn't identify the structural problem or explain why. The skill's example of 'not ready' is 'combat lacks depth' which is analogous."
+    },
+    {
+      "claim": "The structural analysis correctly identifies the core problem",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Analysis identifies that emergency orders share the exact same decision structure (gather items → submit) with only time pressure added. This is accurate per game_rules.md — emergency orders differ only in timer, health, and no score reward."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "Same systematic issue as eval-0: assertions measure proposal output, skill produces analysis + directions at this stage. The analysis quality (accurate problem identification, clear direction framing) goes unmeasured."
+      }
+    ],
+    "overall": "The skill's analysis is arguably more valuable than jumping to proposals — it correctly identifies that 'no unique decision type' is the structural problem. But assertions can't capture this."
+  }
+}
