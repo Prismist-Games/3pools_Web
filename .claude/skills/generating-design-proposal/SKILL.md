@@ -88,21 +88,20 @@ approval.
 ## From Insight to Rules
 
 ```
-Structural insight → Find Directions → Decompose → Design → Write Rules → Stress-Test
+Structural insight → Find Directions → Decompose → Generate Candidates → [team chooses] → Develop into Rules → Stress-Test
 ```
 
-Steps 1-4 each take the previous step's output and make it more
-concrete. Step 5 tests the result. If a step gets stuck, it
-usually means the previous step's output wasn't clear enough —
-go back and sharpen it.
+Each step takes the previous step's output and makes it more
+concrete. If a step gets stuck, it usually means the previous
+step's output wasn't clear enough — go back and sharpen it.
 
 **When to pause for the team:**
 - After presenting directions (Step 1): which direction?
 - After presenting conditions (Step 2): confirm, adjust, or add?
-- After presenting candidates (Step 3): react — choose, adjust,
-  or ask to explore more
-- Steps 4-5 flow together: write rules then stress-test, present
-  the combined result. The team reacts to the finished proposal.
+- After generating candidates (Step 3): choose, adjust, or
+  ask to explore more
+- Steps 4-5 flow together: design, write rules, then
+  stress-test. The team reacts to the finished proposal.
 
 **Use the game's own vocabulary.** Name actual game objects and
 triggers. Don't coin compound nouns or abstract jargon — think
@@ -233,86 +232,60 @@ simultaneously satisfied for it to actually work.
 
 **Output:** Conditions with noted dependencies and conflicts.
 
-### Step 3: Design
+### Step 3: Generate Candidates
 
 **Input:** The conditions from Step 2.
 
-**What to do:** Design a concrete modification that satisfies the
-conditions.
+Find candidate mechanisms that could satisfy the conditions.
+Filter against the game's design positioning — target audience,
+design values, complexity budget.
 
-Filter ideas against the game's design positioning — target
-audience, design values, complexity budget.
-
-**Method:**
-
-1. **Match conditions to elements.**
-   *Focused:* For each condition, ask: can an existing
-   element be modified or removed to satisfy this? Only
-   introduce something new if nothing existing can serve.
-   *Exploratory:* For each condition, find the element —
-   existing or new — that best satisfies it. If the direction
-   requires new elements, don't force existing ones to serve.
-   In both modes, elements that appear across multiple
-   conditions are strong candidates.
-
-2. **Define candidates.** For each candidate:
-   - Existing element → what exactly changes, when?
-   - New element → what is it, what does it connect to, when?
-
-3. **If no single mechanism covers all conditions**, combine —
-   minimize moving parts.
-
-When multiple candidates could each serve as the core, sketch
-a design for each.
+*Focused:* Look at existing elements first. Can something be
+modified or removed to satisfy the conditions? Only introduce
+something new if nothing existing can serve.
+*Exploratory:* Find the element — existing or new — that best
+satisfies the conditions. If the direction requires new
+elements, don't force existing ones to serve.
 
 **Present each candidate** with:
-- Which game element changes (or is introduced) and how it works
-- How it solves the original problem (one-sentence summary)
-- For each condition, trace the causal path from design element
-  to condition. If no clear path exists, it's not covered.
-- Potential risks — what might not work, what's uncertain
+- What it is — which game element changes or is introduced,
+  and the core mechanism
+- How it solves the problem — the logic from this change
+  to the problem being resolved
 
-If notable ideas were considered but filtered out, briefly list
-them with the reason (e.g., too complex, conflicts with design
-positioning). This gives the team visibility into what was
-explored.
+Keep candidates lean. The goal is to give the team enough
+to choose a direction, not to fully design each option.
 
-**Example:**
-- Conditions: pattern, telegraph, payoff, variation
-- **Candidate A:** Spawns follow zone-weighted tables instead
-  of flat random (zones already weight enemy types differently).
-  - **Solves the problem because:** spawn composition becomes
-    predictable from zone type → player can prepare loadout →
-    encounters feel different based on preparation quality
-  - pattern: zones already weight enemy types → making spawn
-    tables follow zone weights gives spawns a learnable pattern
-  - telegraph: scouting phase reveals zone type → player sees
-    zone before choosing loadout → pattern is visible in advance
-  - payoff: matching loadout to expected enemies gives damage
-    bonus → correct reads produce better outcomes than guessing
-  - variation: zone weights shift each run via existing proc-gen
-    → pattern changes between runs, preventing memorization
-  - **Risks:** if zone types are too few, patterns become
-    trivially memorized; damage bonus needs tuning to feel
-    meaningful without being mandatory
+**Output:** The team's chosen candidate.
 
-**Output:** A concrete design with: what changes, how it solves
-the problem, condition coverage, and identified risks.
+### Step 4: Develop into Rules
 
-### Step 4: Write Rules
+**Input:** The chosen candidate from Step 3 and the conditions
+from Step 2.
 
-**Input:** The concrete design from Step 3.
+Flesh out the chosen candidate into a complete design, then
+translate it into standalone rule text.
 
-Translate the design into standalone rule text — review Step 2
-and check nothing was dropped.
+1. **Deepen the design.** For each condition, trace how the
+   candidate satisfies it. If a condition isn't covered,
+   extend the design or combine with another mechanism —
+   minimize moving parts.
 
-Each rule should be specific enough that:
-- A programmer can implement without clarifying questions
-- A playtester can verify: "if this works, the player should
-  observe [specific behavior]"
+2. **Write rules.** Each rule should be specific enough that:
+   - A programmer can implement without clarifying questions
+   - A playtester can verify: "if this works, the player
+     should observe [specific behavior]"
 
-If rules come out vague, the design in Step 3 wasn't concrete
-enough — go back.
+   If rules come out vague, the design isn't concrete enough
+   — go back and sharpen it.
+
+3. **Present the proposal** with:
+   - The complete design and rule text
+   - For each condition, how the design satisfies it
+   - Potential risks — what might not work, what's uncertain
+
+**Output:** A concrete proposal with rule text, condition
+coverage, and identified risks.
 
 ### Step 5: Stress-Test
 
@@ -369,6 +342,6 @@ full rule text. Check for conflicts.
 **Reject all** ("none of these work") — Don't generate more of the
 same. Ask what was missing, then start fresh from Step 1.
 
-**Deepen** ("this is the one, flesh it out") — Re-run Steps 3-5
+**Deepen** ("this is the one, flesh it out") — Re-run Steps 4-5
 with more edge cases in stress-test, more specificity in rules.
 Produce a version clear enough to prototype from.
