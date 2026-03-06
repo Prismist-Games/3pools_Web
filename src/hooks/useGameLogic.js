@@ -1513,7 +1513,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         for (let i = 0; i < currentStageConfig.orderSlots; i++) {
             const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
             const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
-            allCandidates.push({ slotIndex: i, candidates: [candidate1, candidate2] });
+            allCandidates.push({ mode: 'pick', slotIndex: i, candidates: [candidate1, candidate2] });
         }
 
         if (allCandidates.length > 0) {
@@ -1552,18 +1552,30 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
         const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
 
-        setOrderCandidates({ slotIndex: index, candidates: [candidate1, candidate2] });
+        setOrderCandidates({ mode: 'pick', slotIndex: index, candidates: [candidate1, candidate2] });
     };
 
     const handleSelectOrderCandidate = (candidateIndex) => {
         if (!orderCandidates) return;
-        const { slotIndex, candidates } = orderCandidates;
-        const selectedOrder = candidates[candidateIndex];
+        const mode = orderCandidates.mode || 'pick';
 
-        const newOrders = [...orders];
-        newOrders[slotIndex] = selectedOrder;
-
-        setOrders(newOrders);
+        if (mode === 'reject') {
+            // 淘汰模式：移除被点击的候选，其余填入空槽
+            const { slotIndices, candidates } = orderCandidates;
+            const remaining = candidates.filter((_, idx) => idx !== candidateIndex);
+            const newOrders = [...orders];
+            slotIndices.forEach((slotIdx, i) => {
+                newOrders[slotIdx] = remaining[i];
+            });
+            setOrders(newOrders);
+        } else {
+            // Pick 模式：选中的候选填入对应槽位
+            const { slotIndex, candidates } = orderCandidates;
+            const selectedOrder = candidates[candidateIndex];
+            const newOrders = [...orders];
+            newOrders[slotIndex] = selectedOrder;
+            setOrders(newOrders);
+        }
 
         setOrderCandidates(null);
         // 队列中的下一个候选由 useEffect 自动处理
@@ -1859,26 +1871,20 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             clearAssignmentsForOrders(normalCompletedIndices);
         }
 
-        const candidateQueue = [];
-        completedIndices.forEach(idx => {
-            if (idx >= 998) {
-                // Emergency orders handled via Evacuate button now
-            } else {
-                // 保留旧订单显示，直到玩家选择新订单后再替换
-                const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
-                const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
-                candidateQueue.push({ slotIndex: idx, candidates: [candidate1, candidate2] });
-            }
-        });
+        const normalCompleted = completedIndices.filter(idx => idx < 998);
 
-        // 不立即更新订单数组，等选择完成后再更新
-
-        // 启动候选订单选择队列
-        if (candidateQueue.length > 0) {
-            setOrderCandidates(candidateQueue[0]);
-            if (candidateQueue.length > 1) {
-                setOrderCandidateQueue(candidateQueue.slice(1));
+        if (normalCompleted.length === 1) {
+            // 单个完成：保持现有 pick 模式（2选1）
+            const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            setOrderCandidates({ mode: 'pick', slotIndex: normalCompleted[0], candidates: [candidate1, candidate2] });
+        } else if (normalCompleted.length > 1) {
+            // 批量完成：淘汰模式（N+1个候选，淘汰1个）
+            const candidates = [];
+            for (let i = 0; i <= normalCompleted.length; i++) {
+                candidates.push(generateOrder(allNormalItems, config, hasSkill, currentStageConfig));
             }
+            setOrderCandidates({ mode: 'reject', slotIndices: normalCompleted, candidates });
         }
 
         const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));

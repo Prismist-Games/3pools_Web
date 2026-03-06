@@ -256,6 +256,8 @@ export const EN_TRANSLATIONS = {
     "选择一个订单": "Choose an Order",
     "请从以下2个订单中选择1个": "Choose 1 from 2 orders",
     "待选订单": "Pending Selections",
+    "淘汰一个订单": "Eliminate an Order",
+    "请淘汰1个订单，其余将成为新订单": "Eliminate 1 order; the rest become your new orders",
     "替换上方订单": "Replace Order Above",
     "正在替换": "Replacing",
     "离开关卡": "Leave Stage",

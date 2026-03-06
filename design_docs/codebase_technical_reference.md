@@ -380,7 +380,7 @@ Fisher-Yates 洗牌后取前 `count` 个。
 | `selectionMode` | object\|null | 交互词缀选择模式 `{ type, pool, items, cost }` |
 | `toolSelectionMode` | object\|null | 工具物品使用模式 `{ toolIndex, effectType }` |
 | `orderSlotAssignments` | object | 订单槽位分配映射 `{ "orderIdx-reqIdx": itemUid }` |
-| `orderCandidates` | object\|null | 当前候选订单 `{ slotIndex, candidates[] }` |
+| `orderCandidates` | object\|null | 当前候选订单。Pick 模式: `{ mode:'pick', slotIndex, candidates[2] }`；淘汰模式: `{ mode:'reject', slotIndices[], candidates[N+1] }` |
 | `orderCandidateQueue` | object[] | 候选订单队列 |
 | `modalContent` | object\|null | 模态框数据 |
 | `skillSelectionCandidates` | Skill[]\|null | 技能选择候选列表 |
@@ -526,7 +526,8 @@ skillState = {
 单个订单刷新，生成 2 候选，`time_freeze` 技能 20% 概率不消耗刷新次数。
 
 **`handleSelectOrderCandidate(candidateIndex)`**：
-将选中的候选订单放入目标槽位。
+- Pick 模式（`mode:'pick'`）：将选中的候选订单放入目标槽位
+- 淘汰模式（`mode:'reject'`）：移除被点击的候选，剩余候选自动填入对应空槽位
 
 #### 提交与回收
 
@@ -542,7 +543,7 @@ skillState = {
 3. 更新 score、gold
 4. 每完成一个订单 → `orderRefreshCount` +1
 5. 完成积分订单 → `emergencyDifficulty` 递减（不低于 min）
-6. 为完成的普通订单生成候选队列
+6. 为完成的普通订单生成候选：单个完成→Pick 模式（2选1）；批量完成→淘汰模式（N+1选N，淘汰1个）
 7. 从背包移除已提交物品
 8. 清除相关 `orderSlotAssignments`
 9. 退出 submit 模式

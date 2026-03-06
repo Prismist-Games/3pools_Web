@@ -489,24 +489,30 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         </div>
                                     </div>
 
-                                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-4 border-blue-300 rounded-2xl p-4 shadow-2xl ring-4 ring-blue-200">
+                                    <div className={`bg-gradient-to-br ${orderCandidates.mode === 'reject' ? 'from-red-50 to-orange-50 border-red-300 ring-red-200' : 'from-blue-50 to-indigo-50 border-blue-300 ring-blue-200'} border-4 rounded-2xl p-4 shadow-2xl ring-4`}>
                                         <div className="flex flex-col gap-3">
                                             {/* 标题栏 */}
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="bg-blue-500 text-white rounded-full p-1.5 shadow-lg">
+                                                    <div className={`${orderCandidates.mode === 'reject' ? 'bg-red-500' : 'bg-blue-500'} text-white rounded-full p-1.5 shadow-lg`}>
                                                         <Package size={16} />
                                                     </div>
-                                                    <h3 className="text-base font-black text-slate-800">{t("选择一个订单")}</h3>
+                                                    <h3 className="text-base font-black text-slate-800">
+                                                        {orderCandidates.mode === 'reject' ? t("淘汰一个订单") : t("选择一个订单")}
+                                                    </h3>
                                                 </div>
-                                                {orderCandidateQueue.length > 0 && (
+                                                {orderCandidates.mode !== 'reject' && orderCandidateQueue.length > 0 && (
                                                     <div className="text-xs text-slate-500 font-bold bg-white/60 px-2 py-1 rounded-full">
                                                         {t("待选订单")}: {orderCandidateQueue.length + 1}
                                                     </div>
                                                 )}
                                             </div>
 
-                                            <p className="text-xs text-slate-600 font-medium">{t("请从以下2个订单中选择1个")}</p>
+                                            <p className="text-xs text-slate-600 font-medium">
+                                                {orderCandidates.mode === 'reject'
+                                                    ? t("请淘汰1个订单，其余将成为新订单")
+                                                    : t("请从以下2个订单中选择1个")}
+                                            </p>
 
                                             {/* 候选订单卡片 - 使用完整的 OrderCard 组件 */}
                                             <div className="flex flex-col gap-2">
