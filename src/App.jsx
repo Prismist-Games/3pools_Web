@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Settings, Download, Upload, RotateCcw, X, Flag, Package, Zap, Timer } from 'lucide-react';
 import GameCore from './GameCore';
+import PrototypeGameCore from './PrototypeGameCore';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { INITIAL_GAME_CONFIG, SKILL_DEFINITIONS } from './data/constants';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -14,6 +15,7 @@ export default function App() {
     const [debugMode, setDebugMode] = useState(false);
     const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
     const [defaultResetConfirmOpen, setDefaultResetConfirmOpen] = useState(false);
+    const [isPrototypeMode, setIsPrototypeMode] = useState(true);
 
     // Dev tools state
     const [devSkillsSelected, setDevSkillsSelected] = useState([]);
@@ -146,20 +148,35 @@ export default function App() {
     return (
         <>
             <ErrorBoundary key={gameId}>
-                <GameCore
-                    key={gameId}
-                    config={config}
-                    initialSkills={initialSkills}
-                    initialProgress={initialStage}
-                    onOpenSettings={() => setShowSettings(true)}
-                    showSettings={showSettings}
-                    debugMode={debugMode}
-                    setDebugMode={setDebugMode}
-                    onReset={() => setResetConfirmOpen(true)}
-                    debugAddItem={debugAddItemPulse}
-                    onDebugAddItemHandled={() => setDebugAddItemPulse(null)}
-                />
+                {isPrototypeMode ? (
+                    <PrototypeGameCore
+                        key={gameId}
+                        config={config}
+                        onReset={() => setGameId(prev => prev + 1)}
+                    />
+                ) : (
+                    <GameCore
+                        key={gameId}
+                        config={config}
+                        initialSkills={initialSkills}
+                        initialProgress={initialStage}
+                        onOpenSettings={() => setShowSettings(true)}
+                        showSettings={showSettings}
+                        debugMode={debugMode}
+                        setDebugMode={setDebugMode}
+                        onReset={() => setResetConfirmOpen(true)}
+                        debugAddItem={debugAddItemPulse}
+                        onDebugAddItemHandled={() => setDebugAddItemPulse(null)}
+                    />
+                )}
             </ErrorBoundary>
+
+            <button
+                onClick={() => { setIsPrototypeMode(prev => !prev); setGameId(prev => prev + 1); }}
+                className="fixed bottom-4 right-4 z-50 px-3 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 shadow-lg"
+            >
+                {isPrototypeMode ? '切换到旧版' : '切换到原型'}
+            </button>
 
             {resetConfirmOpen && (
                 <ConfirmDialog
