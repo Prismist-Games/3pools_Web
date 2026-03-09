@@ -50,7 +50,7 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "三池物语", deployed t
 - **Stages** (`INITIAL_STAGE_CONFIG`): 4 stages with escalating mechanics (volatility, specialization, entropy/decay). Currently `useGameLogic` always uses `stages[0]` — stage progression is managed externally.
 - **Skills**: Passive bonuses selected 3-from-3 at stage transitions. Defined in `SKILL_DEFINITIONS`. Skill effects are implemented as event hooks inside `useGameLogic` (`draw_requested`, `draw_finished`, order completion, recycle events).
 - **Tool Items**: Special items (`tool_reforge`, `tool_transmute`, `tool_enhance`) that drop randomly on draws and are activated via right-click in inventory.
-- **Emergency Orders**: Time-limited orders with a health/difficulty system (`EMERGENCY_ORDER_CONFIG`).
+- **Emergency Orders (撤离订单)**: 2 evacuation orders that must be completed before gold runs out. No timer or health system — win by completing them, lose if gold is exhausted first. Configured via `EMERGENCY_ORDER_CONFIG`.
 
 ### Lessons Learned
 
