@@ -528,6 +528,7 @@ skillState = {
 **`handleSelectOrderCandidate(candidateIndex)`**：
 - Pick 模式（`mode:'pick'`）：将选中的候选订单放入目标槽位
 - 淘汰模式（`mode:'reject'`）：移除被点击的候选，剩余候选自动填入对应空槽位
+- 选择后清除 hover 高亮状态（`hoveredPoolId`/`hoveredPoolItemNames`）
 
 #### 提交与回收
 
@@ -750,7 +751,8 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 │                    │  │ ├ 技能面板 (可折叠)       │   │
 │  ┌──────────────┐  │  │ ├ 品质加成行             │   │
 │  │ 候选面板     │  │  │ ├ 背包状态栏             │   │
-│  │ (2个选项)    │  │  │ ├ 模式状态标签           │   │
+│  │ (pick:2选1   │  │  │ ├ 模式状态标签           │   │
+│  │  reject:N+1) │  │
 │  └──────────────┘  │  │ ├ 背包网格               │   │
 │                    │  │ │  (maxSize× InventorySlot│   │
 │                    │  │ ├ 操作按钮 (提交/回收)    │   │
@@ -844,7 +846,11 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 
 **可提交指示器**：`isSatisfied` 时绿色 "可提交" badge 带动画。
 
-**被替换动画**：黄色脉冲环 + 弹跳角点。
+**被替换动画**（Pick 模式）：黄色脉冲环 + 弹跳角点。
+
+**已完成置灰**（淘汰模式）：`isCompletedOrder` 为 true 时，`opacity-40 grayscale pointer-events-none`。
+
+**候选悬停高亮**：鼠标悬停候选订单时，通过 `setHoveredPoolId('candidate')` + `setHoveredPoolItemNames(候选需求物品名)` 触发所有订单（普通、撤离、其余候选）中同名物品需求的高亮。
 
 ### 9.3 InventorySlot.jsx
 

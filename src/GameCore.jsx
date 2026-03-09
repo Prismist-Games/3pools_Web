@@ -32,6 +32,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         drawCount, activePools, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
+        setHoveredPoolId, setHoveredPoolItemNames,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
@@ -461,7 +462,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         hoveredItemName={hoveredItemName}
                                         hoveredPoolItemNames={hoveredPoolItemNames}
                                         selectedItemNames={selectedItemNames}
-                                        isBeingReplaced={orderCandidates?.slotIndex === idx}
+                                        isBeingReplaced={orderCandidates?.mode === 'pick' && orderCandidates?.slotIndex === idx}
+                                        isCompletedOrder={orderCandidates?.mode === 'reject' && orderCandidates?.slotIndices?.includes(idx)}
                                         orderSlotAssignments={orderSlotAssignments}
                                         phantomMarks={phantomMarks}
                                         onUnassign={handleUnassignFromOrder}
@@ -521,6 +523,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                         key={candidate.id}
                                                         onClick={() => handleSelectOrderCandidate(idx)}
                                                         className="cursor-pointer hover:scale-[1.01] transition-transform duration-200"
+                                                        onMouseEnter={() => {
+                                                            setHoveredPoolId('candidate');
+                                                            setHoveredPoolItemNames(candidate.requirements.map(r => r.name));
+                                                        }}
+                                                        onMouseLeave={() => {
+                                                            setHoveredPoolId(null);
+                                                            setHoveredPoolItemNames([]);
+                                                        }}
                                                     >
                                                         <OrderCard
                                                             order={candidate}

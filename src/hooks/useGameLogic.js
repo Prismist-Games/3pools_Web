@@ -1578,6 +1578,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
 
         setOrderCandidates(null);
+        setHoveredPoolId(null);
+        setHoveredPoolItemNames([]);
         // 队列中的下一个候选由 useEffect 自动处理
     };
 

@@ -14,6 +14,7 @@ const OrderCardBase = ({
     potentialSatisfy, // { index, finalReward ... } (Preview)
     emergencyOrderCompleted, // 撤离订单已完成标记
     isBeingReplaced, // 新增：是否正在被二选一替换
+    isCompletedOrder, // 淘汰模式下已完成的订单（置灰）
     isCandidate, // 新增：是否是候选订单（用于压缩显示）
 
     // Interactions
@@ -132,6 +133,7 @@ const OrderCardBase = ({
                     : ((isSubmitMode && !isScoreOrder) ? 'opacity-60 grayscale-[0.8] scale-95' : '')
                 }
                 ${isBeingReplaced ? '!ring-8 !ring-yellow-400 !border-yellow-500 !border-4 !bg-yellow-100 animate-pulse shadow-2xl !scale-[1.05] relative z-20' : ''}
+                ${isCompletedOrder ? 'opacity-40 grayscale pointer-events-none' : ''}
             `}
         >
             {/* 调试获取物品按钮 - 仅在 index !== -1 且 onDebugGetItems 存在时显示 */}
