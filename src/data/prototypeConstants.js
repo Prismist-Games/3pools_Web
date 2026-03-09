@@ -1,84 +1,105 @@
 import { INITIAL_POOLS_DATA, INITIAL_AFFIXES_CONFIG, INITIAL_RARITY_CONFIG } from './constants';
 
+// --- Build item lookup from pool data for transformation building outputs ---
+const ITEM_LOOKUP = {};
+for (const pool of INITIAL_POOLS_DATA) {
+  for (const item of pool.items) {
+    ITEM_LOOKUP[item.name] = { ...item, category: pool.id };
+  }
+}
+export { ITEM_LOOKUP };
+
 // --- Building Definitions ---
 export const BUILDING_DEFINITIONS = [
-  // Starting buildings (3 available at game start)
+  // --- Basic Production (tier 0, build cost: common x2) ---
   {
-    id: 'fruit_stand',
-    name: '水果摊',
-    buildCost: { category: 'fruit', minRarity: 'common', count: 2 },
-    useCondition: { category: 'fruit', count: 1 },
-    useOutput: { prosperity: 2 },
-    type: 'resource',
-    tier: 0,
+    id: 'fruit_stand', name: '水果摊', tier: 0, type: 'production',
+    buildCost: [{ name: '苹果' }, { name: '芒果' }],
+    useCondition: [{ name: '西瓜' }, { name: '汤勺' }],
+    useOutput: { prosperity: 1, satisfaction: 1 },
   },
   {
-    id: 'clinic',
-    name: '诊所',
-    buildCost: { category: 'medicine', minRarity: 'common', count: 2 },
-    useCondition: { category: 'medicine', count: 1 },
-    useOutput: { satisfaction: 3 },
-    type: 'resource',
-    tier: 0,
+    id: 'clinic', name: '诊所', tier: 0, type: 'production',
+    buildCost: [{ name: '胶囊' }, { name: '滴眼液' }],
+    useCondition: [{ name: '冲剂' }, { name: '注射器' }],
+    useOutput: { satisfaction: 2 },
   },
   {
-    id: 'print_shop',
-    name: '文印店',
-    buildCost: { category: 'stationery', minRarity: 'common', count: 2 },
-    useCondition: { category: 'stationery', minRarity: 'uncommon', count: 1 },
-    useOutput: { prosperity: 3 },
-    type: 'resource',
-    tier: 0,
+    id: 'herbal_kitchen', name: '药膳坊', tier: 0, type: 'production',
+    buildCost: [{ name: '芒果' }, { name: '注射器' }],
+    useCondition: [{ name: '柠檬' }, { name: '胶囊' }],
+    useOutput: { satisfaction: 1, prosperity: 1 },
   },
 
-  // Draw pool 1 (prosperity 8 threshold, draw 3 pick 1)
+  // --- Transformation (tier 0, build cost: common x2) ---
   {
-    id: 'grocery',
-    name: '杂货铺',
-    buildCost: { category: 'kitchenware', minRarity: 'common', count: 2 },
-    useCondition: { category: 'kitchenware', count: 1 },
+    id: 'juice_shop', name: '榨汁坊', tier: 0, type: 'transformation',
+    buildCost: [{ name: '西瓜' }, { name: '汤勺' }],
+    useCondition: [{ name: '苹果' }, { name: '冲剂' }],
+    useOutput: { item: { name: '西瓜', category: 'fruit', rarity: 'uncommon' } },
+  },
+  {
+    id: 'processing_room', name: '炮制房', tier: 0, type: 'transformation',
+    buildCost: [{ name: '冲剂' }, { name: '胶囊' }],
+    useCondition: [{ name: '滴眼液' }, { name: '柠檬' }],
+    useOutput: { item: { name: '冲剂', category: 'medicine', rarity: 'uncommon' } },
+  },
+  {
+    id: 'sharpening_shop', name: '磨刀铺', tier: 0, type: 'transformation',
+    buildCost: [{ name: '平底锅' }, { name: '汤勺' }],
+    useCondition: [{ name: '菜刀' }, { name: '砧板' }, { name: '芒果' }],
+    useOutput: { item: { name: '平底锅', category: 'kitchenware', rarity: 'uncommon' } },
+  },
+  {
+    id: 'craft_workshop', name: '工艺坊', tier: 0, type: 'transformation',
+    buildCost: [{ name: '笔记本' }, { name: '铅笔' }],
+    useCondition: [{ name: '橡皮' }, { name: '耳机' }],
+    useOutput: { item: { name: '笔记本', category: 'stationery', rarity: 'uncommon' } },
+  },
+  {
+    id: 'electronics_mod', name: '电器改装铺', tier: 0, type: 'transformation',
+    buildCost: [{ name: '耳机' }, { name: '空调' }],
+    useCondition: [{ name: '手机' }, { name: '电脑' }],
+    useOutput: { item: { name: '空调', category: 'electronics', rarity: 'uncommon' } },
+  },
+
+  // --- Advanced Production (tier 1, build cost: uncommon x2) ---
+  {
+    id: 'food_stall', name: '大排档', tier: 1, type: 'production',
+    buildCost: [{ name: '芒果', minRarity: 'uncommon' }, { name: '注射器', minRarity: 'uncommon' }],
+    useCondition: [{ name: '平底锅', minRarity: 'uncommon' }, { name: '西瓜' }],
     useOutput: { prosperity: 2, satisfaction: 2 },
-    type: 'resource',
-    tier: 1,
   },
   {
-    id: 'repair_shop',
-    name: '维修铺',
-    buildCost: { category: 'electronics', minRarity: 'common', count: 2 },
-    useCondition: { category: 'electronics', count: 1 },
-    useOutput: { currency: 3, prosperity: 1 },
-    type: 'resource',
-    tier: 1,
-  },
-  {
-    id: 'recycling_center',
-    name: '回收站',
-    buildCost: { anyCategory: true, minRarity: 'common', count: 3 },
-    useCondition: { anyCategory: true, count: 2 },
+    id: 'print_shop', name: '文印店', tier: 1, type: 'production',
+    buildCost: [{ name: '橡皮', minRarity: 'uncommon' }, { name: '订书机', minRarity: 'uncommon' }],
+    useCondition: [{ name: '笔记本', minRarity: 'uncommon' }, { name: '铅笔' }],
     useOutput: { prosperity: 3 },
-    type: 'resource',
-    tier: 1,
+  },
+  {
+    id: 'office', name: '办公室', tier: 1, type: 'production',
+    buildCost: [{ name: '手机', minRarity: 'uncommon' }, { name: '电脑', minRarity: 'uncommon' }],
+    useCondition: [{ name: '空调', minRarity: 'uncommon' }, { name: '订书机' }],
+    useOutput: { prosperity: 2, satisfaction: 1 },
   },
 
-  // Draw pool 2 (prosperity 16 threshold, draw 3 pick 1)
+  // --- Endgame (tier 2, build cost: rare x2) ---
   {
-    id: 'community_plaza',
-    name: '社区广场',
-    buildCost: { anyCategory: true, minRarity: 'uncommon', count: 2 },
-    useCondition: { anyCategory: true, minRarity: 'uncommon', count: 1 },
-    useOutput: { satisfaction: 5 },
-    type: 'resource',
-    tier: 2,
+    id: 'winery', name: '果酒庄', tier: 2, type: 'production',
+    buildCost: [{ name: '铅笔', minRarity: 'rare' }, { name: '电脑', minRarity: 'rare' }],
+    useCondition: [{ name: '西瓜', minRarity: 'uncommon' }, { name: '冲剂', minRarity: 'uncommon' }],
+    useOutput: { prosperity: 3, satisfaction: 3 },
   },
-  {
-    id: 'trade_guild',
-    name: '商会',
-    buildCost: { anyCategory: true, minRarity: 'uncommon', count: 2 },
-    useCondition: { anyCategory: true, minRarity: 'rare', count: 1 },
-    useOutput: { prosperity: 5 },
-    type: 'resource',
-    tier: 2,
-  },
+];
+
+// --- Building Draw Thresholds (front-loaded) ---
+export const BUILDING_DRAW_THRESHOLDS = [2, 4, 7, 11, 16];
+
+// --- Tier Weight Ranges ---
+export const BUILDING_TIER_WEIGHTS = [
+  { maxProsperity: 6,  weights: { 0: 85, 1: 15, 2: 0 } },
+  { maxProsperity: 12, weights: { 0: 40, 1: 50, 2: 10 } },
+  { maxProsperity: 20, weights: { 0: 10, 1: 40, 2: 50 } },
 ];
 
 // --- Demand Definitions ---
@@ -89,8 +110,8 @@ export const DEMAND_DEFINITIONS = {
       name: '水果采购',
       requires: [{ category: 'fruit', minRarity: 'common', count: 3 }],
       timeLimit: 3,
-      satisfactionPerRound: -2,
-      reward: { currency: 5 },
+      satisfactionPerRound: -1,
+      reward: { currency: 0 },
     },
     {
       id: 'medicine_restock',
@@ -100,8 +121,8 @@ export const DEMAND_DEFINITIONS = {
         { category: 'electronics', minRarity: 'common', count: 1 },
       ],
       timeLimit: 3,
-      satisfactionPerRound: -2,
-      reward: { currency: 5 },
+      satisfactionPerRound: -1,
+      reward: { currency: 0 },
     },
     {
       id: 'stationery_order',
@@ -109,7 +130,7 @@ export const DEMAND_DEFINITIONS = {
       requires: [{ category: 'stationery', minRarity: 'common', count: 2 }],
       timeLimit: 3,
       satisfactionPerRound: -1,
-      reward: { currency: 4 },
+      reward: { currency: 0 },
     },
     {
       id: 'kitchenware_need',
@@ -117,7 +138,7 @@ export const DEMAND_DEFINITIONS = {
       requires: [{ category: 'kitchenware', minRarity: 'common', count: 2 }],
       timeLimit: 3,
       satisfactionPerRound: -1,
-      reward: { currency: 4 },
+      reward: { currency: 0 },
     },
   ],
   advanced: [
@@ -129,8 +150,8 @@ export const DEMAND_DEFINITIONS = {
         { category: 'kitchenware', minRarity: 'common', count: 2 },
       ],
       timeLimit: 3,
-      satisfactionPerRound: -3,
-      reward: { currency: 7 },
+      satisfactionPerRound: -2,
+      reward: { currency: 0 },
     },
     {
       id: 'health_check',
@@ -141,14 +162,13 @@ export const DEMAND_DEFINITIONS = {
         { category: 'stationery', minRarity: 'common', count: 1 },
       ],
       timeLimit: 3,
-      satisfactionPerRound: -3,
-      reward: { currency: 7 },
+      satisfactionPerRound: -2,
+      reward: { currency: 0 },
     },
   ],
 };
 
 // --- Round Schedule ---
-// Fixed demand generation rounds (1-indexed). Known to player via timeline.
 export const DEMAND_SCHEDULE = [1, 4, 7, 10, 13, 16, 18];
 
 // Round at which advanced demands start mixing in
@@ -156,21 +176,18 @@ export const ADVANCED_DEMAND_START_ROUND = 9;
 
 // --- Economy Parameters ---
 export const PROTOTYPE_CONFIG = {
-  startingGold: 15,
-  incomePerRound: 5,
-  maxActiveBuildings: 5,
+  startingGold: 10,
+  incomePerRound: 10,
   maxActiveDemands: 2,
-  startingSatisfaction: 40,
-  maxSatisfaction: 100,
-  demandExpirePenalty: -10,
-  prosperityTarget: 40,
-  buildingDrawInterval: 8,
-  buildingDrawCount: 3,
+  startingSatisfaction: 20,
+  maxSatisfaction: 50,
+  demandExpirePenalty: -5,
+  prosperityTarget: 20,
   satisfactionTiers: [
-    { min: 60, max: 100, name: '繁荣', effect: 'demand_reward_bonus', value: 0.5 },
-    { min: 30, max: 59, name: '正常', effect: null, value: 0 },
-    { min: 10, max: 29, name: '不满', effect: 'demand_timelimit_reduce', value: 1 },
-    { min: 0, max: 9, name: '崩溃', effect: 'game_over', value: 0 },
+    { min: 30, max: 50, name: '繁荣', effect: null, value: 0 },
+    { min: 15, max: 29, name: '正常', effect: null, value: 0 },
+    { min: 5, max: 14, name: '不满', effect: 'demand_timelimit_reduce', value: 1 },
+    { min: 0, max: 4, name: '崩溃', effect: 'game_over', value: 0 },
   ],
 };
 
