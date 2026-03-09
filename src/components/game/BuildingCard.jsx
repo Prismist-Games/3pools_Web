@@ -1,11 +1,6 @@
 import React from 'react';
-import { Hammer, Play, Trash2 } from 'lucide-react';
+import { Hammer, Play } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-
-const CATEGORY_LABELS = {
-  fruit: '水果', medicine: '药物', stationery: '文具',
-  kitchenware: '厨具', electronics: '电器',
-};
 
 const RARITY_LABELS = {
   common: '普通', uncommon: '优秀', rare: '稀有',
@@ -13,12 +8,16 @@ const RARITY_LABELS = {
 };
 
 const formatRequirement = (req, t) => {
-  const category = req.anyCategory ? t('任意') : t(CATEGORY_LABELS[req.category] || req.category);
+  const name = t(req.name || '任意');
   const rarity = req.minRarity && req.minRarity !== 'common' ? t(RARITY_LABELS[req.minRarity]) : '';
-  return `${rarity}${category}x${req.count || 1}`;
+  return `${rarity}${name}`;
 };
 
 const formatOutput = (output, t) => {
+  if (output.item) {
+    const rarity = output.item.rarity !== 'common' ? t(RARITY_LABELS[output.item.rarity]) : '';
+    return `→ ${rarity}${t(output.item.name)}`;
+  }
   const parts = [];
   if (output.prosperity) parts.push(`+${output.prosperity} ${t('繁荣')}`);
   if (output.satisfaction) parts.push(`+${output.satisfaction} ${t('满意度')}`);
@@ -26,7 +25,7 @@ const formatOutput = (output, t) => {
   return parts.join(', ');
 };
 
-export const BuildingCard = ({ building, isBuilt, onBuild, onUse, onDemolish, disabled, isActive }) => {
+export const BuildingCard = ({ building, isBuilt, onBuild, onUse, disabled, isActive }) => {
   const { t } = useLanguage();
   const reqs = Array.isArray(building.buildCost) ? building.buildCost : [building.buildCost];
   const useReqs = Array.isArray(building.useCondition) ? building.useCondition : [building.useCondition];
@@ -39,10 +38,8 @@ export const BuildingCard = ({ building, isBuilt, onBuild, onUse, onDemolish, di
     }`}>
       <div className="flex items-center justify-between mb-1">
         <span className="font-bold text-base">{t(building.name)}</span>
-        {isBuilt && (
-          <button onClick={onDemolish} className="text-red-400 hover:text-red-600 p-1" title={t('拆除')}>
-            <Trash2 size={14} />
-          </button>
+        {building.type === 'transformation' && (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">{t('转化')}</span>
         )}
       </div>
 

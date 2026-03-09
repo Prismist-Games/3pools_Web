@@ -23,7 +23,6 @@ const PrototypeGameCore = ({ config, onReset }) => {
     selectedIndices, selectionMode, buildings, availableBuildings,
     buildingCandidates, activeDemands, maxInventorySize, toast,
     modalContent, pendingBuildingId, pendingDemandIndex, pendingBuildingUseIndex,
-    nextBuildingDrawAt,
   } = state;
 
   const [hoveredSlotIndex, setHoveredSlotIndex] = useState(null);
@@ -111,14 +110,21 @@ const PrototypeGameCore = ({ config, onReset }) => {
           <div className="flex items-center gap-1 text-emerald-400">
             <Star size={16} />
             <span className="font-mono font-bold">{prosperity}/{gameConfig.prosperityTarget}</span>
-            {nextBuildingDrawAt <= gameConfig.prosperityTarget && (
-              <span className="text-[10px] text-emerald-300/60 ml-0.5">({t('下次抽选')}: {nextBuildingDrawAt})</span>
-            )}
           </div>
           <div className="flex items-center gap-1" style={{ color: satisfaction > 30 ? '#4ade80' : satisfaction > 10 ? '#fbbf24' : '#ef4444' }}>
             <Heart size={16} />
             <span className="font-mono font-bold">{satisfaction}</span>
             <span className="text-xs opacity-60">({t(satisfactionTier.name)})</span>
+          </div>
+          {/* Debug Controls */}
+          <div className="flex items-center gap-1 ml-2 border-l border-gray-600 pl-2">
+            <span className="text-xs text-gray-500">Debug:</span>
+            <button onClick={() => actions.debugSetProsperity(prosperity - 1)}
+              className="text-xs px-1 bg-gray-700 rounded hover:bg-gray-600">-1</button>
+            <button onClick={() => actions.debugSetProsperity(prosperity + 1)}
+              className="text-xs px-1 bg-gray-700 rounded hover:bg-gray-600">+1</button>
+            <button onClick={() => actions.debugSetProsperity(prosperity + 5)}
+              className="text-xs px-1 bg-gray-700 rounded hover:bg-gray-600">+5</button>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -131,13 +137,19 @@ const PrototypeGameCore = ({ config, onReset }) => {
 
       {/* Timeline */}
       <div className="px-4 py-2">
-        <Timeline currentRound={round} demandSchedule={gameConfig.demandSchedule} />
+        <Timeline
+          currentRound={round}
+          demandSchedule={gameConfig.demandSchedule}
+          prosperityMilestones={gameConfig.buildingDrawThresholds}
+          currentProsperity={prosperity}
+          prosperityTarget={gameConfig.prosperityTarget}
+        />
       </div>
 
       {/* Main layout */}
       <div className="flex px-4 gap-4" style={{ height: 'calc(100vh - 120px)' }}>
-        {/* LEFT: Demands + Buildings */}
-        <div className="w-2/5 flex flex-col gap-3 overflow-y-auto pr-2 py-2">
+        {/* LEFT: Demands + Available Buildings */}
+        <div className="w-1/3 flex flex-col gap-3 overflow-y-auto pr-2 py-2">
           {/* Active Demands */}
           <div>
             <h3 className="text-sm font-bold text-gray-400 mb-2">{t('活跃需求')} ({activeDemands.length}/{gameConfig.maxActiveDemands})</h3>
@@ -158,24 +170,6 @@ const PrototypeGameCore = ({ config, onReset }) => {
             )}
           </div>
 
-          {/* Built Buildings */}
-          <div>
-            <h3 className="text-sm font-bold text-gray-400 mb-2">{t('已建造')} ({buildings.length}/{gameConfig.maxActiveBuildings})</h3>
-            <div className="flex flex-col gap-2">
-              {buildings.map((building, i) => (
-                <BuildingCard
-                  key={building.id + '-' + i}
-                  building={building}
-                  isBuilt={true}
-                  isActive={pendingBuildingUseIndex === i}
-                  onUse={() => actions.startUseBuilding(i)}
-                  onDemolish={() => actions.demolishBuilding(i)}
-                  disabled={gameStatus !== 'playing' || isInSelectionAction}
-                />
-              ))}
-            </div>
-          </div>
-
           {/* Available Buildings */}
           <div>
             <h3 className="text-sm font-bold text-gray-400 mb-2">{t('可建造')}</h3>
@@ -189,7 +183,7 @@ const PrototypeGameCore = ({ config, onReset }) => {
                     building={def}
                     isBuilt={false}
                     onBuild={() => actions.startBuilding(id)}
-                    disabled={gameStatus !== 'playing' || isInSelectionAction || buildings.length >= gameConfig.maxActiveBuildings}
+                    disabled={gameStatus !== 'playing' || isInSelectionAction}
                   />
                 );
               })}
@@ -289,7 +283,7 @@ const PrototypeGameCore = ({ config, onReset }) => {
           )}
 
           {/* Inventory + Pending sidebar */}
-          <div className="flex-1 flex gap-3">
+          <div className="flex gap-3">
             {/* Inventory */}
             <div className="flex-1 flex flex-col">
               <div className="flex items-center justify-between mb-1">
@@ -302,7 +296,7 @@ const PrototypeGameCore = ({ config, onReset }) => {
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 justify-center max-w-full">
+              <div className="grid grid-cols-5 gap-2">
                 {inventory.map((item, idx) => {
                   const sourceItem = pendingItem || (selectedSlot !== null ? inventory[selectedSlot] : null);
                   const isSourceSelf = !pendingItem && selectedSlot === idx;
@@ -342,7 +336,7 @@ const PrototypeGameCore = ({ config, onReset }) => {
                       isHovered={hoveredSlotIndex === idx}
                       onMouseEnter={(i, item) => { setHoveredSlotIndex(i); if (item) setHoveredItemName(item.name); }}
                       onMouseLeave={() => { setHoveredSlotIndex(null); setHoveredItemName(null); }}
-                      className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24"
+                      className="w-full aspect-square"
                     />
                   );
                 })}
@@ -402,6 +396,25 @@ const PrototypeGameCore = ({ config, onReset }) => {
               </div>
             )}
           </div>
+
+          {/* Built Buildings */}
+          {buildings.length > 0 && (
+            <div>
+              <h3 className="text-sm font-bold text-gray-400 mb-2">{t('已建造')}</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {buildings.map((building, i) => (
+                  <BuildingCard
+                    key={building.id + '-' + i}
+                    building={building}
+                    isBuilt={true}
+                    isActive={pendingBuildingUseIndex === i}
+                    onUse={() => actions.startUseBuilding(i)}
+                    disabled={gameStatus !== 'playing' || isInSelectionAction}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* End Round button */}
           <button

@@ -49,10 +49,7 @@ export const DemandCard = ({ demand, onFulfill, disabled, canFulfill }) => {
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-green-700 text-xs font-medium">
-          {t('奖励')}: +{demand.reward.currency} {t('金币')}
-        </span>
+      <div className="flex items-center justify-end">
         <button
           onClick={onFulfill}
           disabled={disabled}
