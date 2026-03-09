@@ -24,7 +24,8 @@
       "Bash(echo:*)",
       "Bash(env)",
       "Bash(python:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
