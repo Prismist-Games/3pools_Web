@@ -62,10 +62,9 @@ discussion fits within it.
 ### Read the documentation first
 
 - `design_docs/game_rules.md` — the game's mechanics, systems, and rules.
-- `design_docs/gameplay_progress.md` — what the team considers core (unlikely
-  to change), what's actively being worked on, and what's temporary or
-  placeholder. This matters because analysis that treats a placeholder
-  system as a fixed constraint will produce misleading insights.
+- `design_docs/gameplay_progress.md` — the team's design intent and current
+  thinking on each system. This matters because analysis needs to understand
+  why each system exists and what the team is open to changing.
 - Source code (when rules docs aren't detailed enough for the specific
   area under discussion).
 
@@ -317,9 +316,9 @@ answers.
 This section is a directory of documents that support analysis.
 Items marked "待填充" need to be created or populated by the team.
 
-| Document | Path | Status |
-|----------|------|--------|
-| 游戏玩法文档 | `design_docs/game_rules.md` | 已有 |
-| 玩法设计进度 | `design_docs/gameplay_progress.md` | 待创建 |
-| 叙事设定文档 | — | 待填充（路径待定） |
-| 设计原则 | `.claude/skills/analyzing-game-mechanic/references/design_principles.md` | 文件已创建，待填充 |
+| Document | Path                                                                     | Status    |
+| -------- | ------------------------------------------------------------------------ | --------- |
+| 游戏玩法文档   | `design_docs/game_rules.md`                                              | 已有        |
+| 玩法设计进度   | `design_docs/gameplay_progress.md`                                       | 已有        |
+| 叙事设定文档   | —                                                                        | 待填充（路径待定） |
+| 设计原则     | `.claude/skills/analyzing-game-mechanic/references/design_principles.md` | 文件已创建，待填充 |
