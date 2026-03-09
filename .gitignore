@@ -129,4 +129,5 @@ Desktop.ini
 .vscode
 *.swp
 *.swo
-design_docs/.obsidian
+# Obsidian
+.obsidian/
