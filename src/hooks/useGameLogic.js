@@ -214,7 +214,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             id: Math.random().toString(36).substr(2, 9),
             uid: Math.random().toString(36).substr(2, 9),
             rarity,
-            obtainCount: drawCount
+            obtainCount: drawCount,
+            names: [baseItem.name],
+            icons: [baseItem.icon],
+            poolIds: [baseItem.poolId],
         };
         if (inventory.length < maxInventorySize) {
             setInventory(prev => [...prev, newItem]);
@@ -242,7 +245,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 id: Math.random().toString(36).substr(2, 9),
                 uid: Math.random().toString(36).substr(2, 9),
                 rarity: req.requiredRarity,
-                obtainCount: drawCount
+                obtainCount: drawCount,
+                names: [baseItem.name],
+                icons: [baseItem.icon],
+                poolIds: [baseItem.poolId],
             };
         });
 
@@ -604,7 +610,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             poolName: pool.name,
             rarity: rarity,
             sterile: affixKey === 'hardened',
-            decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
+            decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined,
+            names: [itemTemplate.name],
+            icons: [itemTemplate.icon],
+            poolIds: [pool.id],
         };
 
     };
@@ -709,7 +718,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 uid: Math.random().toString(36).substr(2, 9),
                 poolName: pool.name,
                 rarity: mythicRarity,
-                isScoreItem: true
+                isScoreItem: true,
+                names: [target.name],
+                icons: [target.icon],
+                poolIds: [pool.id],
             };
 
             setModalContent({
@@ -744,7 +756,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 ...randomItem,
                 uid: Math.random().toString(36).substr(2, 9),
                 poolName: randomPool.name,
-                rarity: rarity
+                rarity: rarity,
+                names: [randomItem.name],
+                icons: [randomItem.icon],
+                poolIds: [randomPool.id],
             };
 
             setModalContent({
@@ -851,6 +866,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             toolDesc: selected.desc,
             toolEffectType: selected.effectType,
             sterile: true, // 工具物品无法合成
+            names: [selected.name],
+            icons: [selected.icon],
+            poolIds: [],
         };
     };
 
@@ -1091,6 +1109,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     rarity: item.rarity,
                     sterile: item.sterile,
                     decay: item.decay,
+                    names: [newTpl.name],
+                    icons: [newTpl.icon],
+                    poolIds: [sourcePool.id],
                 };
                 const newInventory = [...inventory];
                 newInventory[itemIndex] = newItem;
@@ -1250,6 +1271,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     rarity: clickedItem.rarity,
                     sterile: clickedItem.sterile,
                     decay: clickedItem.decay,
+                    names: [newTpl.name],
+                    icons: [newTpl.icon],
+                    poolIds: [sourcePool.id],
                 };
                 const newInventory = [...inventory];
                 newInventory[index] = newItem;
@@ -1341,7 +1365,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 poolName: pool.name,
                 rarity: newRarity,
                 sterile: consumedItem.sterile,
-                decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
+                decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined,
+                names: [tpl.name],
+                icons: [tpl.icon],
+                poolIds: [pool.id],
             };
 
             let finalItem = newItem;
