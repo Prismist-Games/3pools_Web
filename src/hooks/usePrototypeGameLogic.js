@@ -3,9 +3,10 @@ import {
   getAllNormalItems, rollRarity, getNextRarity, getRandomAffix, getRandomItems
 } from '../utils/helpers';
 import {
-  BUILDING_DEFINITIONS, DEMAND_DEFINITIONS, DEMAND_SCHEDULE,
-  ADVANCED_DEMAND_START_ROUND, PROTOTYPE_CONFIG,
-  BUILDING_DRAW_THRESHOLDS, BUILDING_TIER_WEIGHTS, ITEM_LOOKUP
+  BUILDING_DEFINITIONS, PROTOTYPE_CONFIG,
+  BUILDING_DRAW_THRESHOLDS, BUILDING_TIER_WEIGHTS, ITEM_LOOKUP,
+  DEMAND_ELIGIBLE_CATEGORIES, DEMAND_SATISFACTION_RECOVERY,
+  DEMAND_SCALING, DEMAND_BONUS_ITEM_EXTRA,
 } from '../data/prototypeConstants';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -36,14 +37,16 @@ export const usePrototypeGameLogic = (config) => {
   const [buildingCandidates, setBuildingCandidates] = useState(null); // draw selection
   const [nextDrawIndex, setNextDrawIndex] = useState(0); // index into BUILDING_DRAW_THRESHOLDS
 
-  // --- Demand State ---
+  // --- Demand State (2 permanent demands) ---
   const [activeDemands, setActiveDemands] = useState([]);
+  const [bonusItems, setBonusItems] = useState([]); // bonus item names for +1 satisfaction
 
   // --- UI State ---
   const [toast, setToast] = useState(null);
   const [pendingBuildingId, setPendingBuildingId] = useState(null);
   const [pendingDemandIndex, setPendingDemandIndex] = useState(null);
   const [pendingBuildingUseIndex, setPendingBuildingUseIndex] = useState(null);
+  const [pendingRecipeIndex, setPendingRecipeIndex] = useState(null);
   const [modalContent, setModalContent] = useState(null);
 
   const showToast = (message, type = 'info') => setToast({ message, type });
@@ -93,25 +96,6 @@ export const usePrototypeGameLogic = (config) => {
     setActivePools(generateActivePools());
   }, [generateActivePools]);
 
-  // --- Initialize ---
-  useEffect(() => {
-    refreshPools();
-    // Start with 1 pre-built basic prosperity building (水果摊 or 药膳坊)
-    const prosperityBuildings = BUILDING_DEFINITIONS.filter(
-      b => b.id === 'fruit_stand' || b.id === 'herbal_kitchen'
-    );
-    const preBuilt = prosperityBuildings[Math.floor(Math.random() * prosperityBuildings.length)];
-    setBuildings([{ ...preBuilt, builtAtRound: 0 }]);
-  }, []);
-
-  // --- Pending queue processing ---
-  useEffect(() => {
-    if (!pendingItem && pendingQueue.length > 0) {
-      setPendingItem(pendingQueue[0]);
-      setPendingQueue(prev => prev.slice(1));
-    }
-  }, [pendingItem, pendingQueue]);
-
   // --- Helper: find rarity object ---
   const getRarity = (rarityId) => {
     return config.rarity.find(r => r.id === rarityId) || config.rarity[0];
@@ -127,6 +111,74 @@ export const usePrototypeGameLogic = (config) => {
       tier => satisfaction >= tier.min && satisfaction <= tier.max
     ) || PROTOTYPE_CONFIG.satisfactionTiers[PROTOTYPE_CONFIG.satisfactionTiers.length - 1];
   }, [satisfaction]);
+
+  // --- Helper: get demand scaling for a round ---
+  const getDemandScaling = (r) => {
+    for (const ds of DEMAND_SCALING) {
+      if (r <= ds.maxRound) return ds;
+    }
+    return DEMAND_SCALING[DEMAND_SCALING.length - 1];
+  };
+
+  // --- Helper: generate a new demand with current round's scaling ---
+  const generateDemand = (r, categories, categoryNames) => {
+    const scaling = getDemandScaling(r);
+    return {
+      id: 'daily_supplies',
+      name: '日常物资',
+      categories,
+      categoryNames,
+      instanceId: Math.random().toString(36).substr(2, 9),
+      target: scaling.target,
+      progress: 0,
+      remainingRounds: scaling.duration,
+      penalty: scaling.penalty,
+    };
+  };
+
+  // --- Initialize ---
+  useEffect(() => {
+    refreshPools();
+    // Start with 1 pre-built basic prosperity building (水果摊 or 药膳坊)
+    const prosperityBuildings = BUILDING_DEFINITIONS.filter(
+      b => b.id === 'fruit_stand' || b.id === 'herbal_kitchen'
+    );
+    const preBuilt = prosperityBuildings[Math.floor(Math.random() * prosperityBuildings.length)];
+    setBuildings([{ ...preBuilt, builtAtRound: 0 }]);
+
+    // Start with 1 additional available transformation building (complements the pre-built production building)
+    const tier0Transformations = BUILDING_DEFINITIONS.filter(
+      b => b.tier === 0 && b.type === 'transformation'
+    );
+    const startAvailable = tier0Transformations[Math.floor(Math.random() * tier0Transformations.length)];
+    setAvailableBuildings([startAvailable.id]);
+
+    // Pick 2 random categories for the demand
+    const shuffled = [...DEMAND_ELIGIBLE_CATEGORIES].sort(() => Math.random() - 0.5);
+    const pickedCategories = shuffled.slice(0, 2);
+    const cats = pickedCategories.map(c => c.id);
+    const catNames = pickedCategories.map(c => c.name);
+    setActiveDemands([generateDemand(1, cats, catNames)]);
+
+    // Generate bonus items (1 random item from each picked category)
+    const bonusItemNames = [];
+    for (const cat of pickedCategories) {
+      const catPool = config.pools.find(p => p.id === cat.id);
+      if (catPool && catPool.items.length > 0) {
+        const randomItem = catPool.items[Math.floor(Math.random() * catPool.items.length)];
+        bonusItemNames.push(randomItem.name);
+      }
+    }
+    setBonusItems(bonusItemNames);
+  }, []);
+
+  // --- Pending queue processing ---
+  useEffect(() => {
+    if (!pendingItem && pendingQueue.length > 0) {
+      setPendingItem(pendingQueue[0]);
+      setPendingQueue(prev => prev.slice(1));
+    }
+  }, [pendingItem, pendingQueue]);
 
   // --- Draw (simplified from existing, no skills/tools/orders) ---
   const handleDraw = useCallback((pool) => {
@@ -418,10 +470,11 @@ export const usePrototypeGameLogic = (config) => {
     setSelectedIndices([]);
   }, []);
 
-  // --- Building: use ---
-  const startUseBuilding = useCallback((buildingIndex) => {
+  // --- Building: use (supports multi-recipe transformation buildings) ---
+  const startUseBuilding = useCallback((buildingIndex, recipeIndex = null) => {
     if (gameStatus !== 'playing') return;
     setPendingBuildingUseIndex(buildingIndex);
+    setPendingRecipeIndex(recipeIndex);
     setSelectedIndices([]);
   }, [gameStatus]);
 
@@ -430,7 +483,14 @@ export const usePrototypeGameLogic = (config) => {
     const building = buildings[pendingBuildingUseIndex];
     if (!building) return;
 
-    const requirements = Array.isArray(building.useCondition) ? building.useCondition : [building.useCondition];
+    // All buildings use recipes
+    if (pendingRecipeIndex === null) return;
+    const recipe = building.recipes[pendingRecipeIndex];
+    if (!recipe) return;
+    const useCondition = recipe.useCondition;
+    const useOutput = recipe.useOutput;
+
+    const requirements = Array.isArray(useCondition) ? useCondition : [useCondition];
     const tempInv = selectedIndices.map(i => inventory[i]);
     const used = new Set();
     let valid = true;
@@ -456,40 +516,35 @@ export const usePrototypeGameLogic = (config) => {
     }
 
     setInventory(prev => removeItemsAtIndices(prev, selectedIndices));
-    const output = building.useOutput;
 
     // Transformation building: produce output item
-    if (building.type === 'transformation' && output.item) {
-      const baseItem = ITEM_LOOKUP[output.item.name];
-      const rarity = getRarity(output.item.rarity);
+    if (useOutput.item) {
+      const baseItem = ITEM_LOOKUP[useOutput.item.name];
+      const rarity = getRarity(useOutput.item.rarity);
       const newItem = {
         ...baseItem,
         rarity,
-        poolId: output.item.category,
-        poolName: config.pools.find(p => p.id === output.item.category)?.name || '',
+        poolId: useOutput.item.category,
+        poolName: config.pools.find(p => p.id === useOutput.item.category)?.name || '',
         uid: Math.random().toString(36).substr(2, 9),
         sterile: false,
       };
       handleIncomingItems([newItem]);
     }
 
-    // Production building: apply prosperity/satisfaction/currency
-    if (output.prosperity) {
-      setProsperity(prev => prev + output.prosperity);
-    }
-    if (output.satisfaction) {
-      setSatisfaction(prev => Math.min(PROTOTYPE_CONFIG.maxSatisfaction, prev + output.satisfaction));
-    }
-    if (output.currency) {
-      setGold(prev => prev + output.currency);
+    // Production building: add prosperity
+    if (useOutput.prosperity) {
+      setProsperity(prev => prev + useOutput.prosperity);
     }
 
     setPendingBuildingUseIndex(null);
+    setPendingRecipeIndex(null);
     setSelectedIndices([]);
-  }, [pendingBuildingUseIndex, buildings, selectedIndices, inventory, config]);
+  }, [pendingBuildingUseIndex, pendingRecipeIndex, buildings, selectedIndices, inventory, config]);
 
   const cancelUseBuilding = useCallback(() => {
     setPendingBuildingUseIndex(null);
+    setPendingRecipeIndex(null);
     setSelectedIndices([]);
   }, []);
 
@@ -533,7 +588,7 @@ export const usePrototypeGameLogic = (config) => {
     setBuildingCandidates(null);
   }, []);
 
-  // --- Demand: fulfill ---
+  // --- Demand: fulfill (satisfaction recovery based on item quality, then refresh) ---
   const startFulfillDemand = useCallback((demandIndex) => {
     if (gameStatus !== 'playing') return;
     setPendingDemandIndex(demandIndex);
@@ -545,65 +600,55 @@ export const usePrototypeGameLogic = (config) => {
     const demand = activeDemands[pendingDemandIndex];
     if (!demand) return;
 
-    const tempInv = selectedIndices.map(i => inventory[i]);
-    const used = new Set();
-    let valid = true;
-    for (const req of demand.requires) {
-      const needed = req.count || 1;
-      let found = 0;
-      for (let i = 0; i < tempInv.length; i++) {
-        if (used.has(i)) continue;
-        const item = tempInv[i];
-        if (!item) continue;
-        if (item.poolId !== req.category) continue;
-        const minIdx = req.minRarity ? getRarityIndex(req.minRarity) : 0;
-        if (getRarityIndex(item.rarity.id) < minIdx) continue;
-        found++;
-        used.add(i);
-        if (found >= needed) break;
-      }
-      if (found < needed) { valid = false; break; }
-    }
+    if (selectedIndices.length === 0) return;
 
-    if (!valid) {
-      showToast(t('所选物品不满足需求'), 'error');
+    // All selected items must belong to demand's categories
+    const submittedItems = selectedIndices.map(i => inventory[i]).filter(Boolean);
+    const validCategories = new Set(demand.categories);
+    const allValid = submittedItems.every(item => {
+      const itemInfo = ITEM_LOOKUP[item.name];
+      return itemInfo && validCategories.has(itemInfo.category);
+    });
+
+    if (!allValid || submittedItems.length === 0) {
+      showToast(t('所选物品不属于该需求类别'), 'error');
       return;
     }
 
+    // Calculate contribution (quality value + bonus extra)
+    let contribution = 0;
+    for (const item of submittedItems) {
+      contribution += DEMAND_SATISFACTION_RECOVERY[item.rarity.id] || DEMAND_SATISFACTION_RECOVERY.common;
+      if (bonusItems.includes(item.name)) {
+        contribution += DEMAND_BONUS_ITEM_EXTRA;
+      }
+    }
+
     setInventory(prev => removeItemsAtIndices(prev, selectedIndices));
-    setActiveDemands(prev => prev.filter((_, i) => i !== pendingDemandIndex));
+
+    // Update demand progress
+    const newProgress = demand.progress + contribution;
+    if (newProgress >= demand.target) {
+      // Demand completed — generate new demand immediately, no reward
+      const newDemand = generateDemand(round, demand.categories, demand.categoryNames);
+      setActiveDemands([newDemand]);
+      showToast(`${t('需求达成')}! ${t('新需求已生成')}`, 'info');
+    } else {
+      // Update progress
+      setActiveDemands(prev => prev.map((d, i) =>
+        i === pendingDemandIndex ? { ...d, progress: newProgress } : d
+      ));
+      showToast(`+${contribution} ${t('进度')} (${newProgress}/${demand.target})`);
+    }
+
     setPendingDemandIndex(null);
     setSelectedIndices([]);
-    showToast(`${demand.name} ${t('已满足')}!`);
-  }, [pendingDemandIndex, activeDemands, selectedIndices, inventory]);
+  }, [pendingDemandIndex, activeDemands, selectedIndices, inventory, bonusItems, round]);
 
   const cancelFulfillDemand = useCallback(() => {
     setPendingDemandIndex(null);
     setSelectedIndices([]);
   }, []);
-
-  // --- Demand generation ---
-  const generateDemand = useCallback((roundNum) => {
-    const pool = roundNum >= ADVANCED_DEMAND_START_ROUND
-      ? [...DEMAND_DEFINITIONS.basic, ...DEMAND_DEFINITIONS.advanced]
-      : [...DEMAND_DEFINITIONS.basic];
-
-    if (activeDemands.length >= PROTOTYPE_CONFIG.maxActiveDemands) return null;
-
-    const def = pool[Math.floor(Math.random() * pool.length)];
-    let timeLimit = def.timeLimit;
-
-    if (satisfactionTier.effect === 'demand_timelimit_reduce') {
-      timeLimit = Math.max(1, timeLimit - satisfactionTier.value);
-    }
-
-    return {
-      ...def,
-      instanceId: Math.random().toString(36).substr(2, 9),
-      remainingTime: timeLimit,
-      generatedAtRound: roundNum,
-    };
-  }, [activeDemands.length, satisfactionTier]);
 
   // --- End Round ---
   const endRound = useCallback(() => {
@@ -616,38 +661,27 @@ export const usePrototypeGameLogic = (config) => {
     // 1. Income (gold does not carry over between rounds)
     setGold(PROTOTYPE_CONFIG.incomePerRound);
 
-    // 2. Tick demand timers and apply satisfaction drain
-    let satChange = 0;
-    const expiredDemands = [];
-    const updatedDemands = activeDemands.map(d => {
-      const updated = { ...d, remainingTime: d.remainingTime - 1 };
-      satChange += d.satisfactionPerRound; // negative value
-      if (updated.remainingTime <= 0) {
-        expiredDemands.push(updated);
-      }
-      return updated;
-    }).filter(d => d.remainingTime > 0);
-
-    // Apply expired penalties
-    for (const expired of expiredDemands) {
-      satChange += PROTOTYPE_CONFIG.demandExpirePenalty;
-      showToast(`${expired.name} ${t('已过期')}! ${PROTOTYPE_CONFIG.demandExpirePenalty} ${t('满意度')}`);
-    }
-
-    const newSatisfaction = Math.max(0, Math.min(PROTOTYPE_CONFIG.maxSatisfaction, satisfaction + satChange));
-    setSatisfaction(newSatisfaction);
-
-    // 3. Generate new demand if scheduled
-    let newDemands = updatedDemands;
-    if (DEMAND_SCHEDULE.includes(newRound)) {
-      const newDemand = generateDemand(newRound);
-      if (newDemand) {
-        newDemands = [...newDemands, newDemand];
+    // 2. Check demand expiry
+    let newSatisfaction = satisfaction;
+    const currentDemand = activeDemands[0];
+    if (currentDemand) {
+      const newRemaining = currentDemand.remainingRounds - 1;
+      if (newRemaining <= 0) {
+        // Demand expired — apply penalty, generate new
+        if (currentDemand.progress < currentDemand.target) {
+          newSatisfaction = Math.max(0, satisfaction - currentDemand.penalty);
+          setSatisfaction(newSatisfaction);
+          showToast(`${t('需求未达成')}! -${currentDemand.penalty} ${t('满意度')}`, 'error');
+        }
+        const newDemand = generateDemand(newRound, currentDemand.categories, currentDemand.categoryNames);
+        setActiveDemands([newDemand]);
+      } else {
+        // Decrement remaining rounds
+        setActiveDemands(prev => prev.map(d => ({ ...d, remainingRounds: newRemaining })));
       }
     }
-    setActiveDemands(newDemands);
 
-    // 4. Check win/lose
+    // 3. Check win/lose
     if (prosperity >= PROTOTYPE_CONFIG.prosperityTarget) {
       setGameStatus('won');
       setModalContent({ type: 'victory' });
@@ -659,17 +693,13 @@ export const usePrototypeGameLogic = (config) => {
     setRound(newRound);
     setSelectedSlot(null);
     setSelectedIndices([]);
-  }, [gameStatus, round, activeDemands, satisfaction, prosperity, pendingItem, buildingCandidates, generateDemand]);
+  }, [gameStatus, round, satisfaction, prosperity, pendingItem, buildingCandidates, activeDemands]);
 
   // --- Start game (first round) ---
   const startGame = useCallback(() => {
     setRound(1);
     setGold(PROTOTYPE_CONFIG.startingGold);
-    if (DEMAND_SCHEDULE.includes(1)) {
-      const demand = generateDemand(1);
-      if (demand) setActiveDemands([demand]);
-    }
-  }, [generateDemand]);
+  }, []);
 
   // Auto-start on mount
   useEffect(() => {
@@ -734,12 +764,14 @@ export const usePrototypeGameLogic = (config) => {
       availableBuildings,
       buildingCandidates,
       activeDemands,
+      bonusItems,
       maxInventorySize,
       toast,
       modalContent,
       pendingBuildingId,
       pendingDemandIndex,
       pendingBuildingUseIndex,
+      pendingRecipeIndex,
     },
     actions: {
       handleDraw,
@@ -766,9 +798,7 @@ export const usePrototypeGameLogic = (config) => {
       debugSetProsperity,
     },
     config: {
-      demandSchedule: DEMAND_SCHEDULE,
       prosperityTarget: PROTOTYPE_CONFIG.prosperityTarget,
-      maxActiveDemands: PROTOTYPE_CONFIG.maxActiveDemands,
       buildingDrawThresholds: BUILDING_DRAW_THRESHOLDS,
     },
   };

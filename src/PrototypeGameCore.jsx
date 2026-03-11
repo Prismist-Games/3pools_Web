@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Coins, Star, Heart, SkipForward, AlertCircle, X } from 'lucide-react';
+import { Coins, Heart, SkipForward, AlertCircle, X, Trash2, ArrowDownUp } from 'lucide-react';
 
 import { usePrototypeGameLogic } from './hooks/usePrototypeGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
@@ -11,7 +11,7 @@ import { BuildingCard } from './components/game/BuildingCard';
 import { DemandCard } from './components/game/DemandCard';
 import { Timeline } from './components/game/Timeline';
 import { BuildingSelectionModal } from './components/game/BuildingSelectionModal';
-import { BUILDING_DEFINITIONS } from './data/prototypeConstants';
+import { BUILDING_DEFINITIONS, PROTOTYPE_CONFIG, ITEM_LOOKUP, DEMAND_SATISFACTION_RECOVERY, DEMAND_BONUS_ITEM_EXTRA, DEMAND_SCALING } from './data/prototypeConstants';
 
 const PrototypeGameCore = ({ config, onReset }) => {
   const { t } = useLanguage();
@@ -21,42 +21,89 @@ const PrototypeGameCore = ({ config, onReset }) => {
     round, gold, prosperity, satisfaction, satisfactionTier, gameStatus,
     activePools, inventory, pendingItem, pendingQueue, selectedSlot,
     selectedIndices, selectionMode, buildings, availableBuildings,
-    buildingCandidates, activeDemands, maxInventorySize, toast,
+    buildingCandidates, activeDemands, bonusItems, maxInventorySize, toast,
     modalContent, pendingBuildingId, pendingDemandIndex, pendingBuildingUseIndex,
+    pendingRecipeIndex,
   } = state;
 
   const [hoveredSlotIndex, setHoveredSlotIndex] = useState(null);
   const [hoveredItemName, setHoveredItemName] = useState(null);
+  const [hoveredPool, setHoveredPool] = useState(null);
   const [endRoundConfirmOpen, setEndRoundConfirmOpen] = useState(false);
+  const [recycleMode, setRecycleMode] = useState(false);
+  const [recycleSelectedIndices, setRecycleSelectedIndices] = useState([]);
 
-  const isInSelectionAction = pendingBuildingId !== null || pendingDemandIndex !== null || pendingBuildingUseIndex !== null;
+  // Item names in the currently hovered pool
+  const hoveredPoolItemNames = hoveredPool
+    ? new Set(hoveredPool.items.map(item => item.name))
+    : null;
+
+  const isInSelectionAction = pendingBuildingId !== null || pendingDemandIndex !== null || pendingBuildingUseIndex !== null || recycleMode;
   const actionLabel = pendingBuildingId ? t('选择建造材料')
     : pendingDemandIndex !== null ? t('选择提交物品')
     : pendingBuildingUseIndex !== null ? t('选择使用物品')
+    : recycleMode ? t('选择回收物品')
     : null;
 
-  // Check which demands can be fulfilled
-  const canFulfillDemand = (demand) => {
-    const used = new Set();
-    for (const req of demand.requires) {
-      const needed = req.count || 1;
-      let found = 0;
-      for (let i = 0; i < inventory.length; i++) {
-        if (used.has(i)) continue;
-        const item = inventory[i];
-        if (!item) continue;
-        if (item.poolId !== req.category) continue;
-        const rarities = config.rarity || [];
-        const minIdx = req.minRarity ? rarities.findIndex(r => r.id === req.minRarity) : 0;
-        const itemIdx = rarities.findIndex(r => r.id === item.rarity.id);
-        if (itemIdx < minIdx) continue;
-        found++;
-        used.add(i);
-        if (found >= needed) break;
+  // Calculate recycle value for selected items
+  const recycleValue = React.useMemo(() => {
+    return recycleSelectedIndices.reduce((sum, idx) => {
+      const item = inventory[idx];
+      return sum + (item?.rarity?.recycleValue || 0);
+    }, 0);
+  }, [recycleSelectedIndices, inventory]);
+
+  // Collect all requirements: built buildings' recipes, available buildings' build costs
+  const neededItemReqs = React.useMemo(() => {
+    const rarities = config.rarity || [];
+    const getRIdx = (id) => rarities.findIndex(r => r.id === id);
+    const reqs = new Map();
+    const collect = (reqList) => {
+      for (const req of reqList) {
+        if (!req.name) continue;
+        const minIdx = req.minRarity ? getRIdx(req.minRarity) : 0;
+        if (!reqs.has(req.name) || minIdx > reqs.get(req.name)) {
+          reqs.set(req.name, minIdx);
+        }
       }
-      if (found < needed) return false;
+    };
+    // Built buildings' recipe conditions
+    for (const building of buildings) {
+      if (building.recipes) {
+        for (const recipe of building.recipes) {
+          collect(Array.isArray(recipe.useCondition) ? recipe.useCondition : [recipe.useCondition]);
+        }
+      }
     }
-    return true;
+    // Available (unbuilt) buildings' build costs
+    for (const id of availableBuildings) {
+      const def = BUILDING_DEFINITIONS.find(b => b.id === id);
+      if (def?.buildCost) {
+        collect(Array.isArray(def.buildCost) ? def.buildCost : [def.buildCost]);
+      }
+    }
+    // Demand category items (any rarity works, so minIdx = 0)
+    for (const demand of activeDemands) {
+      const demandCats = new Set(demand.categories);
+      for (const [name, info] of Object.entries(ITEM_LOOKUP)) {
+        if (demandCats.has(info.category) && !reqs.has(name)) {
+          reqs.set(name, 0);
+        }
+      }
+    }
+    return reqs;
+  }, [buildings, availableBuildings, activeDemands, config.rarity]);
+
+  // Check if demand can be fulfilled (has at least 1 matching item and not yet complete)
+  const canFulfillDemand = (demand) => {
+    if (demand.progress >= demand.target) return false;
+    const validCategories = new Set(demand.categories);
+    for (const item of inventory) {
+      if (!item) continue;
+      const itemInfo = ITEM_LOOKUP[item.name];
+      if (itemInfo && validCategories.has(itemInfo.category)) return true;
+    }
+    return false;
   };
 
   const noop = () => {};
@@ -105,26 +152,14 @@ const PrototypeGameCore = ({ config, onReset }) => {
           <span className="font-bold text-lg">{t('三池物语')}</span>
           <div className="flex items-center gap-1 text-yellow-400">
             <Coins size={16} />
+            <span className="text-xs opacity-70 mr-0.5">{t('金币')}</span>
             <span className="font-mono font-bold">{gold}</span>
           </div>
-          <div className="flex items-center gap-1 text-emerald-400">
-            <Star size={16} />
-            <span className="font-mono font-bold">{prosperity}/{gameConfig.prosperityTarget}</span>
-          </div>
-          <div className="flex items-center gap-1" style={{ color: satisfaction > 30 ? '#4ade80' : satisfaction > 10 ? '#fbbf24' : '#ef4444' }}>
+          <div className="flex items-center gap-1" style={{ color: satisfaction > 14 ? '#4ade80' : satisfaction > 7 ? '#fbbf24' : '#ef4444' }}>
             <Heart size={16} />
-            <span className="font-mono font-bold">{satisfaction}</span>
+            <span className="text-xs opacity-70 mr-0.5">{t('满意度')}</span>
+            <span className="font-mono font-bold">{satisfaction}/{PROTOTYPE_CONFIG.maxSatisfaction}</span>
             <span className="text-xs opacity-60">({t(satisfactionTier.name)})</span>
-          </div>
-          {/* Debug Controls */}
-          <div className="flex items-center gap-1 ml-2 border-l border-gray-600 pl-2">
-            <span className="text-xs text-gray-500">Debug:</span>
-            <button onClick={() => actions.debugSetProsperity(prosperity - 1)}
-              className="text-xs px-1 bg-gray-700 rounded hover:bg-gray-600">-1</button>
-            <button onClick={() => actions.debugSetProsperity(prosperity + 1)}
-              className="text-xs px-1 bg-gray-700 rounded hover:bg-gray-600">+1</button>
-            <button onClick={() => actions.debugSetProsperity(prosperity + 5)}
-              className="text-xs px-1 bg-gray-700 rounded hover:bg-gray-600">+5</button>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -139,35 +174,44 @@ const PrototypeGameCore = ({ config, onReset }) => {
       <div className="px-4 py-2">
         <Timeline
           currentRound={round}
-          demandSchedule={gameConfig.demandSchedule}
           prosperityMilestones={gameConfig.buildingDrawThresholds}
           currentProsperity={prosperity}
           prosperityTarget={gameConfig.prosperityTarget}
         />
+        {/* Debug: prosperity */}
+        <div className="flex items-center gap-1 mt-1">
+          <span className="text-[10px] text-gray-500">Debug {t('繁荣')}:</span>
+          <button onClick={() => actions.debugSetProsperity(prosperity - 1)}
+            className="text-[10px] px-1 bg-gray-700 text-gray-300 rounded hover:bg-gray-600">-1</button>
+          <button onClick={() => actions.debugSetProsperity(prosperity + 1)}
+            className="text-[10px] px-1 bg-gray-700 text-gray-300 rounded hover:bg-gray-600">+1</button>
+          <button onClick={() => actions.debugSetProsperity(prosperity + 5)}
+            className="text-[10px] px-1 bg-gray-700 text-gray-300 rounded hover:bg-gray-600">+5</button>
+        </div>
       </div>
 
       {/* Main layout */}
       <div className="flex px-4 gap-4" style={{ height: 'calc(100vh - 120px)' }}>
         {/* LEFT: Demands + Available Buildings */}
         <div className="w-1/3 flex flex-col gap-3 overflow-y-auto pr-2 py-2">
-          {/* Active Demands */}
+          {/* Permanent Demands */}
           <div>
-            <h3 className="text-sm font-bold text-gray-400 mb-2">{t('活跃需求')} ({activeDemands.length}/{gameConfig.maxActiveDemands})</h3>
-            {activeDemands.length === 0 ? (
-              <div className="text-xs text-gray-500 italic">{t('当前无需求')}</div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {activeDemands.map((demand, i) => (
-                  <DemandCard
-                    key={demand.instanceId}
-                    demand={demand}
-                    onFulfill={() => actions.startFulfillDemand(i)}
-                    disabled={gameStatus !== 'playing' || isInSelectionAction}
-                    canFulfill={canFulfillDemand(demand)}
-                  />
-                ))}
-              </div>
-            )}
+            <h3 className="text-sm font-bold text-gray-400 mb-2">{t('需求')}</h3>
+            <div className="flex flex-col gap-2">
+              {activeDemands.map((demand, i) => (
+                <DemandCard
+                  key={demand.instanceId}
+                  demand={demand}
+                  onFulfill={() => actions.startFulfillDemand(i)}
+                  disabled={gameStatus !== 'playing' || isInSelectionAction}
+                  canFulfill={canFulfillDemand(demand)}
+                  inventory={inventory}
+                  bonusItems={bonusItems}
+                  qualityValues={DEMAND_SATISFACTION_RECOVERY}
+                  bonusExtra={DEMAND_BONUS_ITEM_EXTRA}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Available Buildings */}
@@ -184,6 +228,10 @@ const PrototypeGameCore = ({ config, onReset }) => {
                     isBuilt={false}
                     onBuild={() => actions.startBuilding(id)}
                     disabled={gameStatus !== 'playing' || isInSelectionAction}
+                    highlightedItems={hoveredPoolItemNames}
+                    hoveredItemName={hoveredItemName}
+                    inventory={inventory}
+                    rarityConfig={config.rarity}
                   />
                 );
               })}
@@ -204,9 +252,9 @@ const PrototypeGameCore = ({ config, onReset }) => {
                   config={config}
                   inventory={inventory}
                   onDraw={() => actions.handleDraw(pool)}
-                  onMouseEnter={noop}
-                  onMouseLeave={noop}
-                  isHovered={false}
+                  onMouseEnter={(pool) => setHoveredPool(pool)}
+                  onMouseLeave={() => setHoveredPool(null)}
+                  isHovered={hoveredPool?.id === pool.id}
                   disabled={gameStatus !== 'playing' || !!pendingItem || !!selectionMode || isInSelectionAction}
                 />
               </div>
@@ -254,23 +302,30 @@ const PrototypeGameCore = ({ config, onReset }) => {
 
           {/* Action mode banner */}
           {isInSelectionAction && (
-            <div className="bg-blue-900/30 border border-blue-500 rounded-lg p-3 flex items-center justify-between">
-              <span className="text-sm font-medium">{actionLabel} - {t('从背包中选择物品')}</span>
+            <div className={`${recycleMode ? 'bg-amber-900/30 border-amber-500' : 'bg-blue-900/30 border-blue-500'} border rounded-lg p-3 flex items-center justify-between`}>
+              <span className="text-sm font-medium">
+                {actionLabel} - {t('从背包中选择物品')}
+                {recycleMode && recycleSelectedIndices.length > 0 && (
+                  <span className="text-amber-400 ml-2">+{recycleValue} {t('金币')}</span>
+                )}
+              </span>
               <div className="flex gap-2">
                 <button
                   onClick={
-                    pendingBuildingId ? actions.confirmBuilding
+                    recycleMode ? () => { actions.handleRecycle(recycleSelectedIndices); setRecycleMode(false); setRecycleSelectedIndices([]); }
+                    : pendingBuildingId ? actions.confirmBuilding
                     : pendingDemandIndex !== null ? actions.confirmFulfillDemand
                     : actions.confirmUseBuilding
                   }
-                  disabled={selectedIndices.length === 0}
-                  className="px-3 py-1 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 disabled:opacity-40"
+                  disabled={recycleMode ? recycleSelectedIndices.length === 0 : selectedIndices.length === 0}
+                  className={`px-3 py-1 text-white rounded text-sm font-medium disabled:opacity-40 ${recycleMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-500 hover:bg-green-600'}`}
                 >
-                  {t('确认')}
+                  {recycleMode ? t('回收') : t('确认')}
                 </button>
                 <button
                   onClick={
-                    pendingBuildingId ? actions.cancelBuilding
+                    recycleMode ? () => { setRecycleMode(false); setRecycleSelectedIndices([]); }
+                    : pendingBuildingId ? actions.cancelBuilding
                     : pendingDemandIndex !== null ? actions.cancelFulfillDemand
                     : actions.cancelUseBuilding
                   }
@@ -290,8 +345,25 @@ const PrototypeGameCore = ({ config, onReset }) => {
                 <span className="text-xs text-gray-400">
                   {t('库存')} ({inventory.filter(Boolean).length}/{maxInventorySize})
                 </span>
-                <div className="flex gap-1">
-                  <button onClick={actions.handleSortInventory} className="text-xs text-gray-400 hover:text-white px-2 py-0.5 rounded border border-gray-600">
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => { setRecycleMode(!recycleMode); setRecycleSelectedIndices([]); }}
+                    disabled={isInSelectionAction && !recycleMode}
+                    className={`text-xs font-medium px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors ${
+                      recycleMode
+                        ? 'text-white bg-amber-500 shadow'
+                        : 'text-amber-300 hover:text-white bg-amber-800/50 hover:bg-amber-700/60 border border-amber-600/50'
+                    } disabled:opacity-40`}
+                  >
+                    <Trash2 size={12} />
+                    {t('回收')}
+                  </button>
+                  <button
+                    onClick={actions.handleSortInventory}
+                    disabled={isInSelectionAction}
+                    className="text-xs font-medium text-blue-300 hover:text-white bg-blue-800/50 hover:bg-blue-700/60 border border-blue-600/50 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-40"
+                  >
+                    <ArrowDownUp size={12} />
                     {t('整理')}
                   </button>
                 </div>
@@ -323,16 +395,24 @@ const PrototypeGameCore = ({ config, onReset }) => {
                       key={idx}
                       index={idx}
                       item={item}
-                      onClick={actions.handleSlotClick}
-                      isSelected={selectedSlot === idx || selectedIndices.includes(idx)}
+                      onClick={recycleMode
+                        ? () => setRecycleSelectedIndices(prev =>
+                            prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
+                          )
+                        : actions.handleSlotClick
+                      }
+                      isSelected={recycleMode ? recycleSelectedIndices.includes(idx) : (selectedSlot === idx || selectedIndices.includes(idx))}
                       isTarget={!!sourceItem && !isSourceSelf}
-                      isSubmitMode={isInSelectionAction}
-                      isRecycleMode={false}
+                      isSubmitMode={isInSelectionAction && !recycleMode}
+                      isRecycleMode={recycleMode}
                       isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
                       isReference={selectionMode?.type === 'trade_in'}
                       canSynthesize={canSynthesize}
                       hasUpgradePair={hasUpgradePair}
                       isOverloadTarget={isOverloadTarget}
+                      isNeededForOrder={item && neededItemReqs.has(item.name)}
+                      isMaxSatisfied={item && neededItemReqs.has(item.name) &&
+                        (config.rarity || []).findIndex(r => r.id === item.rarity.id) >= neededItemReqs.get(item.name)}
                       isHovered={hoveredSlotIndex === idx}
                       onMouseEnter={(i, item) => { setHoveredSlotIndex(i); if (item) setHoveredItemName(item.name); }}
                       onMouseLeave={() => { setHoveredSlotIndex(null); setHoveredItemName(null); }}
@@ -408,8 +488,13 @@ const PrototypeGameCore = ({ config, onReset }) => {
                     building={building}
                     isBuilt={true}
                     isActive={pendingBuildingUseIndex === i}
-                    onUse={() => actions.startUseBuilding(i)}
+                    activeRecipeIndex={pendingBuildingUseIndex === i ? pendingRecipeIndex : null}
+                    onUse={(recipeIndex) => actions.startUseBuilding(i, recipeIndex)}
                     disabled={gameStatus !== 'playing' || isInSelectionAction}
+                    highlightedItems={hoveredPoolItemNames}
+                    hoveredItemName={hoveredItemName}
+                    inventory={inventory}
+                    rarityConfig={config.rarity}
                   />
                 ))}
               </div>
