@@ -42,7 +42,6 @@ const OrderCardBase = ({
     // 交互状态（用于槽位交互）
     pendingItem,
     selectedSlotItem,
-    toolSelectionMode,
     isRecycleMode,
     selectionMode,
 }) => {
@@ -302,12 +301,9 @@ const OrderCardBase = ({
                                 slotItem.rarity.id !== 'mythic' &&
                                 currentStageConfig?.mechanics?.synthesis;
 
-                            // 工具目标高亮：工具选择模式下可作用的槽位
-                            const isToolTarget = isSlotMode && !isPhantom && slotItem && toolSelectionMode && !slotItem.isToolItem;
-
                             // 回收/以旧换新状态
                             const isRecycleTarget = isSlotMode && !isPhantom && slotItem && isRecycleMode;
-                            const isTradeInTarget = isSlotMode && !isPhantom && slotItem && selectionMode?.type === 'trade_in' && !slotItem.isToolItem && !slotItem.isScoreItem;
+                            const isTradeInTarget = isSlotMode && !isPhantom && slotItem && selectionMode?.type === 'trade_in' && !slotItem.isScoreItem;
                             const slotInvIndex = slotItem ? inventory.findIndex(i => i && i.uid === slotItem.uid) : -1;
                             const isSlotSelected = isRecycleMode && slotInvIndex !== -1 && selectedIndices?.includes(slotInvIndex);
 
@@ -339,7 +335,6 @@ const OrderCardBase = ({
                                             ${isSlotMode
                                                 ? `w-16 h-16 rounded-xl flex-col justify-center border-2 ${isPhantom ? 'border-dashed ' + slotItem.rarity.color.split(' ')[0] + ' bg-transparent' : 'border-solid ' + slotItem.rarity.color.split(' ')[0] + ' ' + (slotQualitySatisfied ? slotItem.rarity.color : 'bg-slate-50')} ${!isPhantom ? 'cursor-pointer hover:scale-105 hover:shadow-md' : 'cursor-default'}
                                                     ${canSynthesizeWithSlot ? 'ring-4 ring-yellow-400 scale-105 z-20' : ''}
-                                                    ${isToolTarget ? 'ring-2 ring-cyan-400 ring-offset-1 shadow-lg shadow-cyan-200/50' : ''}
                                                     ${isRecycleTarget || isTradeInTarget ? 'ring-2 ring-amber-400 ring-offset-1 shadow-amber-200/50' : ''}
                                                     ${isSlotSelected ? 'ring-2 ring-red-500 ring-offset-1 scale-110 shadow-lg' : ''}
                                                     ${isOverloadTarget ? 'ring-2 ring-red-400 ring-offset-1 shadow-lg shadow-red-200/50' : ''}
@@ -349,7 +344,7 @@ const OrderCardBase = ({
                                             }
                                             ${(isPoolHighlighted || isItemHighlighted) && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
                                         `}
-                                        title={isSlotMode ? (isPhantom ? t("已在其他订单中使用") : (canSynthesizeWithSlot ? t("点击合成") : (isToolTarget ? t("点击使用工具") : t("点击取回")))) : ''}
+                                        title={isSlotMode ? (isPhantom ? t("已在其他订单中使用") : (canSynthesizeWithSlot ? t("点击合成") : t("点击取回"))) : ''}
                                     >
                                         {/* Invisible layout ghost to hold natural width in Capsule Mode */}
                                         <div className={`flex items-center gap-1 opacity-0 pointer-events-none transition-all ${isSlotMode ? 'hidden' : ''}`}>

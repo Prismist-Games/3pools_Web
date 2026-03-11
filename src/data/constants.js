@@ -217,49 +217,6 @@ export const SKILL_DEFINITIONS = [
     { id: 'hard_order_expert', name: '困难订单专家', desc: '完成需要史诗以上品质物品的订单时，额外获得 10 金币。', Icon: Trophy, type: 'order', color: 'text-fuchsia-600 bg-fuchsia-100' },
 ];
 
-// --- 工具物品定义 ---
-export const TOOL_ITEMS = [
-    {
-        id: 'tool_reforge',
-        name: '命运熔炉',
-        icon: '🔥',
-        desc: '使用后随机改变左侧物品的品质（品质概率与"有的放矢"词缀相同）。',
-        effectType: 'reforge_left',
-    },
-    {
-        id: 'tool_transmute',
-        name: '万象棱镜',
-        icon: '🔮',
-        desc: '使用后将左侧物品变为同类型（同奖池）的另一个物品，品质不变。',
-        effectType: 'transmute_left',
-    },
-    {
-        id: 'tool_enhance',
-        name: '星辉祝福',
-        icon: '✨',
-        desc: '使用后下一个抽出的物品品质提升1级。',
-        effectType: 'enhance_next',
-    },
-];
-
-// --- 工具物品掉落配置 ---
-export const TOOL_ITEM_CONFIG = {
-    dropChance: 0.2,           // 每次抽奖时掉落工具物品的概率
-    weights: {                  // 三种工具物品的相对权重
-        tool_reforge: 1,
-        tool_transmute: 1,
-        tool_enhance: 1,
-    },
-    reforgeRarityWeights: {     // 命运熔炉重roll品质的概率分布
-        common: 0.4,
-        uncommon: 0.3,
-        rare: 0.2,
-        epic: 0.08,
-        legendary: 0.02,
-        mythic: 0,
-    },
-};
-
 export const INITIAL_AFFIXES_CONFIG = [
     {
         "id": "trade_in",
@@ -569,7 +526,6 @@ export const INITIAL_GAME_CONFIG = {
     stages: INITIAL_STAGE_CONFIG,
     progress: SCORE_PROGRESS_CONFIG,
     emergency: EMERGENCY_ORDER_CONFIG,
-    toolItems: TOOL_ITEM_CONFIG,
     enabledSkillIds: [
         "poverty_relief",
         "lucky_7",

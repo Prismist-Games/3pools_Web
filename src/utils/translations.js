@@ -261,22 +261,4 @@ export const EN_TRANSLATIONS = {
     "离开关卡": "Leave Stage",
     "选择中...": "Selecting...",
     "放弃": "Give Up",
-
-    // --- Tool Items ---
-    "命运熔炉": "Fate Forge",
-    "万象棱镜": "Prism Shift",
-    "星辉祝福": "Starlight Blessing",
-    "使用后随机改变左侧物品的品质（品质概率与\"有的放矢\"词缀相同）。": "Randomly reroll the rarity of the item to the left (uses Targeted affix rarity distribution).",
-    "使用后将左侧物品变为同类型（同奖池）的另一个物品，品质不变。": "Replace the item to the left with another of the same type (same pool), keeping rarity.",
-    "使用后下一个抽出的物品品质提升1级。": "The next drawn item's rarity will be upgraded by 1 tier.",
-    "工具": "TOOL",
-    "右键使用": "R-Click",
-    "右键点击使用": "Right-click to use",
-    "左侧没有物品！": "No item to the left!",
-    "无法对工具物品使用！": "Cannot use on tool items!",
-    "找不到对应的奖池！": "Pool not found!",
-    "同奖池中没有其他物品！": "No other items in the same pool!",
-    "星辉祝福已激活：下次抽取品质+1": "Starlight Blessing active: Next draw rarity +1",
-    "当前状态下无法使用工具物品": "Cannot use tool items in current state",
-    "工具道具无法用于以旧换新！": "Tool items cannot be used for trade-in!"
 };

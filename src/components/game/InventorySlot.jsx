@@ -1,61 +1,6 @@
-import { useState, useRef, useLayoutEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Sparkles, Trash2, ArrowLeftRight, Check, ChevronsUp, Ban, Star, CircleArrowUp, MousePointerClick } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Sparkles, Trash2, ArrowLeftRight, Check, ChevronsUp, Ban, Star, CircleArrowUp } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-
-// Tooltip 通过 Portal 渲染到 body，避免被父级 overflow/z-index 遮挡
-const ToolItemTooltip = ({ item, anchorRef, visible }) => {
-    const { t } = useLanguage();
-    const [pos, setPos] = useState(null); // null = 未就绪，不渲染
-
-    // useLayoutEffect 在 DOM 更新后、浏览器绘制前同步执行，避免闪烁
-    useLayoutEffect(() => {
-        if (!visible || !anchorRef.current) {
-            setPos(null);
-            return;
-        }
-        const rect = anchorRef.current.getBoundingClientRect();
-        setPos({
-            top: rect.top + window.scrollY - 8,
-            left: rect.left + window.scrollX + rect.width / 2,
-        });
-    }, [visible, anchorRef]);
-
-    // pos 未就绪或不可见时不渲染，避免在 (0,0) 闪现
-    if (!visible || !item || !pos) return null;
-
-    return createPortal(
-        <div
-            style={{
-                position: 'absolute',
-                top: pos.top,
-                left: pos.left,
-                transform: 'translate(-50%, -100%)',
-                zIndex: 99999,
-                pointerEvents: 'none',
-            }}
-            className="animate-in fade-in zoom-in-95 duration-150"
-        >
-            <div className="bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border border-amber-400/30 min-w-[180px] max-w-[240px]">
-                <div className="flex items-center gap-2 mb-1.5 border-b border-slate-700 pb-1.5">
-                    <span className="text-lg">{item.icon}</span>
-                    <span className="font-black text-amber-300 text-sm">{t(item.name)}</span>
-                </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                    {t(item.toolDesc || '')}
-                </p>
-                <div className="mt-1.5 pt-1 border-t border-slate-700 text-[10px] text-amber-400/80 font-bold">
-                    {t("右键点击使用")}
-                </div>
-            </div>
-            {/* Arrow */}
-            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
-                <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-slate-900" />
-            </div>
-        </div>,
-        document.body
-    );
-};
 
 
 export const InventorySlot = ({
@@ -67,7 +12,6 @@ export const InventorySlot = ({
     isHovered,
     isReference,
     onClick,
-    onContextMenu,
     onMouseEnter,
     onMouseLeave,
 
@@ -86,7 +30,7 @@ export const InventorySlot = ({
     isSterile,
     isOverloadTarget,
 
-    // Tool item state
+    // Skill state
     nextDrawEnhanced,
 
     // Order slot assignment
@@ -96,47 +40,27 @@ export const InventorySlot = ({
     className = ""
 }) => {
     const { t } = useLanguage();
-    const [showTooltip, setShowTooltip] = useState(false);
     const slotRef = useRef(null);
 
     const isMultiSelectMode = isSubmitMode || isRecycleMode;
     const isTradeInMode = isSelectionMode;
-    const isToolItem = item?.isToolItem;
-    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem)) || isPendingSlot;
-
-    const handleContextMenu = (e) => {
-        e.preventDefault();
-        if (isToolItem && onContextMenu) {
-            onContextMenu(index);
-        }
-    };
-
-    // 工具物品独特样式：金色渐变边框 + 发光
-    const toolItemStyle = isToolItem
-        ? 'border-amber-400 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 ring-1 ring-amber-200/50 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
-        : '';
+    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem)) || isPendingSlot;
 
     return (
-        // 外层 div 不设 overflow-hidden，tooltip portal 不受此影响
         <div ref={slotRef} className="relative">
             <button
                 onClick={() => !isDisabled && onClick(index)}
-                onContextMenu={handleContextMenu}
                 onMouseEnter={() => {
                     onMouseEnter(index, item);
-                    if (isToolItem) setShowTooltip(true);
                 }}
                 onMouseLeave={() => {
                     onMouseLeave();
-                    setShowTooltip(false);
                 }}
                 aria-disabled={isDisabled}
                 className={`
                     relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 select-none overflow-visible
                     ${item
-                        ? isToolItem
-                            ? toolItemStyle
-                            : `${item.rarity?.color || 'bg-slate-100 border-slate-300'} ${item.rarity?.shadow || ''} shadow-sm`
+                        ? `${item.rarity?.color || 'bg-slate-100 border-slate-300'} ${item.rarity?.shadow || ''} shadow-sm`
                         : 'bg-slate-50 border-dashed border-slate-200'
                     }
                     ${!isMultiSelectMode && !isTradeInMode && isSelected ? '-translate-y-4 scale-110 z-10 shadow-xl ring-2 ring-blue-400' : ''}
@@ -158,41 +82,22 @@ export const InventorySlot = ({
 
                 {item && (
                     <>
-                        <div className={`flex flex-col items-center justify-center w-full h-full ${(item.sterile && !isToolItem) || (item.decay !== undefined && item.decay <= 0) ? 'grayscale opacity-70' : ''}`}>
-                            <span className={`text-2xl lg:text-3xl filter drop-shadow-sm transition-transform duration-300 ${isToolItem ? 'animate-pulse' : ''}`}>
+                        <div className={`flex flex-col items-center justify-center w-full h-full ${item.sterile || (item.decay !== undefined && item.decay <= 0) ? 'grayscale opacity-70' : ''}`}>
+                            <span className="text-2xl lg:text-3xl filter drop-shadow-sm transition-transform duration-300">
                                 {item.icon}
                             </span>
-                            <span className={`text-[10px] font-bold leading-none truncate max-w-full px-1 ${isToolItem ? 'text-amber-700' : ''}`}>
+                            <span className="text-[10px] font-bold leading-none truncate max-w-full px-1">
                                 {t(item.name)}
                             </span>
-                            {item.rarity?.bonus > 0 && !isToolItem && (
+                            {item.rarity?.bonus > 0 && (
                                 <div className="absolute top-0 right-0 p-0.5 bg-white/50 rounded-bl-lg">
                                     <Star size={8} fill="currentColor" className={item.rarity?.color ? item.rarity.color.split(' ')[2] : 'text-slate-400'} />
                                 </div>
                             )}
                         </div>
 
-                        {/* 工具物品标识 */}
-                        {isToolItem && (
-                            <div className="absolute top-0 left-0 p-0.5 rounded-br-lg z-10">
-                                <div className="bg-amber-500 text-white rounded-md px-1 py-0.5 text-[8px] font-black uppercase tracking-wider shadow-sm">
-                                    {t("工具")}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 右键提示（hover 时显示在 slot 底部） */}
-                        {isToolItem && isHovered && !isMultiSelectMode && (
-                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-                                <div className="bg-amber-600 text-white rounded-full px-1.5 py-0.5 text-[8px] font-bold whitespace-nowrap shadow-lg flex items-center gap-0.5">
-                                    <MousePointerClick size={8} />
-                                    {t("右键使用")}
-                                </div>
-                            </div>
-                        )}
-
                         {/* Status Icons */}
-                        {item.sterile && !isToolItem && (
+                        {item.sterile && (
                             <div className="absolute bottom-0 left-0 p-0.5 bg-gray-800/80 rounded-tr-lg text-white z-10 text-[9px] px-1 font-bold">
                                 {t("绝育")}
                             </div>
@@ -272,13 +177,6 @@ export const InventorySlot = ({
                     </>
                 )}
             </button>
-
-            {/* Tooltip via Portal — 不受任何父级 z-index/overflow 限制 */}
-            <ToolItemTooltip
-                item={item}
-                anchorRef={slotRef}
-                visible={isToolItem && showTooltip && !isMultiSelectMode}
-            />
         </div>
     );
 };

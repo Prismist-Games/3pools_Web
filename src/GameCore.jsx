@@ -36,8 +36,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
-        orderSlotAssignments, assignedItemUids, phantomMarks,
-        toolSelectionMode
+        orderSlotAssignments, assignedItemUids, phantomMarks
     } = state;
 
     const {
@@ -66,10 +65,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleEvacuationContinue,
         handleEvacuationExtract,
         debugGetOrderItems,
-        handleToolItemUse,
         handleUnassignFromOrder,
-        handleOrderSlotClick,
-        handleCancelToolSelection
+        handleOrderSlotClick
     } = actions;
 
     const { hasSkill } = helpers;
@@ -427,7 +424,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     onSlotClick={handleOrderSlotClick}
                                                     pendingItem={pendingItem}
                                                     selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
-                                                    toolSelectionMode={toolSelectionMode}
                                                     isRecycleMode={isRecycleMode}
                                                     selectionMode={selectionMode}
                                                 />
@@ -468,11 +464,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         onSlotClick={handleOrderSlotClick}
                                         pendingItem={pendingItem}
                                         selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
-                                        toolSelectionMode={toolSelectionMode}
                                         isRecycleMode={isRecycleMode}
                                         selectionMode={selectionMode}
-                                    // selectedIndices={selectedIndices} // Already passed above
-                                    // currentStageConfig={currentStageConfig} // Already passed above
                                     />
                                 ))}
                             </div>
@@ -745,11 +738,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <Repeat size={14} /> {t("以旧换新: 请点击选择一个物品消耗")}
                                     </span>
                                 )}
-                                {toolSelectionMode && (
-                                    <span className="text-xs font-bold text-cyan-600 animate-pulse flex items-center gap-1">
-                                        <Zap size={14} /> {t("请点击选择一个目标物品")}
-                                    </span>
-                                )}
 
 
 
@@ -763,7 +751,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <div className="flex flex-wrap gap-2 justify-center max-w-full">
                                     {Array.from({ length: maxInventorySize }).map((_, idx) => {
                                         const item = inventory[idx];
-                                        const isSelected = selectedSlot === idx || selectedIndices.includes(idx) || (toolSelectionMode?.toolIndex === idx);
+                                        const isSelected = selectedSlot === idx || selectedIndices.includes(idx);
 
                                         // Synthesis Logic: Check against Selected Slot OR Pending Item
                                         const sourceItem = pendingItem || (selectedSlot !== null ? inventory[selectedSlot] : null);
@@ -802,9 +790,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             (pendingItem?.isOverload && item && item.name === hoveredItemName) ||
                                             (pendingItem && !pendingItem.isOverload && hoveredSlotIndex === idx);
 
-                                        // Tool target: in tool selection mode, non-tool items are valid targets
-                                        const isToolTarget = toolSelectionMode && item && !item.isToolItem && toolSelectionMode.toolIndex !== idx;
-
                                         return (
                                             <InventorySlot
                                                 key={idx}
@@ -815,16 +800,15 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 isSubmitMode={isSubmitMode || isEvacuationMode}
                                                 isRecycleMode={isRecycleMode}
                                                 isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
-                                                isReference={selectionMode?.type === 'trade_in' || !!toolSelectionMode}
+                                                isReference={selectionMode?.type === 'trade_in'}
 
-                                                canSynthesize={canSynthesize || isToolTarget}
+                                                canSynthesize={canSynthesize}
                                                 isNeededForOrder={isNeeded}
                                                 isMaxSatisfied={isMaxSatisfied}
                                                 hasUpgradePair={hasUpgradePair}
                                                 isOverloadTarget={isOverloadTarget}
 
                                                 onClick={handleSlotClick}
-                                                onContextMenu={handleToolItemUse}
                                                 onMouseEnter={(i, item) => { state.setHoveredSlotIndex(i); if (item) state.setHoveredItemName(item.name); }}
                                                 onMouseLeave={() => { state.setHoveredSlotIndex(null); state.setHoveredItemName(null); }}
                                                 isHovered={hoveredSlotIndex === idx}
@@ -878,11 +862,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                     {selectionMode?.type === 'trade_in' && (
                                         <button onClick={handleSelectionCancel} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-6 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
-                                    )}
-                                    {toolSelectionMode && (
-                                        <button onClick={handleCancelToolSelection} className="w-full bg-white border border-cyan-300 text-cyan-700 font-bold py-2 px-6 rounded-xl shadow-sm hover:bg-cyan-50 flex items-center justify-center gap-2">
-                                            <X size={14} /> {t("取消工具使用")}
-                                        </button>
                                     )}
                                 </div>
 

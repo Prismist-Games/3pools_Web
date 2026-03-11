@@ -7,7 +7,7 @@ import {
     getRandomAffix,
     getRandomItems
 } from '../utils/helpers';
-import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
+import { SKILL_DEFINITIONS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
@@ -57,9 +57,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     // 订单槽位分配系统: { "orderIndex-reqIndex": inventoryItemUid }
     const [orderSlotAssignments, setOrderSlotAssignments] = useState({});
-
-    // 工具物品选择目标模式: { toolIndex: number, effectType: string }
-    const [toolSelectionMode, setToolSelectionMode] = useState(null);
 
     const [skills, setSkills] = useState(initialSkills);
     const [skillSelectionCandidates, setSkillSelectionCandidates] = useState(null);
@@ -827,97 +824,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Apply Entropy (Time passes on draw)
         const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
 
-        handleIncomingItems(tryDropToolItem(itemsToProcess), decayedInventory);
+        handleIncomingItems(itemsToProcess, decayedInventory);
 
         refreshPools(true);
-    };
-
-    // 尝试提附工具物品：按概率判断是否在物品列表末尾添加一个工具物品
-    const tryDropToolItem = (items) => {
-        const toolConfig = config.toolItems;
-        if (!toolConfig || Math.random() >= (toolConfig.dropChance || 0)) return items;
-        const toolItem = rollToolItem(toolConfig);
-        return toolItem ? [...items, toolItem] : items;
-    };
-
-    // 根据权重随机选择一个工具物品并创建实例
-    const rollToolItem = (toolConfig) => {
-        const weights = toolConfig.weights || {};
-        const entries = TOOL_ITEMS.filter(t => (weights[t.id] || 0) > 0);
-        if (entries.length === 0) return null;
-
-        const totalWeight = entries.reduce((sum, t) => sum + (weights[t.id] || 0), 0);
-        let r = Math.random() * totalWeight;
-        let selected = entries[0];
-        for (const entry of entries) {
-            r -= (weights[entry.id] || 0);
-            if (r <= 0) { selected = entry; break; }
-        }
-
-        const commonRarity = config.rarity.find(r => r.id === 'common') || config.rarity[0];
-        return {
-            ...selected,
-            name: selected.name,
-            icon: selected.icon,
-            uid: Math.random().toString(36).substr(2, 9),
-            rarity: commonRarity,
-            isToolItem: true,
-            toolId: selected.id,
-            toolDesc: selected.desc,
-            toolEffectType: selected.effectType,
-            sterile: true, // 工具物品无法合成
-            names: [selected.name],
-            icons: [selected.icon],
-            poolIds: [],
-        };
-    };
-
-    // 右键使用工具物品：进入选择目标模式（星辉祝福保持直接激活）
-    const handleToolItemUse = (index) => {
-        const item = inventory[index];
-        if (!item || !item.isToolItem) return;
-
-        // 不允许在特殊模式中使用
-        if (pendingItem || isSubmitMode || isRecycleMode || isEvacuationMode || selectionMode || toolSelectionMode) {
-            showToast(t("当前状态下无法使用工具物品"), 'error');
-            return;
-        }
-
-        const effectType = item.toolEffectType;
-
-        if (effectType === 'enhance_next') {
-            // 星辉祝福：直接激活，不需要选择目标
-            setSkillState(prev => ({ ...prev, nextDrawEnhanced: true }));
-            const newInventory = [...inventory];
-            newInventory[index] = null;
-            setInventory(newInventory.filter(i => i !== null));
-            showToast(t("星辉祝福已激活：下次抽取品质+1"), 'success');
-        } else {
-            // 命运熔炉 / 万象棱镜：进入选择目标模式
-            setToolSelectionMode({ toolIndex: index, effectType });
-            setSelectedSlot(null);
-            showToast(t("请点击选择一个目标物品"), 'info');
-        }
-    };
-
-    const handleCancelToolSelection = () => {
-        setToolSelectionMode(null);
-    };
-
-    // 根据权重表随机选择一个品质
-    const rollWeightedRarity = (weights) => {
-        const entries = Object.entries(weights).filter(([_, w]) => w > 0);
-        if (entries.length === 0) return config.rarity[0];
-
-        const totalWeight = entries.reduce((sum, [_, w]) => sum + w, 0);
-        let r = Math.random() * totalWeight;
-        for (const [rarityId, w] of entries) {
-            r -= w;
-            if (r <= 0) {
-                return config.rarity.find(rr => rr.id === rarityId) || config.rarity[0];
-            }
-        }
-        return config.rarity[0];
     };
 
     const handleDraw = (pool) => {
@@ -1003,7 +912,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (type === 'precise') {
             setDrawCount(prev => prev + 1);
             const enhancedItem = applyEnhancement(selectedItem);
-            handleIncomingItems(tryDropToolItem([enhancedItem]), decayedInventory);
+            handleIncomingItems([enhancedItem], decayedInventory);
             refreshPools(true);
             setSelectionMode(null);
             if (skillState.nextDrawEnhanced) setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
@@ -1011,7 +920,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const newItem = createItem(pool, selectedItem, pool.affixKey);
             const enhancedItem = applyEnhancement(newItem);
             setDrawCount(prev => prev + 1);
-            handleIncomingItems(tryDropToolItem([enhancedItem]), decayedInventory);
+            handleIncomingItems([enhancedItem], decayedInventory);
             refreshPools(true);
             setSelectionMode(null);
             if (skillState.nextDrawEnhanced) setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
@@ -1075,64 +984,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (itemIndex === -1) return;
         const item = inventory[itemIndex];
 
-        // 工具选择模式：对订单槽位物品使用工具
-        if (toolSelectionMode) {
-            if (item.isToolItem) {
-                showToast(t("无法对工具物品使用！"), 'error');
-                return;
-            }
-            const { toolIndex, effectType } = toolSelectionMode;
-            const toolItem = inventory[toolIndex];
-            if (!toolItem) { setToolSelectionMode(null); return; }
-
-            if (effectType === 'reforge_left') {
-                const reforgeWeights = config.toolItems?.reforgeRarityWeights || {};
-                const newRarity = rollWeightedRarity(reforgeWeights);
-                if (!newRarity) { setToolSelectionMode(null); return; }
-                const newUid = Math.random().toString(36).substr(2, 9);
-                const newInventory = [...inventory];
-                newInventory[itemIndex] = { ...item, rarity: newRarity, uid: newUid };
-                newInventory[toolIndex] = null;
-                setInventory(newInventory.filter(i => i !== null));
-                updateAssignmentUid(item.uid, newUid);
-                showToast(`${t("命运熔炉")}：${t(item.name)} → ${t(newRarity.name)}`, 'success');
-            } else if (effectType === 'transmute_left') {
-                const sourcePool = config.pools.find(p => p.items.some(pi => pi.name === item.name));
-                if (!sourcePool) { showToast(t("找不到对应的奖池！"), 'error'); setToolSelectionMode(null); return; }
-                const candidates = sourcePool.items.filter(pi => pi.name !== item.name);
-                if (candidates.length === 0) { showToast(t("同奖池中没有其他物品！"), 'error'); setToolSelectionMode(null); return; }
-                const newTpl = candidates[Math.floor(Math.random() * candidates.length)];
-                const newItem = {
-                    ...newTpl,
-                    uid: Math.random().toString(36).substr(2, 9),
-                    poolName: sourcePool.name,
-                    rarity: item.rarity,
-                    sterile: item.sterile,
-                    decay: item.decay,
-                    names: [newTpl.name],
-                    icons: [newTpl.icon],
-                    poolIds: [sourcePool.id],
-                };
-                const newInventory = [...inventory];
-                newInventory[itemIndex] = newItem;
-                newInventory[toolIndex] = null;
-                setInventory(newInventory.filter(i => i !== null));
-                // 名称变了 → 退回背包（清除 assignment）
-                removeAssignmentByUid(item.uid);
-                showToast(`${t("万象棱镜")}：${t(item.name)} → ${t(newTpl.name)}`, 'success');
-            }
-            setToolSelectionMode(null);
-            return;
-        }
-
         // 以旧换新：消耗订单槽位物品
         if (selectionMode?.type === 'trade_in') {
             if (item.isScoreItem) {
                 showToast(t("主线道具无法用于以旧换新！"), "error");
-                return;
-            }
-            if (item.isToolItem) {
-                showToast(t("工具道具无法用于以旧换新！"), "error");
                 return;
             }
             // 复用背包的 trade_in 逻辑，通过背包 index 调用
@@ -1235,58 +1090,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const clickedItem = inventory[index];
         const isAssignedToOrder = clickedItem && assignedItemUids.has(clickedItem.uid);
 
-        // 工具选择模式：点击背包物品作为工具目标
-        if (toolSelectionMode) {
-            if (!clickedItem) return;
-            if (clickedItem.isToolItem) {
-                showToast(t("无法对工具物品使用！"), 'error');
-                return;
-            }
-            const { toolIndex, effectType } = toolSelectionMode;
-            const toolItem = inventory[toolIndex];
-            if (!toolItem) { setToolSelectionMode(null); return; }
-
-            if (effectType === 'reforge_left') {
-                const reforgeWeights = config.toolItems?.reforgeRarityWeights || {};
-                const newRarity = rollWeightedRarity(reforgeWeights);
-                if (!newRarity) { setToolSelectionMode(null); return; }
-                const oldUid = clickedItem.uid;
-                const newUid = Math.random().toString(36).substr(2, 9);
-                const newInventory = [...inventory];
-                newInventory[index] = { ...clickedItem, rarity: newRarity, uid: newUid };
-                newInventory[toolIndex] = null;
-                setInventory(newInventory.filter(i => i !== null));
-                if (isAssignedToOrder) updateAssignmentUid(oldUid, newUid);
-                showToast(`${t("命运熔炉")}：${t(clickedItem.name)} → ${t(newRarity.name)}`, 'success');
-            } else if (effectType === 'transmute_left') {
-                const sourcePool = config.pools.find(p => p.items.some(pi => pi.name === clickedItem.name));
-                if (!sourcePool) { showToast(t("找不到对应的奖池！"), 'error'); setToolSelectionMode(null); return; }
-                const candidates = sourcePool.items.filter(pi => pi.name !== clickedItem.name);
-                if (candidates.length === 0) { showToast(t("同奖池中没有其他物品！"), 'error'); setToolSelectionMode(null); return; }
-                const newTpl = candidates[Math.floor(Math.random() * candidates.length)];
-                const newItem = {
-                    ...newTpl,
-                    uid: Math.random().toString(36).substr(2, 9),
-                    poolName: sourcePool.name,
-                    rarity: clickedItem.rarity,
-                    sterile: clickedItem.sterile,
-                    decay: clickedItem.decay,
-                    names: [newTpl.name],
-                    icons: [newTpl.icon],
-                    poolIds: [sourcePool.id],
-                };
-                const newInventory = [...inventory];
-                newInventory[index] = newItem;
-                newInventory[toolIndex] = null;
-                setInventory(newInventory.filter(i => i !== null));
-                // 名称变了，如果在订单上则退回背包（清除 assignment）
-                if (isAssignedToOrder) removeAssignmentByUid(clickedItem.uid);
-                showToast(`${t("万象棱镜")}：${t(clickedItem.name)} → ${t(newTpl.name)}`, 'success');
-            }
-            setToolSelectionMode(null);
-            return;
-        }
-
         // 已分配到订单的物品：只允许特定操作通过，阻止选中/交换位置
         // 允许通过的：合成（pendingItem/selectedSlot）、以旧换新、回收、overload
         if (isAssignedToOrder) {
@@ -1319,11 +1122,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             if (consumedItem.isScoreItem) {
                 showToast(t("主线道具无法用于以旧换新！"), "error");
-                return;
-            }
-
-            if (consumedItem.isToolItem) {
-                showToast(t("工具道具无法用于以旧换新！"), "error");
                 return;
             }
 
@@ -1379,7 +1177,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }
 
             setDrawCount(prev => prev + 1);
-            handleIncomingItems(tryDropToolItem([finalItem]), decayedInv);
+            handleIncomingItems([finalItem], decayedInv);
             refreshPools(true);
             setSelectionMode(null);
             return;
@@ -1600,7 +1398,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // 新增：如果有 selectedSlot，尝试将选中物品放入订单槽位
         if (selectedSlot !== null && !isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode) {
             const item = inventory[selectedSlot];
-            if (item && !item.isToolItem && !item.isScoreItem && !assignedItemUids.has(item.uid)) {
+            if (item && !item.isScoreItem && !assignedItemUids.has(item.uid)) {
                 // 根据 orderIndex 查找对应订单
                 const order = orderIndex >= 998
                     ? emergencyOrders[orderIndex - 998]
@@ -2122,8 +1920,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             skillState,
             orderSlotAssignments,
             assignedItemUids,
-            phantomMarks,
-            toolSelectionMode
+            phantomMarks
         },
         actions: {
             showToast,
@@ -2156,10 +1953,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleEvacuationContinue,
             handleEvacuationExtract,
             debugGetOrderItems,
-            handleToolItemUse,
             handleUnassignFromOrder,
-            handleOrderSlotClick,
-            handleCancelToolSelection
+            handleOrderSlotClick
         },
         helpers: {
             hasSkill
