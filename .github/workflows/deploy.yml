@@ -6,6 +6,10 @@ on:
     branches: ["main", "Main"]
   workflow_dispatch:
     inputs:
+      source_branch:
+        description: '要构建的源码分支（如 "Main", "skill-test"）'
+        required: true
+        default: 'Main'
       deploy_path:
         description: '部署子路径（如 "v1.4", "skill-test"）。留空则部署到根目录。'
         required: false
@@ -20,6 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.source_branch || github.ref }}
 
       - name: Install Node.js
         uses: actions/setup-node@v4
