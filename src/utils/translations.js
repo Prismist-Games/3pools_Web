@@ -1,6 +1,7 @@
 export const EN_TRANSLATIONS = {
     // --- UI General ---
     "融合": "Fuse",
+    "无法融合这两个物品": "Cannot fuse these two items",
     "当前订单": "Orders",
     "刷新所有订单": "Refresh All",
     "刷新物品": "Refresh Items",

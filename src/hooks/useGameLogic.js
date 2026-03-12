@@ -119,6 +119,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const usedAffixIds = new Set();
         let tempPools = [...config.pools.slice(0, currentStageConfig.allowedPoolCount)];
 
+        // Add fusion pool as a candidate
+        tempPools.push({
+            id: 'fusion_pool',
+            name: '融合',
+            icon: '🔀',
+            weight: 1,
+            items: [],
+            type: 'fusion',
+        });
+
         for (let i = 0; i < 3; i++) {
             if (tempPools.length === 0) break;
             const totalWeight = tempPools.reduce((sum, p) => sum + (p.weight || 1), 0);
@@ -133,19 +143,28 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }
             if (selectedIndex === -1) selectedIndex = tempPools.length - 1;
             const selectedPool = JSON.parse(JSON.stringify(tempPools[selectedIndex]));
-            selectedPool.originalId = selectedPool.id;
-            selectedPool.id = selectedPool.originalId;
-            selectedPool.items = selectedPool.items.slice(0, currentStageConfig.poolSize);
-            if (currentStageConfig.mechanics.affixes) {
-                const availableAffixes = config.affixes.filter(a => !usedAffixIds.has(a.id));
-                const affixPool = availableAffixes.length > 0 ? availableAffixes : config.affixes;
-                const affix = getRandomAffix(affixPool);
-                selectedPool.affixKey = affix.id;
-                selectedPool.affix = affix;
-                selectedPool.cost = affix.cost || 2; // Use affix cost if defined
-                usedAffixIds.add(affix.id);
+
+            if (selectedPool.type === 'fusion') {
+                // Fusion pool: no affix, fixed cost
+                selectedPool.cost = 1;
+                selectedPool.originalId = 'fusion_pool';
+                selectedPool.color = 'bg-gradient-to-br from-purple-100 to-violet-200 border-purple-300';
             } else {
-                selectedPool.cost = 2;
+                // Normal item pool
+                selectedPool.originalId = selectedPool.id;
+                selectedPool.id = selectedPool.originalId;
+                selectedPool.items = selectedPool.items.slice(0, currentStageConfig.poolSize);
+                if (currentStageConfig.mechanics.affixes) {
+                    const availableAffixes = config.affixes.filter(a => !usedAffixIds.has(a.id));
+                    const affixPool = availableAffixes.length > 0 ? availableAffixes : config.affixes;
+                    const affix = getRandomAffix(affixPool);
+                    selectedPool.affixKey = affix.id;
+                    selectedPool.affix = affix;
+                    selectedPool.cost = affix.cost || 2; // Use affix cost if defined
+                    usedAffixIds.add(affix.id);
+                } else {
+                    selectedPool.cost = 2;
+                }
             }
             result.push(selectedPool);
             tempPools.splice(selectedIndex, 1);
@@ -507,7 +526,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (names1.length !== names2.length) {
             const fewerItem = names1.length < names2.length ? item1 : item2;
             const moreItem = names1.length < names2.length ? item2 : item1;
-            if (fewerItem.rarity.bonus <= moreItem.rarity.bonus) return false;
+            if (fewerItem.rarity.bonus < moreItem.rarity.bonus) return false;
         }
 
         return true;
@@ -525,7 +544,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const combinedIcons = [...icons1, ...icons2];
         const combinedPoolIds = [...poolIds1, ...poolIds2];
 
-        const maxRarity = item1.rarity.bonus >= item2.rarity.bonus ? item1.rarity : item2.rarity;
+        let resultRarity;
+        if (item1.rarity.id === item2.rarity.id) {
+            // Equal quality: upgrade by 1, but cap at mythic
+            const nextRarity = getNextRarity(item1.rarity.id, config);
+            resultRarity = nextRarity || item1.rarity; // if mythic, stay mythic
+        } else {
+            // Different quality: take max
+            resultRarity = item1.rarity.bonus >= item2.rarity.bonus ? item1.rarity : item2.rarity;
+        }
 
         return {
             name: combinedNames.join('\u00d7'),
@@ -539,7 +566,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 return pool ? pool.name : pid;
             }).join('\u00d7'),
             uid: Math.random().toString(36).substr(2, 9),
-            rarity: maxRarity,
+            rarity: resultRarity,
             sterile: false,
             decay: currentStageConfig.mechanics.entropy
                 ? Math.max(
@@ -779,6 +806,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
+        // Fusion pool handling
+        if (pool.type === 'fusion') {
+            // Don't deduct gold yet - deduct after successful fusion
+            setSelectionMode({ type: 'fusion', pool, step: 1, firstItem: null, firstIndex: null });
+            return;
+        }
+
         if (pool.affixKey === 'trade_in') {
             setGold(prev => prev - finalCost);
             setSelectionMode({ type: 'trade_in', pool });
@@ -862,6 +896,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleSelectionCancel = () => {
+        if (selectionMode?.type === 'fusion') {
+            // Fusion pool: no gold was deducted, just cancel
+            setSelectionMode(null);
+            return;
+        }
         if (selectionMode?.type === 'targeted') {
             // 退回金币
             const refundCost = selectionMode.cost || 2;
@@ -1029,6 +1068,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (isAssignedToOrder) {
             // 允许以旧换新
             if (selectionMode?.type === 'trade_in') { /* fall through to trade_in logic below */ }
+            // 允许融合池选择
+            else if (selectionMode?.type === 'fusion') { /* fall through to fusion logic below */ }
             // 允许回收模式
             else if (isRecycleMode) { /* fall through to recycle logic below */ }
             // 允许 pendingItem 合成和 overload
@@ -1041,13 +1082,66 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     sourceItem.rarity.id === clickedItem.rarity.id &&
                     sourceItem.rarity.id !== 'mythic' &&
                     (!clickedItem.decay || clickedItem.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0);
-                const canFuseItems = canFuse(sourceItem, clickedItem);
-                if (!canMergeItems && !canFuseItems) {
-                    return; // 不可合成也不可融合，阻止
+                if (!canMergeItems) {
+                    return; // 不可合成，阻止
                 }
             }
             // 其他情况（尝试选中等）阻止
             else { return; }
+        }
+
+        // Fusion pool selection mode
+        if (selectionMode?.type === 'fusion') {
+            if (!clickedItem) return;
+
+            if (selectionMode.step === 1) {
+                // First item selected - store it, move to step 2
+                setSelectionMode({ ...selectionMode, step: 2, firstItem: clickedItem, firstIndex: index });
+                return;
+            }
+
+            if (selectionMode.step === 2) {
+                // Second item selected
+                const firstItem = selectionMode.firstItem;
+                const firstIndex = selectionMode.firstIndex;
+
+                // Allow clicking the first item again to deselect
+                if (index === firstIndex) {
+                    setSelectionMode({ ...selectionMode, step: 1, firstItem: null, firstIndex: null });
+                    return;
+                }
+
+                // Check fusion validity
+                if (!canFuse(firstItem, clickedItem)) {
+                    showToast(t("无法融合这两个物品"), "error");
+                    return;
+                }
+
+                // Perform fusion
+                const fusedItem = fuseItems(firstItem, clickedItem);
+
+                // Deduct gold
+                const fusionCost = selectionMode.pool.cost || 1;
+                setGold(prev => prev - fusionCost);
+
+                // Update inventory: replace one slot with fused item, remove the other
+                const newInventory = [...inventory];
+                newInventory[index] = fusedItem;
+                newInventory[firstIndex] = null;
+                setInventory(newInventory.filter(item => item !== null));
+
+                // Clear any assignments
+                if (assignedItemUids.has(firstItem.uid)) removeAssignmentByUid(firstItem.uid);
+                if (assignedItemUids.has(clickedItem.uid)) removeAssignmentByUid(clickedItem.uid);
+
+                showToast(`${t("融合")}: ${firstItem.name} + ${clickedItem.name} → ${fusedItem.name}`, 'success');
+
+                // Advance draw count and refresh pools (same as other draws)
+                setDrawCount(prev => prev + 1);
+                refreshPools(true);
+                setSelectionMode(null);
+                return;
+            }
         }
 
         if (selectionMode?.type === 'trade_in') {
@@ -1148,18 +1242,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 return;
             }
 
-            // Fusion with pending item
-            if (targetItem && canFuse(pendingItem, targetItem)) {
-                const fusedItem = fuseItems(pendingItem, targetItem);
-                const newInventory = [...inventory];
-                newInventory[index] = fusedItem;
-                setInventory(newInventory);
-                if (assignedItemUids.has(targetItem.uid)) removeAssignmentByUid(targetItem.uid);
-                setPendingItem(null);
-                showToast(`${t("融合")}: ${pendingItem.name} + ${targetItem.name} → ${fusedItem.name}`, 'success');
-                return;
-            }
-
             if (pendingItem.isOverload) {
                 // targetItem is already declared at line 790 (but check for null again to be safe in this context? No, it's const, it hasn't changed. Just check value.)
 
@@ -1239,19 +1321,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 // 如果目标物品在订单槽位上，更新 uid
                 if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
                 setSelectedSlot(null);
-                return;
-            }
-            // Fusion check (after merge fails)
-            if (targetItem && canFuse(sourceItem, targetItem)) {
-                const fusedItem = fuseItems(sourceItem, targetItem);
-                const newInventory = [...inventory];
-                newInventory[index] = fusedItem;
-                newInventory[selectedSlot] = null;
-                setInventory(newInventory.filter(item => item !== null));
-                if (assignedItemUids.has(targetItem.uid)) removeAssignmentByUid(targetItem.uid);
-                if (assignedItemUids.has(sourceItem.uid)) removeAssignmentByUid(sourceItem.uid);
-                setSelectedSlot(null);
-                showToast(`${t("融合")}: ${sourceItem.name} + ${targetItem.name} → ${fusedItem.name}`, 'success');
                 return;
             }
             if (targetItem) {
