@@ -359,6 +359,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         for (const { order, index } of ordersToCheck) {
             if (!order) continue;
             const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
+            const minBonus = order.requiredRarity?.bonus || 0;
 
             let bestMatch = null;
             let bestBonus = -1;
@@ -367,7 +368,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 if (usedItemUids.has(item.uid)) continue;
                 if (item.decay !== undefined && item.decay <= 0) continue;
                 const itemNames = item.names || [item.name];
-                if (requiredNames.every(rn => itemNames.includes(rn))) {
+                if (requiredNames.every(rn => itemNames.includes(rn)) && item.rarity.bonus >= minBonus) {
                     if (item.rarity.bonus > bestBonus) {
                         bestMatch = item;
                         bestBonus = item.rarity.bonus;
@@ -401,6 +402,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         for (const { order, index } of ordersToCheck) {
             if (!order) continue;
             const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
+            const minBonus = order.requiredRarity?.bonus || 0;
 
             let bestMatch = null;
             let bestBonus = -1;
@@ -409,7 +411,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 if (!item || usedItemUids.has(item.uid)) continue;
                 if (item.decay !== undefined && item.decay <= 0) continue;
                 const itemNames = item.names || [item.name];
-                if (requiredNames.every(rn => itemNames.includes(rn))) {
+                if (requiredNames.every(rn => itemNames.includes(rn)) && item.rarity.bonus >= minBonus) {
                     if (item.rarity.bonus > bestBonus) {
                         bestMatch = item;
                         bestBonus = item.rarity.bonus;
@@ -544,15 +546,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const combinedIcons = [...icons1, ...icons2];
         const combinedPoolIds = [...poolIds1, ...poolIds2];
 
-        let resultRarity;
-        if (item1.rarity.id === item2.rarity.id) {
-            // Equal quality: upgrade by 1, but cap at mythic
-            const nextRarity = getNextRarity(item1.rarity.id, config);
-            resultRarity = nextRarity || item1.rarity; // if mythic, stay mythic
-        } else {
-            // Different quality: take max
-            resultRarity = item1.rarity.bonus >= item2.rarity.bonus ? item1.rarity : item2.rarity;
-        }
+        const resultRarity = item1.rarity.bonus >= item2.rarity.bonus ? item1.rarity : item2.rarity;
 
         return {
             name: combinedNames.join('\u00d7'),
@@ -1462,8 +1456,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             if (!order) return;
 
             const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
+            const minBonus = order.requiredRarity?.bonus || 0;
 
-            // Find an inventory item whose names contain ALL required names
+            // Find an inventory item whose names contain ALL required names and meet quality
             const usedInThisSearch = new Set(selectedIndices);
             const candidates = inventory
                 .map((item, idx) => ({ item, idx }))
@@ -1471,6 +1466,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     item &&
                     !usedInThisSearch.has(idx) &&
                     (item.decay === undefined || item.decay > 0) &&
+                    item.rarity.bonus >= minBonus &&
                     requiredNames.every(rn => (item.names || [item.name]).includes(rn))
                 );
 
@@ -1499,8 +1495,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!order) return;
 
         const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
+        const minBonus = order.requiredRarity?.bonus || 0;
 
-        // Find an inventory item whose names contain ALL required names
+        // Find an inventory item whose names contain ALL required names and meet quality
         const usedInThisSearch = new Set(selectedIndices);
         const candidates = inventory
             .map((item, idx) => ({ item, idx }))
@@ -1508,6 +1505,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 item &&
                 !usedInThisSearch.has(idx) &&
                 (item.decay === undefined || item.decay > 0) &&
+                item.rarity.bonus >= minBonus &&
                 requiredNames.every(rn => (item.names || [item.name]).includes(rn))
             );
 
@@ -1516,7 +1514,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const item = inventory[idx];
             if (!item) return false;
             const itemNames = item.names || [item.name];
-            return requiredNames.every(rn => itemNames.includes(rn));
+            return requiredNames.every(rn => itemNames.includes(rn)) && item.rarity.bonus >= minBonus;
         });
 
         if (alreadySelectedMatch !== undefined) {

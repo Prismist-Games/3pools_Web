@@ -26,6 +26,34 @@ export const getRandomItems = (array, count) => {
     return shuffled.slice(0, count);
 };
 
+export const rollRequirementRarity = (config, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
+    let weights;
+    if (isEmergency && config.emergency) {
+        const difficultyWeights = config.emergency.difficultyRarityWeights?.[emergencyDifficulty];
+        if (difficultyWeights) {
+            weights = difficultyWeights;
+        } else if (config.emergency.rarityWeights) {
+            weights = config.emergency.rarityWeights;
+        } else {
+            weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
+        }
+    } else {
+        weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
+    }
+
+    const r = Math.random();
+    let accumulated = 0;
+
+    if (weights.common > 0) { accumulated += weights.common; if (r <= accumulated) return config.rarity.find(r => r.id === 'common'); }
+    if (weights.uncommon > 0) { accumulated += weights.uncommon; if (r <= accumulated) return config.rarity.find(r => r.id === 'uncommon'); }
+    if (weights.rare > 0) { accumulated += weights.rare; if (r <= accumulated) return config.rarity.find(r => r.id === 'rare'); }
+    if (weights.epic > 0) { accumulated += weights.epic; if (r <= accumulated) return config.rarity.find(r => r.id === 'epic'); }
+    if (weights.legendary > 0) { accumulated += weights.legendary; if (r <= accumulated) return config.rarity.find(r => r.id === 'legendary'); }
+    if (weights.mythic > 0) { accumulated += weights.mythic; if (r <= accumulated) return config.rarity.find(r => r.id === 'mythic'); }
+
+    return config.rarity.find(r => r.id === 'common');
+};
+
 export const generateOrder = (allNormalItems, config, hasSkill = () => false, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
     const nameCount = isEmergency ? 4 : 3;
 
@@ -45,13 +73,22 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
     const requiredIcons = selectedItems.map(item => item.icon);
     const requiredPoolIds = selectedItems.map(item => item.poolId);
 
-    const baseScoreReward = isEmergency ? 0 : (currentStageConfig.baseRewards?.[nameCount] || 15);
+    const requiredRarity = rollRequirementRarity(config, currentStageConfig, isEmergency, emergencyDifficulty);
+
+    let baseScoreReward = 0;
+    if (!isEmergency) {
+        const rarityWeights = config.progress?.rarityWeights || {};
+        const offset = config.progress?.progressOffset || 0;
+        const rarityScore = rarityWeights[requiredRarity.id] || 0;
+        baseScoreReward = Math.max(1, Math.floor(rarityScore + offset));
+    }
 
     return {
         id: Math.random().toString(36).substr(2, 9),
         requiredNames,
         requiredIcons,
         requiredPoolIds,
+        requiredRarity,
         baseScoreReward,
         isScoreOrder: !isEmergency,
         isEmergency: isEmergency || false,

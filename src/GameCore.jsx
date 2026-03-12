@@ -781,7 +781,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         const isFusionMode = selectionMode?.type === 'fusion';
                                         const isFuseTarget = isFusionMode && selectionMode.step === 2
                                             ? (item && idx !== selectionMode.firstIndex && canFuse(selectionMode.firstItem, item))
-                                            : (item && sourceItem && !isSourceSelf && canFuse(sourceItem, item));
+                                            : false;
 
                                         // Is this the first selected item in fusion mode step 2?
                                         const isFusionFirstItem = isFusionMode && selectionMode.step === 2 && idx === selectionMode.firstIndex;
