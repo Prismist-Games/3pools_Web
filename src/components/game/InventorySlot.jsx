@@ -30,6 +30,7 @@ export const InventorySlot = ({
     isSterile,
     isOverloadTarget,
     isFuseTarget,
+    isFusionFirstItem,
 
     // Skill state
     nextDrawEnhanced,
@@ -71,7 +72,8 @@ export const InventorySlot = ({
                     ${!isMultiSelectMode && !isTradeInMode && isTarget && isPendingSlot ? 'animate-pulse ring-2 ring-red-400 cursor-pointer hover:bg-red-50' : ''}
                     ${!isMultiSelectMode && !isTradeInMode && isTarget && !isPendingSlot ? 'hover:border-blue-300 cursor-pointer' : ''}
                     ${!isMultiSelectMode && canSynthesize && isTarget ? 'ring-4 ring-yellow-400 scale-105 z-20' : ''}
-                    ${!isMultiSelectMode && isFuseTarget ? 'ring-4 ring-purple-400 scale-105 z-20' : ''}
+                    ${isFusionFirstItem ? 'ring-4 ring-purple-600 scale-110 z-20 -translate-y-2 shadow-xl' : ''}
+                    ${!isMultiSelectMode && !isFusionFirstItem && isFuseTarget ? 'ring-4 ring-purple-400 scale-105 z-20' : ''}
                     ${!isMultiSelectMode && !canSynthesize && !isFuseTarget && isTarget ? 'hover:scale-105' : ''}
                     ${isMultiSelectMode && item && !isPendingSlot ? 'cursor-pointer hover:scale-105' : ''}
                     ${isSelected && isSubmitMode ? 'border-blue-600 bg-blue-50 border-2 z-10' : ''}

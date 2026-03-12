@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Truck, Trash2, Package, RefreshCw, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Timer } from 'lucide-react';
+import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Truck, Trash2, Package, RefreshCw, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Timer, Merge } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
@@ -575,7 +575,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             </div>
 
                             {/* SELECTION OVERLAY (Trade-in / Targeted) */}
-                            {selectionMode && selectionMode.type !== 'trade_in' && (
+                            {selectionMode && selectionMode.type !== 'trade_in' && selectionMode.type !== 'fusion' && (
                                 <div className="absolute inset-0 bg-white z-40 flex flex-col items-center justify-center p-4 animate-in fade-in cursor-default">
                                     <h3 className="text-2xl font-black mb-8 text-slate-800 text-center">
                                         {selectionMode.type === 'precise' ? t("精准：二选一 (不可取消)") : t("有的放矢：请选择你想要的")}
@@ -720,8 +720,15 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <Repeat size={14} /> {t("以旧换新: 请点击选择一个物品消耗")}
                                     </span>
                                 )}
-
-
+                                {selectionMode?.type === 'fusion' && (
+                                    <span className="text-xs font-bold text-purple-600 animate-pulse flex items-center gap-1">
+                                        <Merge size={14} />
+                                        {selectionMode.step === 1
+                                            ? t("选择第一个物品")
+                                            : `${t("选择第二个物品进行融合")} (${selectionMode.firstItem?.icon} ${t(selectionMode.firstItem?.name)})`
+                                        }
+                                    </span>
+                                )}
 
 
                             </div>
@@ -770,7 +777,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         );
 
                                         // Fusion indicator: check if sourceItem can fuse with this item
-                                        const isFuseTarget = item && sourceItem && !isSourceSelf && canFuse(sourceItem, item);
+                                        // In fusion selection mode step 2, highlight items that can fuse with firstItem
+                                        const isFusionMode = selectionMode?.type === 'fusion';
+                                        const isFuseTarget = isFusionMode && selectionMode.step === 2
+                                            ? (item && idx !== selectionMode.firstIndex && canFuse(selectionMode.firstItem, item))
+                                            : (item && sourceItem && !isSourceSelf && canFuse(sourceItem, item));
+
+                                        // Is this the first selected item in fusion mode step 2?
+                                        const isFusionFirstItem = isFusionMode && selectionMode.step === 2 && idx === selectionMode.firstIndex;
 
                                         // Fix: Show Red Recycle Overlay for ANY pending item replacement logic
                                         const isOverloadTarget =
@@ -786,11 +800,12 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 isTarget={!!sourceItem && !isSourceSelf}
                                                 isSubmitMode={isSubmitMode || isEvacuationMode}
                                                 isRecycleMode={isRecycleMode}
-                                                isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
+                                                isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in' && selectionMode.type !== 'fusion'}
                                                 isReference={selectionMode?.type === 'trade_in'}
 
                                                 canSynthesize={canSynthesize}
                                                 isFuseTarget={isFuseTarget}
+                                                isFusionFirstItem={isFusionFirstItem}
                                                 isNeededForOrder={isNeeded}
                                                 isMaxSatisfied={isMaxSatisfied}
                                                 hasUpgradePair={hasUpgradePair}
@@ -849,6 +864,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                     {selectionMode?.type === 'trade_in' && (
                                         <button onClick={handleSelectionCancel} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-6 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
+                                    )}
+
+                                    {selectionMode?.type === 'fusion' && (
+                                        <button onClick={handleSelectionCancel} className="w-full bg-white border border-purple-300 text-purple-600 font-bold py-2 px-6 rounded-xl shadow-sm hover:bg-purple-50">{t("取消")}</button>
                                     )}
                                 </div>
 

@@ -265,6 +265,9 @@ export const EN_TRANSLATIONS = {
     "放弃": "Give Up",
 
     // --- Fusion / Composite ---
+    "选择第一个物品": "Select first item",
+    "选择第二个物品进行融合": "Select second item to fuse",
+    "选择两个物品进行融合": "Select two items to fuse",
     "调试：已获取订单所需物品": "Debug: Got order items",
     "调试模式": "Debug Mode",
     "该订单不需要此物品，或对应槽位已有物品": "Order doesn't need this item, or slot already filled",

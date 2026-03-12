@@ -26,6 +26,7 @@ const PoolCardBase = ({
     const canAfford = gold >= finalCost;
     const isEffectiveDisabled = disabled || !canAfford;
     const isScorePool = pool.type === 'score';
+    const isFusionPool = pool.type === 'fusion';
 
     return (
         <button
@@ -37,7 +38,7 @@ const PoolCardBase = ({
                 relative w-full text-left group
                 rounded-2xl border-2 p-4 transition-all duration-200
                 transform-gpu will-change-transform backface-hidden subpixel-antialiased
-                ${pool.color} 
+                ${pool.color}
                 ${isHovered ? 'scale-[1.02] shadow-xl z-10 ring-4 ring-white/50' : 'shadow-sm hover:shadow-md'}
                 ${isEffectiveDisabled ? 'opacity-60 grayscale-[0.8] cursor-not-allowed' : 'active:scale-95 cursor-pointer'}
                 flex flex-col gap-2 min-h-[140px]
@@ -64,35 +65,44 @@ const PoolCardBase = ({
                 </div>
             </div>
 
-            {/* Row 2: Affix Name (LARGE and prominent) */}
-            {pool.affix && (
-                <div className="flex items-center gap-2">
-                    <span className="text-base font-black text-slate-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
-                        ✨ {t(pool.affix.name)}
-                    </span>
+            {isFusionPool ? (
+                /* Fusion pool: no affix, show fusion instruction */
+                <div className="flex-1 w-full flex flex-col gap-2">
+                    <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
+                        {t("选择两个物品进行融合")}
+                    </p>
                 </div>
-            )}
+            ) : (
+                <>
+                    {/* Row 2: Affix Name (LARGE and prominent) */}
+                    {pool.affix && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-base font-black text-slate-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
+                                ✨ {t(pool.affix.name)}
+                            </span>
+                        </div>
+                    )}
 
-            {/* Row 3: Content Area */}
-            <div className="flex-1 w-full">
-                {isScorePool ? (
-                    <div className="flex flex-col gap-1 text-base font-bold opacity-80">
-                        <p>🔥 {t("积分目标")}: {t(pool.targetItem?.name)}</p>
-                        <p className="text-sm opacity-60">{t("可能是 90% 普通物品...")}</p>
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-2">
-                        {/* Affix Description - LARGE readable text */}
-                        {pool.affix && (
-                            <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
-                                {t(pool.affix.desc)}
-                            </p>
+                    {/* Row 3: Content Area */}
+                    <div className="flex-1 w-full">
+                        {isScorePool ? (
+                            <div className="flex flex-col gap-1 text-base font-bold opacity-80">
+                                <p>🔥 {t("积分目标")}: {t(pool.targetItem?.name)}</p>
+                                <p className="text-sm opacity-60">{t("可能是 90% 普通物品...")}</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                {/* Affix Description - LARGE readable text */}
+                                {pool.affix && (
+                                    <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
+                                        {t(pool.affix.desc)}
+                                    </p>
+                                )}
+                            </div>
                         )}
-
-
                     </div>
-                )}
-            </div>
+                </>
+            )}
         </button>
     );
 };
