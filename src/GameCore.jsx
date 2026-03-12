@@ -35,8 +35,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
-        toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
-        orderSlotAssignments, assignedItemUids, phantomMarks
+        toast, satisfiableOrders, totalRecycleValue, selectedItemNames
     } = state;
 
     const {
@@ -65,8 +64,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleEvacuationContinue,
         handleEvacuationExtract,
         debugGetOrderItems,
-        handleUnassignFromOrder,
-        handleOrderSlotClick
+        canFuse
     } = actions;
 
     const { hasSkill } = helpers;
@@ -418,14 +416,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                                     isBeingReplaced={false}
                                                     onDebugGetItems={debugMode ? debugGetOrderItems : null}
-                                                    orderSlotAssignments={orderSlotAssignments}
-                                                    phantomMarks={phantomMarks}
-                                                    onUnassign={handleUnassignFromOrder}
-                                                    onSlotClick={handleOrderSlotClick}
-                                                    pendingItem={pendingItem}
-                                                    selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
-                                                    isRecycleMode={isRecycleMode}
-                                                    selectionMode={selectionMode}
                                                 />
                                             ))}
                                         </div>
@@ -458,14 +448,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         hoveredPoolItemNames={hoveredPoolItemNames}
                                         selectedItemNames={selectedItemNames}
                                         isBeingReplaced={orderCandidates?.slotIndex === idx}
-                                        orderSlotAssignments={orderSlotAssignments}
-                                        phantomMarks={phantomMarks}
-                                        onUnassign={handleUnassignFromOrder}
-                                        onSlotClick={handleOrderSlotClick}
-                                        pendingItem={pendingItem}
-                                        selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
-                                        isRecycleMode={isRecycleMode}
-                                        selectionMode={selectionMode}
                                     />
                                 ))}
                             </div>
@@ -561,14 +543,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 {activePools.map((pool) => {
                                     const relevantRequirements = [...orders]
                                         .filter(Boolean)
-                                        .flatMap(o => o.requirements)
+                                        .flatMap(o => o.requirements || [])
                                         .filter(req => {
                                             // 1. Must be in the pool
                                             if (!pool.items.some(pi => pi.name === req.name)) return false;
 
-                                            // 2. Hide if satisfied in inventory
+                                            // 2. Hide if item name already exists in inventory
                                             const isSatisfied = inventory.some(item =>
-                                                item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
+                                                item && (item.names || [item.name]).includes(req.name)
                                             );
                                             return !isSatisfied;
                                         });
@@ -767,15 +749,17 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             currentStageConfig.mechanics.synthesis;
 
                                         // Badge Logic: Scans all orders (including emergency order)
-                                        const activeReqs = [
-                                            ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                            ...emergencyOrders.flatMap(o => o.requirements)
+                                        // Check if any of item's names are needed by any order
+                                        const itemNames = item ? (item.names || [item.name]) : [];
+                                        const allOrderNames = [
+                                            ...orders.filter(Boolean).flatMap(o => o.requiredNames || o.requirements?.map(r => r.name) || []),
+                                            ...emergencyOrders.flatMap(o => o.requiredNames || o.requirements?.map(r => r.name) || [])
                                         ];
-                                        const matchedReqs = item ? activeReqs.filter(r => r.name === item.name) : [];
-                                        const isNeeded = matchedReqs.length > 0;
-                                        const isMaxSatisfied = isNeeded && matchedReqs.some(r => item.rarity.bonus >= r.requiredRarity.bonus);
+                                        const isNeeded = item && itemNames.some(n => allOrderNames.includes(n));
+                                        // In the new system, if the item has the name, it satisfies (no rarity check)
+                                        const isMaxSatisfied = isNeeded;
 
-                                        // Upgrade Badge Logic
+                                        // Upgrade Badge Logic (merge - same name, same rarity)
                                         const hasUpgradePair = item && !item.sterile && inventory.some((other, otherIdx) =>
                                             otherIdx !== idx &&
                                             other &&
@@ -784,6 +768,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             other.rarity.id === item.rarity.id &&
                                             item.rarity.id !== 'mythic'
                                         );
+
+                                        // Fusion indicator: check if sourceItem can fuse with this item
+                                        const isFuseTarget = item && sourceItem && !isSourceSelf && canFuse(sourceItem, item);
 
                                         // Fix: Show Red Recycle Overlay for ANY pending item replacement logic
                                         const isOverloadTarget =
@@ -803,6 +790,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 isReference={selectionMode?.type === 'trade_in'}
 
                                                 canSynthesize={canSynthesize}
+                                                isFuseTarget={isFuseTarget}
                                                 isNeededForOrder={isNeeded}
                                                 isMaxSatisfied={isMaxSatisfied}
                                                 hasUpgradePair={hasUpgradePair}
@@ -814,7 +802,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 isHovered={hoveredSlotIndex === idx}
                                                 className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24"
                                                 nextDrawEnhanced={skillState?.nextDrawEnhanced}
-                                                isAssigned={item && assignedItemUids.has(item.uid)}
                                             />
                                         )
                                     })}
@@ -888,13 +875,13 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     <div className="relative transform hover:scale-105 transition-transform">
                                                         {(() => {
                                                             // Pending Item Badge Logic
-                                                            const activeReqs = [
-                                                                ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                                                ...emergencyOrders.flatMap(o => o.requirements)
+                                                            const pendingNames = pendingItem.names || [pendingItem.name];
+                                                            const allReqNames = [
+                                                                ...orders.filter(Boolean).flatMap(o => o.requiredNames || o.requirements?.map(r => r.name) || []),
+                                                                ...emergencyOrders.flatMap(o => o.requiredNames || o.requirements?.map(r => r.name) || [])
                                                             ];
-                                                            const matchedReqs = activeReqs.filter(r => r.name === pendingItem.name);
-                                                            const isNeeded = matchedReqs.length > 0;
-                                                            const isMaxSatisfied = isNeeded && matchedReqs.some(r => pendingItem.rarity.bonus >= r.requiredRarity.bonus);
+                                                            const isNeeded = pendingNames.some(n => allReqNames.includes(n));
+                                                            const isMaxSatisfied = isNeeded;
 
                                                             return (
                                                                 <InventorySlot
@@ -924,13 +911,13 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                                 {pendingQueue.map((qItem, idx) => {
                                                     // Queue Item Badge Logic
-                                                    const activeReqs = [
-                                                        ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                                        ...emergencyOrders.flatMap(o => o.requirements)
+                                                    const qNames = qItem.names || [qItem.name];
+                                                    const allReqNames2 = [
+                                                        ...orders.filter(Boolean).flatMap(o => o.requiredNames || o.requirements?.map(r => r.name) || []),
+                                                        ...emergencyOrders.flatMap(o => o.requiredNames || o.requirements?.map(r => r.name) || [])
                                                     ];
-                                                    const matchedReqs = activeReqs.filter(r => r.name === qItem.name);
-                                                    const isNeeded = matchedReqs.length > 0;
-                                                    const isMaxSatisfied = isNeeded && matchedReqs.some(r => qItem.rarity.bonus >= r.requiredRarity.bonus);
+                                                    const isNeeded = qNames.some(n => allReqNames2.includes(n));
+                                                    const isMaxSatisfied = isNeeded;
 
                                                     return (
                                                         <div key={idx} className="flex flex-col gap-2 shrink-0 snap-center items-center opacity-60 grayscale-[0.3]">
