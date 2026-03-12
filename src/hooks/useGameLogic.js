@@ -615,6 +615,70 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     };
 
+    // Check if two items have identical name sets
+    const namesMatch = (item1, item2) => {
+        const n1 = item1.names || [item1.name];
+        const n2 = item2.names || [item2.name];
+        return n1.length === n2.length && n1.every(n => n2.includes(n));
+    };
+
+    const canFuse = (item1, item2) => {
+        if (!item1 || !item2) return false;
+        if ((item1.decay !== undefined && item1.decay <= 0) ||
+            (item2.decay !== undefined && item2.decay <= 0)) return false;
+
+        const names1 = item1.names || [item1.name];
+        const names2 = item2.names || [item2.name];
+
+        // No overlap allowed
+        if (names1.some(n => names2.includes(n))) return false;
+
+        // Quality gate: fewer-names item must have strictly higher quality
+        if (names1.length !== names2.length) {
+            const fewerItem = names1.length < names2.length ? item1 : item2;
+            const moreItem = names1.length < names2.length ? item2 : item1;
+            if (fewerItem.rarity.bonus <= moreItem.rarity.bonus) return false;
+        }
+
+        return true;
+    };
+
+    const fuseItems = (item1, item2) => {
+        const names1 = item1.names || [item1.name];
+        const names2 = item2.names || [item2.name];
+        const icons1 = item1.icons || [item1.icon];
+        const icons2 = item2.icons || [item2.icon];
+        const poolIds1 = item1.poolIds || [item1.poolId];
+        const poolIds2 = item2.poolIds || [item2.poolId];
+
+        const combinedNames = [...names1, ...names2];
+        const combinedIcons = [...icons1, ...icons2];
+        const combinedPoolIds = [...poolIds1, ...poolIds2];
+
+        const maxRarity = item1.rarity.bonus >= item2.rarity.bonus ? item1.rarity : item2.rarity;
+
+        return {
+            name: combinedNames.join('\u00d7'),
+            names: combinedNames,
+            icon: combinedIcons[0],
+            icons: combinedIcons,
+            poolId: combinedPoolIds[0],
+            poolIds: combinedPoolIds,
+            poolName: combinedPoolIds.map(pid => {
+                const pool = config.pools.find(p => p.id === pid);
+                return pool ? pool.name : pid;
+            }).join('\u00d7'),
+            uid: Math.random().toString(36).substr(2, 9),
+            rarity: maxRarity,
+            sterile: false,
+            decay: currentStageConfig.mechanics.entropy
+                ? Math.max(
+                    item1.decay !== undefined ? item1.decay : 0,
+                    item2.decay !== undefined ? item2.decay : 0
+                  )
+                : undefined,
+        };
+    };
 
     const handleIncomingItems = (newItems, overrideInventory = null) => {
         // Negotiator Skill Check
@@ -1019,7 +1083,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // PendingItem 合成
         if (pendingItem) {
             if (!item.sterile && !pendingItem.sterile &&
-                pendingItem.name === item.name &&
+                namesMatch(pendingItem, item) &&
                 pendingItem.rarity.id === item.rarity.id &&
                 pendingItem.rarity.id !== 'mythic') {
                 const nextRarity = getNextRarity(item.rarity.id, config);
@@ -1065,7 +1129,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (selectedSlot !== null) {
             const sourceItem = inventory[selectedSlot];
             if (sourceItem && !item.sterile && !sourceItem.sterile &&
-                sourceItem.name === item.name &&
+                namesMatch(sourceItem, item) &&
                 sourceItem.rarity.id === item.rarity.id &&
                 sourceItem.rarity.id !== 'mythic' &&
                 (!item.decay || item.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0)) {
@@ -1102,14 +1166,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             // 允许 selectedSlot 合成
             else if (selectedSlot !== null) {
                 const sourceItem = inventory[selectedSlot];
-                if (sourceItem && clickedItem && !clickedItem.sterile && !sourceItem.sterile &&
-                    sourceItem.name === clickedItem.name &&
+                const canMergeItems = sourceItem && clickedItem && !clickedItem.sterile && !sourceItem.sterile &&
+                    namesMatch(sourceItem, clickedItem) &&
                     sourceItem.rarity.id === clickedItem.rarity.id &&
                     sourceItem.rarity.id !== 'mythic' &&
-                    (!clickedItem.decay || clickedItem.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0)) {
-                    // 合成：fall through
-                } else {
-                    return; // 不可合成，阻止
+                    (!clickedItem.decay || clickedItem.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0);
+                const canFuseItems = canFuse(sourceItem, clickedItem);
+                if (!canMergeItems && !canFuseItems) {
+                    return; // 不可合成也不可融合，阻止
                 }
             }
             // 其他情况（尝试选中等）阻止
@@ -1196,7 +1260,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (pendingItem) {
             const targetItem = inventory[index];
             if (targetItem && !targetItem.sterile && !pendingItem.sterile &&
-                pendingItem.name === targetItem.name &&
+                namesMatch(pendingItem, targetItem) &&
                 pendingItem.rarity.id === targetItem.rarity.id &&
                 pendingItem.rarity.id !== 'mythic') {
 
@@ -1211,6 +1275,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 // 如果目标物品在订单槽位上，更新 uid
                 if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
                 setPendingItem(null);
+                return;
+            }
+
+            // Fusion with pending item
+            if (targetItem && canFuse(pendingItem, targetItem)) {
+                const fusedItem = fuseItems(pendingItem, targetItem);
+                const newInventory = [...inventory];
+                newInventory[index] = fusedItem;
+                setInventory(newInventory);
+                if (assignedItemUids.has(targetItem.uid)) removeAssignmentByUid(targetItem.uid);
+                setPendingItem(null);
+                showToast(`${t("融合")}: ${pendingItem.name} + ${targetItem.name} → ${fusedItem.name}`, 'success');
                 return;
             }
 
@@ -1277,7 +1353,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             if (targetItem && !targetItem.sterile && !sourceItem.sterile &&
                 (!targetItem.decay || targetItem.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0) &&
-                sourceItem.name === targetItem.name &&
+                namesMatch(sourceItem, targetItem) &&
                 sourceItem.rarity.id === targetItem.rarity.id &&
                 sourceItem.rarity.id !== 'mythic') {
 
@@ -1293,6 +1369,19 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 // 如果目标物品在订单槽位上，更新 uid
                 if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
                 setSelectedSlot(null);
+                return;
+            }
+            // Fusion check (after merge fails)
+            if (targetItem && canFuse(sourceItem, targetItem)) {
+                const fusedItem = fuseItems(sourceItem, targetItem);
+                const newInventory = [...inventory];
+                newInventory[index] = fusedItem;
+                newInventory[selectedSlot] = null;
+                setInventory(newInventory.filter(item => item !== null));
+                if (assignedItemUids.has(targetItem.uid)) removeAssignmentByUid(targetItem.uid);
+                if (assignedItemUids.has(sourceItem.uid)) removeAssignmentByUid(sourceItem.uid);
+                setSelectedSlot(null);
+                showToast(`${t("融合")}: ${sourceItem.name} + ${targetItem.name} → ${fusedItem.name}`, 'success');
                 return;
             }
             if (targetItem) {
@@ -1954,7 +2043,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleEvacuationExtract,
             debugGetOrderItems,
             handleUnassignFromOrder,
-            handleOrderSlotClick
+            handleOrderSlotClick,
+            canFuse
         },
         helpers: {
             hasSkill
