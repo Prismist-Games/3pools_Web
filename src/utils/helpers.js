@@ -82,181 +82,45 @@ export const rollRequirementRarity = (config, currentStageConfig, isEmergency = 
 };
 
 export const generateOrder = (allNormalItems, config, hasSkill = () => false, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
-    // 检查是否有精确的难度需求配置（优先级最高）
-    const difficultyRequirements = isEmergency && config.emergency?.difficultyRequirements?.[emergencyDifficulty];
+    const nameCount = isEmergency ? 4 : 3;
 
-    // Helper: Get unique pool items
-    const getUniquePoolItems = (sourceItems, num) => {
-        const poolGroups = {};
-        sourceItems.forEach(item => {
-            if (!poolGroups[item.poolId]) poolGroups[item.poolId] = [];
-            poolGroups[item.poolId].push(item);
-        });
-
-        const availablePoolIds = Object.keys(poolGroups);
-        const selectedPoolIds = getRandomItems(availablePoolIds, Math.min(num, availablePoolIds.length));
-
-        return selectedPoolIds.map(pid => {
-            const itemsInPool = poolGroups[pid];
-            return itemsInPool[Math.floor(Math.random() * itemsInPool.length)];
-        });
-    };
-
-    let count;
-    let requirements;
-
-    if (difficultyRequirements && difficultyRequirements.length > 0) {
-        // 使用精确配置模式 - 数量由配置的总物品数决定
-        count = difficultyRequirements.reduce((sum, req) => sum + req.count, 0);
-
-        // 如果是紧急订单，限制数量为可用池子数量，保证种类唯一
-        if (isEmergency) {
-            const availablePoolCount = new Set(allNormalItems.map(i => i.poolId)).size;
-            if (count > availablePoolCount) {
-                count = availablePoolCount;
-                // 需调整 difficultyRequirements 以匹配新数量 (简单截断)
-                // 这里稍微复杂，简单起见我们只调整生成的 rawRequirements 数量
-                // 但 rarityList 也需要调整
-            }
+    // Pick random unique items (ensuring unique names)
+    const shuffled = [...allNormalItems].sort(() => 0.5 - Math.random());
+    const seen = new Set();
+    const selectedItems = [];
+    for (const item of shuffled) {
+        if (!seen.has(item.name)) {
+            seen.add(item.name);
+            selectedItems.push(item);
+            if (selectedItems.length >= nameCount) break;
         }
-
-        // 随机选择物品
-        let rawRequirements;
-        if (isEmergency) {
-            rawRequirements = getUniquePoolItems(allNormalItems, count);
-        } else {
-            rawRequirements = getRandomItems(allNormalItems, count);
-        }
-
-        // 将配置的品质需求展开成数组
-        const rarityList = [];
-        difficultyRequirements.forEach(req => {
-            const rarityObj = config.rarity.find(r => r.id === req.rarity);
-            if (rarityObj) {
-                for (let i = 0; i < req.count; i++) {
-                    rarityList.push(rarityObj);
-                }
-            }
-        });
-
-        // 截断 rarityList 以匹配实际 count (如果因唯一性被缩减)
-        if (rarityList.length > count) {
-            rarityList.length = count;
-        }
-
-        // 随机打乱品质列表，避免每次都是相同顺序
-        const shuffledRarities = rarityList.sort(() => Math.random() - 0.5);
-
-        requirements = rawRequirements.map((item, index) => ({
-            ...item,
-            requiredRarity: shuffledRarities[index] || config.rarity.find(r => r.id === 'common')
-        }));
-    } else {
-        // 使用随机模式
-        // P0: Use orderCountWeights for configurable requirement counts (2, 3, or 4)
-        count = 3; // Default value
-
-        // Emergency orders use their own config if available
-        if (isEmergency && config.emergency) {
-            const emergencyConfig = config.emergency;
-
-            // 使用难度配置来决定需求数量（如果有）
-            const difficultyWeights = emergencyConfig.difficultyReqCountWeights?.[emergencyDifficulty];
-            if (difficultyWeights) {
-                // 根据难度等级的权重分布随机选择需求数量
-                const entries = Object.entries(difficultyWeights);
-                const totalWeight = entries.reduce((sum, [_, weight]) => sum + weight, 0);
-                let random = Math.random() * totalWeight;
-
-                for (const [reqCount, weight] of entries) {
-                    random -= weight;
-                    if (random <= 0) {
-                        count = parseInt(reqCount);
-                        break;
-                    }
-                }
-            } else if (emergencyConfig.reqCountMin !== undefined && emergencyConfig.reqCountMax !== undefined) {
-                const min = emergencyConfig.reqCountMin || 1;
-                const max = emergencyConfig.reqCountMax || 4;
-                count = Math.floor(Math.random() * (max - min + 1)) + min;
-            } else if (emergencyConfig.reqCount !== undefined) {
-                count = emergencyConfig.reqCount;
-            }
-        } else if (currentStageConfig.orderCountWeights) {
-            const weights = currentStageConfig.orderCountWeights;
-            const w2 = weights[2] || 0;
-            const w3 = weights[3] || 0;
-            const w4 = weights[4] || 0;
-            const totalWeight = w2 + w3 + w4;
-
-            // Safety check to avoid infinite loops or errors if weights are 0
-            if (totalWeight <= 0) {
-                count = 3;
-            } else {
-                let random = Math.random() * totalWeight;
-                if (random < w2) count = 2;
-                else if (random < w2 + w3) count = 3;
-                else count = 4;
-            }
-        } else {
-            // Fallback legacy logic
-            const { orderCountRange } = currentStageConfig;
-            count = Math.floor(Math.random() * (orderCountRange[1] - orderCountRange[0] + 1)) + orderCountRange[0];
-        }
-
-        // 技能【偷工减料】- does not affect emergency orders
-        if (!isEmergency && hasSkill('cut_corners') && Math.random() < 0.20 && count > 1) {
-            count -= 1;
-        }
-
-        // Enforce unique pools for emergency orders
-        if (isEmergency) {
-            const availablePoolCount = new Set(allNormalItems.map(i => i.poolId)).size;
-            if (count > availablePoolCount) count = availablePoolCount;
-        }
-
-        let rawRequirements;
-        if (isEmergency) {
-            rawRequirements = getUniquePoolItems(allNormalItems, count);
-        } else {
-            rawRequirements = getRandomItems(allNormalItems, count);
-        }
-
-        // 使用随机品质生成
-        requirements = rawRequirements.map(item => ({
-            ...item,
-            requiredRarity: rollRequirementRarity(config, currentStageConfig, isEmergency, emergencyDifficulty)
-        }));
     }
 
-    const totalReqBonus = requirements.reduce((sum, req) => sum + req.requiredRarity.bonus, 0);
+    const requiredNames = selectedItems.map(item => item.name);
+    const requiredIcons = selectedItems.map(item => item.icon);
+    const requiredPoolIds = selectedItems.map(item => item.poolId);
 
-    const baseRewards = currentStageConfig.baseRewards || { 2: 15, 3: 15, 4: 15 };
-    const rawBaseReward = baseRewards[count] || 15;
-
-    // Base score reward (calculated ONLY by sum of per-rarity weights)
-    // Emergency orders DON'T give score rewards
-    let baseScoreReward = 0;
-
-    if (!isEmergency) {
-        const rarityWeights = config.progress?.rarityWeights || {};
-        const offset = config.progress?.progressOffset || 0;
-
-        // Formula: sum of weights of each required item's rarity + offset
-        const totalRarityScore = requirements.reduce((sum, req) => {
-            const rKey = req.requiredRarity?.id || 'common';
-            return sum + (rarityWeights[rKey] || 0);
-        }, 0);
-
-        const calculatedScore = Math.floor(totalRarityScore + offset);
-        baseScoreReward = Math.max(1, calculatedScore);
-    }
+    const baseScoreReward = isEmergency ? 0 : (currentStageConfig.baseRewards?.[nameCount] || 15);
 
     return {
         id: Math.random().toString(36).substr(2, 9),
-        requirements,
+        requiredNames,
+        requiredIcons,
+        requiredPoolIds,
         baseScoreReward,
-        isScoreOrder: !isEmergency
+        isScoreOrder: !isEmergency,
+        isEmergency: isEmergency || false,
+        difficulty: isEmergency ? emergencyDifficulty : undefined,
+        // Backwards compat: keep requirements array for any code that reads it
+        requirements: requiredNames.map((name, i) => ({
+            name,
+            icon: requiredIcons[i],
+            poolId: requiredPoolIds[i],
+            poolName: (() => {
+                const pool = config.pools?.find(p => p.id === requiredPoolIds[i]);
+                return pool ? pool.name : requiredPoolIds[i];
+            })(),
+        })),
     };
 };
 

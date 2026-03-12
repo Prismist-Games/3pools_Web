@@ -100,19 +100,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (emergencyOrders.length === 0) {
             // Generate first order
             const order1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, emergencyDifficulty);
-            order1.isEmergency = true;
-            order1.difficulty = emergencyDifficulty;
 
             // Generate second order (ensure different item types AND CATEGORIES)
-            const usedPoolIds = new Set(order1.requirements.map(r => r.poolId));
+            const usedPoolIds = new Set(order1.requiredPoolIds || order1.requirements.map(r => r.poolId));
             const availableForSecond = allNormalItems.filter(i => !usedPoolIds.has(i.poolId));
 
             // Fallback if no items left (unlikely but safe)
-            const itemsForOrder2 = availableForSecond.length >= (config.emergency?.reqCountMin || 1) ? availableForSecond : allNormalItems;
+            const itemsForOrder2 = availableForSecond.length >= 1 ? availableForSecond : allNormalItems;
 
             const order2 = generateOrder(itemsForOrder2, config, hasSkill, currentStageConfig, true, emergencyDifficulty);
-            order2.isEmergency = true;
-            order2.difficulty = emergencyDifficulty;
 
             setEmergencyOrders([order1, order2]);
         }
@@ -234,20 +230,24 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         if (!order) return;
 
-        const itemsToAdd = order.requirements.map(req => {
+        const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
+        const defaultRarity = config.rarity.find(r => r.id === 'common') || config.rarity[0];
+
+        const itemsToAdd = requiredNames.map(name => {
             const allItems = getAllNormalItems(config.pools, currentStageConfig);
-            const baseItem = allItems.find(i => i.name === req.name);
+            const baseItem = allItems.find(i => i.name === name);
+            if (!baseItem) return null;
             return {
                 ...baseItem,
                 id: Math.random().toString(36).substr(2, 9),
                 uid: Math.random().toString(36).substr(2, 9),
-                rarity: req.requiredRarity,
+                rarity: defaultRarity,
                 obtainCount: drawCount,
                 names: [baseItem.name],
                 icons: [baseItem.icon],
                 poolIds: [baseItem.poolId],
             };
-        });
+        }).filter(Boolean);
 
         setInventory(prev => {
             const newInv = [...prev];
@@ -278,22 +278,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setSkillSelectionCandidates(null);
         showToast(`${t("替换技能：")}${t(newSkill.name)}`);
     };
-
-    const maxRequirementRarityMap = useMemo(() => {
-        const map = {};
-        const allOrders = [...orders];
-
-        allOrders.forEach(order => {
-            if (!order) return;
-            order.requirements.forEach(req => {
-                const currentMax = map[req.name] || -1;
-                if (req.requiredRarity.bonus > currentMax) {
-                    map[req.name] = req.requiredRarity.bonus;
-                }
-            });
-        });
-        return map;
-    }, [orders]);
 
     // === 订单槽位系统：派生状态 ===
 
@@ -391,158 +375,90 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const satisfiableOrders = useMemo(() => {
         if ((!isSubmitMode && !isEvacuationMode) || selectedIndices.length === 0) return [];
         const selectedItems = selectedIndices.map(idx => inventory[idx]).filter(Boolean);
-        const handGroups = {};
-        selectedItems.forEach(item => {
-            if (!handGroups[item.name]) handGroups[item.name] = [];
-            handGroups[item.name].push(item);
-        });
-        Object.keys(handGroups).forEach(k => {
-            handGroups[k].sort((a, b) => b.rarity.bonus - a.rarity.bonus);
-        });
 
-        const checkOrder = (order, idx, isMain) => {
-            if (!order) return null;
-            const tempHand = JSON.parse(JSON.stringify(handGroups));
-            let isSatisfied = true;
-            let totalSubmitBonus = 0;
-
-            const allReqs = order.requirements;
-            let isSameType = false;
-            if (hasSkill('ocd') && allReqs.length > 1) {
-                const firstPool = allReqs[0].poolId;
-                isSameType = allReqs.every(r => r.poolId === firstPool);
-            }
-
-            for (const req of order.requirements) {
-                const availableItems = tempHand[req.name];
-                if (!availableItems || availableItems.length === 0) {
-                    isSatisfied = false;
-                    break;
-                }
-                const matchIndex = availableItems.findIndex(item => (item.rarity.bonus >= req.requiredRarity.bonus && (!item.decay || item.decay > 0)));
-                if (matchIndex === -1) {
-                    isSatisfied = false;
-                    break;
-                }
-                const matchedItem = availableItems[matchIndex];
-                totalSubmitBonus += matchedItem.rarity.bonus;
-                availableItems.splice(matchIndex, 1);
-            }
-            if (!isSatisfied) return null;
-
-            let multiplier = 1 + totalSubmitBonus;
-            if (isSameType) multiplier *= 2;
-
-            const finalScoreReward = Math.ceil(order.baseScoreReward * multiplier);
-
-            return {
-                index: idx,
-                finalScoreReward,
-                isScoreOrder: isMain,
-                reqCount: order.requirements.length,
-                requirements: order.requirements
-            };
-        };
+        const ordersToCheck = isEvacuationMode
+            ? emergencyOrders.map((o, i) => ({ order: o, index: 998 + i }))
+            : orders.map((o, i) => ({ order: o, index: i }));
 
         const results = [];
-        // Normal Orders
-        if (!isEvacuationMode) {
-            orders.forEach((o, i) => {
-                const res = checkOrder(o, i, true);
-                if (res) results.push(res);
-            });
-        }
+        const usedItemUids = new Set();
 
-        // Emergency Orders
-        if (isEvacuationMode) {
-            emergencyOrders.forEach((order, idx) => {
-                if (order) {
-                    const res = checkOrder(order, 998 + idx, false);
-                    if (res) results.push(res);
+        for (const { order, index } of ordersToCheck) {
+            if (!order) continue;
+            const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
+
+            let bestMatch = null;
+            let bestBonus = -1;
+
+            for (const item of selectedItems) {
+                if (usedItemUids.has(item.uid)) continue;
+                if (item.decay !== undefined && item.decay <= 0) continue;
+                const itemNames = item.names || [item.name];
+                if (requiredNames.every(rn => itemNames.includes(rn))) {
+                    if (item.rarity.bonus > bestBonus) {
+                        bestMatch = item;
+                        bestBonus = item.rarity.bonus;
+                    }
                 }
-            });
+            }
+
+            if (bestMatch) {
+                usedItemUids.add(bestMatch.uid);
+                const multiplier = 1 + (bestMatch.rarity.bonus || 0);
+                const finalScoreReward = Math.ceil((order.baseScoreReward || 0) * multiplier);
+                results.push({
+                    index,
+                    finalScoreReward,
+                    isScoreOrder: order.isScoreOrder !== false,
+                    matchedItemUid: bestMatch.uid,
+                    requiredNames,
+                });
+            }
         }
 
         return results;
-    }, [orders, emergencyOrders, isSubmitMode, isEvacuationMode, selectedIndices, inventory, hasSkill, skills]);
+    }, [orders, emergencyOrders, isSubmitMode, isEvacuationMode, selectedIndices, inventory]);
 
     // Preview Potential Rewards (Calculate using BEST items from inventory)
     const potentialSatisfiableOrders = useMemo(() => {
-        // Run this even if NOT in submit mode, to show "Preview" of gold
-        const handGroups = {};
-        // Group ALL non-null inventory items
-        inventory.forEach(item => {
-            if (item) {
-                if (!handGroups[item.name]) handGroups[item.name] = [];
-                handGroups[item.name].push(item);
-            }
-        });
-        Object.keys(handGroups).forEach(k => {
-            handGroups[k].sort((a, b) => b.rarity.bonus - a.rarity.bonus);
-        });
-
-        const checkOrder = (order, idx, isMain) => {
-            const tempHand = JSON.parse(JSON.stringify(handGroups)); // Deep copy for simulation
-            let isSatisfied = true;
-            let totalSubmitBonus = 0;
-
-            const allReqs = order.requirements;
-            let isSameType = false;
-            // Helper function for OCD check (same as above)
-            if (hasSkill('ocd') && allReqs.length > 1) {
-                const firstPool = allReqs[0].poolId;
-                isSameType = allReqs.every(r => r.poolId === firstPool);
-            }
-
-            for (const req of order.requirements) {
-                const availableItems = tempHand[req.name];
-                if (!availableItems || availableItems.length === 0) {
-                    isSatisfied = false;
-                    break;
-                }
-                const matchIndex = availableItems.findIndex(item => (item.rarity.bonus >= req.requiredRarity.bonus && (!item.decay || item.decay > 0)));
-                if (matchIndex === -1) {
-                    isSatisfied = false;
-                    break;
-                }
-                const matchedItem = availableItems[matchIndex];
-                totalSubmitBonus += matchedItem.rarity.bonus;
-                availableItems.splice(matchIndex, 1);
-            }
-            if (!isSatisfied) return null;
-
-            let multiplier = 1 + totalSubmitBonus;
-            if (isSameType) multiplier *= 2;
-
-            const finalScoreReward = Math.ceil(order.baseScoreReward * multiplier);
-
-            return {
-                index: idx,
-                finalScoreReward,
-                isScoreOrder: isMain,
-                reqCount: order.requirements.length,
-                requirements: order.requirements
-            };
-        };
-
+        const ordersToCheck = orders.map((o, i) => ({ order: o, index: i }));
         const results = [];
-        orders.forEach((order, idx) => {
-            if (order) {
-                const res = checkOrder(order, idx, true);
-                if (res) results.push(res);
-            }
-        });
+        const usedItemUids = new Set();
 
-        // Emergency Orders
-        emergencyOrders.forEach((order, idx) => {
-            if (order) {
-                const res = checkOrder(order, 998 + idx, false);
-                if (res) results.push(res);
+        for (const { order, index } of ordersToCheck) {
+            if (!order) continue;
+            const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
+
+            let bestMatch = null;
+            let bestBonus = -1;
+
+            for (const item of inventory) {
+                if (!item || usedItemUids.has(item.uid)) continue;
+                if (item.decay !== undefined && item.decay <= 0) continue;
+                const itemNames = item.names || [item.name];
+                if (requiredNames.every(rn => itemNames.includes(rn))) {
+                    if (item.rarity.bonus > bestBonus) {
+                        bestMatch = item;
+                        bestBonus = item.rarity.bonus;
+                    }
+                }
             }
-        });
+
+            if (bestMatch) {
+                usedItemUids.add(bestMatch.uid);
+                const multiplier = 1 + (bestMatch.rarity.bonus || 0);
+                const finalScoreReward = Math.ceil((order.baseScoreReward || 0) * multiplier);
+                results.push({
+                    index,
+                    finalScoreReward,
+                    isScoreOrder: order.isScoreOrder !== false,
+                    matchedItemUid: bestMatch.uid,
+                });
+            }
+        }
 
         return results;
-    }, [inventory, orders, skills, emergencyOrders]);
+    }, [orders, inventory]);
 
     const totalRecycleValue = useMemo(() => {
         if (!isRecycleMode || selectedIndices.length === 0) return 0;
@@ -1488,22 +1404,26 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (selectedSlot !== null && !isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode) {
             const item = inventory[selectedSlot];
             if (item && !item.isScoreItem && !assignedItemUids.has(item.uid)) {
-                // 根据 orderIndex 查找对应订单
                 const order = orderIndex >= 998
                     ? emergencyOrders[orderIndex - 998]
                     : orders[orderIndex];
                 if (order) {
-                    // 找到第一个名称匹配且未被直接分配的需求
-                    const reqIdx = order.requirements.findIndex((req, rIdx) => {
-                        const key = `${orderIndex}-${rIdx}`;
-                        return req.name === item.name && !orderSlotAssignments[key];
-                    });
-                    if (reqIdx !== -1) {
-                        handleAssignToOrder(orderIndex, reqIdx);
-                        return;
-                    } else {
-                        showToast(t("该订单不需要此物品，或对应槽位已有物品"), "info");
+                    const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
+                    const itemNames = item.names || [item.name];
+                    // Check if this item's names contain any of the required names
+                    const hasMatch = requiredNames.some(rn => itemNames.includes(rn));
+                    if (hasMatch) {
+                        // Find the first unassigned requirement slot matching one of the item's names
+                        const reqIdx = (order.requirements || []).findIndex((req, rIdx) => {
+                            const key = `${orderIndex}-${rIdx}`;
+                            return itemNames.includes(req.name) && !orderSlotAssignments[key];
+                        });
+                        if (reqIdx !== -1) {
+                            handleAssignToOrder(orderIndex, reqIdx);
+                            return;
+                        }
                     }
+                    showToast(t("该订单不需要此物品，或对应槽位已有物品"), "info");
                 }
             }
             setSelectedSlot(null);
@@ -1518,84 +1438,71 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const order = emergencyOrders[orderIndex - 998];
             if (!order) return;
 
-            // Logic for auto-selecting items for this emergency order
-            // Similar to normal order logic below but specifically for evacuation
+            const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
 
-            // 1. Check if satisfiable
-            let canSatisfyAny = false;
-            for (const req of order.requirements) {
-                if (inventory.some(item => item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus)) {
-                    canSatisfyAny = true;
-                    break;
-                }
-            }
-            if (!canSatisfyAny) {
+            // Find an inventory item whose names contain ALL required names
+            const usedInThisSearch = new Set(selectedIndices);
+            const candidates = inventory
+                .map((item, idx) => ({ item, idx }))
+                .filter(({ item, idx }) =>
+                    item &&
+                    !usedInThisSearch.has(idx) &&
+                    (item.decay === undefined || item.decay > 0) &&
+                    requiredNames.every(rn => (item.names || [item.name]).includes(rn))
+                );
+
+            if (candidates.length === 0) {
                 showToast(t("库存中没有满足该离开关卡需求的物品"), "error");
                 return;
             }
 
-            // 2. Select items
-            // We want to fill this specific order requirements from inventory
-            const finalIndicesToAdd = [];
-            const usedInThisSearch = new Set(selectedIndices); // Respect already selected
+            // Pick the best (highest rarity bonus)
+            candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus);
+            const bestIdx = candidates[0].idx;
 
-            order.requirements.forEach(req => {
-                const candidates = inventory
-                    .map((item, idx) => ({ item, idx }))
-                    .filter(({ item, idx }) =>
-                        item &&
-                        !usedInThisSearch.has(idx) &&
-                        item.name === req.name &&
-                        item.rarity.bonus >= req.requiredRarity.bonus
-                    );
-                candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus); // Use best first
-                if (candidates.length > 0) {
-                    finalIndicesToAdd.push(candidates[0].idx);
-                    usedInThisSearch.add(candidates[0].idx);
-                }
-            });
-
-            if (finalIndicesToAdd.length > 0) {
-                // If we found new items, add them. 
-                // If we clicked an already satisfied order, maybe toggle off? 
-                // Normal logic toggles off if fully satisfied.
-
-                // Check if fully satisfied by CURRENT selection
-                // But emergency order doesn't have a "status" check in the same way here easily without memo.
-                // Let's just Add for now.
-                setSelectedIndices(prev => {
-                    // Filter out any that might be duplicates just in case
-                    const newIndices = finalIndicesToAdd.filter(idx => !prev.includes(idx));
-                    return [...prev, ...newIndices];
-                });
+            // Toggle: if already selected, deselect; otherwise select
+            if (selectedIndices.includes(bestIdx)) {
+                setSelectedIndices(prev => prev.filter(i => i !== bestIdx));
+            } else {
+                setSelectedIndices(prev => [...prev, bestIdx]);
             }
-
             return;
         }
 
         // Normal Orders Logic
-        if (isEvacuationMode) return; // Cannot click normal orders in evacuation mode
+        if (isEvacuationMode) return;
 
         const order = orders[orderIndex];
         if (!order) return;
 
-        // Check if we can satisfy at least ONE requirement for this order
-        // If NO requirement can be satisfied, prevent clicking
-        const requirements = [...order.requirements];
-        let canSatisfyAny = false;
+        const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
 
-        for (const req of requirements) {
-            const hasMatchingItem = inventory.some(item =>
-                item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
+        // Find an inventory item whose names contain ALL required names
+        const usedInThisSearch = new Set(selectedIndices);
+        const candidates = inventory
+            .map((item, idx) => ({ item, idx }))
+            .filter(({ item, idx }) =>
+                item &&
+                !usedInThisSearch.has(idx) &&
+                (item.decay === undefined || item.decay > 0) &&
+                requiredNames.every(rn => (item.names || [item.name]).includes(rn))
             );
-            if (hasMatchingItem) {
-                canSatisfyAny = true;
-                break;
-            }
+
+        // Check if an already-selected item satisfies this order (for toggle-off)
+        const alreadySelectedMatch = selectedIndices.find(idx => {
+            const item = inventory[idx];
+            if (!item) return false;
+            const itemNames = item.names || [item.name];
+            return requiredNames.every(rn => itemNames.includes(rn));
+        });
+
+        if (alreadySelectedMatch !== undefined) {
+            // Toggle off: deselect the matched item
+            setSelectedIndices(prev => prev.filter(i => i !== alreadySelectedMatch));
+            return;
         }
 
-        // Prevent clicking if no requirements can be satisfied
-        if (!canSatisfyAny) {
+        if (candidates.length === 0) {
             showToast(t("库存中没有满足该订单条件的物品"), "error");
             return;
         }
@@ -1605,89 +1512,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setIsSubmitMode(true);
             setIsRecycleMode(false);
             setSelectedSlot(null);
-            // We can't immediately run the selection logic because state updates are async,
-            // but we can use a local flag to proceed in this execution turn.
         }
 
-        // Check which items are currently satisfying THIS specific order
-        const currentMatchesIdx = [];
-        const tempSelected = [...selectedIndices];
-
-        for (const req of requirements) {
-            const matchIdx = tempSelected.findIndex(idx => {
-                const item = inventory[idx];
-                return item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus;
-            });
-            if (matchIdx !== -1) {
-                currentMatchesIdx.push(tempSelected[matchIdx]);
-                tempSelected.splice(matchIdx, 1);
-            }
-        }
-
-        const isFullySatisfied = currentMatchesIdx.length === requirements.length;
-
-        if (isFullySatisfied) {
-            // UNSELECT all items used for this order
-            setSelectedIndices(prev => prev.filter(idx => !currentMatchesIdx.includes(idx)));
-        } else {
-            // TRY TO FILL the remaining/missing requirements
-            const indicesToAdd = [];
-            const currentlyUsedIndices = new Set(selectedIndices);
-
-            for (const req of requirements) {
-                // Skip if already matched
-                const alreadyMatched = currentMatchesIdx.some(idx => {
-                    const item = inventory[idx];
-                    return item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus;
-                });
-
-                // Wait, the toggle logic above is simpler. 
-                // Let's just find ALL candidates to satisfy the order from scratch, 
-                // but prioritizing keeping what's already selected.
-            }
-
-            // Simpler "Fill everything we can" logic:
-            const finalIndicesToAdd = [];
-            const usedInThisSearch = new Set(selectedIndices);
-
-            requirements.forEach((req, rIdx) => {
-                // 1. 优先使用已分配到该订单槽位的物品
-                const slotKey = `${orderIndex}-${rIdx}`;
-                const assignedUid = orderSlotAssignments[slotKey];
-                if (assignedUid) {
-                    const assignedIdx = inventory.findIndex(i => i && i.uid === assignedUid);
-                    if (assignedIdx !== -1 && !usedInThisSearch.has(assignedIdx) &&
-                        inventory[assignedIdx].rarity.bonus >= req.requiredRarity.bonus &&
-                        (!inventory[assignedIdx].decay || inventory[assignedIdx].decay > 0)) {
-                        finalIndicesToAdd.push(assignedIdx);
-                        usedInThisSearch.add(assignedIdx);
-                        return;
-                    }
-                }
-
-                // 2. 回退：从背包搜索最优候选
-                const candidates = inventory
-                    .map((item, idx) => ({ item, idx }))
-                    .filter(({ item, idx }) =>
-                        item &&
-                        !usedInThisSearch.has(idx) &&
-                        item.name === req.name &&
-                        item.rarity.bonus >= req.requiredRarity.bonus
-                    );
-                candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus);
-                if (candidates.length > 0) {
-                    finalIndicesToAdd.push(candidates[0].idx);
-                    usedInThisSearch.add(candidates[0].idx);
-                }
-            });
-
-            if (finalIndicesToAdd.length > 0) {
-                setSelectedIndices(prev => [...prev, ...finalIndicesToAdd]);
-            } else if (!isFullySatisfied && !isSubmitMode) {
-                // If we JUST entered submit mode but couldn't find anything, show a hint
-                showToast(t("库存中没有满足该订单条件的物品"), "info");
-            }
-        }
+        // Pick the best (highest rarity bonus)
+        candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus);
+        const bestIdx = candidates[0].idx;
+        setSelectedIndices(prev => [...prev, bestIdx]);
     };
 
     const handleConfirmSubmission = () => {
@@ -1706,19 +1536,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         const nextSkillState = { ...skillState };
 
-        satisfiableOrders.forEach(({ index, finalScoreReward, reqCount, requirements, isScoreOrder }) => {
+        satisfiableOrders.forEach(({ index, finalScoreReward, isScoreOrder }) => {
             gainedScore += finalScoreReward;
-
-            if (hasSkill('big_order_expert') && reqCount === 4) {
-                showToast(t("【大订单专家】触发：+5金币"));
-            }
-
-            if (hasSkill('hard_order_expert')) {
-                const hasHardReq = requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
-                if (hasHardReq) {
-                    showToast(t("【困难订单专家】触发：+10金币"));
-                }
-            }
 
             if (hasSkill('auto_restock')) nextSkillState.nextDrawExtraItem = true;
             if (hasSkill('turn_fortune')) nextSkillState.nextDrawGuaranteedRare = true;
@@ -1795,7 +1614,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }
         }
 
-        const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
+        const consumedUids = new Set(satisfiableOrders.map(o => o.matchedItemUid));
+        const newInventory = inventory.filter(item => item && !consumedUids.has(item.uid));
         setInventory(newInventory);
 
         setIsSubmitMode(false);
@@ -1921,16 +1741,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         // 2. Generate New Orders
         const order1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, newDifficulty);
-        order1.isEmergency = true;
-        order1.difficulty = newDifficulty;
 
-        const usedPoolIds = new Set(order1.requirements.map(r => r.poolId));
+        const usedPoolIds = new Set(order1.requiredPoolIds || order1.requirements.map(r => r.poolId));
         const availableForSecond = allNormalItems.filter(i => !usedPoolIds.has(i.poolId));
-        const itemsForOrder2 = availableForSecond.length >= (config.emergency?.reqCountMin || 1) ? availableForSecond : allNormalItems;
+        const itemsForOrder2 = availableForSecond.length >= 1 ? availableForSecond : allNormalItems;
 
         const order2 = generateOrder(itemsForOrder2, config, hasSkill, currentStageConfig, true, newDifficulty);
-        order2.isEmergency = true;
-        order2.difficulty = newDifficulty;
 
         setEmergencyOrders([order1, order2]);
 
@@ -1938,8 +1754,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const initialGold = config.global?.initialGold || 30;
         setGold(initialGold);
 
-        // 4. Consume Items
-        const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
+        // 4. Consume Items by uid (from satisfiableOrders)
+        const consumedUids = new Set(satisfiableOrders.map(o => o.matchedItemUid));
+        const newInventory = inventory.filter(item => item && !consumedUids.has(item.uid));
         setInventory(newInventory);
 
         showToast(`${t("离开此关卡成功！金币已重置为")} ${initialGold}`, "success");
