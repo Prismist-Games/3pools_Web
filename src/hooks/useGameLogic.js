@@ -507,13 +507,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // No overlap allowed
         if (names1.some(n => names2.includes(n))) return false;
 
-        // Quality gate: fewer-names item must have strictly higher quality
-        if (names1.length !== names2.length) {
-            const fewerItem = names1.length < names2.length ? item1 : item2;
-            const moreItem = names1.length < names2.length ? item2 : item1;
-            if (fewerItem.rarity.bonus < moreItem.rarity.bonus) return false;
-        }
-
         return true;
     };
 

@@ -25,7 +25,8 @@
       "Bash(env)",
       "Bash(python:*)",
       "Bash(cp:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(npm run:*)"
     ]
   }
 }
