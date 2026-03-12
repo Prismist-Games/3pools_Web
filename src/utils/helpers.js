@@ -27,6 +27,13 @@ export const getRandomItems = (array, count) => {
 };
 
 export const rollRequirementRarity = (config, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
+    // Check fixed difficulty requirements first (exact rarity per difficulty level)
+    if (isEmergency && config.emergency?.difficultyRequirements?.[emergencyDifficulty]) {
+        const fixedRarityId = config.emergency.difficultyRequirements[emergencyDifficulty];
+        const found = config.rarity.find(r => r.id === fixedRarityId);
+        if (found) return found;
+    }
+
     let weights;
     if (isEmergency && config.emergency) {
         const difficultyWeights = config.emergency.difficultyRarityWeights?.[emergencyDifficulty];

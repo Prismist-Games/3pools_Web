@@ -298,12 +298,12 @@ export const INITIAL_AFFIXES_CONFIG = [
 ];
 
 export const INITIAL_RARITY_CONFIG = [
-    { id: 'common', name: '普通', color: 'border-slate-300 bg-slate-50 text-slate-600', dotColor: 'bg-slate-400', starColor: 'text-slate-400', shadow: '', bonus: 0, recycleValue: 1 },
-    { id: 'uncommon', name: '优秀', color: 'border-green-400 bg-green-50 text-green-700', dotColor: 'bg-green-500', starColor: 'text-green-500', shadow: 'shadow-green-200', bonus: 0.1, recycleValue: 2 },
-    { id: 'rare', name: '稀有', color: 'border-blue-400 bg-blue-50 text-blue-700', dotColor: 'bg-blue-500', starColor: 'text-blue-500', shadow: 'shadow-blue-200', bonus: 0.25, recycleValue: 5 },
-    { id: 'epic', name: '史诗', color: 'border-purple-400 bg-purple-50 text-purple-700', dotColor: 'bg-purple-500', starColor: 'text-purple-500', shadow: 'shadow-purple-200', bonus: 0.5, recycleValue: 15 },
-    { id: 'legendary', name: '传说', color: 'border-orange-400 bg-orange-50 text-orange-700', dotColor: 'bg-orange-500', starColor: 'text-orange-500', shadow: 'shadow-orange-200', bonus: 1.0, recycleValue: 50 },
-    { id: 'mythic', name: '神话', color: 'border-rose-500 bg-rose-50 text-rose-700', dotColor: 'bg-rose-500', starColor: 'text-rose-600', shadow: 'shadow-rose-200', bonus: 2.0, recycleValue: 200 }
+    { id: 'common', name: '普通', color: 'border-slate-300 bg-slate-50 text-slate-600', dotColor: 'bg-slate-400', starColor: 'text-slate-400', shadow: '', bonus: 0, recycleValue: 0 },
+    { id: 'uncommon', name: '优秀', color: 'border-green-400 bg-green-50 text-green-700', dotColor: 'bg-green-500', starColor: 'text-green-500', shadow: 'shadow-green-200', bonus: 0.1, recycleValue: 0 },
+    { id: 'rare', name: '稀有', color: 'border-blue-400 bg-blue-50 text-blue-700', dotColor: 'bg-blue-500', starColor: 'text-blue-500', shadow: 'shadow-blue-200', bonus: 0.25, recycleValue: 1 },
+    { id: 'epic', name: '史诗', color: 'border-purple-400 bg-purple-50 text-purple-700', dotColor: 'bg-purple-500', starColor: 'text-purple-500', shadow: 'shadow-purple-200', bonus: 0.5, recycleValue: 2 },
+    { id: 'legendary', name: '传说', color: 'border-orange-400 bg-orange-50 text-orange-700', dotColor: 'bg-orange-500', starColor: 'text-orange-500', shadow: 'shadow-orange-200', bonus: 1.0, recycleValue: 4 },
+    { id: 'mythic', name: '神话', color: 'border-rose-500 bg-rose-50 text-rose-700', dotColor: 'bg-rose-500', starColor: 'text-rose-600', shadow: 'shadow-rose-200', bonus: 2.0, recycleValue: 10 }
 ];
 
 export const INITIAL_POOLS_DATA = [
@@ -491,16 +491,11 @@ export const EMERGENCY_ORDER_CONFIG = {
         10: { common: 0.05, uncommon: 0.1, rare: 0.35, epic: 0.3, legendary: 0.2 }
     },
 
-    // 难度等级配置：难度 -> 精确品质需求（可选，如配置则优先使用）
-    // 数组中每项表示需要的品质和数量，会随机打乱后生成订单
-    // 示例: 1: [{ rarity: 'common', count: 1 }, { rarity: 'uncommon', count: 1 }] 
-    // 表示难度1固定需要1个普通+1个优秀品质的物品
+    // 难度等级配置：难度 -> 固定品质需求（可选，如配置则优先使用）
+    // 值为品质 ID 字符串，配置后该难度的撤离订单使用固定品质而非随机
+    // 示例: 1: 'common', 3: 'uncommon', 5: 'rare'
     difficultyRequirements: {
-        // 默认为空，使用随机模式
-        // 示例配置：
-        // 1: [{ rarity: 'common', count: 2 }],
-        // 5: [{ rarity: 'rare', count: 2 }, { rarity: 'epic', count: 1 }],
-        // 10: [{ rarity: 'epic', count: 2 }, { rarity: 'legendary', count: 2 }]
+        // 默认为空，使用随机权重模式
     }
 };
 
