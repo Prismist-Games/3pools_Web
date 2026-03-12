@@ -5,7 +5,10 @@ import {
     rollRarity,
     getNextRarity,
     getRandomAffix,
-    getRandomItems
+    getRandomItems,
+    getBaseValue,
+    getCompositeRarity,
+    getItemValue
 } from '../utils/helpers';
 import { SKILL_DEFINITIONS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -342,27 +345,27 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         for (const { order, index } of ordersToCheck) {
             if (!order) continue;
             const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
-            const minBonus = order.requiredRarity?.bonus || 0;
+            const minValue = order.requiredValue || 0;
 
             let bestMatch = null;
-            let bestBonus = -1;
+            let bestValue = -1;
 
             for (const item of selectedItems) {
                 if (usedItemUids.has(item.uid)) continue;
                 if (item.decay !== undefined && item.decay <= 0) continue;
                 const itemNames = item.names || [item.name];
-                if (requiredNames.every(rn => itemNames.includes(rn)) && item.rarity.bonus >= minBonus) {
-                    if (item.rarity.bonus > bestBonus) {
+                const itemValue = getItemValue(item, config);
+                if (requiredNames.every(rn => itemNames.includes(rn)) && itemValue >= minValue) {
+                    if (itemValue > bestValue) {
                         bestMatch = item;
-                        bestBonus = item.rarity.bonus;
+                        bestValue = itemValue;
                     }
                 }
             }
 
             if (bestMatch) {
                 usedItemUids.add(bestMatch.uid);
-                const multiplier = 1 + (bestMatch.rarity.bonus || 0);
-                const finalScoreReward = Math.ceil((order.baseScoreReward || 0) * multiplier);
+                const finalScoreReward = order.baseScoreReward || 0;
                 results.push({
                     index,
                     finalScoreReward,
@@ -385,27 +388,27 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         for (const { order, index } of ordersToCheck) {
             if (!order) continue;
             const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
-            const minBonus = order.requiredRarity?.bonus || 0;
+            const minValue = order.requiredValue || 0;
 
             let bestMatch = null;
-            let bestBonus = -1;
+            let bestValue = -1;
 
             for (const item of inventory) {
                 if (!item || usedItemUids.has(item.uid)) continue;
                 if (item.decay !== undefined && item.decay <= 0) continue;
                 const itemNames = item.names || [item.name];
-                if (requiredNames.every(rn => itemNames.includes(rn)) && item.rarity.bonus >= minBonus) {
-                    if (item.rarity.bonus > bestBonus) {
+                const itemValue = getItemValue(item, config);
+                if (requiredNames.every(rn => itemNames.includes(rn)) && itemValue >= minValue) {
+                    if (itemValue > bestValue) {
                         bestMatch = item;
-                        bestBonus = item.rarity.bonus;
+                        bestValue = itemValue;
                     }
                 }
             }
 
             if (bestMatch) {
                 usedItemUids.add(bestMatch.uid);
-                const multiplier = 1 + (bestMatch.rarity.bonus || 0);
-                const finalScoreReward = Math.ceil((order.baseScoreReward || 0) * multiplier);
+                const finalScoreReward = order.baseScoreReward || 0;
                 results.push({
                     index,
                     finalScoreReward,
@@ -480,13 +483,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             uid: Math.random().toString(36).substr(2, 9),
             poolName: pool.name,
             rarity: rarity,
+            value: getBaseValue(rarity.id, config),
             sterile: affixKey === 'hardened',
             decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined,
             names: [itemTemplate.name],
             icons: [itemTemplate.icon],
             poolIds: [pool.id],
         };
-
     };
 
     // Check if two items have identical name sets
@@ -522,7 +525,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const combinedIcons = [...icons1, ...icons2];
         const combinedPoolIds = [...poolIds1, ...poolIds2];
 
-        const resultRarity = item1.rarity.bonus >= item2.rarity.bonus ? item1.rarity : item2.rarity;
+        // 价值系统：总价值 = 所有组件基础价值之和
+        const value1 = getItemValue(item1, config);
+        const value2 = getItemValue(item2, config);
+        const totalValue = value1 + value2;
+
+        // 显示品质由总价值和组件数量查阈值表决定
+        const componentCount = combinedNames.length;
+        const resultRarity = getCompositeRarity(totalValue, componentCount, config);
 
         return {
             name: combinedNames.join('\u00d7'),
@@ -537,6 +547,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }).join('\u00d7'),
             uid: Math.random().toString(36).substr(2, 9),
             rarity: resultRarity,
+            value: totalValue,
             sterile: false,
             decay: currentStageConfig.mechanics.entropy
                 ? Math.max(
@@ -646,6 +657,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 uid: Math.random().toString(36).substr(2, 9),
                 poolName: pool.name,
                 rarity: mythicRarity,
+                value: getBaseValue('mythic', config),
                 isScoreItem: true,
                 names: [target.name],
                 icons: [target.icon],
@@ -685,6 +697,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 uid: Math.random().toString(36).substr(2, 9),
                 poolName: randomPool.name,
                 rarity: rarity,
+                value: getBaseValue(rarity.id, config),
                 names: [randomItem.name],
                 icons: [randomItem.icon],
                 poolIds: [randomPool.id],
@@ -963,7 +976,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 pendingItem.rarity.id === item.rarity.id &&
                 pendingItem.rarity.id !== 'mythic') {
                 const nextRarity = getNextRarity(item.rarity.id, config);
-                const upgradedItem = { ...item, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const upgradedItem = { ...item, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
                 const newInventory = [...inventory];
                 newInventory[itemIndex] = upgradedItem;
                 setInventory(newInventory);
@@ -1010,7 +1023,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 sourceItem.rarity.id !== 'mythic' &&
                 (!item.decay || item.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0)) {
                 const nextRarity = getNextRarity(sourceItem.rarity.id, config);
-                const upgradedItem = { ...item, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const upgradedItem = { ...item, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
                 const newInventory = [...inventory];
                 newInventory[itemIndex] = upgradedItem;
                 newInventory[selectedSlot] = null;
@@ -1150,6 +1163,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 uid: Math.random().toString(36).substr(2, 9),
                 poolName: pool.name,
                 rarity: newRarity,
+                value: getBaseValue(newRarity.id, config),
                 sterile: consumedItem.sterile,
                 decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined,
                 names: [tpl.name],
@@ -1160,7 +1174,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             let finalItem = newItem;
             if (skillState.nextDrawEnhanced) {
                 const nextRarity = getNextRarity(newItem.rarity.id, config);
-                if (nextRarity) finalItem = { ...newItem, rarity: nextRarity };
+                if (nextRarity) finalItem = { ...newItem, rarity: nextRarity, value: getBaseValue(nextRarity.id, config) };
                 setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
             }
 
@@ -1192,7 +1206,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
                 const nextRarity = getNextRarity(targetItem.rarity.id, config);
 
-                const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const upgradedItem = { ...targetItem, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
                 const newInventory = [...inventory];
                 newInventory[index] = upgradedItem;
                 setInventory(newInventory);
@@ -1273,7 +1287,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
                 const nextRarity = getNextRarity(sourceItem.rarity.id, config);
 
-                const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const upgradedItem = { ...targetItem, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
                 const newInventory = [...inventory];
                 newInventory[index] = upgradedItem;
                 newInventory[selectedSlot] = null;
@@ -1422,9 +1436,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             if (!order) return;
 
             const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
-            const minBonus = order.requiredRarity?.bonus || 0;
+            const minValue = order.requiredValue || 0;
 
-            // Find an inventory item whose names contain ALL required names and meet quality
+            // Find an inventory item whose names contain ALL required names and meet value
             const usedInThisSearch = new Set(selectedIndices);
             const candidates = inventory
                 .map((item, idx) => ({ item, idx }))
@@ -1432,7 +1446,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     item &&
                     !usedInThisSearch.has(idx) &&
                     (item.decay === undefined || item.decay > 0) &&
-                    item.rarity.bonus >= minBonus &&
+                    getItemValue(item, config) >= minValue &&
                     requiredNames.every(rn => (item.names || [item.name]).includes(rn))
                 );
 
@@ -1441,8 +1455,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 return;
             }
 
-            // Pick the best (highest rarity bonus)
-            candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus);
+            // Pick the best (highest value)
+            candidates.sort((a, b) => getItemValue(b.item, config) - getItemValue(a.item, config));
             const bestIdx = candidates[0].idx;
 
             // Toggle: if already selected, deselect; otherwise select
@@ -1461,9 +1475,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!order) return;
 
         const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
-        const minBonus = order.requiredRarity?.bonus || 0;
+        const minValue = order.requiredValue || 0;
 
-        // Find an inventory item whose names contain ALL required names and meet quality
+        // Find an inventory item whose names contain ALL required names and meet value
         const usedInThisSearch = new Set(selectedIndices);
         const candidates = inventory
             .map((item, idx) => ({ item, idx }))
@@ -1471,7 +1485,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 item &&
                 !usedInThisSearch.has(idx) &&
                 (item.decay === undefined || item.decay > 0) &&
-                item.rarity.bonus >= minBonus &&
+                getItemValue(item, config) >= minValue &&
                 requiredNames.every(rn => (item.names || [item.name]).includes(rn))
             );
 
@@ -1480,7 +1494,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const item = inventory[idx];
             if (!item) return false;
             const itemNames = item.names || [item.name];
-            return requiredNames.every(rn => itemNames.includes(rn)) && item.rarity.bonus >= minBonus;
+            return requiredNames.every(rn => itemNames.includes(rn)) && getItemValue(item, config) >= minValue;
         });
 
         if (alreadySelectedMatch !== undefined) {
@@ -1501,8 +1515,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setSelectedSlot(null);
         }
 
-        // Pick the best (highest rarity bonus)
-        candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus);
+        // Pick the best (highest value)
+        candidates.sort((a, b) => getItemValue(b.item, config) - getItemValue(a.item, config));
         const bestIdx = candidates[0].idx;
         setSelectedIndices(prev => [...prev, bestIdx]);
     };

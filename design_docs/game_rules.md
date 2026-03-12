@@ -59,14 +59,14 @@
 
 物品有 **6个品质等级**（以下数值以 JSON 配置为准）：
 
-| 品质 | ID | 回收金币 | 订单加成 | 颜色 |
+| 品质 | ID | 回收金币 | 基础价值 | 颜色 |
 |------|-----|----------|----------|------|
-| 普通 (Common) | common | 0 | +0% | 灰色 |
-| 优秀 (Uncommon) | uncommon | 0 | +10% | 绿色 |
-| 稀有 (Rare) | rare | 1 | +25% | 蓝色 |
-| 史诗 (Epic) | epic | 2 | +50% | 紫色 |
-| 传说 (Legendary) | legendary | 4 | +100% | 橙色 |
-| 神话 (Mythic) | mythic | 10 | +200% | 红色 |
+| 普通 (Common) | common | 0 | 0 | 灰色 |
+| 优秀 (Uncommon) | uncommon | 0 | 0 | 绿色 |
+| 稀有 (Rare) | rare | 1 | 1 | 蓝色 |
+| 史诗 (Epic) | epic | 2 | 2 | 紫色 |
+| 传说 (Legendary) | legendary | 4 | 4 | 橙色 |
+| 神话 (Mythic) | mythic | 10 | 10 | 红色 |
 
 ### 物品属性
 
@@ -74,6 +74,7 @@
 
 - **item_data**: 物品静态数据（名称、池子ID、图标）
 - **rarity**: 品质等级对象（含 id、bonus、recycleValue 等）
+- **value**: 基础价值（由品质决定，见品质表）
 - **sterile**: 绝育标记（无法参与合成，但可以融合）
 - **decay**: 衰变值（仅在第4阶段"熵增模式"生效，每次抽奖后 -1，降至 0 则无法使用）
 - **uid**: 唯一标识符
@@ -108,15 +109,40 @@
 
 - **名称**: 两个物品的名称以 × 连接（如"西瓜×柠檬"）
 - **图标**: 两个物品的图标组合显示
-- **品质**: 取两个输入物品中的**较高品质**（max）
+- **价值**: 所有组件的基础价值之和
+- **品质**: 由总价值和组件数量查阈值表决定（见下方阈值表）
 - 生成新的 uid
+
+### 复合物品品质阈值表
+
+融合后复合物品的显示品质由"总价值"和"组件数量"查表决定：
+
+**2组件复合物品：**
+| 价值范围 | 显示品质 |
+|----------|----------|
+| 0 | Common |
+| 1 | Uncommon |
+| 2-3 | Rare |
+| 4-7 | Epic |
+| 8-19 | Legendary |
+| 20+ | Mythic |
+
+**3组件复合物品：**
+| 价值范围 | 显示品质 |
+|----------|----------|
+| 0 | Common |
+| 1-2 | Uncommon |
+| 3-5 | Rare |
+| 6-11 | Epic |
+| 12-29 | Legendary |
+| 30+ | Mythic |
 
 ### 融合与合成的区别
 
 | 操作 | 条件 | 结果 |
 |------|------|------|
 | 合成 (Merge) | 相同名称 + 相同品质 | 品质+1，名称不变 |
-| 融合 (Fusion) | 不同名称 | 复合物品，品质=max(两者) |
+| 融合 (Fusion) | 不同名称 | 复合物品，价值=组件价值之和，品质由阈值表决定 |
 
 > 融合产生的复合物品可以用于满足订单需求：订单匹配时检查复合物品是否**包含所有要求的名称**。
 
@@ -313,49 +339,32 @@
 
 每个普通订单包含：
 - **requiredNames**: 3个指定的物品名称（订单要求包含这些名称）
-- **requiredRarity**: 一个最低品质要求（整个订单共用）
+- **requiredValue**: 一个最低价值要求（整个订单共用的数字）
 
 #### 订单匹配规则
 
 订单通过复合物品（融合产物）来完成：
 - 提交的复合物品必须**包含订单要求的所有名称**（requiredNames）
-- 复合物品的品质必须 **>= requiredRarity**
-- 旧的按物品逐一匹配品质的系统已移除
+- 复合物品的总价值必须 **>= requiredValue**
 
-#### 需求品质
+#### 需求价值
 
-订单的 requiredRarity 通过 `orderRarityWeights` 随机决定：
+订单的 requiredValue 通过 `orderValueWeights` 随机决定：
 
-| 品质 | 概率 |
-|------|------|
-| Common | 40% |
-| Uncommon | 35% |
-| Rare | 20% |
-| Epic | 5% |
-| Legendary | 0% |
-| Mythic | 0% |
+| requiredValue | 权重 |
+|---------------|------|
+| 0 | 0.4 |
+| 1 | 0.35 |
+| 2 | 0.2 |
+| 3 | 0.05 |
 
 #### 订单奖励计算
 
 **积分奖励**:
-- `baseScoreReward` = requiredRarity 对应的积分权重 + progressOffset（默认为0）
-- 积分品质权重:
+- `baseScoreReward` = requiredValue × rewardMultiplier（默认为1）+ progressOffset（默认为0）
+- 取 max(1, floor(计算结果))
 
-| 品质 | 积分权重 |
-|------|----------|
-| Common | 2 |
-| Uncommon | 2.5 |
-| Rare | 4 |
-| Epic | 8 |
-| Legendary | 16 |
-| Mythic | 32 |
-
-- 例如：订单要求 requiredRarity = Rare
-  - baseScoreReward = floor(4 + 0) = 4，取 max(1, 4) = 4
-
-**最终积分奖励** = ceil(baseScoreReward × multiplier)
-- `multiplier` = 1 + 提交物品品质加成之和
-- 如果技能"强迫症"触发（所有提交物品属于同一池子）：multiplier × 2
+**最终积分奖励** = baseScoreReward（无品质乘数加成）
 
 ### 订单刷新
 
@@ -368,7 +377,7 @@
 
 1. 进入提交模式
 2. 选择背包中的复合物品
-3. 系统自动匹配：复合物品包含订单所有 requiredNames 且品质 >= requiredRarity
+3. 系统自动匹配：复合物品包含订单所有 requiredNames 且总价值 >= requiredValue
 4. 提交成功 → 消耗物品，获得金币和积分
 5. 为每个完成的订单生成2个候选订单供选择
 6. 触发相关技能效果
@@ -629,10 +638,22 @@
 
 ### 难度影响
 
-撤离订单的需求名称数量可配置（默认 **3个名称**），难度影响需求的品质要求：
+撤离订单的需求名称数量可配置（默认 **3个名称**），难度影响需求的价值要求：
 
-- 当配置了 `difficultyRequirements` 时：难度等级直接映射到一个固定的品质ID（如难度1→Uncommon，难度2→Rare等），作为订单的 requiredRarity
-- 未配置 `difficultyRequirements` 时：退回到按权重随机决定品质
+每个难度等级映射到一个固定的 `requiredValue`（在 `difficultyRequiredValues` 中配置）：
+
+| 难度 | 所需价值 |
+|------|----------|
+| 1 | 0 |
+| 2 | 1 |
+| 3 | 2 |
+| 4 | 3 |
+| 5 | 4 |
+| 6 | 6 |
+| 7 | 8 |
+| 8 | 12 |
+| 9 | 16 |
+| 10 | 20 |
 
 ### 撤离订单特殊规则
 
@@ -654,27 +675,13 @@
 ### 积分计算
 
 - 仅 **普通订单** 给予积分奖励（撤离订单不给积分）
-- `baseScoreReward` = requiredRarity 对应的积分权重 + progressOffset
-- `finalScoreReward` = ceil(baseScoreReward × multiplier)
-  - `multiplier` = 1 + Σ(提交物品的品质加成)
-  - 强迫症触发时：multiplier × 2
-
-### 积分品质权重
-
-| 品质 | 积分权重 |
-|------|----------|
-| Common | 2 |
-| Uncommon | 2.5 |
-| Rare | 4 |
-| Epic | 8 |
-| Legendary | 16 |
-| Mythic | 32 |
+- `baseScoreReward` = max(1, floor(requiredValue × rewardMultiplier + progressOffset))
+- `finalScoreReward` = baseScoreReward（无品质乘数加成）
 
 ### 积分进度
 
 - **目标积分**: 无上限 (`targetProgress: Infinity`)
 - 积分累积推动游戏进度
-- 积分进度可影响技能选择触发和难度调整
 
 ---
 
@@ -777,14 +784,14 @@
 ┌─────────────────────────────────────┐
 │    验证所有选中物品                  │
 │  - 复合物品须包含订单所有名称        │
-│  - 品质须 >= requiredRarity         │
+│  - 总价值须 >= requiredValue         │
 │  - 衰变为0的物品不可提交            │
 └─────────────┬───────────────────────┘
               │ 验证通过
               ▼
 ┌─────────────────────────────────────┐
 │    计算每个订单的奖励                │
-│  - 积分: baseScoreReward × 乘数     │
+│  - 积分: baseScoreReward             │
 └─────────────┬───────────────────────┘
               │
               ▼
@@ -826,16 +833,16 @@
 | 精准的   | 2      |
 | 有的放矢的 | 4      |
 
-### 品质加成与回收
+### 品质与回收
 
-| 品质        | 回收金币 | 订单加成  | 积分权重 |
-| --------- | ---- | ----- | ---- |
-| Common    | 0    | +0%   | 2    |
-| Uncommon  | 0    | +10%  | 2.5  |
-| Rare      | 1    | +25%  | 4    |
-| Epic      | 2    | +50%  | 8    |
-| Legendary | 4    | +100% | 16   |
-| Mythic    | 10   | +200% | 32   |
+| 品质        | 回收金币 | 基础价值 |
+| --------- | ---- | ------ |
+| Common    | 0    | 0      |
+| Uncommon  | 0    | 0      |
+| Rare      | 1    | 1      |
+| Epic      | 2    | 2      |
+| Legendary | 4    | 4      |
+| Mythic    | 10   | 10     |
 
 ---
 

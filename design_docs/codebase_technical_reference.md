@@ -205,14 +205,16 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 
 ### 4.4 `INITIAL_RARITY_CONFIG`（6 级品质）
 
-| id | name | bonus | recycleValue | color (Tailwind) |
-|----|------|-------|-------------|-----------------|
-| `common` | 普通 | 0 | 0 | gray-400 |
-| `uncommon` | 优秀 | 0.1 | 0 | green-400 |
-| `rare` | 稀有 | 0.25 | 1 | blue-400 |
-| `epic` | 史诗 | 0.5 | 2 | purple-400 |
-| `legendary` | 传说 | 1.0 | 4 | orange-400 |
-| `mythic` | 神话 | 2.0 | 10 | red-400 |
+| id | name | bonus | recycleValue | baseValue | color (Tailwind) |
+|----|------|-------|-------------|-----------|-----------------|
+| `common` | 普通 | 0 | 0 | 0 | gray-400 |
+| `uncommon` | 优秀 | 0.1 | 0 | 0 | green-400 |
+| `rare` | 稀有 | 0.25 | 1 | 1 | blue-400 |
+| `epic` | 史诗 | 0.5 | 2 | 2 | purple-400 |
+| `legendary` | 传说 | 1.0 | 4 | 4 | orange-400 |
+| `mythic` | 神话 | 2.0 | 10 | 10 | red-400 |
+
+> `baseValue` 来自 `config.valueSystem.baseValues`，不在品质对象本身中定义。
 
 > 注意：`constants.js` 默认值可能被 JSON 配置覆盖（通过 App.jsx 的导入功能）。`game_rules.md` 中的数值以 JSON 配置为准。
 
@@ -232,14 +234,12 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 {
   difficulty: { initial: 1, increaseOnNewOrder: 1, decreaseOnScoreOrder: 1, min: 1, max: 10 },
   reqCountMin: 1, reqCountMax: 4,
-  emergencyNameCount: 3,  // 撤离订单需求的名称数量
-  baseRarityWeights: { ... },
+  emergencyNameCount: 3,
   difficultyReqCountWeights: { 1-10: { 2-4: weight } },
-  difficultyRarityWeights: { 1-10: { rarities } },
-  difficultyRequirements: {
-      // 键=难度等级，值=品质 ID 字符串（如 'common', 'rare'）
-      // 配置后该难度的撤离订单使用固定品质而非随机权重
-      // 示例: 1: 'common', 3: 'uncommon', 5: 'rare'
+  difficultyRarityWeights: { 1-10: { rarities } },  // still used for draw rarity
+  difficultyRequiredValues: {
+      // 键=难度等级，值=所需价值数字
+      1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 6, 7: 8, 8: 12, 9: 16, 10: 20
   }
 }
 ```
@@ -250,7 +250,7 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 
 ```js
 { targetProgress: Infinity, progressOffset: 0,
-  rarityWeights: { common:0.5, uncommon:1.0, rare:1.5, epic:2.0, legendary:3.0, mythic:4.0 } }
+  orderValueWeights: { 0: 0.4, 1: 0.35, 2: 0.2, 3: 0.05 } }
 ```
 
 ### 4.8 `INITIAL_GAME_CONFIG`（总配置对象）
@@ -265,8 +265,22 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
   stages: INITIAL_STAGE_CONFIG,
   progress: SCORE_PROGRESS_CONFIG,
   emergency: EMERGENCY_ORDER_CONFIG,
+  valueSystem: VALUE_SYSTEM_CONFIG,
   enabledSkillIds: [/* 全部13个技能ID */],
   global: { refreshCost: 5, initialGold: 30, initialRefreshCount: 4, maxRefreshCount: 4 }
+}
+```
+
+### 4.9 `VALUE_SYSTEM_CONFIG`（价值系统配置）
+
+```js
+{
+  baseValues: { common: 0, uncommon: 0, rare: 1, epic: 2, legendary: 4, mythic: 10 },
+  compositeQualityThresholds: {
+    2: [0, 1, 2, 4, 8, 20],   // 2组件: Common≥0, Uncommon≥1, Rare≥2, Epic≥4, Legendary≥8, Mythic≥20
+    3: [0, 1, 3, 6, 12, 30],  // 3组件
+  },
+  rewardMultiplier: 1,  // baseScoreReward = requiredValue × rewardMultiplier
 }
 ```
 
@@ -288,23 +302,34 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 
 Fisher-Yates 洗牌后取前 `count` 个。
 
-### `rollRequirementRarity(config, stageConfig, isEmergency, difficulty) → RarityId`
+### `getBaseValue(rarityId, config) → number`
 
-确定订单需求的品质：
-- 撤离订单：先查 `difficultyRequirements[difficulty]`，若存在则直接返回对应固定品质；否则查 `difficultyRarityWeights[difficulty]`，fallback 到 `baseRarityWeights`，再 fallback 到 `stageConfig.orderRarityWeights`
-- 普通订单：使用 `stageConfig.orderRarityWeights`
-- 累积概率法随机选取
+Returns the base value for a single item's rarity from `config.valueSystem.baseValues`.
+
+### `getCompositeRarity(totalValue, componentCount, config) → Rarity`
+
+Looks up the composite item's display rarity from threshold table based on total value and component count.
+
+### `getItemValue(item, config) → number`
+
+Returns item's value: uses `item.value` if present, otherwise calculates from rarity.
+
+### `rollRequiredValue(config, isEmergency, emergencyDifficulty) → number`
+
+Generates requiredValue for an order:
+- Emergency: looks up `config.emergency.difficultyRequiredValues[difficulty]`
+- Normal: weighted random from `config.progress.orderValueWeights`
 
 ### `generateOrder(allNormalItems, config, hasSkill, stageConfig, isEmergency, emergencyDifficulty) → Order`
 
 基于名称的订单生成流程：
 1. 确定名称数量 `nameCount`：撤离订单使用 `config.emergency.emergencyNameCount`（默认3），普通订单固定3
 2. 从所有物品中随机选 `nameCount` 个不重复名称的物品
-3. 调用 `rollRequirementRarity` 确定统一品质要求
-4. 计算 `baseScoreReward = max(1, floor(rarityWeight + offset))`（仅普通订单）
-5. 返回 `{ id, requiredNames, requiredIcons, requiredPoolIds, requiredRarity, baseScoreReward, isScoreOrder, requirements[] }`
+3. 调用 `rollRequiredValue` 确定统一价值要求
+4. 计算 `baseScoreReward = max(1, floor(requiredValue × rewardMultiplier + offset))`（仅普通订单）
+5. 返回 `{ id, requiredNames, requiredIcons, requiredPoolIds, requiredValue, baseScoreReward, isScoreOrder, requirements[] }`
 
-> **注意**：订单现在使用统一品质 `requiredRarity` 而非每个需求项单独品质。`requirements` 数组保留用于向后兼容。
+> **注意**：订单现在使用统一价值 `requiredValue` 而非品质要求。`requirements` 数组保留用于向后兼容。
 
 ### `rollRarity(config, affixKey, gold, hasSkill, skillState, stageConfig) → Rarity`
 
@@ -401,7 +426,7 @@ skillState = {
 | `maxRequirementRarityMap` | `orders`, `emergencyOrders`, `config.rarity` | 物品名→所有订单中该物品最高需求品质的 bonus |
 | `assignedItemUids` | `orderSlotAssignments` | 已分配物品 UID 集合 |
 | `phantomMarks` | `orders`, `emergencyOrders`, `orderSlotAssignments`, `inventory` | 交叉订单幻影标记：`{ "orderIdx-reqIdx": { orderIndex, reqIndex, itemUid }[] }` |
-| `satisfiableOrders` | `selectedIndices`, `inventory`, `orders`, `emergencyOrders` | 当前选中物品可满足的订单列表（仅在提交/撤离模式计算）。匹配逻辑：物品的 `names` 数组包含订单的全部 `requiredNames` 且品质 >= `requiredRarity` |
+| `satisfiableOrders` | `selectedIndices`, `inventory`, `orders`, `emergencyOrders` | 当前选中物品可满足的订单列表（仅在提交/撤离模式计算）。匹配逻辑：物品的 `names` 数组包含订单的全部 `requiredNames` 且价值 >= `requiredValue` |
 | `potentialSatisfiableOrders` | `inventory`, `orders`, `emergencyOrders` | 全背包物品可满足的订单（始终计算，用于预览），使用同样的名称包含匹配 |
 | `totalRecycleValue` | `selectedIndices`, `inventory` | 回收模式下选中物品的总回收金币值 |
 | `selectedItemNames` | `selectedIndices`, `inventory` | 选中物品名称集合 |
@@ -466,7 +491,8 @@ skillState = {
 
 **`fuseItems(item1, item2) → Item`**：
 - 合并 `names`、`icons`、`poolIds` 数组
-- 品质取两者中较高的（按 bonus 比较）
+- 价值 = 所有组件基础价值之和
+- 品质由总价值和组件数量查 `compositeQualityThresholds` 阈值表决定
 - 名称用 `×` 连接（如 `西瓜×柠檬`）
 - 返回新物品（新 uid、`sterile: false`）
 
@@ -542,9 +568,7 @@ skillState = {
 
 **`handleConfirmSubmission()`**：
 1. 验证 `satisfiableOrders.length > 0`
-2. 对每个可满足的订单计算奖励：
-   - `baseScoreReward` × `multiplier`（1 + Σ 物品品质 bonus）
-   - `ocd` 技能：同池物品时 multiplier ×2
+2. 对每个可满足的订单累加 baseScoreReward
    - `big_order_expert`：4 需求 +5 金币
    - `hard_order_expert`：含 Epic+ 需求 +10 金币
    - `poverty_relief`：金币 <20 时 +5 金币
@@ -684,7 +708,7 @@ skillState = {
 **`handleImportConfig(e)`**：解析上传的 JSON，**保护性合并**：
 - `stages`：仅合并 `rarityWeights`、`orderRarityWeights`、`orderCountWeights`、`baseRewards`、`entropyDecayValue`
 - `affixes`：按 key 匹配，仅合并 `cost` 和 `rarityWeights`
-- `progress`、`emergency`、`global`：浅层 spread 合并
+- `progress`、`emergency`、`global`、`valueSystem`：浅层 spread 合并
 - `rarity`：按 id 匹配，仅合并 `bonus` 和 `recycleValue`
 - **不覆盖**：`pools`、`enabledSkillIds`
 
@@ -693,14 +717,17 @@ skillState = {
 一个 85vh 可滚动模态框，包含以下配置区：
 1. 调试物品生成（选择池/物品/品质，点击添加）
 2. 撤离订单配置（难度系统）
-3. 撤离订单难度精确需求配置（1-10级折叠面板）
-4. 品质概率表（`rarityWeights` + `orderRarityWeights`）
-5. 订单数量权重与奖励
-6. 杂项参数（刷新费用、初始金币等）
-7. 词缀配置（每个词缀的费用和自定义品质权重）
-8. 技能启用/禁用
-9. 调试技能选择
-10. 品质详情（bonus 和 recycleValue）
+3. 撤离订单难度配置（使用 requiredValue 数字输入而非品质下拉）
+4. 品质概率表（仅抽卡品质概率，无订单需求概率）
+5. 普通订单所需价值权重配置
+6. 订单数量权重与奖励
+7. 杂项参数（刷新费用、初始金币等）
+8. 词缀配置（每个词缀的费用和自定义品质权重）
+9. 技能启用/禁用
+10. 调试技能选择
+11. 品质详情（bonus、recycleValue、基础价值）
+12. 复合物品品质阈值表
+13. 订单奖励系数
 
 ### 渲染结构
 
@@ -815,6 +842,8 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 
 **Props**（约 25 个）：完整的订单数据 + 所有交互回调 + UI 状态。
 
+> OrderCard 现在显示 `requiredValue` 而非 `requiredRarity`。
+
 **核心特性**：
 
 **奖励预览 memo（`rewardInfo`）**：
@@ -847,6 +876,8 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 ### 9.3 InventorySlot.jsx
 
 **Props**（约 23 个）：物品数据 + 所有视觉状态标志 + 交互回调。
+
+> InventorySlot 现在在价值 > 0 时于右下角显示琥珀色价值 badge。
 
 **物品槽视觉状态**：
 
@@ -969,15 +1000,15 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
 输出: { index, finalScoreReward, isScoreOrder, matchedItemUid, requiredNames }[]
 
 对每个订单:
-  1. 获取 requiredNames[] 和 requiredRarity.bonus（统一品质门槛）
+  1. 获取 requiredNames[] 和 requiredValue（统一价值门槛）
   2. 在选中物品中找最佳匹配：
      - 物品未被其他订单占用（usedItemUids）
      - 物品未衰变（decay > 0 或无 decay）
      - 名称包含匹配：物品的 names[] 包含订单的全部 requiredNames
-     - 品质满足：item.rarity.bonus >= requiredRarity.bonus
-     - 优先选品质最高的物品
+     - 价值满足：getItemValue(item) >= requiredValue
+     - 优先选价值最高的物品
   3. 每个订单最多匹配一个物品（一个融合物品可满足一个多名称订单）
-  4. 计算 finalScoreReward = ceil(baseScoreReward × (1 + item.rarity.bonus))
+  4. finalScoreReward = baseScoreReward（无品质乘数）
 ```
 
 ### 12.3 幻影标记算法
@@ -994,10 +1025,8 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
 ### 12.4 积分计算公式
 
 ```
-baseScoreReward = max(1, floor(Σ req.rarityScoreWeight + progressOffset))
-multiplier = 1 + Σ submittedItem.rarity.bonus
-if (ocd && 全部同池) multiplier *= 2
-finalScore = ceil(baseScoreReward × multiplier)
+baseScoreReward = max(1, floor(requiredValue × rewardMultiplier + progressOffset))
+finalScore = baseScoreReward（无品质乘数加成）
 ```
 
 ---

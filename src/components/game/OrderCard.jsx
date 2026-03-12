@@ -43,7 +43,7 @@ const OrderCardBase = ({
         );
     }
 
-    const { id, requiredNames, requiredIcons, requirements, baseScoreReward, requiredRarity } = order;
+    const { id, requiredNames, requiredIcons, requirements, baseScoreReward, requiredValue } = order;
 
     // Get the display names and icons from the order
     const displayNames = requiredNames || requirements?.map(r => r.name) || [];
@@ -205,17 +205,16 @@ const OrderCardBase = ({
                                 </React.Fragment>
                             );
                         })}
-                        {/* Quality requirement badge */}
-                        {requiredRarity && (
+                        {/* Value requirement badge */}
+                        {requiredValue > 0 && (
                             <>
                                 <span className={`text-slate-300 font-black ${isCandidate ? 'text-[10px]' : 'text-xs'}`}>≥</span>
                                 <div className={`
                                     flex items-center gap-1 rounded border-2 transition-all duration-200
                                     ${isCandidate ? 'px-1.5 py-0.5' : 'px-2 py-1'}
-                                    ${requiredRarity.color}
+                                    border-amber-400 bg-amber-50 text-amber-700
                                 `}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${requiredRarity.dotColor}`} />
-                                    <span className={`font-bold ${isCandidate ? 'text-[10px]' : 'text-xs'}`}>{t(requiredRarity.name)}</span>
+                                    <span className={`font-black ${isCandidate ? 'text-[10px]' : 'text-xs'}`}>{t("价值")} {requiredValue}</span>
                                 </div>
                             </>
                         )}

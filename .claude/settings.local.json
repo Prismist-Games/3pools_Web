@@ -26,7 +26,8 @@
       "Bash(python:*)",
       "Bash(cp:*)",
       "WebFetch(domain:github.com)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(grep -n \"export.*generateOrder\\\\|function generateOrder\\\\|const generateOrder\" /c/Users/Linke/Desktop/1.2Antigravity_attempt/src/utils/*.js)"
     ]
   }
 }

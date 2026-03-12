@@ -86,6 +86,7 @@ export const EN_TRANSLATIONS = {
     "已完成": "Completed",
     "离开关卡时未完成扣1血": "Lose 1 HP if stage requirements unmet",
     "品质得分加成": "Rarity Score Bonus",
+    "品质基础价值": "Rarity Base Value",
 
     // --- Rarity ---
     "普通": "Common",
@@ -276,4 +277,7 @@ export const EN_TRANSLATIONS = {
     "种类过载": "Type Overload",
     "待处理": "Pending",
     "离开关卡需求配置": "Stage Requirement Config",
+
+    // --- Value System ---
+    "价值": "Value",
 };

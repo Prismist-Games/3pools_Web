@@ -120,6 +120,12 @@ export const InventorySlot = ({
                                     <Star size={8} fill="currentColor" className={item.rarity?.color ? item.rarity.color.split(' ')[2] : 'text-slate-400'} />
                                 </div>
                             )}
+                            {/* 价值显示 */}
+                            {(item.value !== undefined && item.value > 0) && (
+                                <div className="absolute bottom-0 right-0 bg-amber-500/90 text-white rounded-tl-lg px-1.5 py-0.5 z-10">
+                                    <span className="text-sm font-black leading-none">{item.value}</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Status Icons */}

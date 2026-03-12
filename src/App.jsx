@@ -99,6 +99,7 @@ export default function App() {
                     if (imported.progress) next.progress = { ...prev.progress, ...imported.progress };
                     if (imported.emergency) next.emergency = { ...prev.emergency, ...imported.emergency };
                     if (imported.global) next.global = { ...prev.global, ...imported.global };
+                    if (imported.valueSystem) next.valueSystem = { ...prev.valueSystem, ...imported.valueSystem };
                     // 4. 特殊字段：品质属性 (Rarity Details)
                     // 只继承加成（bonus）和回收价值（recycleValue），不继承 id, name, color
                     if (imported.rarity) {
@@ -339,7 +340,7 @@ export default function App() {
 
                                             {/* Note about difficulty */}
                                             <div className="text-[9px] text-slate-400 bg-slate-50 p-2 rounded border border-slate-100 mb-3">
-                                                💡 提示：难度等级的详细配置（每个难度的需求数量和品质）在 <code className="bg-white px-1 rounded">constants.js</code> 中的 <code className="bg-white px-1 rounded">difficultyReqCountWeights</code> 和 <code className="bg-white px-1 rounded">difficultyRarityWeights</code> 里配置
+                                                💡 提示：每个难度的需求数量权重在 <code className="bg-white px-1 rounded">constants.js</code> 中的 <code className="bg-white px-1 rounded">difficultyReqCountWeights</code> 里配置
                                             </div>
 
                                             {/* Fallback configs - collapsed by default */}
@@ -492,7 +493,7 @@ export default function App() {
                                     🎚️ 离开关卡难度等级配置 (1-{config.emergency?.difficulty?.maxDifficulty || 10})
                                 </h4>
                                 <div className="text-xs text-slate-600 mb-4 bg-white/60 p-3 rounded-lg border border-orange-100">
-                                    为每个难度等级配置精确的品质需求。难度越高，可以设置更高品质的要求。
+                                    为每个难度等级配置所需价值。难度越高，可以设置更高的价值要求。
                                     <br />
                                     <span className="text-orange-600 font-bold">💡 当前最大难度: {config.emergency?.difficulty?.maxDifficulty || 10}，可在上方"难度系统"中调整</span>
                                 </div>
@@ -532,71 +533,33 @@ export default function App() {
                                             </summary>
 
                                             <div className="p-4 border-t border-orange-100 space-y-4">
-                                                {/* Fixed Quality Requirement Configuration */}
+                                                {/* Required Value Configuration */}
                                                 <div>
-                                                    <div className="flex items-center gap-2 mb-2">
+                                                    <div className="flex items-center gap-3 mb-2">
                                                         <label className="text-xs font-bold text-purple-700">
-                                                            🎯 固定品质需求
+                                                            🎯 所需价值
                                                         </label>
-                                                        <select
-                                                            value={config.emergency?.difficultyRequirements?.[difficulty] || ''}
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="1"
+                                                            className="w-20 p-1.5 border rounded text-center font-mono text-sm font-bold"
+                                                            value={config.emergency?.difficultyRequiredValues?.[difficulty] ?? 0}
                                                             onChange={(e) => {
-                                                                const currentRequirements = { ...(config.emergency?.difficultyRequirements || {}) };
-                                                                if (e.target.value) {
-                                                                    currentRequirements[difficulty] = e.target.value;
-                                                                } else {
-                                                                    delete currentRequirements[difficulty];
-                                                                }
+                                                                const val = parseInt(e.target.value) || 0;
+                                                                const currentValues = { ...(config.emergency?.difficultyRequiredValues || {}) };
+                                                                currentValues[difficulty] = val;
                                                                 setConfig({
                                                                     ...config,
                                                                     emergency: {
                                                                         ...config.emergency,
-                                                                        difficultyRequirements: currentRequirements
+                                                                        difficultyRequiredValues: currentValues
                                                                     }
                                                                 });
                                                             }}
-                                                            className="flex-1 p-1.5 border rounded text-xs font-bold"
-                                                        >
-                                                            <option value="">随机（使用权重）</option>
-                                                            <option value="common">普通</option>
-                                                            <option value="uncommon">优秀</option>
-                                                            <option value="rare">稀有</option>
-                                                            <option value="epic">史诗</option>
-                                                            <option value="legendary">传说</option>
-                                                        </select>
+                                                        />
+                                                        <span className="text-[10px] text-slate-400">融合物品的总价值需 ≥ 此值</span>
                                                     </div>
-                                                </div>
-
-                                                {/* Quick preset buttons */}
-                                                <div className="pt-2 border-t flex gap-2 flex-wrap">
-                                                    <button
-                                                        onClick={() => {
-                                                            // 恢复默认
-                                                            const defaults = {
-                                                                1: { reqCount: { 1: 0.5, 2: 0.3, 3: 0.15, 4: 0.05 }, rarity: { common: 0.5, uncommon: 0.3, rare: 0.15, epic: 0.04, legendary: 0.01 } },
-                                                                5: { reqCount: { 1: 0.1, 2: 0.25, 3: 0.35, 4: 0.3 }, rarity: { common: 0.3, uncommon: 0.28, rare: 0.25, epic: 0.12, legendary: 0.05 } },
-                                                                10: { reqCount: { 1: 0, 2: 0, 3: 0.2, 4: 0.8 }, rarity: { common: 0.05, uncommon: 0.1, rare: 0.35, epic: 0.3, legendary: 0.2 } }
-                                                            };
-                                                            const preset = defaults[difficulty] || defaults[1];
-                                                            setConfig({
-                                                                ...config,
-                                                                emergency: {
-                                                                    ...config.emergency,
-                                                                    difficultyReqCountWeights: {
-                                                                        ...difficultyReqCountWeights,
-                                                                        [difficulty]: preset.reqCount
-                                                                    },
-                                                                    difficultyRarityWeights: {
-                                                                        ...difficultyRarityWeights,
-                                                                        [difficulty]: preset.rarity
-                                                                    }
-                                                                }
-                                                            });
-                                                        }}
-                                                        className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded font-bold"
-                                                    >
-                                                        恢复默认
-                                                    </button>
                                                 </div>
                                             </div>
                                         </details>
@@ -606,9 +569,11 @@ export default function App() {
 
                             {/* 3. 概率权重配置 */}
                             <section>
-                                <h4 className="text-lg font-bold mb-4 border-l-4 border-blue-500 pl-3">掉落与需求概率 (Quality Rates)</h4>
-                                <div className="text-xs text-slate-500 mb-2">配置物品掉落和订单需求的品质分布权重。</div>
-                                <div className="overflow-x-auto">
+                                <h4 className="text-lg font-bold mb-4 border-l-4 border-blue-500 pl-3">掉落概率 & 订单价值 (Quality & Value)</h4>
+
+                                {/* 物品掉落概率 */}
+                                <div className="text-xs text-slate-500 mb-2">配置物品掉落的品质分布权重。</div>
+                                <div className="overflow-x-auto mb-6">
                                     <table className="w-full text-sm border-separate border-spacing-y-2">
                                         <thead className="text-slate-500 text-left">
                                             <tr>
@@ -622,7 +587,6 @@ export default function App() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {/* Rarity Drop Rates */}
                                             <tr className="bg-slate-50 rounded-lg overflow-hidden">
                                                 <td className="p-3">
                                                     <div className="font-bold flex items-center gap-2">
@@ -645,41 +609,50 @@ export default function App() {
                                                     </td>
                                                 ))}
                                             </tr>
-                                            {/* Order Req Rates */}
-                                            <tr className="bg-slate-50 rounded-lg overflow-hidden">
-                                                <td className="p-3">
-                                                    <div className="font-bold flex items-center gap-2">
-                                                        <Flag size={16} className="text-blue-500" /> 订单需求概率
-                                                    </div>
-                                                </td>
-                                                {['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].map(rKey => (
-                                                    <td key={rKey} className="p-2 text-center">
-                                                        <input
-                                                            type="number" step="0.05"
-                                                            className="w-16 p-1 border rounded text-center bg-white"
-                                                            value={config.stages[0].orderRarityWeights?.[rKey] !== undefined
-                                                                ? config.stages[0].orderRarityWeights[rKey]
-                                                                : config.stages[0].rarityWeights[rKey]}
-                                                            onChange={(e) => {
-                                                                const val = parseFloat(e.target.value);
-                                                                const newStages = [...config.stages];
-                                                                // 确保 orderRarityWeights 存在并包含所有品质
-                                                                const currentOrderWeights = newStages[0].orderRarityWeights || { ...newStages[0].rarityWeights };
-                                                                newStages[0] = {
-                                                                    ...newStages[0],
-                                                                    orderRarityWeights: {
-                                                                        ...currentOrderWeights,
-                                                                        [rKey]: val
-                                                                    }
-                                                                };
-                                                                setConfig({ ...config, stages: newStages });
-                                                            }}
-                                                        />
-                                                    </td>
-                                                ))}
-                                            </tr>
                                         </tbody>
                                     </table>
+                                </div>
+
+                                {/* 普通订单所需价值权重 */}
+                                <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                                    <h5 className="text-sm font-bold text-amber-700 mb-3 flex items-center gap-2">
+                                        <Flag size={16} className="text-amber-500" /> 普通订单所需价值权重
+                                    </h5>
+                                    <div className="text-[10px] text-amber-600 mb-3">配置普通订单生成时 requiredValue 的概率分布。键=价值, 值=权重。</div>
+                                    <div className="flex flex-wrap gap-3">
+                                        {Object.entries(config.progress?.orderValueWeights || {}).map(([val, weight]) => (
+                                            <div key={val} className="flex items-center gap-1 bg-white px-3 py-2 rounded-lg border border-amber-200">
+                                                <span className="text-xs font-bold text-amber-700">价值 {val}:</span>
+                                                <input
+                                                    type="number" step="0.05" min="0"
+                                                    className="w-16 p-1 border rounded text-center bg-amber-50 font-mono text-sm"
+                                                    value={weight}
+                                                    onChange={(e) => {
+                                                        const newWeights = { ...(config.progress?.orderValueWeights || {}) };
+                                                        newWeights[val] = parseFloat(e.target.value) || 0;
+                                                        setConfig({
+                                                            ...config,
+                                                            progress: { ...config.progress, orderValueWeights: newWeights }
+                                                        });
+                                                    }}
+                                                />
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => {
+                                                const currentWeights = { ...(config.progress?.orderValueWeights || {}) };
+                                                const maxKey = Math.max(...Object.keys(currentWeights).map(Number), -1);
+                                                currentWeights[maxKey + 1] = 0;
+                                                setConfig({
+                                                    ...config,
+                                                    progress: { ...config.progress, orderValueWeights: currentWeights }
+                                                });
+                                            }}
+                                            className="text-xs px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg font-bold border border-amber-300"
+                                        >
+                                            + 添加价值等级
+                                        </button>
+                                    </div>
                                 </div>
                             </section>
 
@@ -1021,12 +994,13 @@ export default function App() {
                             {/* 品质基础参数 */}
                             <section>
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-purple-500 pl-3">品质属性 (Rarity Details)</h4>
-                                <div className="text-xs text-slate-500 mb-2">配置各品质的加成倍率和回收价值。</div>
+                                <div className="text-xs text-slate-500 mb-2">配置各品质的基础价值、加成倍率和回收价值。</div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
                                         <thead className="bg-slate-100 text-slate-500 rounded-t-lg">
                                             <tr>
                                                 <th className="p-2 text-left">品质名称</th>
+                                                <th className="p-2 text-left">基础价值</th>
                                                 <th className="p-2 text-left">奖励加成 (Bonus)</th>
                                                 <th className="p-2 text-left">回收金币</th>
                                             </tr>
@@ -1035,6 +1009,26 @@ export default function App() {
                                             {config.rarity.map((r, idx) => (
                                                 <tr key={r.id} className="border-b">
                                                     <td className="p-2 font-bold">{r.name}</td>
+                                                    <td className="p-2">
+                                                        <input
+                                                            type="number" step="1" min="0"
+                                                            value={config.valueSystem?.baseValues?.[r.id] ?? 0}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value) || 0;
+                                                                setConfig({
+                                                                    ...config,
+                                                                    valueSystem: {
+                                                                        ...config.valueSystem,
+                                                                        baseValues: {
+                                                                            ...(config.valueSystem?.baseValues || {}),
+                                                                            [r.id]: val
+                                                                        }
+                                                                    }
+                                                                });
+                                                            }}
+                                                            className="border rounded w-20 px-1 py-0.5 bg-amber-50 border-amber-300 font-bold"
+                                                        />
+                                                    </td>
                                                     <td className="p-2">
                                                         <input
                                                             type="number" step="0.1"
@@ -1063,6 +1057,59 @@ export default function App() {
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+
+                                {/* 复合物品品质阈值表 */}
+                                <div className="mt-6 bg-purple-50 p-4 rounded-xl border border-purple-200">
+                                    <h5 className="text-sm font-bold text-purple-700 mb-3">复合物品品质阈值表</h5>
+                                    <div className="text-[10px] text-purple-600 mb-3">
+                                        融合后复合物品的显示品质由"总价值"和"组件数量"查此表决定。每行数字为该品质的最低价值起点。
+                                    </div>
+                                    {Object.entries(config.valueSystem?.compositeQualityThresholds || {}).map(([count, thresholds]) => (
+                                        <div key={count} className="mb-3 bg-white p-3 rounded-lg border border-purple-100">
+                                            <div className="text-xs font-bold text-purple-700 mb-2">{count} 组件复合物品</div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {['普通', '优秀', '稀有', '史诗', '传说', '神话'].map((name, i) => (
+                                                    <div key={i} className="flex items-center gap-1">
+                                                        <span className="text-[10px] font-bold text-slate-500">{name}≥</span>
+                                                        <input
+                                                            type="number" min="0" step="1"
+                                                            className="w-14 p-1 border rounded text-center font-mono text-sm"
+                                                            value={thresholds[i] ?? 0}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value) || 0;
+                                                                const newThresholds = { ...(config.valueSystem?.compositeQualityThresholds || {}) };
+                                                                const arr = [...(newThresholds[count] || [0, 1, 3, 6, 12, 30])];
+                                                                arr[i] = val;
+                                                                newThresholds[count] = arr;
+                                                                setConfig({
+                                                                    ...config,
+                                                                    valueSystem: { ...config.valueSystem, compositeQualityThresholds: newThresholds }
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {/* 奖励系数 */}
+                                    <div className="mt-3 flex items-center gap-3 bg-white p-3 rounded-lg border border-purple-100">
+                                        <span className="text-xs font-bold text-purple-700">订单奖励系数</span>
+                                        <input
+                                            type="number" step="0.1" min="0"
+                                            className="w-16 p-1 border rounded text-center font-mono text-sm"
+                                            value={config.valueSystem?.rewardMultiplier ?? 1}
+                                            onChange={(e) => {
+                                                setConfig({
+                                                    ...config,
+                                                    valueSystem: { ...config.valueSystem, rewardMultiplier: parseFloat(e.target.value) || 1 }
+                                                });
+                                            }}
+                                        />
+                                        <span className="text-[10px] text-slate-400">baseScoreReward = requiredValue × 此系数</span>
+                                    </div>
                                 </div>
                             </section>
 

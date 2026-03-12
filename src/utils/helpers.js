@@ -26,6 +26,69 @@ export const getRandomItems = (array, count) => {
     return shuffled.slice(0, count);
 };
 
+// --- 价值系统工具函数 ---
+
+// 获取单个物品的基础价值（由品质决定）
+export const getBaseValue = (rarityId, config) => {
+    const baseValues = config.valueSystem?.baseValues || {};
+    return baseValues[rarityId] || 0;
+};
+
+// 根据总价值和组件数量，查阈值表得到显示品质
+export const getCompositeRarity = (totalValue, componentCount, config) => {
+    const thresholds = config.valueSystem?.compositeQualityThresholds || {};
+    const rarityOrder = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+
+    // 找到匹配的组件数量阈值表，如果没有精确匹配则使用最大的
+    let breakpoints = thresholds[componentCount];
+    if (!breakpoints) {
+        const keys = Object.keys(thresholds).map(Number).sort((a, b) => a - b);
+        const maxKey = keys[keys.length - 1];
+        breakpoints = thresholds[maxKey] || [0, 1, 3, 6, 12, 30];
+    }
+
+    // 从高到低查找匹配的品质
+    let resultId = 'common';
+    for (let i = breakpoints.length - 1; i >= 0; i--) {
+        if (totalValue >= breakpoints[i]) {
+            resultId = rarityOrder[i] || 'common';
+            break;
+        }
+    }
+
+    return config.rarity.find(r => r.id === resultId) || config.rarity[0];
+};
+
+// 计算物品的价值（单个或复合）
+export const getItemValue = (item, config) => {
+    if (!item) return 0;
+    // 如果物品已经有 value 属性，直接使用
+    if (item.value !== undefined) return item.value;
+    // 否则从品质计算
+    return getBaseValue(item.rarity?.id, config);
+};
+
+// 随机生成订单的 requiredValue
+export const rollRequiredValue = (config, isEmergency = false, emergencyDifficulty = 1) => {
+    // 撤离订单：从难度映射表取固定值
+    if (isEmergency && config.emergency?.difficultyRequiredValues?.[emergencyDifficulty] !== undefined) {
+        return config.emergency.difficultyRequiredValues[emergencyDifficulty];
+    }
+
+    // 普通订单：按权重随机
+    const valueWeights = config.progress?.orderValueWeights || { 0: 0.4, 1: 0.35, 2: 0.2, 3: 0.05 };
+    const entries = Object.entries(valueWeights).map(([v, w]) => [Number(v), w]);
+    const totalWeight = entries.reduce((sum, [, w]) => sum + w, 0);
+
+    const r = Math.random() * totalWeight;
+    let accumulated = 0;
+    for (const [value, weight] of entries) {
+        accumulated += weight;
+        if (r <= accumulated) return value;
+    }
+    return 0;
+};
+
 export const rollRequirementRarity = (config, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
     // Check fixed difficulty requirements first (exact rarity per difficulty level)
     if (isEmergency && config.emergency?.difficultyRequirements?.[emergencyDifficulty]) {
@@ -80,14 +143,13 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
     const requiredIcons = selectedItems.map(item => item.icon);
     const requiredPoolIds = selectedItems.map(item => item.poolId);
 
-    const requiredRarity = rollRequirementRarity(config, currentStageConfig, isEmergency, emergencyDifficulty);
+    // 生成 requiredValue 替代 requiredRarity
+    const requiredValue = rollRequiredValue(config, isEmergency, emergencyDifficulty);
 
+    const rewardMultiplier = config.valueSystem?.rewardMultiplier || 1;
     let baseScoreReward = 0;
     if (!isEmergency) {
-        const rarityWeights = config.progress?.rarityWeights || {};
-        const offset = config.progress?.progressOffset || 0;
-        const rarityScore = rarityWeights[requiredRarity.id] || 0;
-        baseScoreReward = Math.max(1, Math.floor(rarityScore + offset));
+        baseScoreReward = Math.max(1, Math.floor(requiredValue * rewardMultiplier + (config.progress?.progressOffset || 0)));
     }
 
     return {
@@ -95,7 +157,7 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         requiredNames,
         requiredIcons,
         requiredPoolIds,
-        requiredRarity,
+        requiredValue,
         baseScoreReward,
         isScoreOrder: !isEmergency,
         isEmergency: isEmergency || false,
