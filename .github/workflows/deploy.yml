@@ -4,19 +4,28 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: ["main", "Main"]
-  workflow_dispatch: # 添加这一行，允许手动触发
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: '要构建的源码分支（如 "Main", "skill-test"）'
+        required: true
+        default: 'Main'
+      deploy_path:
+        description: '部署子路径（如 "v1.4", "skill-test"）。留空则部署到根目录。'
+        required: false
+        default: ''
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 jobs:
-  build_site:
+  build_and_deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.source_branch || github.ref }}
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -27,21 +36,94 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Determine deploy config
+        id: config
+        run: |
+          DEPLOY_PATH="${{ github.event.inputs.deploy_path }}"
+          if [ -n "$DEPLOY_PATH" ]; then
+            echo "base=/3pools_Web/${DEPLOY_PATH}/" >> $GITHUB_OUTPUT
+            echo "path=${DEPLOY_PATH}" >> $GITHUB_OUTPUT
+          else
+            echo "base=/3pools_Web/" >> $GITHUB_OUTPUT
+            echo "path=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build
-        run: npm run build
+        run: npx vite build --base ${{ steps.config.outputs.base }}
 
-      - name: Upload Artifacts
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'dist/' # 打包后的目录
+      - name: Deploy to gh-pages branch
+        run: |
+          DEPLOY_PATH="${{ steps.config.outputs.path }}"
 
-  deploy:
-    needs: build_site
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Clone gh-pages branch, or create it if it doesn't exist
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git clone --branch gh-pages --single-branch \
+              "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" \
+              gh-pages-dir
+          else
+            mkdir gh-pages-dir
+            cd gh-pages-dir
+            git init -b gh-pages
+            git remote add origin \
+              "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+            touch .nojekyll
+            cd ..
+          fi
+
+          if [ -z "$DEPLOY_PATH" ]; then
+            # === Root deployment ===
+            # Preserve sub-deployment directories listed in .sub-deployments
+            mkdir -p /tmp/preserve
+            if [ -f gh-pages-dir/.sub-deployments ]; then
+              cp gh-pages-dir/.sub-deployments /tmp/preserve/
+              while IFS= read -r subdir; do
+                [ -z "$subdir" ] && continue
+                if [ -d "gh-pages-dir/$subdir" ]; then
+                  cp -r "gh-pages-dir/$subdir" "/tmp/preserve/$subdir"
+                fi
+              done < gh-pages-dir/.sub-deployments
+            fi
+
+            # Clean root and copy new build
+            rm -rf gh-pages-dir/*
+            cp -r dist/* gh-pages-dir/
+            touch gh-pages-dir/.nojekyll
+
+            # Restore sub-deployments
+            if [ -f /tmp/preserve/.sub-deployments ]; then
+              cp /tmp/preserve/.sub-deployments gh-pages-dir/
+              while IFS= read -r subdir; do
+                [ -z "$subdir" ] && continue
+                if [ -d "/tmp/preserve/$subdir" ]; then
+                  cp -r "/tmp/preserve/$subdir" "gh-pages-dir/$subdir"
+                fi
+              done < gh-pages-dir/.sub-deployments
+            fi
+          else
+            # === Sub-path deployment ===
+            # Only replace this specific directory
+            rm -rf "gh-pages-dir/$DEPLOY_PATH"
+            mkdir -p "gh-pages-dir/$DEPLOY_PATH"
+            cp -r dist/* "gh-pages-dir/$DEPLOY_PATH/"
+            touch gh-pages-dir/.nojekyll
+
+            # Register this sub-deployment so root deploys won't clobber it
+            touch gh-pages-dir/.sub-deployments
+            if ! grep -qx "$DEPLOY_PATH" gh-pages-dir/.sub-deployments; then
+              echo "$DEPLOY_PATH" >> gh-pages-dir/.sub-deployments
+            fi
+          fi
+
+          cd gh-pages-dir
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+          else
+            git commit -m "Deploy ${DEPLOY_PATH:-root} from ${GITHUB_SHA::7}"
+            git push origin gh-pages
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
