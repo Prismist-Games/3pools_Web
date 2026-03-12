@@ -497,6 +497,24 @@ export default function App() {
                                     <span className="text-orange-600 font-bold">💡 当前最大难度: {config.emergency?.difficulty?.maxDifficulty || 10}，可在上方"难度系统"中调整</span>
                                 </div>
 
+                                <div className="flex items-center gap-2 mb-4 bg-white p-3 rounded-lg border border-orange-200">
+                                    <label className="text-xs font-bold text-orange-700">撤离订单所需名字数量</label>
+                                    <input
+                                        type="number"
+                                        min="2"
+                                        max="6"
+                                        className="w-16 p-1.5 border rounded text-center font-mono text-sm"
+                                        value={config.emergency?.emergencyNameCount || 3}
+                                        onChange={(e) => setConfig({
+                                            ...config,
+                                            emergency: {
+                                                ...config.emergency,
+                                                emergencyNameCount: parseInt(e.target.value) || 4
+                                            }
+                                        })}
+                                    />
+                                </div>
+
                                 {Array.from({ length: config.emergency?.difficulty?.maxDifficulty || 10 }, (_, i) => i + 1).map(difficulty => {
                                     return (
                                         <details key={difficulty} className="mb-3 bg-white rounded-lg border border-orange-200 shadow-sm">

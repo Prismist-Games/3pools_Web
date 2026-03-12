@@ -62,7 +62,7 @@ export const rollRequirementRarity = (config, currentStageConfig, isEmergency = 
 };
 
 export const generateOrder = (allNormalItems, config, hasSkill = () => false, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
-    const nameCount = isEmergency ? 4 : 3;
+    const nameCount = isEmergency ? (config.emergency?.emergencyNameCount || 3) : 3;
 
     // Pick random unique items (ensuring unique names)
     const shuffled = [...allNormalItems].sort(() => 0.5 - Math.random());
