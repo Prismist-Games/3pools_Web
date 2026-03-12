@@ -32,7 +32,6 @@ const OrderCardBase = ({
     hoveredPoolId,
     hoveredItemName,
     hoveredPoolItemNames,
-    selectedItemNames,
 }) => {
     const { t } = useLanguage();
 

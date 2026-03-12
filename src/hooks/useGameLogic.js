@@ -284,52 +284,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // 已分配到订单的物品 uid 集合
     const assignedItemUids = useMemo(() => new Set(Object.values(orderSlotAssignments)), [orderSlotAssignments]);
 
-    // 幻影标记：某个普通订单的需求被其他普通订单的同名需求已分配了物品
-    // 返回 { "orderIndex-reqIndex": { item, sourceKey } }
-    const phantomMarks = useMemo(() => {
-        const result = {};
-        // 按类别分别收集已分配的物品名称 -> 实际物品
-        const assignedNormal = {}; // 普通订单的分配
-        const assignedEmergency = {}; // 撤离订单的分配
-        Object.entries(orderSlotAssignments).forEach(([key, uid]) => {
-            const item = inventory.find(i => i && i.uid === uid);
-            if (!item) return;
-            const orderIdx = parseInt(key.split('-')[0]);
-            const target = orderIdx >= 998 ? assignedEmergency : assignedNormal;
-            if (!target[item.name]) target[item.name] = [];
-            target[item.name].push({ key, item });
-        });
-
-        // 普通订单之间产生幻影
-        orders.forEach((order, orderIdx) => {
-            if (!order) return;
-            order.requirements.forEach((req, reqIdx) => {
-                const myKey = `${orderIdx}-${reqIdx}`;
-                if (orderSlotAssignments[myKey]) return;
-                const sources = assignedNormal[req.name];
-                if (sources && sources.length > 0) {
-                    result[myKey] = { item: sources[0].item, sourceKey: sources[0].key };
-                }
-            });
-        });
-
-        // 撤离订单之间产生幻影
-        emergencyOrders.forEach((order, idx) => {
-            if (!order) return;
-            const orderIdx = 998 + idx;
-            order.requirements.forEach((req, reqIdx) => {
-                const myKey = `${orderIdx}-${reqIdx}`;
-                if (orderSlotAssignments[myKey]) return;
-                const sources = assignedEmergency[req.name];
-                if (sources && sources.length > 0) {
-                    result[myKey] = { item: sources[0].item, sourceKey: sources[0].key };
-                }
-            });
-        });
-
-        return result;
-    }, [orders, emergencyOrders, orderSlotAssignments, inventory]);
-
     // 清除指定订单索引的所有槽位分配
     const clearAssignmentsForOrders = (indices) => {
         setOrderSlotAssignments(prev => {
@@ -1825,8 +1779,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             selectedItemNames,
             skillState,
             orderSlotAssignments,
-            assignedItemUids,
-            phantomMarks
+            assignedItemUids
         },
         actions: {
             showToast,

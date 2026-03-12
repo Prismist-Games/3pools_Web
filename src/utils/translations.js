@@ -262,4 +262,14 @@ export const EN_TRANSLATIONS = {
     "离开关卡": "Leave Stage",
     "选择中...": "Selecting...",
     "放弃": "Give Up",
+
+    // --- Fusion / Composite ---
+    "调试：已获取订单所需物品": "Debug: Got order items",
+    "调试模式": "Debug Mode",
+    "该订单不需要此物品，或对应槽位已有物品": "Order doesn't need this item, or slot already filled",
+    "获得了稀有的主线道具！": "Got a rare mainline item!",
+    "来自主线池的意外收获": "An unexpected find from the mainline pool",
+    "种类过载": "Type Overload",
+    "待处理": "Pending",
+    "离开关卡需求配置": "Stage Requirement Config",
 };
