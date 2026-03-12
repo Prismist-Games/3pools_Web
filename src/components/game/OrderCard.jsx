@@ -43,7 +43,7 @@ const OrderCardBase = ({
         );
     }
 
-    const { id, requiredNames, requiredIcons, requirements, baseScoreReward } = order;
+    const { id, requiredNames, requiredIcons, requirements, baseScoreReward, requiredRarity } = order;
 
     // Get the display names and icons from the order
     const displayNames = requiredNames || requirements?.map(r => r.name) || [];
@@ -51,16 +51,21 @@ const OrderCardBase = ({
 
     const isSatisfied = !!canSatisfy;
 
-    // Check which required names the player has in inventory
+    // Check which required names the player has in inventory, and track best rarity
     const nameAvailability = useMemo(() => {
         if (!displayNames.length) return [];
         return displayNames.map(name => {
-            const hasItem = inventory.some(item => {
-                if (!item) return false;
+            let bestRarity = null;
+            for (const item of inventory) {
+                if (!item) continue;
                 const itemNames = item.names || [item.name];
-                return itemNames.includes(name);
-            });
-            return hasItem;
+                if (itemNames.includes(name)) {
+                    if (!bestRarity || item.rarity.bonus > bestRarity.bonus) {
+                        bestRarity = item.rarity;
+                    }
+                }
+            }
+            return { hasIt: !!bestRarity, bestRarity };
         });
     }, [displayNames, inventory]);
 
@@ -177,7 +182,7 @@ const OrderCardBase = ({
                     <div className={`flex flex-wrap items-center ${isCandidate ? 'gap-1' : 'gap-1.5'}`}>
                         {displayNames.map((name, rIdx) => {
                             const icon = displayIcons[rIdx] || '';
-                            const hasIt = nameAvailability[rIdx];
+                            const { hasIt, bestRarity } = nameAvailability[rIdx] || {};
                             const isHighlighted = nameHighlights[rIdx];
 
                             return (
@@ -189,7 +194,7 @@ const OrderCardBase = ({
                                         flex items-center gap-1 rounded border-2 transition-all duration-200
                                         ${isCandidate ? 'px-1.5 py-0.5' : 'px-2 py-1'}
                                         ${hasIt
-                                            ? 'border-green-300 bg-green-50 text-slate-700'
+                                            ? bestRarity.color
                                             : 'border-dashed border-slate-300 bg-slate-50 text-slate-400'
                                         }
                                         ${isHighlighted && !isSubmitMode ? 'scale-110 z-30 shadow-xl ring-2 ring-slate-200 border-slate-400' : ''}
@@ -200,6 +205,20 @@ const OrderCardBase = ({
                                 </React.Fragment>
                             );
                         })}
+                        {/* Quality requirement badge */}
+                        {requiredRarity && (
+                            <>
+                                <span className={`text-slate-300 font-black ${isCandidate ? 'text-[10px]' : 'text-xs'}`}>≥</span>
+                                <div className={`
+                                    flex items-center gap-1 rounded border-2 transition-all duration-200
+                                    ${isCandidate ? 'px-1.5 py-0.5' : 'px-2 py-1'}
+                                    ${requiredRarity.color}
+                                `}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${requiredRarity.dotColor}`} />
+                                    <span className={`font-bold ${isCandidate ? 'text-[10px]' : 'text-xs'}`}>{t(requiredRarity.name)}</span>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 

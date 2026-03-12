@@ -26,8 +26,6 @@ const PoolCardBase = ({
     const canAfford = gold >= finalCost;
     const isEffectiveDisabled = disabled || !canAfford;
     const isScorePool = pool.type === 'score';
-    const isFusionPool = pool.type === 'fusion';
-
     return (
         <button
             onClick={() => !isEffectiveDisabled && onDraw(pool)}
@@ -65,44 +63,33 @@ const PoolCardBase = ({
                 </div>
             </div>
 
-            {isFusionPool ? (
-                /* Fusion pool: no affix, show fusion instruction */
-                <div className="flex-1 w-full flex flex-col gap-2">
-                    <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
-                        {t("选择两个物品进行融合")}
-                    </p>
+            {/* Row 2: Affix Name (LARGE and prominent) */}
+            {pool.affix && (
+                <div className="flex items-center gap-2">
+                    <span className="text-base font-black text-slate-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
+                        ✨ {t(pool.affix.name)}
+                    </span>
                 </div>
-            ) : (
-                <>
-                    {/* Row 2: Affix Name (LARGE and prominent) */}
-                    {pool.affix && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-base font-black text-slate-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
-                                ✨ {t(pool.affix.name)}
-                            </span>
-                        </div>
-                    )}
+            )}
 
-                    {/* Row 3: Content Area */}
-                    <div className="flex-1 w-full">
-                        {isScorePool ? (
-                            <div className="flex flex-col gap-1 text-base font-bold opacity-80">
-                                <p>🔥 {t("积分目标")}: {t(pool.targetItem?.name)}</p>
-                                <p className="text-sm opacity-60">{t("可能是 90% 普通物品...")}</p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-2">
-                                {/* Affix Description - LARGE readable text */}
-                                {pool.affix && (
-                                    <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
-                                        {t(pool.affix.desc)}
-                                    </p>
-                                )}
-                            </div>
+            {/* Row 3: Content Area */}
+            <div className="flex-1 w-full">
+                {isScorePool ? (
+                    <div className="flex flex-col gap-1 text-base font-bold opacity-80">
+                        <p>🔥 {t("积分目标")}: {t(pool.targetItem?.name)}</p>
+                        <p className="text-sm opacity-60">{t("可能是 90% 普通物品...")}</p>
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-2">
+                        {/* Affix Description - LARGE readable text */}
+                        {pool.affix && (
+                            <p className="text-base font-semibold opacity-90 leading-relaxed text-slate-700">
+                                {t(pool.affix.desc)}
+                            </p>
                         )}
                     </div>
-                </>
-            )}
+                )}
+            </div>
         </button>
     );
 };

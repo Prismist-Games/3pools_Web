@@ -64,7 +64,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleEvacuationContinue,
         handleEvacuationExtract,
         debugGetOrderItems,
-        canFuse
+        canFuse,
+        enterFusionMode
     } = actions;
 
     const { hasSkill } = helpers;
@@ -826,6 +827,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <div className={`flex flex-col gap-2 shrink-0 justify-end pb-2 w-40 min-h-[88px] ${pendingItem ? 'hidden' : ''}`}>
                                     {!isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode && (
                                         <>
+                                            <button onClick={enterFusionMode} className="w-full flex items-center justify-center gap-2 bg-purple-100 text-purple-700 border border-purple-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-purple-200 transition-transform active:scale-95">
+                                                <Merge size={18} /> {t("融合")}
+                                            </button>
                                             <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">
                                                 <Trash2 size={18} /> {t("回收")}
                                             </button>

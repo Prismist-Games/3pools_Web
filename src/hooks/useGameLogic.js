@@ -119,16 +119,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const usedAffixIds = new Set();
         let tempPools = [...config.pools.slice(0, currentStageConfig.allowedPoolCount)];
 
-        // Add fusion pool as a candidate
-        tempPools.push({
-            id: 'fusion_pool',
-            name: '融合',
-            icon: '🔀',
-            weight: 1,
-            items: [],
-            type: 'fusion',
-        });
-
         for (let i = 0; i < 3; i++) {
             if (tempPools.length === 0) break;
             const totalWeight = tempPools.reduce((sum, p) => sum + (p.weight || 1), 0);
@@ -144,27 +134,20 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             if (selectedIndex === -1) selectedIndex = tempPools.length - 1;
             const selectedPool = JSON.parse(JSON.stringify(tempPools[selectedIndex]));
 
-            if (selectedPool.type === 'fusion') {
-                // Fusion pool: no affix, fixed cost
-                selectedPool.cost = 1;
-                selectedPool.originalId = 'fusion_pool';
-                selectedPool.color = 'bg-gradient-to-br from-purple-100 to-violet-200 border-purple-300';
+            // Normal item pool
+            selectedPool.originalId = selectedPool.id;
+            selectedPool.id = selectedPool.originalId;
+            selectedPool.items = selectedPool.items.slice(0, currentStageConfig.poolSize);
+            if (currentStageConfig.mechanics.affixes) {
+                const availableAffixes = config.affixes.filter(a => !usedAffixIds.has(a.id));
+                const affixPool = availableAffixes.length > 0 ? availableAffixes : config.affixes;
+                const affix = getRandomAffix(affixPool);
+                selectedPool.affixKey = affix.id;
+                selectedPool.affix = affix;
+                selectedPool.cost = affix.cost || 2; // Use affix cost if defined
+                usedAffixIds.add(affix.id);
             } else {
-                // Normal item pool
-                selectedPool.originalId = selectedPool.id;
-                selectedPool.id = selectedPool.originalId;
-                selectedPool.items = selectedPool.items.slice(0, currentStageConfig.poolSize);
-                if (currentStageConfig.mechanics.affixes) {
-                    const availableAffixes = config.affixes.filter(a => !usedAffixIds.has(a.id));
-                    const affixPool = availableAffixes.length > 0 ? availableAffixes : config.affixes;
-                    const affix = getRandomAffix(affixPool);
-                    selectedPool.affixKey = affix.id;
-                    selectedPool.affix = affix;
-                    selectedPool.cost = affix.cost || 2; // Use affix cost if defined
-                    usedAffixIds.add(affix.id);
-                } else {
-                    selectedPool.cost = 2;
-                }
+                selectedPool.cost = 2;
             }
             result.push(selectedPool);
             tempPools.splice(selectedIndex, 1);
@@ -800,13 +783,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
-        // Fusion pool handling
-        if (pool.type === 'fusion') {
-            // Don't deduct gold yet - deduct after successful fusion
-            setSelectionMode({ type: 'fusion', pool, step: 1, firstItem: null, firstIndex: null });
-            return;
-        }
-
         if (pool.affixKey === 'trade_in') {
             setGold(prev => prev - finalCost);
             setSelectionMode({ type: 'trade_in', pool });
@@ -889,9 +865,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     };
 
+    const enterFusionMode = () => {
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates) return;
+        setSelectionMode({ type: 'fusion', step: 1, firstItem: null, firstIndex: null });
+    };
+
     const handleSelectionCancel = () => {
         if (selectionMode?.type === 'fusion') {
-            // Fusion pool: no gold was deducted, just cancel
             setSelectionMode(null);
             return;
         }
@@ -1114,10 +1094,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 // Perform fusion
                 const fusedItem = fuseItems(firstItem, clickedItem);
 
-                // Deduct gold
-                const fusionCost = selectionMode.pool.cost || 1;
-                setGold(prev => prev - fusionCost);
-
                 // Update inventory: replace one slot with fused item, remove the other
                 const newInventory = [...inventory];
                 newInventory[index] = fusedItem;
@@ -1130,9 +1106,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
                 showToast(`${t("融合")}: ${firstItem.name} + ${clickedItem.name} → ${fusedItem.name}`, 'success');
 
-                // Advance draw count and refresh pools (same as other draws)
-                setDrawCount(prev => prev + 1);
-                refreshPools(true);
                 setSelectionMode(null);
                 return;
             }
@@ -1881,7 +1854,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             debugGetOrderItems,
             handleUnassignFromOrder,
             handleOrderSlotClick,
-            canFuse
+            canFuse,
+            enterFusionMode
         },
         helpers: {
             hasSkill
