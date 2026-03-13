@@ -540,7 +540,7 @@ const OrderCardBase = ({
             </div>
 
             {isSatisfied && !isCandidate && (
-                <div className="absolute bottom-3 left-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-sm animate-bounce flex items-center gap-1">
+                <div className="absolute -top-2 -left-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-sm animate-bounce flex items-center gap-1 z-10">
                     <Check size={12} /> {t("可提交")}
                 </div>
             )}

@@ -358,8 +358,8 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-green-100 text-green-800 border-green-200",
         "icon": "🍎",
         "items": [
-            { "name": "西瓜", "icon": "🍉", "durability": 5, "sharpness": 1 },
-            { "name": "柠檬", "icon": "🍋", "durability": 3, "sharpness": 1 },
+            { "name": "西瓜", "icon": "🍉", "durability": 5, "sharpness": 2 },
+            { "name": "柠檬", "icon": "🍋", "durability": 3, "sharpness": 2 },
             { "name": "芒果", "icon": "🥭", "durability": 2, "sharpness": 1 },
             { "name": "苹果", "icon": "🍎", "durability": 3, "sharpness": 1 }
         ]
@@ -400,7 +400,7 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-orange-100 text-orange-800 border-orange-200",
         "icon": "🍳",
         "items": [
-            { "name": "平底锅", "icon": "🍳", "durability": 5, "sharpness": 1 },
+            { "name": "平底锅", "icon": "🍳", "durability": 5, "sharpness": 2 },
             { "name": "菜刀", "icon": "🔪", "durability": 3, "sharpness": 3 },
             { "name": "砧板", "icon": "🪵", "durability": 6, "sharpness": 0 },
             { "name": "汤勺", "icon": "🥄", "durability": 3, "sharpness": 1 }
@@ -416,8 +416,8 @@ export const INITIAL_POOLS_DATA = [
         "items": [
             { "name": "手机", "icon": "📱", "durability": 2, "sharpness": 1 },
             { "name": "耳机", "icon": "🎧", "durability": 2, "sharpness": 0 },
-            { "name": "空调", "icon": "❄️", "durability": 6, "sharpness": 1 },
-            { "name": "电脑", "icon": "💻", "durability": 4, "sharpness": 1 }
+            { "name": "空调", "icon": "❄️", "durability": 6, "sharpness": 2 },
+            { "name": "电脑", "icon": "💻", "durability": 4, "sharpness": 2 }
         ]
     }
 ];
@@ -511,11 +511,11 @@ export const INITIAL_GAME_CONFIG = {
     emergency: EMERGENCY_ORDER_CONFIG,
     toolItems: TOOL_ITEM_CONFIG,
     delivery: {
-        durabilityPerTier: 2,  // +2 durability per rarity tier above Common
+        durabilityPerTier: 1,  // +1 durability per rarity tier above Common
         distanceWeights: {
-            1: 0.50,  // 近途: 1 bump
-            2: 0.35,  // 中途: 2 bumps
-            3: 0.15,  // 远途: 3 bumps
+            1: 0.15,  // 近途: 1 bump
+            2: 0.50,  // 中途: 2 bumps
+            3: 0.35,  // 远途: 3 bumps
         },
         // Animation timing (ms)
         animationSpeed: {
