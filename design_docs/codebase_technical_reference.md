@@ -154,7 +154,7 @@ INITIAL_GAME_CONFIG (constants.js)
     inventorySize: 10, orderSlots: 3, poolSize: 4, allowedPoolCount: 5,
     initialGold: 20,
     mechanics: { refresh: true, affixes: true, synthesis: true, variablePrice: true },
-    rarityWeights: { common: 0.8, uncommon: 0.19, rare: 0.01, epic: 0.005, legendary: 0.001, mythic: 0 },
+    rarityWeights: { common: 0.37, uncommon: 0.3, rare: 0.2, epic: 0.1, legendary: 0.03, mythic: 0 },
     orderRarityWeights: { common: 0.4, uncommon: 0.35, rare: 0.2, epic: 0.05 },
     orderCountWeights: { 2: 20, 3: 65, 4: 15 },
     baseRewards: { 2: 15, 3: 15, 4: 15 }
@@ -209,8 +209,8 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 | id | 名称 | 类型 | cost | 特殊权重 |
 |----|------|------|------|----------|
 | `trade_in` | 以旧换新的 | interaction | 1 | — |
-| `hardened` | 硬化的 | passive | 2 | rare:0.67, epic:0.3, legendary:0.03 |
-| `purified` | 提纯的 | passive | 3 | 同 hardened |
+| `hardened` | 硬化的 | passive | 2 | uncommon:0.2, rare:0.7, epic:0.09, legendary:0.01 |
+| `purified` | 提纯的 | passive | 3 | rare:0.67, epic:0.3, legendary:0.03 |
 | `volatile` | 波动的 | passive | 1 | — (逻辑约束只出 common/legendary) |
 | `fragmented` | 稀碎的 | passive | 1 | — (逻辑约束全 common) |
 | `precise` | 精准的 | interaction | 2 | — |
@@ -222,12 +222,12 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 
 | id | name | bonus | recycleValue | color (Tailwind) |
 |----|------|-------|-------------|-----------------|
-| `common` | 普通 | 0 | 1 | gray-400 |
-| `uncommon` | 优秀 | 0.1 | 2 | green-400 |
-| `rare` | 稀有 | 0.25 | 5 | blue-400 |
-| `epic` | 史诗 | 0.5 | 15 | purple-400 |
-| `legendary` | 传说 | 1.0 | 50 | orange-400 |
-| `mythic` | 神话 | 2.0 | 200 | red-400 |
+| `common` | 普通 | 0 | 0 | gray-400 |
+| `uncommon` | 优秀 | 0.1 | 0 | green-400 |
+| `rare` | 稀有 | 0.25 | 1 | blue-400 |
+| `epic` | 史诗 | 0.5 | 2 | purple-400 |
+| `legendary` | 传说 | 1.0 | 4 | orange-400 |
+| `mythic` | 神话 | 2.0 | 10 | red-400 |
 
 > 注意：`constants.js` 默认值可能被 JSON 配置覆盖（通过 App.jsx 的导入功能）。`game_rules.md` 中的数值以 JSON 配置为准。
 
@@ -245,12 +245,12 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 
 ```js
 {
-  difficulty: { initial: 1, increaseOnNewOrder: 1, decreaseOnScoreOrder: 1, min: 1, max: 10 },
+  difficulty: { initial: 1, increaseOnNewOrder: 1, decreaseOnScoreOrder: 0, min: 1, max: 4 },
   reqCountMin: 1, reqCountMax: 4,
   baseRarityWeights: { ... },
   difficultyReqCountWeights: { 1-10: { 2-4: weight } },
   difficultyRarityWeights: { 1-10: { rarities } },
-  difficultyRequirements: {}  // 空=使用随机模式；可配置精确模式
+  difficultyRequirements: { 1: [{uncommon,1},{rare,1}], 2: [{rare,1},{rare,1}], 3: [{rare,1},{epic,1}], 4: [{epic,1},{epic,1}] }
 }
 ```
 
@@ -259,8 +259,8 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 ### 4.9 `SCORE_PROGRESS_CONFIG`
 
 ```js
-{ targetProgress: Infinity, progressOffset: 0,
-  rarityWeights: { common:0.5, uncommon:1.0, rare:1.5, epic:2.0, legendary:3.0, mythic:4.0 } }
+{ targetProgress: null, progressOffset: 0,
+  rarityWeights: { common:2, uncommon:2.5, rare:4, epic:8, legendary:16, mythic:32 } }
 ```
 
 ### 4.10 `INITIAL_GAME_CONFIG`（总配置对象）
@@ -277,7 +277,7 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
   emergency: EMERGENCY_ORDER_CONFIG,
   toolItems: TOOL_ITEM_CONFIG,
   enabledSkillIds: [/* 全部13个技能ID */],
-  global: { refreshCost: 5, initialGold: 30, initialRefreshCount: 4, maxRefreshCount: 4 }
+  global: { refreshCost: 5, initialGold: 30, initialRefreshCount: 3, maxRefreshCount: 3 }
 }
 ```
 
@@ -1031,7 +1031,7 @@ finalScore = ceil(baseScoreReward × multiplier)
 
 1. **阶段系统**：4 个阶段完整定义在 `INITIAL_STAGE_CONFIG`，但 `useGameLogic` 硬编码 `config.stages[0]`，无阶段切换触发器。
 2. **技能获取流程**：`triggerSkillSelection()` 存在但无自动触发点。技能只能通过调试工具或未来代码手动触发。
-3. **积分进度**：`targetProgress: Infinity`，进度系统框架存在但无具体目标。
+3. **积分进度**：`targetProgress: null`，进度系统框架存在但无具体目标。
 
 ### 代码规模
 

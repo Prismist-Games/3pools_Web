@@ -1,0 +1,713 @@
+{
+  "affixes": [
+    {
+      "id": "trade_in",
+      "name": "以旧换新的",
+      "desc": "用背包内的 1 个物品随机置换 1 个同品质的物品。",
+      "type": "interaction",
+      "weight": 10,
+      "cost": 1
+    },
+    {
+      "id": "hardened",
+      "name": "硬化的",
+      "desc": "稀有度更高，但物品带有【绝育】效果，无法合成。",
+      "type": "passive",
+      "weight": 10,
+      "cost": 2,
+      "rarityWeights": {
+        "common": 0,
+        "uncommon": 0.2,
+        "rare": 0.7,
+        "epic": 0.09,
+        "legendary": 0.01
+      }
+    },
+    {
+      "id": "purified",
+      "name": "提纯的",
+      "desc": "保底产出稀有、史诗或传说物品。",
+      "type": "passive",
+      "weight": 10,
+      "cost": 3,
+      "rarityWeights": {
+        "common": 0,
+        "uncommon": 0,
+        "rare": 0.67,
+        "epic": 0.3,
+        "legendary": 0.03
+      }
+    },
+    {
+      "id": "volatile",
+      "name": "波动的",
+      "desc": "有更高的概率出现传说物品，但只会产出普通和传说物品",
+      "type": "passive",
+      "weight": 10,
+      "cost": 1,
+      "rarityWeights": {
+        "common": 0.9,
+        "uncommon": 0,
+        "rare": 0,
+        "epic": 0,
+        "legendary": 0.1
+      }
+    },
+    {
+      "id": "fragmented",
+      "name": "稀碎的",
+      "desc": "一次抽取获得 3 个物品，但必定为普通品质。",
+      "type": "passive",
+      "weight": 10,
+      "cost": 1
+    },
+    {
+      "id": "precise",
+      "name": "精准的",
+      "desc": "从 2 个不同的候选物品中任选其一。",
+      "type": "interaction",
+      "weight": 10,
+      "cost": 2
+    },
+    {
+      "id": "targeted",
+      "name": "有的放矢的",
+      "desc": "指定一个想要的物品类型。",
+      "type": "interaction",
+      "weight": 10,
+      "cost": 4
+    }
+  ],
+  "rarity": [
+    {
+      "id": "common",
+      "name": "普通",
+      "color": "border-slate-300 bg-slate-50 text-slate-600",
+      "dotColor": "bg-slate-400",
+      "starColor": "text-slate-400",
+      "shadow": "",
+      "bonus": 0,
+      "recycleValue": 0
+    },
+    {
+      "id": "uncommon",
+      "name": "优秀",
+      "color": "border-green-400 bg-green-50 text-green-700",
+      "dotColor": "bg-green-500",
+      "starColor": "text-green-500",
+      "shadow": "shadow-green-200",
+      "bonus": 0.1,
+      "recycleValue": 0
+    },
+    {
+      "id": "rare",
+      "name": "稀有",
+      "color": "border-blue-400 bg-blue-50 text-blue-700",
+      "dotColor": "bg-blue-500",
+      "starColor": "text-blue-500",
+      "shadow": "shadow-blue-200",
+      "bonus": 0.25,
+      "recycleValue": 1
+    },
+    {
+      "id": "epic",
+      "name": "史诗",
+      "color": "border-purple-400 bg-purple-50 text-purple-700",
+      "dotColor": "bg-purple-500",
+      "starColor": "text-purple-500",
+      "shadow": "shadow-purple-200",
+      "bonus": 0.5,
+      "recycleValue": 2
+    },
+    {
+      "id": "legendary",
+      "name": "传说",
+      "color": "border-orange-400 bg-orange-50 text-orange-700",
+      "dotColor": "bg-orange-500",
+      "starColor": "text-orange-500",
+      "shadow": "shadow-orange-200",
+      "bonus": 1,
+      "recycleValue": 4
+    },
+    {
+      "id": "mythic",
+      "name": "神话",
+      "color": "border-rose-500 bg-rose-50 text-rose-700",
+      "dotColor": "bg-rose-500",
+      "starColor": "text-rose-600",
+      "shadow": "shadow-rose-200",
+      "bonus": 2,
+      "recycleValue": 10
+    }
+  ],
+  "pools": [
+    {
+      "id": "fruit",
+      "name": "水果",
+      "type": "normal",
+      "currency": "gold",
+      "color": "bg-green-100 text-green-800 border-green-200",
+      "icon": "🍎",
+      "items": [
+        {
+          "name": "西瓜",
+          "icon": "🍉"
+        },
+        {
+          "name": "柠檬",
+          "icon": "🍋"
+        },
+        {
+          "name": "芒果",
+          "icon": "🥭"
+        },
+        {
+          "name": "苹果",
+          "icon": "🍎"
+        }
+      ]
+    },
+    {
+      "id": "medicine",
+      "name": "药物",
+      "type": "normal",
+      "currency": "gold",
+      "color": "bg-red-100 text-red-800 border-red-200",
+      "icon": "💊",
+      "items": [
+        {
+          "name": "冲剂",
+          "icon": "🍵"
+        },
+        {
+          "name": "滴眼液",
+          "icon": "💧"
+        },
+        {
+          "name": "注射器",
+          "icon": "💉"
+        },
+        {
+          "name": "胶囊",
+          "icon": "💊"
+        }
+      ]
+    },
+    {
+      "id": "stationery",
+      "name": "文具",
+      "type": "normal",
+      "currency": "gold",
+      "color": "bg-yellow-100 text-yellow-800 border-yellow-200",
+      "icon": "✏️",
+      "items": [
+        {
+          "name": "铅笔",
+          "icon": "✏️"
+        },
+        {
+          "name": "橡皮",
+          "icon": "🧼"
+        },
+        {
+          "name": "订书机",
+          "icon": "📎"
+        },
+        {
+          "name": "笔记本",
+          "icon": "📒"
+        }
+      ]
+    },
+    {
+      "id": "kitchenware",
+      "name": "厨具",
+      "type": "normal",
+      "currency": "gold",
+      "color": "bg-orange-100 text-orange-800 border-orange-200",
+      "icon": "🍳",
+      "items": [
+        {
+          "name": "平底锅",
+          "icon": "🍳"
+        },
+        {
+          "name": "菜刀",
+          "icon": "🔪"
+        },
+        {
+          "name": "砧板",
+          "icon": "🪵"
+        },
+        {
+          "name": "汤勺",
+          "icon": "🥄"
+        }
+      ]
+    },
+    {
+      "id": "electronics",
+      "name": "电器",
+      "type": "normal",
+      "currency": "gold",
+      "color": "bg-blue-100 text-blue-800 border-blue-200",
+      "icon": "⚡️",
+      "items": [
+        {
+          "name": "手机",
+          "icon": "📱"
+        },
+        {
+          "name": "耳机",
+          "icon": "🎧"
+        },
+        {
+          "name": "空调",
+          "icon": "❄️"
+        },
+        {
+          "name": "电脑",
+          "icon": "💻"
+        }
+      ]
+    }
+  ],
+  "stages": [
+    {
+      "id": 0,
+      "name": "阶段 1",
+      "mechanicDesc": "基础机制生效",
+      "desc": "普通模式 (Base)",
+      "inventorySize": 10,
+      "orderSlots": 3,
+      "poolSize": 4,
+      "allowedPoolCount": 5,
+      "initialGold": 20,
+      "orderCountRange": [
+        2,
+        4
+      ],
+      "orderCountWeights": {
+        "2": 20,
+        "3": 65,
+        "4": 15
+      },
+      "baseRewards": {
+        "2": 15,
+        "3": 15,
+        "4": 15
+      },
+      "rarityWeights": {
+        "common": 0.37,
+        "uncommon": 0.3,
+        "rare": 0.2,
+        "epic": 0.1,
+        "legendary": 0.03,
+        "mythic": 0
+      },
+      "orderRarityWeights": {
+        "common": 0.4,
+        "uncommon": 0.35,
+        "rare": 0.2,
+        "epic": 0.05,
+        "legendary": 0,
+        "mythic": 0
+      },
+      "mechanics": {
+        "refresh": true,
+        "affixes": true,
+        "synthesis": true,
+        "variablePrice": true
+      },
+      "unlocks": [
+        "游戏开始！",
+        "普通模式"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "阶段 2",
+      "mechanicDesc": "奖池的价格随机波动",
+      "desc": "波动模式 (Volatility)",
+      "inventorySize": 10,
+      "orderSlots": 3,
+      "poolSize": 4,
+      "allowedPoolCount": 5,
+      "initialGold": 30,
+      "orderCountRange": [
+        2,
+        4
+      ],
+      "orderCountWeights": {
+        "2": 20,
+        "3": 65,
+        "4": 15
+      },
+      "rarityWeights": {
+        "common": 0.8,
+        "uncommon": 0.19,
+        "rare": 0.01,
+        "epic": 0.005,
+        "legendary": 0.001,
+        "mythic": 0
+      },
+      "orderRarityWeights": {
+        "common": 0.4,
+        "uncommon": 0.35,
+        "rare": 0.2,
+        "epic": 0.05,
+        "legendary": 0,
+        "mythic": 0
+      },
+      "mechanics": {
+        "refresh": true,
+        "affixes": true,
+        "synthesis": true,
+        "variablePrice": true,
+        "volatility": true
+      },
+      "unlocks": [
+        "阶段提升",
+        "波动机制生效"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "阶段 3",
+      "mechanicDesc": "背包内物品种类数量受限",
+      "desc": "专业化模式 (Specialization)",
+      "inventorySize": 20,
+      "orderSlots": 3,
+      "poolSize": 4,
+      "allowedPoolCount": 5,
+      "initialGold": 40,
+      "orderCountRange": [
+        2,
+        4
+      ],
+      "orderCountWeights": {
+        "2": 20,
+        "3": 65,
+        "4": 15
+      },
+      "rarityWeights": {
+        "common": 0.8,
+        "uncommon": 0.19,
+        "rare": 0.01,
+        "epic": 0.005,
+        "legendary": 0.001,
+        "mythic": 0
+      },
+      "orderRarityWeights": {
+        "common": 0.4,
+        "uncommon": 0.35,
+        "rare": 0.2,
+        "epic": 0.05,
+        "legendary": 0,
+        "mythic": 0
+      },
+      "mechanics": {
+        "refresh": true,
+        "affixes": true,
+        "synthesis": true,
+        "variablePrice": true,
+        "specialization": true
+      },
+      "unlocks": [
+        "阶段提升",
+        "7种物品上限生效"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "阶段 4",
+      "mechanicDesc": "物品随时间腐烂衰变",
+      "desc": "熵增模式 (Entropy)",
+      "inventorySize": 10,
+      "orderSlots": 3,
+      "poolSize": 4,
+      "allowedPoolCount": 5,
+      "initialGold": 50,
+      "entropyDecayValue": 25,
+      "orderCountRange": [
+        2,
+        4
+      ],
+      "orderCountWeights": {
+        "2": 20,
+        "3": 65,
+        "4": 15
+      },
+      "rarityWeights": {
+        "common": 0.8,
+        "uncommon": 0.19,
+        "rare": 0.01,
+        "epic": 0.005,
+        "legendary": 0.001,
+        "mythic": 0
+      },
+      "orderRarityWeights": {
+        "common": 0.4,
+        "uncommon": 0.35,
+        "rare": 0.2,
+        "epic": 0.05,
+        "legendary": 0,
+        "mythic": 0
+      },
+      "mechanics": {
+        "refresh": true,
+        "affixes": true,
+        "synthesis": true,
+        "variablePrice": true,
+        "entropy": true
+      },
+      "unlocks": [
+        "阶段提升",
+        "物品腐烂机制生效"
+      ]
+    }
+  ],
+  "progress": {
+    "targetProgress": null,
+    "progressOffset": 0,
+    "rarityWeights": {
+      "common": 2,
+      "uncommon": 2.5,
+      "rare": 4,
+      "epic": 8,
+      "legendary": 16,
+      "mythic": 32
+    }
+  },
+  "emergency": {
+    "difficulty": {
+      "initial": 1,
+      "increaseOnNewOrder": 1,
+      "decreaseOnScoreOrder": 0,
+      "minDifficulty": 1,
+      "maxDifficulty": 4
+    },
+    "reqCountMin": 1,
+    "reqCountMax": 4,
+    "baseRarityWeights": {
+      "common": 0.5,
+      "uncommon": 0.3,
+      "rare": 0.15,
+      "epic": 0.04,
+      "legendary": 0.01
+    },
+    "difficultyReqCountWeights": {
+      "1": {
+        "1": 0.5,
+        "2": 0.3,
+        "3": 0.15,
+        "4": 0.05
+      },
+      "2": {
+        "1": 0.4,
+        "2": 0.35,
+        "3": 0.2,
+        "4": 0.05
+      },
+      "3": {
+        "1": 0.3,
+        "2": 0.35,
+        "3": 0.25,
+        "4": 0.1
+      },
+      "4": {
+        "1": 0.2,
+        "2": 0.3,
+        "3": 0.3,
+        "4": 0.2
+      },
+      "5": {
+        "1": 0.1,
+        "2": 0.25,
+        "3": 0.35,
+        "4": 0.3
+      },
+      "6": {
+        "1": 0.05,
+        "2": 0.2,
+        "3": 0.35,
+        "4": 0.4
+      },
+      "7": {
+        "1": 0.05,
+        "2": 0.15,
+        "3": 0.3,
+        "4": 0.5
+      },
+      "8": {
+        "1": 0,
+        "2": 0.1,
+        "3": 0.3,
+        "4": 0.6
+      },
+      "9": {
+        "1": 0,
+        "2": 0.05,
+        "3": 0.25,
+        "4": 0.7
+      },
+      "10": {
+        "1": 0,
+        "2": 0,
+        "3": 0.2,
+        "4": 0.8
+      }
+    },
+    "difficultyRarityWeights": {
+      "1": {
+        "common": 0.5,
+        "uncommon": 0.3,
+        "rare": 0.15,
+        "epic": 0.04,
+        "legendary": 0.01
+      },
+      "2": {
+        "common": 0.45,
+        "uncommon": 0.3,
+        "rare": 0.18,
+        "epic": 0.06,
+        "legendary": 0.01
+      },
+      "3": {
+        "common": 0.4,
+        "uncommon": 0.3,
+        "rare": 0.2,
+        "epic": 0.08,
+        "legendary": 0.02
+      },
+      "4": {
+        "common": 0.35,
+        "uncommon": 0.3,
+        "rare": 0.22,
+        "epic": 0.1,
+        "legendary": 0.03
+      },
+      "5": {
+        "common": 0.3,
+        "uncommon": 0.28,
+        "rare": 0.25,
+        "epic": 0.12,
+        "legendary": 0.05
+      },
+      "6": {
+        "common": 0.25,
+        "uncommon": 0.25,
+        "rare": 0.28,
+        "epic": 0.15,
+        "legendary": 0.07
+      },
+      "7": {
+        "common": 0.2,
+        "uncommon": 0.22,
+        "rare": 0.3,
+        "epic": 0.18,
+        "legendary": 0.1
+      },
+      "8": {
+        "common": 0.15,
+        "uncommon": 0.2,
+        "rare": 0.32,
+        "epic": 0.2,
+        "legendary": 0.13
+      },
+      "9": {
+        "common": 0.1,
+        "uncommon": 0.15,
+        "rare": 0.35,
+        "epic": 0.25,
+        "legendary": 0.15
+      },
+      "10": {
+        "common": 0.05,
+        "uncommon": 0.1,
+        "rare": 0.35,
+        "epic": 0.3,
+        "legendary": 0.2
+      }
+    },
+    "difficultyRequirements": {
+      "1": [
+        {
+          "rarity": "uncommon",
+          "count": 1
+        },
+        {
+          "rarity": "rare",
+          "count": 1
+        }
+      ],
+      "2": [
+        {
+          "rarity": "rare",
+          "count": 1
+        },
+        {
+          "rarity": "rare",
+          "count": 1
+        }
+      ],
+      "3": [
+        {
+          "rarity": "rare",
+          "count": 1
+        },
+        {
+          "rarity": "epic",
+          "count": 1
+        }
+      ],
+      "4": [
+        {
+          "rarity": "epic",
+          "count": 1
+        },
+        {
+          "rarity": "epic",
+          "count": 1
+        }
+      ]
+    }
+  },
+  "toolItems": {
+    "dropChance": 0.2,
+    "weights": {
+      "tool_reforge": 1,
+      "tool_transmute": 1,
+      "tool_enhance": 1
+    },
+    "reforgeRarityWeights": {
+      "common": 0.4,
+      "uncommon": 0.3,
+      "rare": 0.2,
+      "epic": 0.08,
+      "legendary": 0.02,
+      "mythic": 0
+    }
+  },
+  "enabledSkillIds": [
+    "poverty_relief",
+    "lucky_7",
+    "alchemy",
+    "vip_discount",
+    "negotiator",
+    "consolation_prize",
+    "cut_corners",
+    "time_freeze",
+    "ocd",
+    "auto_restock",
+    "turn_fortune",
+    "big_order_expert",
+    "hard_order_expert"
+  ],
+  "global": {
+    "refreshCost": 5,
+    "initialGold": 30,
+    "initialRefreshCount": 3,
+    "maxRefreshCount": 3
+  }
+}
