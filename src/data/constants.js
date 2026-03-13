@@ -358,22 +358,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-green-100 text-green-800 border-green-200",
         "icon": "🍎",
         "items": [
-            {
-                "name": "西瓜",
-                "icon": "🍉"
-            },
-            {
-                "name": "柠檬",
-                "icon": "🍋"
-            },
-            {
-                "name": "芒果",
-                "icon": "🥭"
-            },
-            {
-                "name": "苹果",
-                "icon": "🍎"
-            }
+            { "name": "西瓜", "icon": "🍉", "durability": 5, "sharpness": 1 },
+            { "name": "柠檬", "icon": "🍋", "durability": 3, "sharpness": 1 },
+            { "name": "芒果", "icon": "🥭", "durability": 2, "sharpness": 1 },
+            { "name": "苹果", "icon": "🍎", "durability": 3, "sharpness": 1 }
         ]
     },
     {
@@ -384,22 +372,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-red-100 text-red-800 border-red-200",
         "icon": "💊",
         "items": [
-            {
-                "name": "冲剂",
-                "icon": "🍵"
-            },
-            {
-                "name": "滴眼液",
-                "icon": "💧"
-            },
-            {
-                "name": "注射器",
-                "icon": "💉"
-            },
-            {
-                "name": "胶囊",
-                "icon": "💊"
-            }
+            { "name": "冲剂", "icon": "🍵", "durability": 3, "sharpness": 1 },
+            { "name": "滴眼液", "icon": "💧", "durability": 2, "sharpness": 1 },
+            { "name": "注射器", "icon": "💉", "durability": 2, "sharpness": 3 },
+            { "name": "胶囊", "icon": "💊", "durability": 3, "sharpness": 1 }
         ]
     },
     {
@@ -410,22 +386,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-yellow-100 text-yellow-800 border-yellow-200",
         "icon": "✏️",
         "items": [
-            {
-                "name": "铅笔",
-                "icon": "✏️"
-            },
-            {
-                "name": "橡皮",
-                "icon": "🧼"
-            },
-            {
-                "name": "订书机",
-                "icon": "📎"
-            },
-            {
-                "name": "笔记本",
-                "icon": "📒"
-            }
+            { "name": "铅笔", "icon": "✏️", "durability": 2, "sharpness": 2 },
+            { "name": "橡皮", "icon": "🧼", "durability": 5, "sharpness": 0 },
+            { "name": "订书机", "icon": "📎", "durability": 4, "sharpness": 2 },
+            { "name": "笔记本", "icon": "📒", "durability": 6, "sharpness": 0 }
         ]
     },
     {
@@ -436,22 +400,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-orange-100 text-orange-800 border-orange-200",
         "icon": "🍳",
         "items": [
-            {
-                "name": "平底锅",
-                "icon": "🍳"
-            },
-            {
-                "name": "菜刀",
-                "icon": "🔪"
-            },
-            {
-                "name": "砧板",
-                "icon": "🪵"
-            },
-            {
-                "name": "汤勺",
-                "icon": "🥄"
-            }
+            { "name": "平底锅", "icon": "🍳", "durability": 5, "sharpness": 1 },
+            { "name": "菜刀", "icon": "🔪", "durability": 3, "sharpness": 3 },
+            { "name": "砧板", "icon": "🪵", "durability": 6, "sharpness": 0 },
+            { "name": "汤勺", "icon": "🥄", "durability": 3, "sharpness": 1 }
         ]
     },
     {
@@ -462,22 +414,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-blue-100 text-blue-800 border-blue-200",
         "icon": "⚡️",
         "items": [
-            {
-                "name": "手机",
-                "icon": "📱"
-            },
-            {
-                "name": "耳机",
-                "icon": "🎧"
-            },
-            {
-                "name": "空调",
-                "icon": "❄️"
-            },
-            {
-                "name": "电脑",
-                "icon": "💻"
-            }
+            { "name": "手机", "icon": "📱", "durability": 2, "sharpness": 1 },
+            { "name": "耳机", "icon": "🎧", "durability": 2, "sharpness": 0 },
+            { "name": "空调", "icon": "❄️", "durability": 6, "sharpness": 1 },
+            { "name": "电脑", "icon": "💻", "durability": 4, "sharpness": 1 }
         ]
     }
 ];
@@ -570,6 +510,22 @@ export const INITIAL_GAME_CONFIG = {
     progress: SCORE_PROGRESS_CONFIG,
     emergency: EMERGENCY_ORDER_CONFIG,
     toolItems: TOOL_ITEM_CONFIG,
+    delivery: {
+        durabilityPerTier: 2,  // +2 durability per rarity tier above Common
+        distanceWeights: {
+            1: 0.50,  // 近途: 1 bump
+            2: 0.35,  // 中途: 2 bumps
+            3: 0.15,  // 远途: 3 bumps
+        },
+        // Animation timing (ms)
+        animationSpeed: {
+            focusDuration: 300,
+            impactDuration: 400,
+            resolveDuration: 500,
+            resetDuration: 300,
+            bumpTransitionDuration: 600,
+        },
+    },
     enabledSkillIds: [
         "poverty_relief",
         "lucky_7",
