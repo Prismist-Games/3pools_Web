@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { RefreshCw, Check, Zap, Star, AlertCircle, Link, ChevronsUp, Trash2, Package } from 'lucide-react';
+import { RefreshCw, Check, Zap, Star, AlertCircle, Link, ChevronsUp, Trash2, Package, Umbrella, TriangleAlert } from 'lucide-react';
+
+const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const OrderCardBase = ({
@@ -330,6 +332,27 @@ const OrderCardBase = ({
                             const displayIcon = isSlotMode ? slotItem.icon : req.icon;
                             const displayName = isSlotMode ? t(slotItem.name) : t(req.name);
 
+                            // Calculate D/S values for display
+                            const durabilityPerTier = config?.delivery?.durabilityPerTier || 0;
+                            let dsDisplayItem = null; // which item's stats to show
+                            let dsRarityId = req.requiredRarity?.id || 'common'; // which rarity for durability calc
+
+                            if (isSlotMode && slotItem && !isPhantom) {
+                                // State 3: item placed in slot
+                                dsDisplayItem = slotItem;
+                                dsRarityId = slotItem.rarity?.id || 'common';
+                            } else if (hasItem && matchedItem) {
+                                // State 2: have a matching item in inventory
+                                dsDisplayItem = matchedItem;
+                                dsRarityId = matchedItem.rarity?.id || 'common';
+                            }
+                            // State 1: not met — use req itself with requiredRarity
+
+                            const dsBaseDurability = (dsDisplayItem || req).durability || 0;
+                            const dsSharpness = (dsDisplayItem || req).sharpness || 0;
+                            const dsRarityIndex = RARITY_ORDER.indexOf(dsRarityId);
+                            const dsActualDurability = dsBaseDurability + dsRarityIndex * durabilityPerTier;
+
                             return (
                                 <div key={rIdx} className="flex flex-col items-stretch gap-1 relative">
                                     <div
@@ -471,6 +494,22 @@ const OrderCardBase = ({
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* D/S indicator below requirement */}
+                                    {req.durability !== undefined && config?.delivery && (
+                                        <div className={`flex items-center justify-center gap-1.5 ${isSlotMode ? 'mt-0' : '-mt-0.5'}`}>
+                                            <span className="flex items-center gap-0.5">
+                                                <Umbrella size={9} className="text-blue-400" />
+                                                <span className="text-[9px] font-mono font-bold text-blue-500">{dsActualDurability}</span>
+                                            </span>
+                                            {dsSharpness > 0 && (
+                                                <span className="flex items-center gap-0.5">
+                                                    <TriangleAlert size={9} className="text-amber-400" />
+                                                    <span className="text-[9px] font-mono font-bold text-amber-500">{dsSharpness}</span>
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}

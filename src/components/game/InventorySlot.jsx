@@ -1,6 +1,6 @@
 import { useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Sparkles, Trash2, ArrowLeftRight, Check, ChevronsUp, Ban, Star, CircleArrowUp, MousePointerClick } from 'lucide-react';
+import { Sparkles, Trash2, ArrowLeftRight, Check, ChevronsUp, Ban, Star, CircleArrowUp, MousePointerClick, Umbrella, TriangleAlert } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 // Tooltip 通过 Portal 渲染到 body，避免被父级 overflow/z-index 遮挡
@@ -223,15 +223,17 @@ export const InventorySlot = ({
                             </>
                         )}
 
-                        {/* Delivery Attributes (durability / sharpness) */}
-                        {item.durability !== undefined && (
-                            <div className="absolute bottom-0.5 right-0.5 flex gap-0.5">
-                                <span className="text-[9px] font-mono font-bold text-blue-400">
-                                    {item.durability}
+                        {/* Delivery Attributes — bottom bar with icons */}
+                        {item.durability !== undefined && !isToolItem && (
+                            <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-slate-800/50 text-white rounded-b-[10px] py-[2px]">
+                                <span className="flex items-center gap-0.5">
+                                    <Umbrella size={10} className="text-blue-300" />
+                                    <span className="text-[10px] font-mono font-bold">{item.durability}</span>
                                 </span>
                                 {item.sharpness > 0 && (
-                                    <span className="text-[9px] font-mono font-bold text-amber-400">
-                                        /{item.sharpness}
+                                    <span className="flex items-center gap-0.5">
+                                        <TriangleAlert size={10} className="text-amber-300" />
+                                        <span className="text-[10px] font-mono font-bold">{item.sharpness}</span>
                                     </span>
                                 )}
                             </div>
