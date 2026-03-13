@@ -176,7 +176,7 @@ export const DeliveryPanel = ({
         }, durations[step]);
 
         return () => clearTimeout(timer);
-    }, [phase, animState.currentBump, animState.currentCollision, animState.step, animState.isPaused]);
+    }, [phase, animState.currentBump, animState.currentCollision, animState.step, animState.isPaused, animState.displayItems]);
 
     const advanceToBump = (nextBump) => {
         if (nextBump >= deliveryResult.bumpHistory.length) {

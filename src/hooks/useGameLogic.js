@@ -1832,6 +1832,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
+        // Include unmatched extra items in delivery boxes (strategic padding)
+        const extraItems = selectedItems.filter(item => !usedUids.has(item.uid));
+        extraItems.forEach((extraItem, i) => {
+            if (queue.length > 0) {
+                queue[i % queue.length].items.push(extraItem);
+            }
+        });
+
         const firstItems = prepareDeliveryItems(
             queue[0].items,
             config.delivery.durabilityPerTier

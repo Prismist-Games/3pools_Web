@@ -837,6 +837,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24"
                                                 nextDrawEnhanced={skillState?.nextDrawEnhanced}
                                                 isAssigned={item && assignedItemUids.has(item.uid)}
+                                                durabilityPerTier={config.delivery?.durabilityPerTier || 0}
                                             />
                                         )
                                     })}

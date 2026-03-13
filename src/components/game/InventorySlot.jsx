@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { Sparkles, Trash2, ArrowLeftRight, Check, ChevronsUp, Ban, Star, CircleArrowUp, MousePointerClick, Umbrella, TriangleAlert } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
+const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+
 // Tooltip 通过 Portal 渲染到 body，避免被父级 overflow/z-index 遮挡
 const ToolItemTooltip = ({ item, anchorRef, visible }) => {
     const { t } = useLanguage();
@@ -91,6 +93,9 @@ export const InventorySlot = ({
 
     // Order slot assignment
     isAssigned,
+
+    // Delivery config
+    durabilityPerTier = 0,
 
     // Style overrides
     className = ""
@@ -223,12 +228,12 @@ export const InventorySlot = ({
                             </>
                         )}
 
-                        {/* Delivery Attributes — bottom bar with icons */}
+                        {/* Delivery Attributes — bottom bar with icons (shows actual quality-adjusted durability) */}
                         {item.durability !== undefined && !isToolItem && (
                             <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-slate-800/50 text-white rounded-b-[10px] py-[2px]">
                                 <span className="flex items-center gap-0.5">
                                     <Umbrella size={10} className="text-blue-300" />
-                                    <span className="text-[10px] font-mono font-bold">{item.durability}</span>
+                                    <span className="text-[10px] font-mono font-bold">{item.durability + RARITY_ORDER.indexOf(item.rarity?.id || 'common') * durabilityPerTier}</span>
                                 </span>
                                 {item.sharpness > 0 && (
                                     <span className="flex items-center gap-0.5">
