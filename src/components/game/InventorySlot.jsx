@@ -223,6 +223,20 @@ export const InventorySlot = ({
                             </>
                         )}
 
+                        {/* Delivery Attributes (durability / sharpness) */}
+                        {item.durability !== undefined && (
+                            <div className="absolute bottom-0.5 right-0.5 flex gap-0.5">
+                                <span className="text-[9px] font-mono font-bold text-blue-400">
+                                    {item.durability}
+                                </span>
+                                {item.sharpness > 0 && (
+                                    <span className="text-[9px] font-mono font-bold text-amber-400">
+                                        /{item.sharpness}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+
                         {/* Select/Trash Overlay Icon */}
                         {isSelected && (isSubmitMode || isRecycleMode) && (
                             <div className={`absolute -top-2 -right-2 text-white rounded-full p-1 shadow-md z-20 animate-in zoom-in ${isRecycleMode ? 'bg-amber-600' : 'bg-blue-600'}`}>
