@@ -113,12 +113,41 @@ export function generateMilestoneShape(canvasSize, targetCellCount) {
 }
 
 /**
- * Generate overlapping connected task groups within the milestone.
+ * Find the longest contiguous straight line of milestone cells passing
+ * through a given cell in a given direction (horizontal or vertical).
+ * Returns an array of cell indices in order.
+ */
+function findContiguousLine(cells, cellIndexMap, startIdx, isHorizontal) {
+  const startCell = cells[startIdx];
+  const dr = isHorizontal ? 0 : 1;
+  const dc = isHorizontal ? 1 : 0;
+
+  // Extend in positive direction
+  const forward = [];
+  for (let step = 1; ; step++) {
+    const idx = cellIndexMap.get(cellKey(startCell.row + dr * step, startCell.col + dc * step));
+    if (idx === undefined) break;
+    forward.push(idx);
+  }
+
+  // Extend in negative direction
+  const backward = [];
+  for (let step = 1; ; step++) {
+    const idx = cellIndexMap.get(cellKey(startCell.row - dr * step, startCell.col - dc * step));
+    if (idx === undefined) break;
+    backward.push(idx);
+  }
+
+  // Full contiguous line: [...backward (reversed), start, ...forward]
+  return [...backward.reverse(), startIdx, ...forward];
+}
+
+/**
+ * Generate tasks as straight lines (horizontal or vertical) of consecutive cells.
  *
- * Each task starts from a random cell (subsequent tasks prefer cells
- * already covered by existing tasks to encourage overlap). Tasks grow
- * by adding adjacent milestone cells. After all tasks are generated,
- * any uncovered cells are assigned to an adjacent existing task.
+ * Each task is a contiguous segment of a row or column within the milestone shape.
+ * Subsequent tasks prefer starting from already-covered cells for overlap.
+ * Uncovered cells are assigned to adjacent existing tasks.
  *
  * @param {{row: number, col: number}[]} cells
  * @param {number} numTasks
@@ -127,97 +156,68 @@ export function generateMilestoneShape(canvasSize, targetCellCount) {
  * @returns {{id: number, cellIndices: number[], isCompleted: boolean}[]}
  */
 export function generateTasks(cells, numTasks, minSize, maxSize) {
-  // Build a lookup from cellKey -> index in the cells array
   const cellIndexMap = new Map();
   cells.forEach((c, i) => cellIndexMap.set(cellKey(c.row, c.col), i));
 
-  // Track which cell indices are covered by at least one task
   const coveredIndices = new Set();
   const tasks = [];
 
   for (let t = 0; t < numTasks; t++) {
-    const taskSize = minSize + Math.floor(Math.random() * (maxSize - minSize + 1));
-    const taskCellIndices = [];
-    const taskCellSet = new Set();
+    let bestSegment = null;
 
-    // Pick start cell: subsequent tasks prefer already-covered cells for overlap
-    let startIdx;
-    if (t === 0 || coveredIndices.size === 0) {
-      startIdx = Math.floor(Math.random() * cells.length);
-    } else {
-      // 70% chance to start from a covered cell (for overlap)
-      if (Math.random() < 0.7) {
-        const coveredArr = [...coveredIndices];
-        startIdx = coveredArr[Math.floor(Math.random() * coveredArr.length)];
+    for (let attempt = 0; attempt < 60 && !bestSegment; attempt++) {
+      // Pick a starting cell — prefer covered cells for overlap
+      let startIdx;
+      if (t > 0 && coveredIndices.size > 0 && Math.random() < 0.7) {
+        const arr = [...coveredIndices];
+        startIdx = arr[Math.floor(Math.random() * arr.length)];
       } else {
         startIdx = Math.floor(Math.random() * cells.length);
       }
+
+      // Pick direction
+      const isHorizontal = Math.random() < 0.5;
+
+      // Find full contiguous line through this cell
+      const fullLine = findContiguousLine(cells, cellIndexMap, startIdx, isHorizontal);
+      if (fullLine.length < minSize) continue;
+
+      // Pick a random sub-segment of valid length
+      const segmentLen = minSize + Math.floor(Math.random() * (Math.min(maxSize, fullLine.length) - minSize + 1));
+      const maxStart = fullLine.length - segmentLen;
+      const segStart = Math.floor(Math.random() * (maxStart + 1));
+      bestSegment = fullLine.slice(segStart, segStart + segmentLen);
     }
 
-    taskCellIndices.push(startIdx);
-    taskCellSet.add(startIdx);
-
-    // Grow the task by adding adjacent milestone cells
-    let attempts = 0;
-    const maxAttempts = taskSize * 10;
-    while (taskCellIndices.length < taskSize && attempts < maxAttempts) {
-      attempts++;
-      // Pick a random cell already in the task and look at its neighbors
-      const currentIdx = taskCellIndices[Math.floor(Math.random() * taskCellIndices.length)];
-      const currentCell = cells[currentIdx];
-      const neighbors = getNeighbors(currentCell.row, currentCell.col, GRID_CONFIG.canvasSize);
-
-      // Shuffle neighbors
-      for (let i = neighbors.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [neighbors[i], neighbors[j]] = [neighbors[j], neighbors[i]];
-      }
-
-      for (const n of neighbors) {
-        const nKey = cellKey(n.row, n.col);
-        const nIdx = cellIndexMap.get(nKey);
-        if (nIdx !== undefined && !taskCellSet.has(nIdx)) {
-          taskCellIndices.push(nIdx);
-          taskCellSet.add(nIdx);
-          break;
-        }
-      }
-    }
-
-    // Record the task
-    tasks.push({
-      id: t,
-      cellIndices: taskCellIndices,
-      isCompleted: false,
-    });
-
-    // Mark cells as covered
-    for (const idx of taskCellIndices) {
-      coveredIndices.add(idx);
+    if (bestSegment) {
+      tasks.push({
+        id: t,
+        cellIndices: bestSegment,
+        isCompleted: false,
+      });
+      bestSegment.forEach(idx => coveredIndices.add(idx));
     }
   }
 
-  // Assign any uncovered cells to an adjacent existing task
+  // Assign uncovered cells to adjacent existing tasks
   for (let i = 0; i < cells.length; i++) {
     if (coveredIndices.has(i)) continue;
 
     const cell = cells[i];
-    const neighbors = getNeighbors(cell.row, cell.col, GRID_CONFIG.canvasSize);
-
     let assigned = false;
-    // Shuffle neighbors for randomness
-    for (let ni = neighbors.length - 1; ni > 0; ni--) {
-      const j = Math.floor(Math.random() * (ni + 1));
-      [neighbors[ni], neighbors[j]] = [neighbors[j], neighbors[ni]];
-    }
 
-    for (const n of neighbors) {
-      const nKey = cellKey(n.row, n.col);
-      const nIdx = cellIndexMap.get(nKey);
+    // Check all 4 neighbors for a cell that belongs to a task
+    for (const n of getNeighbors(cell.row, cell.col, GRID_CONFIG.canvasSize)) {
+      const nIdx = cellIndexMap.get(cellKey(n.row, n.col));
       if (nIdx !== undefined && coveredIndices.has(nIdx)) {
-        // Find which task contains nIdx and add this cell to it
+        // Find the task and check if adding this cell keeps it as a straight line
         for (const task of tasks) {
-          if (task.cellIndices.includes(nIdx)) {
+          if (!task.cellIndices.includes(nIdx)) continue;
+          // Check line property: all cells in task must share a row or a column
+          const taskCells = task.cellIndices.map(idx => cells[idx]);
+          const allSameRow = taskCells.every(c => c.row === cell.row);
+          const allSameCol = taskCells.every(c => c.col === cell.col);
+          if (allSameRow || allSameCol) {
             task.cellIndices.push(i);
             coveredIndices.add(i);
             assigned = true;
@@ -228,7 +228,7 @@ export function generateTasks(cells, numTasks, minSize, maxSize) {
       }
     }
 
-    // Fallback: if still not assigned (isolated somehow), add to the nearest task
+    // Fallback: create a single-cell "task" or add to first task
     if (!assigned) {
       tasks[0].cellIndices.push(i);
       coveredIndices.add(i);
