@@ -122,8 +122,8 @@ export const InventorySlot = ({
                             )}
                             {/* 价值显示 */}
                             {(item.value !== undefined && item.value > 0) && (
-                                <div className="absolute bottom-0 right-0 bg-amber-500/90 text-white rounded-tl-lg px-1.5 py-0.5 z-10">
-                                    <span className="text-sm font-black leading-none">{item.value}</span>
+                                <div className="absolute -top-1.5 -left-1.5 z-20 flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-amber-500 text-white shadow-md ring-1.5 ring-white">
+                                    <span className="text-[10px] font-black leading-none">{item.value}</span>
                                 </div>
                             )}
                         </div>
