@@ -6,6 +6,7 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
   if (!milestone) return null;
   const { cells, tasks, gridBounds } = milestone;
 
+  // Build cell-to-task membership map
   const cellTaskMap = useMemo(() => {
     const map = {};
     tasks.forEach((task, taskIndex) => {
@@ -17,6 +18,7 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
     return map;
   }, [tasks]);
 
+  // Build grid lookup with offset
   const { cellGrid, minRow, minCol } = useMemo(() => {
     let minR = Infinity, minC = Infinity;
     cells.forEach(c => {
@@ -25,11 +27,49 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
     });
     const grid = {};
     cells.forEach((cell, idx) => {
-      const key = `${cell.row},${cell.col}`;
-      grid[key] = { cell, idx };
+      grid[`${cell.row},${cell.col}`] = { cell, idx };
     });
     return { cellGrid: grid, minRow: minR, minCol: minC };
   }, [cells]);
+
+  // Compute task border edges for each cell
+  // For each cell, for each task it belongs to, determine which edges are task boundaries
+  // Then merge into a single border spec per cell edge (first task wins per edge)
+  const cellBorders = useMemo(() => {
+    const result = {}; // cellIdx -> { top, right, bottom, left } each is {color, width} or null
+
+    cells.forEach((cell, cellIdx) => {
+      const memberships = cellTaskMap[cellIdx] || [];
+      const edges = { top: null, right: null, bottom: null, left: null };
+
+      for (const { taskIndex } of memberships) {
+        const task = tasks[taskIndex];
+        const taskCellSet = new Set(task.cellIndices);
+        const color = TASK_COLORS[taskIndex % TASK_COLORS.length];
+
+        const directions = [
+          { name: 'top', dr: -1, dc: 0 },
+          { name: 'bottom', dr: 1, dc: 0 },
+          { name: 'left', dr: 0, dc: -1 },
+          { name: 'right', dr: 0, dc: 1 },
+        ];
+
+        for (const dir of directions) {
+          if (edges[dir.name]) continue; // already claimed by another task
+          const neighborKey = `${cell.row + dir.dr},${cell.col + dir.dc}`;
+          const neighbor = cellGrid[neighborKey];
+          const neighborInSameTask = neighbor && taskCellSet.has(neighbor.idx);
+          if (!neighborInSameTask) {
+            edges[dir.name] = { color, taskIndex };
+          }
+        }
+      }
+
+      result[cellIdx] = edges;
+    });
+
+    return result;
+  }, [cells, tasks, cellTaskMap, cellGrid]);
 
   const completedTasks = tasks.filter(t => t.isCompleted).length;
   const totalTasks = tasks.length;
@@ -38,10 +78,11 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
     <div className="flex items-start gap-4">
       {/* Grid */}
       <div
-        className="grid gap-1.5 p-3 bg-slate-800 rounded-2xl border border-slate-700 shadow-inner shrink-0"
+        className="grid p-2 bg-slate-800 rounded-2xl border border-slate-700 shadow-inner shrink-0"
         style={{
           gridTemplateColumns: `repeat(${gridBounds.cols}, 6rem)`,
           gridTemplateRows: `repeat(${gridBounds.rows}, 6rem)`,
+          gap: '2px',
         }}
       >
         {Array.from({ length: gridBounds.rows }).map((_, rowIdx) =>
@@ -55,7 +96,7 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
               return <div key={`empty-${rowIdx}-${colIdx}`} className="w-24 h-24" />;
             }
 
-            const { cell } = entry;
+            const { cell, idx } = entry;
             const isFillable = fillableCellIds.includes(String(cell.id));
 
             return (
@@ -63,6 +104,7 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
                 key={cell.id}
                 cell={cell}
                 taskMemberships={cellTaskMap[cell.id] || []}
+                taskBorders={cellBorders[cell.id]}
                 isFillable={isFillable}
                 onClick={onFillCell}
               />
@@ -71,7 +113,7 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
         )}
       </div>
 
-      {/* Side panel: header + task legend */}
+      {/* Side panel */}
       <div className="flex flex-col gap-3 pt-2 min-w-[100px]">
         <div className="flex flex-col gap-1">
           <h3 className="text-base font-black text-slate-700 tracking-wide leading-tight">
@@ -89,8 +131,8 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
               className={`flex items-center gap-1.5 text-xs font-bold ${task.isCompleted ? 'line-through opacity-40' : 'text-slate-600'}`}
             >
               <div
-                className="w-3 h-3 rounded-full shrink-0"
-                style={{ backgroundColor: TASK_COLORS[taskIndex % TASK_COLORS.length] }}
+                className="w-3 h-3 rounded-sm shrink-0 border-2"
+                style={{ borderColor: TASK_COLORS[taskIndex % TASK_COLORS.length] }}
               />
               <span>{task.cellIndices.length}格</span>
             </div>

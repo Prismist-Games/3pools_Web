@@ -1,4 +1,4 @@
-import { GRID_CONFIG, CELL_SCORE_WEIGHTS, CELL_RARITY_WEIGHTS } from '../data/gridConstants.js';
+import { GRID_CONFIG, CELL_SCORE_WEIGHTS, CELL_RARITY_WEIGHTS, CELL_REWARD_CHANCE } from '../data/gridConstants.js';
 
 // --- Helper Functions ---
 
@@ -308,11 +308,12 @@ export function assignItemsToCells(cells, tasks, allItems, rarities) {
     [itemAssignments[i], itemAssignments[j]] = [itemAssignments[j], itemAssignments[i]];
   }
 
-  // Build cell objects
+  // Build cell objects — only some cells get rewards
   return cells.map((cell, idx) => {
     const item = itemAssignments[idx];
     const requiredRarity = rollCellRarity(rarities, CELL_RARITY_WEIGHTS);
-    const scoreReward = CELL_SCORE_WEIGHTS[requiredRarity] || CELL_SCORE_WEIGHTS.common;
+    const hasReward = Math.random() < CELL_REWARD_CHANCE;
+    const scoreReward = hasReward ? (CELL_SCORE_WEIGHTS[requiredRarity] || CELL_SCORE_WEIGHTS.common) : 0;
 
     return {
       id: idx,

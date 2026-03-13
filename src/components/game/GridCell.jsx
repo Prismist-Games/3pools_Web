@@ -1,14 +1,7 @@
 import React from 'react';
 import { Check } from 'lucide-react';
+import { RARITY_BG_COLORS } from '../../data/gridConstants';
 
-const RARITY_COLORS = {
-  common: '#9CA3AF',
-  uncommon: '#22C55E',
-  rare: '#3B82F6',
-  epic: '#A855F7',
-  legendary: '#F59E0B',
-  mythic: '#EF4444',
-};
 const RARITY_NAMES = {
   common: '普通',
   uncommon: '优秀',
@@ -18,15 +11,14 @@ const RARITY_NAMES = {
   mythic: '神话',
 };
 
-const TASK_COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6'];
+const TASK_BORDER_WIDTH = '3px';
 
-const GridCellBase = ({ cell, taskMemberships, isFillable, onClick }) => {
+const GridCellBase = ({ cell, taskMemberships, taskBorders, isFillable, onClick }) => {
   const isFilled = !!cell.filledItem;
   const allTasksCompleted = isFilled && taskMemberships.length > 0 && taskMemberships.every(t => t.isCompleted);
-  const rarityColor = RARITY_COLORS[cell.requiredRarity] || '#9CA3AF';
-  const rarityName = RARITY_NAMES[cell.requiredRarity] || cell.requiredRarity;
-
+  const rarityBg = RARITY_BG_COLORS[cell.requiredRarity] || RARITY_BG_COLORS.common;
   const displayIcon = isFilled ? cell.filledItem.icon : cell.itemIcon;
+  const hasReward = cell.scoreReward > 0;
 
   const handleClick = () => {
     if (!isFilled && isFillable && onClick) {
@@ -34,70 +26,71 @@ const GridCellBase = ({ cell, taskMemberships, isFillable, onClick }) => {
     }
   };
 
+  // Build border style from task borders
+  const borderStyle = {};
+  if (taskBorders) {
+    borderStyle.borderTopWidth = taskBorders.top ? TASK_BORDER_WIDTH : '1px';
+    borderStyle.borderRightWidth = taskBorders.right ? TASK_BORDER_WIDTH : '1px';
+    borderStyle.borderBottomWidth = taskBorders.bottom ? TASK_BORDER_WIDTH : '1px';
+    borderStyle.borderLeftWidth = taskBorders.left ? TASK_BORDER_WIDTH : '1px';
+    borderStyle.borderTopColor = taskBorders.top?.color || 'rgba(100,116,139,0.3)';
+    borderStyle.borderRightColor = taskBorders.right?.color || 'rgba(100,116,139,0.3)';
+    borderStyle.borderBottomColor = taskBorders.bottom?.color || 'rgba(100,116,139,0.3)';
+    borderStyle.borderLeftColor = taskBorders.left?.color || 'rgba(100,116,139,0.3)';
+    borderStyle.borderStyle = 'solid';
+  }
+
+  // Cell background based on rarity
+  if (isFilled) {
+    borderStyle.backgroundColor = allTasksCompleted
+      ? 'rgba(34,197,94,0.2)'
+      : 'rgba(34,197,94,0.1)';
+  } else {
+    borderStyle.backgroundColor = rarityBg.bg;
+  }
+
   return (
     <button
       onClick={handleClick}
       className={`
-        relative w-24 h-24 rounded-xl border-2 flex flex-col items-center justify-center
+        relative w-24 h-24 rounded-lg flex flex-col items-center justify-center
         transition-all duration-200 select-none overflow-hidden
-        ${isFilled
-          ? allTasksCompleted
-            ? 'border-green-400 bg-green-900/40'
-            : 'border-green-600/60 bg-green-900/20 opacity-80'
-          : isFillable
-            ? 'border-yellow-400 bg-gray-700 cursor-pointer hover:bg-gray-600 animate-pulse'
-            : 'border-gray-600 bg-gray-800 cursor-default'
-        }
+        ${isFillable && !isFilled ? 'cursor-pointer ring-2 ring-yellow-400 ring-inset animate-pulse' : ''}
+        ${!isFillable && !isFilled ? 'cursor-default' : ''}
+        ${isFilled ? 'opacity-80' : ''}
       `}
+      style={borderStyle}
     >
-      {/* Evacuation marker — top-left */}
-      {cell.hasEvacuation && (
-        <div className="absolute top-0.5 left-0.5 text-xs leading-none">
-          🚀
-        </div>
-      )}
-
-      {/* Score reward — top-right */}
-      <div className="absolute top-1 right-1.5 text-[11px] font-bold text-yellow-400 leading-none">
-        +{cell.scoreReward}
+      {/* Top-left: rewards */}
+      <div className="absolute top-1 left-1 flex flex-col gap-0.5">
+        {cell.hasEvacuation && (
+          <span className="text-xs leading-none">🚀</span>
+        )}
+        {hasReward && (
+          <span className="text-[10px] font-bold text-yellow-300 bg-yellow-900/50 px-1 rounded leading-tight">
+            +{cell.scoreReward}分
+          </span>
+        )}
       </div>
 
-      {/* Item icon */}
-      <span className={`text-3xl leading-none ${isFilled ? '' : 'grayscale opacity-60'}`}>
+      {/* Center: item icon + name */}
+      <span className={`text-3xl leading-none ${isFilled ? '' : 'grayscale opacity-50'}`}>
         {displayIcon}
       </span>
-
-      {/* Item name */}
-      <span className="text-xs text-gray-300 font-medium leading-tight truncate max-w-full px-1 mt-1">
+      <span className={`text-xs font-medium leading-tight truncate max-w-full px-1 mt-1 ${isFilled ? 'text-gray-300' : 'text-gray-400'}`}>
         {cell.itemName}
       </span>
 
-      {/* Rarity badge — bottom-right */}
-      <div
-        className="absolute bottom-1 right-1 px-1.5 py-0.5 text-[9px] font-bold leading-none rounded-md"
-        style={{ backgroundColor: rarityColor + '33', color: rarityColor }}
-      >
-        {rarityName}+
-      </div>
-
-      {/* Task membership dots — bottom-left */}
-      {taskMemberships.length > 0 && (
-        <div className="absolute bottom-1.5 left-1.5 flex gap-0.5">
-          {taskMemberships.map(({ taskIndex, isCompleted }) => (
-            <div
-              key={taskIndex}
-              className={`w-2.5 h-2.5 rounded-full ${isCompleted ? 'opacity-40' : ''}`}
-              style={{ backgroundColor: TASK_COLORS[taskIndex % TASK_COLORS.length] }}
-            />
-          ))}
-        </div>
-      )}
+      {/* Bottom-left: rarity name (subtle, since bg already shows it) */}
+      <span className="absolute bottom-1 left-1 text-[9px] font-bold text-gray-400/60 leading-none">
+        {RARITY_NAMES[cell.requiredRarity]}+
+      </span>
 
       {/* Filled checkmark overlay */}
       {isFilled && (
-        <div className={`absolute inset-0 flex items-center justify-center ${allTasksCompleted ? 'bg-green-500/20' : 'bg-green-900/10'}`}>
-          <div className={`rounded-full p-0.5 ${allTasksCompleted ? 'bg-green-400' : 'bg-green-600/70'}`}>
-            <Check size={14} className="text-white" strokeWidth={3} />
+        <div className={`absolute inset-0 flex items-center justify-center ${allTasksCompleted ? 'bg-green-500/20' : ''}`}>
+          <div className={`rounded-full p-0.5 ${allTasksCompleted ? 'bg-green-400' : 'bg-green-600/60'}`}>
+            <Check size={16} className="text-white" strokeWidth={3} />
           </div>
         </div>
       )}
