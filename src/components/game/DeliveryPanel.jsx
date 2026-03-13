@@ -382,16 +382,74 @@ export const DeliveryPanel = ({
     }
 
     if (phase === 'result') {
-        const { passed } = deliveryResult;
+        const { passed, slotResults, finalItems } = deliveryResult;
+
         return (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                <div className="bg-white p-6 rounded-3xl shadow-2xl text-center">
-                    <p className={`text-xl font-black ${passed ? 'text-green-600' : 'text-red-600'}`}>
-                        {passed ? t("运送成功！") : t("运送失败")}
-                    </p>
-                    {/* Placeholder — detailed result view in Task 7 */}
-                    <button onClick={onProceed} className="mt-4 px-6 py-2 bg-slate-800 text-white rounded-xl">
-                        {t("继续")}
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className={`bg-white p-6 rounded-3xl shadow-2xl max-w-lg w-full flex flex-col gap-4 border-4
+                    ${passed ? 'border-green-300' : 'border-red-300'}`}>
+
+                    {/* Result header */}
+                    <div className="text-center">
+                        <div className="text-4xl mb-2">{passed ? '📦✓' : '📦✗'}</div>
+                        <h3 className={`text-2xl font-black ${passed ? 'text-green-600' : 'text-red-600'}`}>
+                            {passed ? t("运送成功！") : t("运送失败")}
+                        </h3>
+                        {!passed && (
+                            <p className="text-sm text-slate-500 mt-1">
+                                {t("部分物品未能满足订单要求")}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Per-item results */}
+                    <div className="flex flex-col gap-2">
+                        {currentOrder.requirements.map((req, i) => {
+                            const result = slotResults[i];
+                            const item = finalItems.find(fi => fi.uid === result.uid);
+
+                            return (
+                                <div key={i} className={`flex items-center gap-3 p-2 rounded-lg
+                                    ${result.met ? 'bg-green-50' : 'bg-red-50'}`}>
+                                    <span className="text-2xl">{req.icon}</span>
+                                    <div className="flex-1">
+                                        <span className="text-sm font-bold">{req.name}</span>
+                                        <span className="text-xs text-slate-500 ml-2">
+                                            {t("要求")}: {req.requiredRarity.name}+
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        {result.reason === 'destroyed' ? (
+                                            <span className="text-xs font-bold text-red-600">{t("已损坏")}</span>
+                                        ) : result.reason === 'degraded' ? (
+                                            <span className="text-xs font-bold text-red-600">
+                                                {t("降至")} {rarityConfig.find(r => r.id === result.actualRarity)?.name}
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs font-bold text-green-600">
+                                                {rarityConfig.find(r => r.id === result.actualRarity)?.name} ✓
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Proceed button */}
+                    <button
+                        onClick={() => {
+                            setSelectedSlot(null);
+                            setAnimState({ currentBump: 0, currentCollision: 0, step: 'focus', isPaused: false, displayItems: null });
+                            onProceed();
+                        }}
+                        className={`w-full font-bold py-3 rounded-xl shadow-lg active:scale-[0.98]
+                            ${passed
+                                ? 'bg-green-600 text-white hover:bg-green-700'
+                                : 'bg-slate-800 text-white hover:bg-slate-700'
+                            }`}
+                    >
+                        {currentIndex < queue.length - 1 ? t("下一个订单") : t("继续")}
                     </button>
                 </div>
             </div>
