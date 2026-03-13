@@ -8,6 +8,7 @@ import {
     getRandomItems
 } from '../utils/helpers';
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
+import { prepareDeliveryItems, resolveDelivery, evaluateDeliveryResult } from '../utils/deliveryResolver';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
@@ -60,6 +61,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     // 工具物品选择目标模式: { toolIndex: number, effectType: string }
     const [toolSelectionMode, setToolSelectionMode] = useState(null);
+
+    // 配送系统状态
+    const [deliveryState, setDeliveryState] = useState(null);
 
     const [skills, setSkills] = useState(initialSkills);
     const [skillSelectionCandidates, setSkillSelectionCandidates] = useState(null);
@@ -1776,66 +1780,179 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     };
 
-    const handleConfirmSubmission = () => {
-        if (satisfiableOrders.length === 0) {
-            showToast(t("请至少完成一个任务才能提交！"), "error");
+    // === Delivery System ===
+
+    const startDelivery = (satisfiableOrdersData) => {
+        const queue = satisfiableOrdersData
+            .filter(o => o.isScoreOrder)
+            .map(({ index, requirements }) => {
+                const order = orders[index];
+                const assignedUids = requirements.map((_, reqIdx) => {
+                    const key = `${index}-${reqIdx}`;
+                    return orderSlotAssignments[key];
+                });
+                const items = assignedUids.map(uid =>
+                    inventory.find(item => item.uid === uid)
+                ).filter(Boolean);
+                return { orderIndex: index, order, items, assignedUids };
+            })
+            .filter(entry => entry.items.length > 0 && entry.order.deliveryBumps);
+
+        if (queue.length === 0) {
+            executeSubmission(satisfiableOrdersData);
             return;
         }
 
+        const firstItems = prepareDeliveryItems(
+            queue[0].items,
+            config.delivery.durabilityPerTier
+        );
+
+        setDeliveryState({
+            queue,
+            currentIndex: 0,
+            phase: 'packing',
+            arrangement: firstItems,
+            deliveryResult: null,
+            completedResults: [],
+            _satisfiableOrders: satisfiableOrdersData,
+        });
+    };
+
+    const handleDeliverySwap = (indexA, indexB) => {
+        if (!deliveryState || deliveryState.phase !== 'packing') return;
+        setDeliveryState(prev => {
+            const newArr = [...prev.arrangement];
+            [newArr[indexA], newArr[indexB]] = [newArr[indexB], newArr[indexA]];
+            return { ...prev, arrangement: newArr };
+        });
+    };
+
+    const handleDeliveryConfirmPacking = () => {
+        if (!deliveryState || deliveryState.phase !== 'packing') return;
+        const { queue, currentIndex, arrangement } = deliveryState;
+        const current = queue[currentIndex];
+        const bumps = current.order.deliveryBumps;
+
+        const itemsForResolution = arrangement.map(item => ({
+            ...item,
+            rarity: item.rarity ? { ...item.rarity } : null,
+        }));
+
+        const { bumpHistory, finalItems } = resolveDelivery(
+            itemsForResolution, bumps, config.rarity
+        );
+
+        const { passed, slotResults } = evaluateDeliveryResult(
+            finalItems, current.order.requirements, current.assignedUids
+        );
+
+        setDeliveryState(prev => ({
+            ...prev,
+            phase: 'animating',
+            deliveryResult: { bumpHistory, finalItems, passed, slotResults },
+        }));
+    };
+
+    const handleDeliveryAnimationComplete = () => {
+        if (!deliveryState) return;
+        setDeliveryState(prev => ({
+            ...prev,
+            phase: 'result',
+        }));
+    };
+
+    const handleDeliveryProceed = () => {
+        if (!deliveryState) return;
+        const { queue, currentIndex, deliveryResult, completedResults, _satisfiableOrders } = deliveryState;
+        const newCompleted = [...completedResults, {
+            orderIndex: queue[currentIndex].orderIndex,
+            passed: deliveryResult.passed,
+            finalItems: deliveryResult.finalItems,
+            slotResults: deliveryResult.slotResults,
+        }];
+
+        const nextIndex = currentIndex + 1;
+
+        if (nextIndex < queue.length) {
+            const nextItems = prepareDeliveryItems(
+                queue[nextIndex].items,
+                config.delivery.durabilityPerTier
+            );
+            setDeliveryState(prev => ({
+                ...prev,
+                currentIndex: nextIndex,
+                phase: 'packing',
+                arrangement: nextItems,
+                deliveryResult: null,
+                completedResults: newCompleted,
+            }));
+        } else {
+            setDeliveryState(null);
+            executeSubmission(_satisfiableOrders, newCompleted);
+        }
+    };
+
+    const executeSubmission = (satisfiableOrdersData, deliveryResults = null) => {
         let gainedScore = 0;
-        const newOrders = [...orders];
         const completedIndices = [];
-
-        // 追踪完成的订单类型
-        let completedEmergencyOrder = false;
         let completedScoreCount = 0;
-
         const nextSkillState = { ...skillState };
+        const returnItems = [];
 
-        satisfiableOrders.forEach(({ index, finalScoreReward, reqCount, requirements, isScoreOrder }) => {
+        satisfiableOrdersData.forEach(({ index, finalScoreReward, reqCount, requirements, isScoreOrder }) => {
+            // Check delivery result if applicable
+            if (deliveryResults) {
+                const dr = deliveryResults.find(r => r.orderIndex === index);
+                if (dr && !dr.passed) {
+                    if (dr.finalItems) {
+                        returnItems.push(...dr.finalItems.map(item => ({
+                            ...item,
+                            currentDurability: undefined,
+                            destroyed: undefined,
+                            originalRarityId: undefined,
+                        })));
+                    }
+                    return; // Skip scoring for this order
+                }
+            }
+
             gainedScore += finalScoreReward;
 
             if (hasSkill('big_order_expert') && reqCount === 4) {
                 showToast(t("【大订单专家】触发：+5金币"));
             }
-
             if (hasSkill('hard_order_expert')) {
-                const hasHardReq = requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
+                const hasHardReq = requirements.some(req =>
+                    req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary'
+                );
                 if (hasHardReq) {
                     showToast(t("【困难订单专家】触发：+10金币"));
                 }
             }
-
             if (hasSkill('auto_restock')) nextSkillState.nextDrawExtraItem = true;
             if (hasSkill('turn_fortune')) nextSkillState.nextDrawGuaranteedRare = true;
 
-            // 追踪订单类型
             if (index >= 998) {
-                completedEmergencyOrder = true;
+                // emergency — handled separately
             }
-
-            // 积分订单的奖励通常更高，这里将其视为所有非撤离订单都能获得积分
             if (isScoreOrder) completedScoreCount++;
-
             completedIndices.push(index);
         });
 
         setSkillState(nextSkillState);
-
         setScore(prev => prev + gainedScore);
 
-        // 每次完成订单，增加刷新次数
         if (completedIndices.length > 0) {
             setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + completedIndices.length));
         }
 
-        // 只有手动“离开关卡”会提升难度，因此这里删除了完成订单时的难度提升逻辑
-
-        // 完成积分订单后，降低撤离订单难度
+        // Emergency difficulty reduction
         if (completedScoreCount > 0) {
             const difficultyConfig = config.emergency?.difficulty;
             if (difficultyConfig) {
-                const decreaseAmountBase = difficultyConfig.decreaseOnScoreOrder !== undefined ? difficultyConfig.decreaseOnScoreOrder : 1;
+                const decreaseAmountBase = difficultyConfig.decreaseOnScoreOrder !== undefined
+                    ? difficultyConfig.decreaseOnScoreOrder : 1;
                 const decreaseAmount = decreaseAmountBase * completedScoreCount;
                 const minDifficulty = difficultyConfig.minDifficulty || 1;
                 if (decreaseAmount > 0) {
@@ -1846,14 +1963,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                         }
                         return newDiff;
                     });
-                } else if (decreaseAmountBase === 0) {
-                    showToast(t("积分订单达成！"), "success");
                 }
             }
         }
 
-        // 为已完成的普通订单槽位生成候选订单，让玩家选择
-        // 先清除这些订单的槽位分配
         const normalCompletedIndices = completedIndices.filter(idx => idx < 998);
         if (normalCompletedIndices.length > 0) {
             clearAssignmentsForOrders(normalCompletedIndices);
@@ -1861,19 +1974,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         const candidateQueue = [];
         completedIndices.forEach(idx => {
-            if (idx >= 998) {
-                // Emergency orders handled via Evacuate button now
-            } else {
-                // 保留旧订单显示，直到玩家选择新订单后再替换
+            if (idx < 998) {
                 const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
                 const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
                 candidateQueue.push({ slotIndex: idx, candidates: [candidate1, candidate2] });
             }
         });
 
-        // 不立即更新订单数组，等选择完成后再更新
-
-        // 启动候选订单选择队列
         if (candidateQueue.length > 0) {
             setOrderCandidates(candidateQueue[0]);
             if (candidateQueue.length > 1) {
@@ -1881,11 +1988,32 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }
         }
 
-        const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
+        // Remove consumed items from inventory, add back returned items
+        let newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
+        if (returnItems.length > 0) {
+            newInventory = [...newInventory, ...returnItems];
+        }
         setInventory(newInventory);
 
         setIsSubmitMode(false);
         setSelectedIndices([]);
+    };
+
+    const handleConfirmSubmission = () => {
+        if (satisfiableOrders.length === 0) {
+            showToast(t("请至少完成一个任务才能提交！"), "error");
+            return;
+        }
+
+        const hasDeliveryOrders = satisfiableOrders.some(o =>
+            o.isScoreOrder && orders[o.index]?.deliveryBumps
+        );
+
+        if (hasDeliveryOrders) {
+            startDelivery(satisfiableOrders);
+        } else {
+            executeSubmission(satisfiableOrders);
+        }
     };
 
     const handleConfirmRecycle = () => {
@@ -2096,7 +2224,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             orderSlotAssignments,
             assignedItemUids,
             phantomMarks,
-            toolSelectionMode
+            toolSelectionMode,
+            deliveryState
         },
         actions: {
             showToast,
@@ -2132,7 +2261,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleToolItemUse,
             handleUnassignFromOrder,
             handleOrderSlotClick,
-            handleCancelToolSelection
+            handleCancelToolSelection,
+            handleDeliverySwap,
+            handleDeliveryConfirmPacking,
+            handleDeliveryAnimationComplete,
+            handleDeliveryProceed
         },
         helpers: {
             hasSkill
