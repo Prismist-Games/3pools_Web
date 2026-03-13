@@ -1,4 +1,5 @@
 // helpers.js - utility functions for game logic
+import { rollDeliveryDistance, generateBumpDirections } from './deliveryResolver';
 
 export const getAllNormalItems = (pools, currentStageConfig) => {
     // 修正：限制池子类型（allowedPoolCount）和池内物品数量（poolSize）
@@ -252,11 +253,22 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         baseScoreReward = Math.max(1, calculatedScore);
     }
 
+    // Delivery info (only for score orders)
+    let deliveryDistance = null;
+    let deliveryBumps = null;
+
+    if (!isEmergency && config.delivery) {
+        deliveryDistance = rollDeliveryDistance(config.delivery.distanceWeights);
+        deliveryBumps = generateBumpDirections(deliveryDistance);
+    }
+
     return {
         id: Math.random().toString(36).substr(2, 9),
         requirements,
         baseScoreReward,
-        isScoreOrder: !isEmergency
+        isScoreOrder: !isEmergency,
+        deliveryDistance,
+        deliveryBumps,
     };
 };
 
