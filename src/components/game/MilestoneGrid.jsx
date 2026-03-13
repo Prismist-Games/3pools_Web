@@ -6,18 +6,6 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
   if (!milestone) return null;
   const { cells, tasks, gridBounds } = milestone;
 
-  // Build cell-to-task membership map
-  const cellTaskMap = useMemo(() => {
-    const map = {};
-    tasks.forEach((task, taskIndex) => {
-      task.cellIndices.forEach(cellIdx => {
-        if (!map[cellIdx]) map[cellIdx] = [];
-        map[cellIdx].push({ taskIndex, isCompleted: task.isCompleted });
-      });
-    });
-    return map;
-  }, [tasks]);
-
   // Build grid lookup with offset
   const { cellGrid, minRow, minCol } = useMemo(() => {
     let minR = Infinity, minC = Infinity;
@@ -32,44 +20,36 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
     return { cellGrid: grid, minRow: minR, minCol: minC };
   }, [cells]);
 
-  // Compute task border edges for each cell
-  // For each cell, for each task it belongs to, determine which edges are task boundaries
-  // Then merge into a single border spec per cell edge (first task wins per edge)
-  const cellBorders = useMemo(() => {
-    const result = {}; // cellIdx -> { top, right, bottom, left } each is {color, width} or null
+  // Compute task overlay positions (straight-line tasks → colored background bars)
+  const taskOverlays = useMemo(() => {
+    return tasks.map((task, taskIndex) => {
+      const taskCells = task.cellIndices.map(idx => cells[idx]);
+      const color = TASK_COLORS[taskIndex % TASK_COLORS.length];
 
-    cells.forEach((cell, cellIdx) => {
-      const memberships = cellTaskMap[cellIdx] || [];
-      const edges = { top: null, right: null, bottom: null, left: null };
+      // Determine direction
+      const isHorizontal = taskCells.length <= 1 || taskCells.every(c => c.row === taskCells[0].row);
 
-      for (const { taskIndex } of memberships) {
-        const task = tasks[taskIndex];
-        const taskCellSet = new Set(task.cellIndices);
-        const color = TASK_COLORS[taskIndex % TASK_COLORS.length];
-
-        const directions = [
-          { name: 'top', dr: -1, dc: 0 },
-          { name: 'bottom', dr: 1, dc: 0 },
-          { name: 'left', dr: 0, dc: -1 },
-          { name: 'right', dr: 0, dc: 1 },
-        ];
-
-        for (const dir of directions) {
-          if (edges[dir.name]) continue; // already claimed by another task
-          const neighborKey = `${cell.row + dir.dr},${cell.col + dir.dc}`;
-          const neighbor = cellGrid[neighborKey];
-          const neighborInSameTask = neighbor && taskCellSet.has(neighbor.idx);
-          if (!neighborInSameTask) {
-            edges[dir.name] = { color, taskIndex };
-          }
-        }
+      // Compute grid placement (1-indexed for CSS Grid)
+      let gridRowStart, gridRowEnd, gridColStart, gridColEnd;
+      if (isHorizontal) {
+        const row = taskCells[0].row - minRow + 1;
+        const cols = taskCells.map(c => c.col - minCol + 1).sort((a, b) => a - b);
+        gridRowStart = row;
+        gridRowEnd = row + 1;
+        gridColStart = cols[0];
+        gridColEnd = cols[cols.length - 1] + 1;
+      } else {
+        const col = taskCells[0].col - minCol + 1;
+        const rows = taskCells.map(c => c.row - minRow + 1).sort((a, b) => a - b);
+        gridRowStart = rows[0];
+        gridRowEnd = rows[rows.length - 1] + 1;
+        gridColStart = col;
+        gridColEnd = col + 1;
       }
 
-      result[cellIdx] = edges;
+      return { taskIndex, color, gridRowStart, gridRowEnd, gridColStart, gridColEnd, isCompleted: task.isCompleted };
     });
-
-    return result;
-  }, [cells, tasks, cellTaskMap, cellGrid]);
+  }, [tasks, cells, minRow, minCol]);
 
   const completedTasks = tasks.filter(t => t.isCompleted).length;
   const totalTasks = tasks.length;
@@ -78,13 +58,30 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
     <div className="flex items-start gap-4">
       {/* Grid */}
       <div
-        className="grid p-2 bg-slate-800 rounded-2xl border border-slate-700 shadow-inner shrink-0"
+        className="relative grid p-3 bg-slate-800 rounded-2xl border border-slate-700 shadow-inner shrink-0"
         style={{
           gridTemplateColumns: `repeat(${gridBounds.cols}, 6rem)`,
           gridTemplateRows: `repeat(${gridBounds.rows}, 6rem)`,
-          gap: '2px',
+          gap: '3px',
         }}
       >
+        {/* Task background overlays — rendered first, behind cells */}
+        {taskOverlays.map(({ taskIndex, color, gridRowStart, gridRowEnd, gridColStart, gridColEnd, isCompleted }) => (
+          <div
+            key={`task-bg-${taskIndex}`}
+            className={`rounded-xl pointer-events-none ${isCompleted ? 'opacity-30' : ''}`}
+            style={{
+              gridRow: `${gridRowStart} / ${gridRowEnd}`,
+              gridColumn: `${gridColStart} / ${gridColEnd}`,
+              backgroundColor: color + '15',
+              border: `2.5px solid ${color}${isCompleted ? '40' : '80'}`,
+              margin: '-2px',
+              zIndex: 1,
+            }}
+          />
+        ))}
+
+        {/* Cells */}
         {Array.from({ length: gridBounds.rows }).map((_, rowIdx) =>
           Array.from({ length: gridBounds.cols }).map((_, colIdx) => {
             const actualRow = rowIdx + minRow;
@@ -96,15 +93,13 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
               return <div key={`empty-${rowIdx}-${colIdx}`} className="w-24 h-24" />;
             }
 
-            const { cell, idx } = entry;
+            const { cell } = entry;
             const isFillable = fillableCellIds.includes(String(cell.id));
 
             return (
               <GridCell
                 key={cell.id}
                 cell={cell}
-                taskMemberships={cellTaskMap[cell.id] || []}
-                taskBorders={cellBorders[cell.id]}
                 isFillable={isFillable}
                 onClick={onFillCell}
               />
@@ -131,8 +126,11 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
               className={`flex items-center gap-1.5 text-xs font-bold ${task.isCompleted ? 'line-through opacity-40' : 'text-slate-600'}`}
             >
               <div
-                className="w-3 h-3 rounded-sm shrink-0 border-2"
-                style={{ borderColor: TASK_COLORS[taskIndex % TASK_COLORS.length] }}
+                className="w-3 h-3 rounded-sm shrink-0"
+                style={{
+                  backgroundColor: TASK_COLORS[taskIndex % TASK_COLORS.length] + '30',
+                  border: `2px solid ${TASK_COLORS[taskIndex % TASK_COLORS.length]}`,
+                }}
               />
               <span>{task.cellIndices.length}格</span>
             </div>
