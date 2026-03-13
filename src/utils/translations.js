@@ -278,5 +278,28 @@ export const EN_TRANSLATIONS = {
     "同奖池中没有其他物品！": "No other items in the same pool!",
     "星辉祝福已激活：下次抽取品质+1": "Starlight Blessing active: Next draw rarity +1",
     "当前状态下无法使用工具物品": "Cannot use tool items in current state",
-    "工具道具无法用于以旧换新！": "Tool items cannot be used for trade-in!"
+    "工具道具无法用于以旧换新！": "Tool items cannot be used for trade-in!",
+
+    // --- Delivery system ---
+    "打包排列": "Pack & Arrange",
+    "运送距离": "Delivery Distance",
+    "运送中": "Delivering",
+    "颠簸": "Bump",
+    "方向": "Direction",
+    "右": "Right",
+    "左": "Left",
+    "订单要求": "Requirements",
+    "点击两个物品交换位置": "Click two items to swap positions",
+    "确认发货": "Confirm Shipment",
+    "运送中...": "Delivering...",
+    "运送成功！": "Delivery Success!",
+    "运送失败": "Delivery Failed",
+    "部分物品未能满足订单要求": "Some items no longer meet order requirements",
+    "已损坏": "Destroyed",
+    "降至": "Degraded to",
+    "要求": "Required",
+    "下一个订单": "Next Order",
+    "播放": "Play",
+    "暂停": "Pause",
+    "跳过": "Skip"
 };
