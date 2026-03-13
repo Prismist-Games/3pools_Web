@@ -357,54 +357,39 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     </div>
                 </header>
 
-                <main className="flex-1 flex flex-col lg:flex-row overflow-hidden transition-all duration-300">
+                <main className="flex-1 flex flex-col overflow-y-auto custom-scrollbar transition-all duration-300">
 
-                    {/* LEFT COLUMN: MILESTONE GRID */}
-                    <section className={`
-                        flex-none lg:w-[45%] xl:w-[42%] h-full flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 transition-all
-                        ${selectionMode?.type === 'targeted' ? 'hidden md:block md:w-1/4' : ''}
-                    `}>
-                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                            <div className="flex flex-col gap-3">
-                                <MilestoneGrid
-                                    milestone={milestone}
-                                    fillableCellIds={fillableCellIds}
-                                    onFillCell={handleFillCell}
-                                    milestoneNumber={milestoneNumber}
-                                />
+                    {/* TOP: MILESTONE GRID */}
+                    <section className="flex-none flex flex-col items-center px-4 py-4 bg-slate-50/50 border-b border-slate-200">
+                        <div className="flex flex-col gap-3 w-full max-w-2xl">
+                            <MilestoneGrid
+                                milestone={milestone}
+                                fillableCellIds={fillableCellIds}
+                                onFillCell={handleFillCell}
+                                milestoneNumber={milestoneNumber}
+                            />
 
-                                {/* Extract button */}
-                                {milestone && (
-                                    <button
-                                        onClick={handleEvacuationExtract}
-                                        disabled={!!pendingItem || !!selectionMode}
-                                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all bg-orange-50 text-orange-600 border-2 border-orange-200 hover:bg-orange-500 hover:text-white hover:border-orange-600 active:scale-95"
-                                    >
-                                        <Flag size={16} />
-                                        {t("提取积分离开")}
-                                    </button>
-                                )}
-                            </div>
+                            {/* Extract button */}
+                            {milestone && (
+                                <button
+                                    onClick={handleEvacuationExtract}
+                                    disabled={!!pendingItem || !!selectionMode}
+                                    className="self-center flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all bg-orange-50 text-orange-600 border-2 border-orange-200 hover:bg-orange-500 hover:text-white hover:border-orange-600 active:scale-95"
+                                >
+                                    <Flag size={16} />
+                                    {t("提取积分离开")}
+                                </button>
+                            )}
                         </div>
                     </section>
 
-                    {/* RIGHT COLUMN: POOLS */}
-                    <section className="flex-1 flex flex-col h-full overflow-hidden relative">
-                        {/* POOLS SCROLLABLE AREA */}
-                        <div className="flex-1 overflow-y-auto p-4 lg:p-8 relative custom-scrollbar">
-                            <div className="flex justify-between items-center mb-4 gap-4">
-                                <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
-                                    <RefreshCw size={16} /> {t("抽取物品")}
-                                </h2>
-
-                                <span className="text-xs text-slate-400 hidden md:block">{t("点击卡片购买")}</span>
-                            </div>
-
+                    {/* MIDDLE: POOLS (horizontal row) */}
+                    <section className="flex-none border-b border-slate-200 relative">
+                        <div className="px-4 py-3">
                             <div className={`
-                        flex flex-col gap-4 pb-4
-                        transition-opacity duration-300
-                        ${pendingItem || isSubmitMode || isRecycleMode || selectionMode ? 'opacity-100' : 'opacity-100'}
-                    `}>
+                                flex gap-3 overflow-x-auto pb-1 custom-scrollbar
+                                transition-opacity duration-300
+                            `}>
                                 {activePools.map((pool) => {
                                     const relevantRequirements = milestone
                                         ? milestone.cells
@@ -413,82 +398,83 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         : [];
 
                                     return (
-                                        <PoolCard
-                                            key={pool.id}
-                                            pool={pool}
-                                            gold={gold}
-                                            inventory={inventory}
-                                            hasSkill={hasSkill}
-                                            config={config}
-                                            onDraw={handleDraw}
-                                            onMouseEnter={handlePoolHover}
-                                            onMouseLeave={handlePoolLeave}
-                                            isHovered={hoveredPoolId === (pool.originalId || pool.id)}
-                                            relevantRequirements={relevantRequirements}
-                                            disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode}
-                                        />
+                                        <div key={pool.id} className="flex-1 min-w-[200px]">
+                                            <PoolCard
+                                                pool={pool}
+                                                gold={gold}
+                                                inventory={inventory}
+                                                hasSkill={hasSkill}
+                                                config={config}
+                                                onDraw={handleDraw}
+                                                onMouseEnter={handlePoolHover}
+                                                onMouseLeave={handlePoolLeave}
+                                                isHovered={hoveredPoolId === (pool.originalId || pool.id)}
+                                                relevantRequirements={relevantRequirements}
+                                                disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode}
+                                            />
+                                        </div>
                                     )
                                 })}
                             </div>
-
-                            {/* SELECTION OVERLAY (Trade-in / Targeted) */}
-                            {selectionMode && selectionMode.type !== 'trade_in' && (
-                                <div className="absolute inset-0 bg-white z-40 flex flex-col items-center justify-center p-4 animate-in fade-in cursor-default">
-                                    <h3 className="text-2xl font-black mb-8 text-slate-800 text-center">
-                                        {selectionMode.type === 'precise' ? t("精准：二选一 (不可取消)") : t("有的放矢：请选择你想要的")}
-                                    </h3>
-
-                                    <div className={`
-                            ${selectionMode.type === 'precise'
-                                            ? 'flex gap-6 w-full max-w-xl justify-center items-stretch'
-                                            : 'flex flex-wrap gap-4 justify-center max-w-2xl'}
-                          `}>
-                                        {selectionMode.items.map((item, idx) => {
-                                            const isPrecise = selectionMode.type === 'precise';
-
-                                            return (
-                                                <button
-                                                    key={idx}
-                                                    onClick={() => handleSelectionSelect(item)}
-                                                    onMouseEnter={() => state.setHoveredItemName(item.name)}
-                                                    onMouseLeave={() => state.setHoveredItemName(null)}
-                                                    className={`
-                                      relative transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group
-                                      flex flex-col items-center justify-center gap-3
-                                      ${isPrecise
-                                                            ? `flex-1 aspect-[4/5] rounded-3xl border-[4px] ${item.rarity.color}`
-                                                            : `w-28 h-36 rounded-2xl border-2 bg-white border-slate-200 hover:border-slate-400 shadow-sm`}
-                                   `}
-                                                >
-                                                    <div className={`${isPrecise ? 'text-6xl' : 'text-4xl'} filter drop-shadow-sm transition-transform group-hover:scale-110`}>{item.icon}</div>
-                                                    <div className="flex flex-col items-center gap-1">
-                                                        <span className={`font-black ${isPrecise ? 'text-xl' : 'text-sm text-slate-700'}`}>{t(item.name)}</span>
-                                                        {item.rarity && (
-                                                            <span className={`text-[10px] font-bold uppercase tracking-wider opacity-60`}>{t(item.rarity.name)}</span>
-                                                        )}
-                                                    </div>
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
-
-                                    {selectionMode.type === 'targeted' && (
-                                        <button onClick={handleSelectionCancel} className="mt-8 bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 px-8 py-2 rounded-full font-bold transition-colors">
-                                            {t("取消")}
-                                        </button>
-                                    )}
-                                </div>
-                            )}
                         </div>
 
-                        {/* BOTTOM UI (Previously Footer) */}
-                        <div className={`
-                    flex-none w-full p-4 border-t-2 border-slate-200 bg-white/95 backdrop-blur shadow-[0_-8px_30px_rgba(0,0,0,0.1)] z-30 transition-colors duration-300 relative
-                    ${pendingItem ? 'bg-red-50/95 border-red-200' : ''}
-                    ${isSubmitMode ? 'bg-blue-50/95 border-blue-200' : ''}
-                    ${isRecycleMode ? 'bg-amber-50/95 border-amber-200' : ''}
-                    ${selectionMode?.type === 'trade_in' ? 'bg-purple-50/95 border-purple-200' : ''}
-                `}>
+                        {/* SELECTION OVERLAY (Trade-in / Targeted) */}
+                        {selectionMode && selectionMode.type !== 'trade_in' && (
+                            <div className="absolute inset-0 bg-white z-40 flex flex-col items-center justify-center p-4 animate-in fade-in cursor-default">
+                                <h3 className="text-2xl font-black mb-8 text-slate-800 text-center">
+                                    {selectionMode.type === 'precise' ? t("精准：二选一 (不可取消)") : t("有的放矢：请选择你想要的")}
+                                </h3>
+
+                                <div className={`
+                                    ${selectionMode.type === 'precise'
+                                        ? 'flex gap-6 w-full max-w-xl justify-center items-stretch'
+                                        : 'flex flex-wrap gap-4 justify-center max-w-2xl'}
+                                `}>
+                                    {selectionMode.items.map((item, idx) => {
+                                        const isPrecise = selectionMode.type === 'precise';
+
+                                        return (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleSelectionSelect(item)}
+                                                onMouseEnter={() => state.setHoveredItemName(item.name)}
+                                                onMouseLeave={() => state.setHoveredItemName(null)}
+                                                className={`
+                                                    relative transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group
+                                                    flex flex-col items-center justify-center gap-3
+                                                    ${isPrecise
+                                                        ? `flex-1 aspect-[4/5] rounded-3xl border-[4px] ${item.rarity.color}`
+                                                        : `w-28 h-36 rounded-2xl border-2 bg-white border-slate-200 hover:border-slate-400 shadow-sm`}
+                                                `}
+                                            >
+                                                <div className={`${isPrecise ? 'text-6xl' : 'text-4xl'} filter drop-shadow-sm transition-transform group-hover:scale-110`}>{item.icon}</div>
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className={`font-black ${isPrecise ? 'text-xl' : 'text-sm text-slate-700'}`}>{t(item.name)}</span>
+                                                    {item.rarity && (
+                                                        <span className={`text-[10px] font-bold uppercase tracking-wider opacity-60`}>{t(item.rarity.name)}</span>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+
+                                {selectionMode.type === 'targeted' && (
+                                    <button onClick={handleSelectionCancel} className="mt-8 bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 px-8 py-2 rounded-full font-bold transition-colors">
+                                        {t("取消")}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </section>
+
+                    {/* BOTTOM: INVENTORY */}
+                    <section className={`
+                        flex-none w-full p-4 bg-white/95 backdrop-blur z-30 transition-colors duration-300 relative
+                        ${pendingItem ? 'bg-red-50/95' : ''}
+                        ${isRecycleMode ? 'bg-amber-50/95' : ''}
+                        ${selectionMode?.type === 'trade_in' ? 'bg-purple-50/95' : ''}
+                    `}>
 
                             {/* Skill Bar Area */}
                             <div className="flex flex-col gap-4 items-center mb-4">
@@ -780,7 +766,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     </div>
                                 )}
                             </div>
-                        </div>
                     </section>
                 </main>
             </div>

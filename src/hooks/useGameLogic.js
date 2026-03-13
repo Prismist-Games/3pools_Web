@@ -86,7 +86,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!milestone && allNormalItems.length > 0) {
             const newMilestone = generateMilestone(
                 allNormalItems,
-                config.rarities,
+                config.rarity,
                 milestoneNumber
             );
             setMilestone(newMilestone);
@@ -224,15 +224,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 .filter(({ item }) =>
                     item &&
                     item.item_data.name === cell.itemName &&
-                    config.rarities.findIndex(r => r.id === item.rarity.id) >=
-                    config.rarities.findIndex(r => r.id === cell.requiredRarity)
+                    config.rarity.findIndex(r => r.id === item.rarity.id) >=
+                    config.rarity.findIndex(r => r.id === cell.requiredRarity)
                 );
             if (matchingItems.length > 0) {
                 matches[cell.id] = matchingItems.map(m => m.idx);
             }
         });
         return matches;
-    }, [milestone, inventory, config.rarities]);
+    }, [milestone, inventory, config.rarity]);
 
     const fillableCellIds = useMemo(() => Object.keys(cellMatches), [cellMatches]);
 
