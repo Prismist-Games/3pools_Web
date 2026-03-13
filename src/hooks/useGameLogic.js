@@ -1783,17 +1783,46 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // === Delivery System ===
 
     const startDelivery = (satisfiableOrdersData) => {
+        // Build a pool of selected items for matching
+        const selectedItems = selectedIndices.map(idx => inventory[idx]).filter(Boolean);
+        const usedUids = new Set();
+
         const queue = satisfiableOrdersData
             .filter(o => o.isScoreOrder)
-            .map(({ index, requirements }) => {
+            .map(({ index }) => {
                 const order = orders[index];
-                const assignedUids = requirements.map((_, reqIdx) => {
-                    const key = `${index}-${reqIdx}`;
-                    return orderSlotAssignments[key];
-                });
-                const items = assignedUids.map(uid =>
-                    inventory.find(item => item.uid === uid)
-                ).filter(Boolean);
+                const assignedUids = [];
+                const items = [];
+
+                // Match items to requirements (slot assignments first, then auto-match)
+                for (let reqIdx = 0; reqIdx < order.requirements.length; reqIdx++) {
+                    const req = order.requirements[reqIdx];
+
+                    // Priority 1: Use orderSlotAssignments if available
+                    const slotKey = `${index}-${reqIdx}`;
+                    const slotUid = orderSlotAssignments[slotKey];
+                    if (slotUid) {
+                        const slotItem = selectedItems.find(item => item.uid === slotUid && !usedUids.has(item.uid));
+                        if (slotItem && slotItem.rarity.bonus >= req.requiredRarity.bonus) {
+                            assignedUids.push(slotItem.uid);
+                            items.push(slotItem);
+                            usedUids.add(slotItem.uid);
+                            continue;
+                        }
+                    }
+
+                    // Priority 2: Auto-match from selected items (same greedy logic as satisfiableOrders)
+                    const candidates = selectedItems
+                        .filter(item => !usedUids.has(item.uid) && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus)
+                        .sort((a, b) => b.rarity.bonus - a.rarity.bonus);
+
+                    if (candidates.length > 0) {
+                        assignedUids.push(candidates[0].uid);
+                        items.push(candidates[0]);
+                        usedUids.add(candidates[0].uid);
+                    }
+                }
+
                 return { orderIndex: index, order, items, assignedUids };
             })
             .filter(entry => entry.items.length > 0 && entry.order.deliveryBumps);
