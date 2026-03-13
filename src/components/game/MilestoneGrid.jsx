@@ -6,7 +6,6 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
   if (!milestone) return null;
   const { cells, tasks, gridBounds } = milestone;
 
-  // Build cell-to-task membership map: cellIndex -> [{ taskIndex, isCompleted }]
   const cellTaskMap = useMemo(() => {
     const map = {};
     tasks.forEach((task, taskIndex) => {
@@ -18,7 +17,6 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
     return map;
   }, [tasks]);
 
-  // Build grid lookup: "row,col" -> { cell, idx }
   const { cellGrid, minRow, minCol } = useMemo(() => {
     let minR = Infinity, minC = Infinity;
     cells.forEach(c => {
@@ -37,39 +35,13 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
   const totalTasks = tasks.length;
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between w-full px-1">
-        <h3 className="text-base font-black text-slate-700 tracking-wide">
-          里程碑 #{milestoneNumber}
-        </h3>
-        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${completedTasks === totalTasks ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'}`}>
-          任务 {completedTasks}/{totalTasks}
-        </span>
-      </div>
-
-      {/* Task legend */}
-      <div className="flex flex-wrap gap-3 w-full px-1">
-        {tasks.map((task, taskIndex) => (
-          <div
-            key={task.id}
-            className={`flex items-center gap-1.5 text-xs font-bold ${task.isCompleted ? 'line-through opacity-40' : 'text-slate-600'}`}
-          >
-            <div
-              className="w-2.5 h-2.5 rounded-full shrink-0"
-              style={{ backgroundColor: TASK_COLORS[taskIndex % TASK_COLORS.length] }}
-            />
-            <span>{task.cellIndices.length}格</span>
-          </div>
-        ))}
-      </div>
-
+    <div className="flex items-start gap-4">
       {/* Grid */}
       <div
-        className="grid gap-1.5 p-3 bg-slate-800 rounded-2xl border border-slate-700 shadow-inner"
+        className="grid gap-1.5 p-3 bg-slate-800 rounded-2xl border border-slate-700 shadow-inner shrink-0"
         style={{
-          gridTemplateColumns: `repeat(${gridBounds.cols}, 5rem)`,
-          gridTemplateRows: `repeat(${gridBounds.rows}, 5rem)`,
+          gridTemplateColumns: `repeat(${gridBounds.cols}, 6rem)`,
+          gridTemplateRows: `repeat(${gridBounds.rows}, 6rem)`,
         }}
       >
         {Array.from({ length: gridBounds.rows }).map((_, rowIdx) =>
@@ -80,7 +52,7 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
             const entry = cellGrid[key];
 
             if (!entry) {
-              return <div key={`empty-${rowIdx}-${colIdx}`} className="w-20 h-20" />;
+              return <div key={`empty-${rowIdx}-${colIdx}`} className="w-24 h-24" />;
             }
 
             const { cell } = entry;
@@ -97,6 +69,33 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
             );
           })
         )}
+      </div>
+
+      {/* Side panel: header + task legend */}
+      <div className="flex flex-col gap-3 pt-2 min-w-[100px]">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-base font-black text-slate-700 tracking-wide leading-tight">
+            里程碑 #{milestoneNumber}
+          </h3>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full w-fit ${completedTasks === totalTasks ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'}`}>
+            任务 {completedTasks}/{totalTasks}
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {tasks.map((task, taskIndex) => (
+            <div
+              key={task.id}
+              className={`flex items-center gap-1.5 text-xs font-bold ${task.isCompleted ? 'line-through opacity-40' : 'text-slate-600'}`}
+            >
+              <div
+                className="w-3 h-3 rounded-full shrink-0"
+                style={{ backgroundColor: TASK_COLORS[taskIndex % TASK_COLORS.length] }}
+              />
+              <span>{task.cellIndices.length}格</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

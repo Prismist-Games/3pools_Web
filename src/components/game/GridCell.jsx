@@ -38,7 +38,7 @@ const GridCellBase = ({ cell, taskMemberships, isFillable, onClick }) => {
     <button
       onClick={handleClick}
       className={`
-        relative w-20 h-20 rounded-xl border-2 flex flex-col items-center justify-center
+        relative w-24 h-24 rounded-xl border-2 flex flex-col items-center justify-center
         transition-all duration-200 select-none overflow-hidden
         ${isFilled
           ? allTasksCompleted
@@ -58,23 +58,23 @@ const GridCellBase = ({ cell, taskMemberships, isFillable, onClick }) => {
       )}
 
       {/* Score reward — top-right */}
-      <div className="absolute top-0.5 right-1 text-[10px] font-bold text-yellow-400 leading-none">
+      <div className="absolute top-1 right-1.5 text-[11px] font-bold text-yellow-400 leading-none">
         +{cell.scoreReward}
       </div>
 
       {/* Item icon */}
-      <span className={`text-2xl leading-none ${isFilled ? '' : 'grayscale opacity-60'}`}>
+      <span className={`text-3xl leading-none ${isFilled ? '' : 'grayscale opacity-60'}`}>
         {displayIcon}
       </span>
 
       {/* Item name */}
-      <span className="text-[10px] text-gray-300 font-medium leading-tight truncate max-w-full px-1 mt-0.5">
+      <span className="text-xs text-gray-300 font-medium leading-tight truncate max-w-full px-1 mt-1">
         {cell.itemName}
       </span>
 
       {/* Rarity badge — bottom-right */}
       <div
-        className="absolute bottom-0.5 right-0.5 px-1 py-px text-[8px] font-bold leading-none rounded-md"
+        className="absolute bottom-1 right-1 px-1.5 py-0.5 text-[9px] font-bold leading-none rounded-md"
         style={{ backgroundColor: rarityColor + '33', color: rarityColor }}
       >
         {rarityName}+
@@ -82,11 +82,11 @@ const GridCellBase = ({ cell, taskMemberships, isFillable, onClick }) => {
 
       {/* Task membership dots — bottom-left */}
       {taskMemberships.length > 0 && (
-        <div className="absolute bottom-1 left-1 flex gap-0.5">
+        <div className="absolute bottom-1.5 left-1.5 flex gap-0.5">
           {taskMemberships.map(({ taskIndex, isCompleted }) => (
             <div
               key={taskIndex}
-              className={`w-2 h-2 rounded-full ${isCompleted ? 'opacity-40' : ''}`}
+              className={`w-2.5 h-2.5 rounded-full ${isCompleted ? 'opacity-40' : ''}`}
               style={{ backgroundColor: TASK_COLORS[taskIndex % TASK_COLORS.length] }}
             />
           ))}
