@@ -369,17 +369,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 milestoneNumber={milestoneNumber}
                             />
 
-                            {/* Extract button */}
-                            {milestone && (
-                                <button
-                                    onClick={handleEvacuationExtract}
-                                    disabled={!!pendingItem || !!selectionMode}
-                                    className="self-center flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all bg-orange-50 text-orange-600 border-2 border-orange-200 hover:bg-orange-500 hover:text-white hover:border-orange-600 active:scale-95"
-                                >
-                                    <Flag size={16} />
-                                    {t("提取积分离开")}
-                                </button>
-                            )}
                         </div>
                     </section>
 
