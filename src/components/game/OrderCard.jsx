@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { RefreshCw, Check, Zap, Star, AlertCircle, Link, ChevronsUp, Trash2 } from 'lucide-react';
+import { RefreshCw, Check, Zap, Star, AlertCircle, Link, ChevronsUp, Trash2, Package } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const OrderCardBase = ({
@@ -211,6 +211,18 @@ const OrderCardBase = ({
                                     )}
                                     <span className="opacity-70">⭐</span>
                                 </div>
+                                {/* Delivery info */}
+                                {order.deliveryBumps && (
+                                    <div className="flex items-center gap-1 text-xs mt-1">
+                                        <Package size={12} className="text-slate-400" />
+                                        {order.deliveryBumps.map((dir, i) => (
+                                            <span key={i} className={`font-mono font-bold
+                                                ${dir === '→' ? 'text-blue-500' : 'text-orange-500'}`}>
+                                                {dir}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
