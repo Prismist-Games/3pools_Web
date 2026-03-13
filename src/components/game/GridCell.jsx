@@ -26,7 +26,7 @@ const GridCellBase = ({ cell, taskMemberships, isFillable, onClick }) => {
   const rarityColor = RARITY_COLORS[cell.requiredRarity] || '#9CA3AF';
   const rarityName = RARITY_NAMES[cell.requiredRarity] || cell.requiredRarity;
 
-  const displayIcon = isFilled ? cell.filledItem.item_data.icon : cell.itemIcon;
+  const displayIcon = isFilled ? cell.filledItem.icon : cell.itemIcon;
 
   const handleClick = () => {
     if (!isFilled && isFillable && onClick) {

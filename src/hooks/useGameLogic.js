@@ -223,7 +223,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 .map((item, idx) => ({ item, idx }))
                 .filter(({ item }) =>
                     item &&
-                    item.item_data.name === cell.itemName &&
+                    item.name === cell.itemName &&
                     config.rarity.findIndex(r => r.id === item.rarity.id) >=
                     config.rarity.findIndex(r => r.id === cell.requiredRarity)
                 );
