@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Truck, Trash2, Package, RefreshCw, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Timer } from 'lucide-react';
+import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronUp, ChevronDown, Check, Truck, Trash2, RefreshCw, Star, Hand, Repeat, AlertCircle, Zap, ListOrdered } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
@@ -9,7 +9,7 @@ import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
 import { PoolCard } from './components/game/PoolCard';
 
-import { OrderCard } from './components/game/OrderCard';
+import MilestoneGrid from './components/game/MilestoneGrid';
 import { SKILL_DEFINITIONS } from './data/constants';
 
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
@@ -29,14 +29,15 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
     const {
         gold, score, currentStageConfig, maxInventorySize,
-        drawCount, activePools, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
+        drawCount, activePools,
+        milestone, milestoneNumber, cellMatches, fillableCellIds, relevantPoolIds,
+        inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
-        toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
-        orderSlotAssignments, assignedItemUids, phantomMarks,
+        toast, totalRecycleValue, selectedItemNames,
         toolSelectionMode
     } = state;
 
@@ -46,29 +47,21 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleCloseModal,
         handleSlotClick,
         handleDiscardNew,
-        handleRefreshAllOrders,
-        handleRefreshSingleOrder,
-        handleSelectOrderCandidate,
-        handleOrderClick,
-        handleConfirmSubmission,
+        handleFillCell,
+        handleEvacuationContinue,
+        handleEvacuationExtract,
+        handleConfirmRecycle,
         toggleSubmitMode,
         toggleRecycleMode,
         handleDraw,
         handleSelectionSelect,
         handleSelectionCancel,
-        handleConfirmRecycle,
         handleSortInventory,
         handlePoolHover,
         handlePoolLeave,
-        handleEvacuate,
-        toggleEvacuationMode,
-        handleConfirmEvacuation,
-        handleEvacuationContinue,
-        handleEvacuationExtract,
-        debugGetOrderItems,
+        refreshPools,
+        addInventoryItem,
         handleToolItemUse,
-        handleUnassignFromOrder,
-        handleOrderSlotClick,
         handleCancelToolSelection
     } = actions;
 
@@ -162,6 +155,34 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     >
                                         {t("重新开始")}
                                     </button>
+                                </>
+                            ) : modalContent.type === 'evacuation_triggered' ? (
+                                // Evacuation Triggered by completing a task with evacuation cell
+                                <>
+                                    <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center text-5xl shadow-inner mb-2">
+                                        🚀
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <p className="text-slate-500 font-medium text-lg">
+                                            {t("当前积分")}: <span className="font-bold text-blue-600 font-mono text-xl">{modalContent.score}</span>
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col w-full gap-3 mt-4">
+                                        <button
+                                            onClick={handleEvacuationContinue}
+                                            className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                                        >
+                                            <RotateCcw size={20} />
+                                            {t("继续下一个里程碑")}
+                                        </button>
+                                        <button
+                                            onClick={handleEvacuationExtract}
+                                            className="w-full bg-white border-2 border-slate-200 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <Flag size={20} />
+                                            {t("提取积分离开")}
+                                        </button>
+                                    </div>
                                 </>
                             ) : modalContent.type === 'evacuation_success' ? (
                                 // Evacuation Success Modal
@@ -298,13 +319,13 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 </div>
                             </div>
 
-                            {/* Difficulty Display */}
-                            {emergencyOrders.length > 0 && (
+                            {/* Milestone Display */}
+                            {milestone && (
                                 <div className="flex flex-col gap-1 items-end">
-                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-orange-100">{t("离开关卡难度")}</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-orange-100">{t("里程碑")}</span>
                                     <div className="flex items-center gap-2 text-orange-400">
-                                        <ChevronsUp size={20} className="drop-shadow-[0_0_8px_rgba(251,146,60,0.4)]" />
-                                        <span className="text-3xl font-black font-mono tracking-tighter leading-none">LV.{emergencyDifficulty}</span>
+                                        <Flag size={20} className="drop-shadow-[0_0_8px_rgba(251,146,60,0.4)]" />
+                                        <span className="text-3xl font-black font-mono tracking-tighter leading-none">#{milestoneNumber}</span>
                                     </div>
                                 </div>
                             )}
@@ -338,213 +359,32 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                 <main className="flex-1 flex flex-col lg:flex-row overflow-hidden transition-all duration-300">
 
-                    {/* LEFT COLUMN: ORDERS */}
+                    {/* LEFT COLUMN: MILESTONE GRID */}
                     <section className={`
-                     flex-none lg:w-[45%] xl:w-[42%] h-full flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 transition-all
-                     ${selectionMode?.type === 'targeted' ? 'hidden md:block md:w-1/4' : ''}
-                  `}>
+                        flex-none lg:w-[45%] xl:w-[42%] h-full flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 transition-all
+                        ${selectionMode?.type === 'targeted' ? 'hidden md:block md:w-1/4' : ''}
+                    `}>
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                             <div className="flex flex-col gap-3">
+                                <MilestoneGrid
+                                    milestone={milestone}
+                                    fillableCellIds={fillableCellIds}
+                                    onFillCell={handleFillCell}
+                                    milestoneNumber={milestoneNumber}
+                                />
 
-                                {/* Emergency Orders */}
-                                {state.emergencyOrders && state.emergencyOrders.length > 0 && (
-                                    <div className="mb-2 relative flex flex-col gap-2 p-3 bg-orange-50/50 rounded-2xl border-2 border-orange-200 shadow-sm">
-                                        <div className="flex items-center justify-between gap-4 mb-3 flex-nowrap border-b border-orange-200/50 pb-2">
-                                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                <div className="bg-red-600 text-white p-1.5 rounded-lg shadow-lg shrink-0">
-                                                    <Timer size={14} className="animate-pulse" />
-                                                </div>
-                                                <div className="flex flex-col min-w-0">
-                                                    <h3 className="text-sm font-black text-slate-800 leading-none truncate uppercase tracking-tight">
-                                                        {t("离开关卡需求")}
-                                                    </h3>
-                                                    <span className="text-[10px] text-slate-500 font-bold leading-none mt-1 opacity-80">
-                                                        {t("(完成任意其一)")}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                {/* 离开此关卡按钮 - 嵌入在需求区域 (放大版) */}
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleEvacuate(); }}
-                                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!orderCandidates}
-                                                    className={`
-                                                        flex items-center justify-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-black transition-all duration-200 text-[10px] sm:text-sm shadow-lg border-2 whitespace-nowrap
-                                                        ${isEvacuationMode
-                                                            ? 'bg-orange-600 text-white ring-4 ring-orange-300 border-orange-400 animate-pulse scale-105'
-                                                            : (pendingItem || isSubmitMode || isRecycleMode || selectionMode || orderCandidates
-                                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200'
-                                                                : 'bg-orange-500 text-white hover:bg-orange-600 border-orange-600 hover:scale-110 active:scale-95')
-                                                        }
-                                                    `}
-                                                >
-                                                    {isEvacuationMode ? <Check size={14} className="sm:size-[18px]" /> : <Truck size={14} className="sm:size-[18px]" />}
-                                                    <span>{isEvacuationMode ? t("选择中...") : t("离开关卡")}</span>
-                                                </button>
-
-                                                {/* 放弃按钮 - 嵌入在需求区域 (放大版) */}
-                                                {!isEvacuationMode && !isSubmitMode && !isRecycleMode && !selectionMode && !orderCandidates && (
-                                                    <button
-                                                        onClick={onReset}
-                                                        className="flex items-center justify-center gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl font-black transition-all duration-200 text-[10px] sm:text-xs shadow-md bg-red-50 text-red-600 border-2 border-red-200 hover:bg-red-500 hover:text-white hover:border-red-600 hover:scale-105 active:scale-95 whitespace-nowrap"
-                                                    >
-                                                        <AlertCircle size={14} className="sm:size-[16px]" />
-                                                        <span>{t("放弃")}</span>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col gap-2">
-                                            {state.emergencyOrders.map((order, idx) => (
-                                                <OrderCard
-                                                    key={order.id}
-                                                    order={order}
-                                                    index={998 + idx}
-                                                    isScoreOrder={false}
-                                                    isEmergency={true}
-                                                    isSubmitMode={isSubmitMode}
-                                                    canSatisfy={satisfiableOrders.find(r => r.index === 998 + idx)}
-                                                    potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === 998 + idx)}
-                                                    // Pass click handler to allow auto-selection
-                                                    onClick={handleOrderClick}
-                                                    currentStageConfig={currentStageConfig}
-                                                    config={config}
-                                                    inventory={inventory}
-                                                    selectedIndices={selectedIndices}
-                                                    hasSkill={hasSkill}
-                                                    hoveredPoolId={hoveredPoolId}
-                                                    hoveredItemName={hoveredItemName}
-                                                    hoveredPoolItemNames={hoveredPoolItemNames}
-                                                    selectedItemNames={selectedItemNames}
-
-                                                    isBeingReplaced={false}
-                                                    onDebugGetItems={debugMode ? debugGetOrderItems : null}
-                                                    orderSlotAssignments={orderSlotAssignments}
-                                                    phantomMarks={phantomMarks}
-                                                    onUnassign={handleUnassignFromOrder}
-                                                    onSlotClick={handleOrderSlotClick}
-                                                    pendingItem={pendingItem}
-                                                    selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
-                                                    toolSelectionMode={toolSelectionMode}
-                                                    isRecycleMode={isRecycleMode}
-                                                    selectionMode={selectionMode}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
+                                {/* Extract button */}
+                                {milestone && (
+                                    <button
+                                        onClick={handleEvacuationExtract}
+                                        disabled={!!pendingItem || !!selectionMode}
+                                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all bg-orange-50 text-orange-600 border-2 border-orange-200 hover:bg-orange-500 hover:text-white hover:border-orange-600 active:scale-95"
+                                    >
+                                        <Flag size={16} />
+                                        {t("提取积分离开")}
+                                    </button>
                                 )}
-
-                                {/* Normal Orders (no mainline) */}
-                                {orders.map((order, idx) => (
-                                    <OrderCard
-                                        key={order ? order.id : `empty-${idx}`}
-                                        order={order}
-                                        index={idx}
-                                        isScoreOrder={true}
-                                        isSubmitMode={isSubmitMode}
-                                        isEvacuationMode={isEvacuationMode}
-                                        canSatisfy={satisfiableOrders.find(r => r.index === idx)}
-                                        potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === idx)} // Pass preview
-                                        onClick={handleOrderClick}
-                                        onRefresh={handleRefreshSingleOrder}
-                                        orderRefreshCount={orderRefreshCount}
-                                        REFRESH_MAX={REFRESH_MAX}
-                                        onDebugGetItems={debugMode ? debugGetOrderItems : null}
-                                        currentStageConfig={currentStageConfig}
-                                        config={config}
-                                        inventory={inventory}
-                                        selectedIndices={selectedIndices}
-                                        hasSkill={hasSkill}
-                                        hoveredPoolId={hoveredPoolId}
-                                        hoveredItemName={hoveredItemName}
-                                        hoveredPoolItemNames={hoveredPoolItemNames}
-                                        selectedItemNames={selectedItemNames}
-                                        isBeingReplaced={orderCandidates?.slotIndex === idx}
-                                        orderSlotAssignments={orderSlotAssignments}
-                                        phantomMarks={phantomMarks}
-                                        onUnassign={handleUnassignFromOrder}
-                                        onSlotClick={handleOrderSlotClick}
-                                        pendingItem={pendingItem}
-                                        selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
-                                        toolSelectionMode={toolSelectionMode}
-                                        isRecycleMode={isRecycleMode}
-                                        selectionMode={selectionMode}
-                                    // selectedIndices={selectedIndices} // Already passed above
-                                    // currentStageConfig={currentStageConfig} // Already passed above
-                                    />
-                                ))}
                             </div>
-
-                            {/* 候选订单选择区域 - 从订单栏底部升起 */}
-                            {orderCandidates && (
-                                <div className="mt-4 animate-in slide-in-from-bottom-4 fade-in duration-300">
-                                    {/* 指向箭头 */}
-                                    <div className="flex items-center justify-center -mb-2 relative z-10">
-                                        <div className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-black flex items-center gap-1.5 shadow-lg border-2 border-yellow-500 animate-bounce">
-                                            <ChevronUp size={14} strokeWidth={3} />
-                                            <span>{t("替换上方订单")}</span>
-                                            <ChevronUp size={14} strokeWidth={3} />
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-4 border-blue-300 rounded-2xl p-4 shadow-2xl ring-4 ring-blue-200">
-                                        <div className="flex flex-col gap-3">
-                                            {/* 标题栏 */}
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="bg-blue-500 text-white rounded-full p-1.5 shadow-lg">
-                                                        <Package size={16} />
-                                                    </div>
-                                                    <h3 className="text-base font-black text-slate-800">{t("选择一个订单")}</h3>
-                                                </div>
-                                                {orderCandidateQueue.length > 0 && (
-                                                    <div className="text-xs text-slate-500 font-bold bg-white/60 px-2 py-1 rounded-full">
-                                                        {t("待选订单")}: {orderCandidateQueue.length + 1}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <p className="text-xs text-slate-600 font-medium">{t("请从以下2个订单中选择1个")}</p>
-
-                                            {/* 候选订单卡片 - 使用完整的 OrderCard 组件 */}
-                                            <div className="flex flex-col gap-2">
-                                                {orderCandidates.candidates.map((candidate, idx) => (
-                                                    <div
-                                                        key={candidate.id}
-                                                        onClick={() => handleSelectOrderCandidate(idx)}
-                                                        className="cursor-pointer hover:scale-[1.01] transition-transform duration-200"
-                                                    >
-                                                        <OrderCard
-                                                            order={candidate}
-                                                            index={-1}
-                                                            isScoreOrder={true}
-                                                            isSubmitMode={false}
-                                                            isEvacuationMode={false}
-                                                            canSatisfy={null}
-                                                            potentialSatisfy={null}
-                                                            onClick={() => handleSelectOrderCandidate(idx)}
-                                                            onRefresh={() => { }}
-                                                            currentStageConfig={currentStageConfig}
-                                                            config={config}
-                                                            inventory={inventory}
-                                                            selectedIndices={[]}
-                                                            hasSkill={hasSkill}
-                                                            hoveredPoolId={hoveredPoolId}
-                                                            hoveredItemName={hoveredItemName}
-                                                            hoveredPoolItemNames={hoveredPoolItemNames}
-                                                            selectedItemNames={[]}
-                                                            isBeingReplaced={false}
-                                                            isCandidate={true}
-                                                        />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </section>
 
@@ -566,19 +406,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         ${pendingItem || isSubmitMode || isRecycleMode || selectionMode ? 'opacity-100' : 'opacity-100'}
                     `}>
                                 {activePools.map((pool) => {
-                                    const relevantRequirements = [...orders]
-                                        .filter(Boolean)
-                                        .flatMap(o => o.requirements)
-                                        .filter(req => {
-                                            // 1. Must be in the pool
-                                            if (!pool.items.some(pi => pi.name === req.name)) return false;
-
-                                            // 2. Hide if satisfied in inventory
-                                            const isSatisfied = inventory.some(item =>
-                                                item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
-                                            );
-                                            return !isSatisfied;
-                                        });
+                                    const relevantRequirements = milestone
+                                        ? milestone.cells
+                                            .filter(c => !c.filledItem && pool.items.some(pi => pi.name === c.itemName))
+                                            .map(c => ({ name: c.itemName, requiredRarity: { bonus: 0 } }))
+                                        : [];
 
                                     return (
                                         <PoolCard
@@ -593,7 +425,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             onMouseLeave={handlePoolLeave}
                                             isHovered={hoveredPoolId === (pool.originalId || pool.id)}
                                             relevantRequirements={relevantRequirements}
-                                            disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
+                                            disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode}
                                         />
                                     )
                                 })}
@@ -715,7 +547,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             <div className="flex justify-between items-center mb-2 px-2 max-w-3xl mx-auto">
                                 <div className="flex items-center gap-3">
                                     <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("背包栏位")} ({inventory.length}/{maxInventorySize})</h2>
-                                    {!pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && !isEvacuationMode && (
+                                    {!pendingItem && !isRecycleMode && !selectionMode && (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleSortInventory(); }}
                                             className="flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm text-slate-600 text-xs font-bold py-1.5 px-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95"
@@ -725,14 +557,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         </button>
                                     )}
                                 </div>
-                                {selectedSlot !== null && !pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && !isEvacuationMode && (
+                                {selectedSlot !== null && !pendingItem && !isRecycleMode && !selectionMode && (
                                     <span className="text-xs font-bold text-blue-500 animate-pulse bg-blue-50 px-2 py-1 rounded flex items-center gap-2">
                                         <Hand size={14} /> {t("整理模式")}
-                                    </span>
-                                )}
-                                {isSubmitMode && (
-                                    <span className="text-xs font-bold text-blue-600 animate-pulse flex items-center gap-1">
-                                        <Layers size={14} /> {t("提交模式: 点击订单卡片可一键选择")}
                                     </span>
                                 )}
                                 {isRecycleMode && (
@@ -778,14 +605,15 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             item.rarity.id !== 'mythic' &&
                                             currentStageConfig.mechanics.synthesis;
 
-                                        // Badge Logic: Scans all orders (including emergency order)
-                                        const activeReqs = [
-                                            ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                            ...emergencyOrders.flatMap(o => o.requirements)
-                                        ];
-                                        const matchedReqs = item ? activeReqs.filter(r => r.name === item.name) : [];
-                                        const isNeeded = matchedReqs.length > 0;
-                                        const isMaxSatisfied = isNeeded && matchedReqs.some(r => item.rarity.bonus >= r.requiredRarity.bonus);
+                                        // Badge Logic: Check if item is needed by unfilled milestone cells
+                                        const neededCells = item && milestone
+                                            ? milestone.cells.filter(c => !c.filledItem && c.itemName === item.name)
+                                            : [];
+                                        const isNeeded = neededCells.length > 0;
+                                        const isMaxSatisfied = isNeeded && neededCells.some(c => {
+                                            const reqRarity = config.rarity.find(r => r.id === c.requiredRarity);
+                                            return reqRarity && item.rarity.bonus >= reqRarity.bonus;
+                                        });
 
                                         // Upgrade Badge Logic
                                         const hasUpgradePair = item && !item.sterile && inventory.some((other, otherIdx) =>
@@ -812,7 +640,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 item={item}
                                                 isSelected={isSelected}
                                                 isTarget={!!sourceItem && !isSourceSelf}
-                                                isSubmitMode={isSubmitMode || isEvacuationMode}
+                                                isSubmitMode={false}
                                                 isRecycleMode={isRecycleMode}
                                                 isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
                                                 isReference={selectionMode?.type === 'trade_in' || !!toolSelectionMode}
@@ -830,7 +658,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 isHovered={hoveredSlotIndex === idx}
                                                 className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24"
                                                 nextDrawEnhanced={skillState?.nextDrawEnhanced}
-                                                isAssigned={item && assignedItemUids.has(item.uid)}
+                                                isAssigned={false}
                                             />
                                         )
                                     })}
@@ -838,24 +666,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                 {/* Action Buttons (Moved to prevent overlap) */}
                                 <div className={`flex flex-col gap-2 shrink-0 justify-end pb-2 w-40 min-h-[88px] ${pendingItem ? 'hidden' : ''}`}>
-                                    {!isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode && (
-                                        <>
-                                            <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">
-                                                <Trash2 size={18} /> {t("回收")}
-                                            </button>
-                                            <button onClick={toggleSubmitMode} className="w-full flex items-center justify-center gap-2 bg-slate-800 text-white font-bold py-3 px-6 rounded-xl shadow-md hover:bg-slate-700 transition-transform active:scale-95">
-                                                <Layers size={18} /> {t("出牌")}
-                                            </button>
-                                        </>
-                                    )}
-
-                                    {isSubmitMode && (
-                                        <div className="flex flex-col gap-2">
-                                            <button onClick={handleConfirmSubmission} disabled={selectedIndices.length === 0} className={`w-full flex items-center justify-center gap-2 font-bold py-3 px-6 rounded-xl shadow-md ${selectedIndices.length > 0 ? 'bg-blue-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                                <Send size={16} /> {t("确认出牌")}
-                                            </button>
-                                            <button onClick={toggleSubmitMode} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
-                                        </div>
+                                    {!isRecycleMode && !pendingItem && !selectionMode && (
+                                        <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">
+                                            <Trash2 size={18} /> {t("回收")}
+                                        </button>
                                     )}
 
                                     {isRecycleMode && (
@@ -864,15 +678,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}🪙)
                                             </button>
                                             <button onClick={toggleRecycleMode} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
-                                        </div>
-                                    )}
-
-                                    {isEvacuationMode && (
-                                        <div className="flex flex-col gap-2">
-                                            <button onClick={handleConfirmEvacuation} disabled={satisfiableOrders.filter(o => o.index >= 998).length === 0} className={`w-full flex items-center justify-center gap-2 font-bold py-3 px-6 rounded-xl shadow-md ${satisfiableOrders.filter(o => o.index >= 998).length > 0 ? 'bg-orange-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                                <Truck size={16} /> {t("确认离开此关卡")}
-                                            </button>
-                                            <button onClick={() => toggleEvacuationMode()} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
                                         </div>
                                     )}
 
@@ -909,13 +714,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     <div className="relative transform hover:scale-105 transition-transform">
                                                         {(() => {
                                                             // Pending Item Badge Logic
-                                                            const activeReqs = [
-                                                                ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                                                ...emergencyOrders.flatMap(o => o.requirements)
-                                                            ];
-                                                            const matchedReqs = activeReqs.filter(r => r.name === pendingItem.name);
-                                                            const isNeeded = matchedReqs.length > 0;
-                                                            const isMaxSatisfied = isNeeded && matchedReqs.some(r => pendingItem.rarity.bonus >= r.requiredRarity.bonus);
+                                                            const pendingNeededCells = milestone
+                                                                ? milestone.cells.filter(c => !c.filledItem && c.itemName === pendingItem.name)
+                                                                : [];
+                                                            const isNeeded = pendingNeededCells.length > 0;
+                                                            const isMaxSatisfied = isNeeded && pendingNeededCells.some(c => {
+                                                                const reqRarity = config.rarity.find(r => r.id === c.requiredRarity);
+                                                                return reqRarity && pendingItem.rarity.bonus >= reqRarity.bonus;
+                                                            });
 
                                                             return (
                                                                 <InventorySlot
@@ -945,13 +751,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                                 {pendingQueue.map((qItem, idx) => {
                                                     // Queue Item Badge Logic
-                                                    const activeReqs = [
-                                                        ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                                        ...emergencyOrders.flatMap(o => o.requirements)
-                                                    ];
-                                                    const matchedReqs = activeReqs.filter(r => r.name === qItem.name);
-                                                    const isNeeded = matchedReqs.length > 0;
-                                                    const isMaxSatisfied = isNeeded && matchedReqs.some(r => qItem.rarity.bonus >= r.requiredRarity.bonus);
+                                                    const qNeededCells = milestone
+                                                        ? milestone.cells.filter(c => !c.filledItem && c.itemName === qItem.name)
+                                                        : [];
+                                                    const isNeeded = qNeededCells.length > 0;
+                                                    const isMaxSatisfied = isNeeded && qNeededCells.some(c => {
+                                                        const reqRarity = config.rarity.find(r => r.id === c.requiredRarity);
+                                                        return reqRarity && qItem.rarity.bonus >= reqRarity.bonus;
+                                                    });
 
                                                     return (
                                                         <div key={idx} className="flex flex-col gap-2 shrink-0 snap-center items-center opacity-60 grayscale-[0.3]">

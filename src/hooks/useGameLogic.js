@@ -225,7 +225,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     item &&
                     item.item_data.name === cell.itemName &&
                     config.rarities.findIndex(r => r.id === item.rarity.id) >=
-                    config.rarities.findIndex(r => r.id === cell.requiredRarity.id)
+                    config.rarities.findIndex(r => r.id === cell.requiredRarity)
                 );
             if (matchingItems.length > 0) {
                 matches[cell.id] = matchingItems.map(m => m.idx);
@@ -1115,6 +1115,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setTimeout(() => {
                 setModalContent({
                     type: 'evacuation_triggered',
+                    title: '撤离触发',
                     score: score + scoreGain,
                 });
             }, 800);
