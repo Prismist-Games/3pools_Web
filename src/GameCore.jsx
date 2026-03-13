@@ -10,6 +10,7 @@ import { InventorySlot } from './components/game/InventorySlot';
 import { PoolCard } from './components/game/PoolCard';
 
 import { OrderCard } from './components/game/OrderCard';
+import { DeliveryPanel } from './components/game/DeliveryPanel';
 import { SKILL_DEFINITIONS } from './data/constants';
 
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
@@ -37,7 +38,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         skills, skillSelectionCandidates, skillState,
         toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
         orderSlotAssignments, assignedItemUids, phantomMarks,
-        toolSelectionMode
+        toolSelectionMode,
+        deliveryState
     } = state;
 
     const {
@@ -69,7 +71,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleToolItemUse,
         handleUnassignFromOrder,
         handleOrderSlotClick,
-        handleCancelToolSelection
+        handleCancelToolSelection,
+        handleDeliverySwap,
+        handleDeliveryConfirmPacking,
+        handleDeliveryAnimationComplete,
+        handleDeliveryProceed
     } = actions;
 
     const { hasSkill } = helpers;
@@ -992,6 +998,17 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     </>
                 )
             }
+
+            {deliveryState && (
+                <DeliveryPanel
+                    deliveryState={deliveryState}
+                    onSwap={handleDeliverySwap}
+                    onConfirmPacking={handleDeliveryConfirmPacking}
+                    onAnimationComplete={handleDeliveryAnimationComplete}
+                    onProceed={handleDeliveryProceed}
+                    rarityConfig={config.rarity}
+                />
+            )}
         </div >
     );
 };
