@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import GridCell from './GridCell';
 import { TASK_COLORS } from '../../data/gridConstants';
 
-const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNumber }) => {
+const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNumber, hoveredPoolItemNames }) => {
   if (!milestone) return null;
   const { cells, tasks, gridBounds } = milestone;
 
@@ -58,51 +58,64 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
     <div className="flex items-start gap-4">
       {/* Grid */}
       <div
-        className="relative grid p-3 bg-slate-800 rounded-2xl border border-slate-700 shadow-inner shrink-0"
+        className="relative grid p-3 bg-slate-200 rounded-2xl border border-slate-300 shadow-inner shrink-0"
         style={{
           gridTemplateColumns: `repeat(${gridBounds.cols}, 6rem)`,
           gridTemplateRows: `repeat(${gridBounds.rows}, 6rem)`,
-          gap: '3px',
+          gap: '16px',
         }}
       >
-        {/* Task background overlays — rendered first, behind cells */}
-        {taskOverlays.map(({ taskIndex, color, gridRowStart, gridRowEnd, gridColStart, gridColEnd, isCompleted }) => (
-          <div
-            key={`task-bg-${taskIndex}`}
-            className={`rounded-xl pointer-events-none ${isCompleted ? 'opacity-30' : ''}`}
-            style={{
-              gridRow: `${gridRowStart} / ${gridRowEnd}`,
-              gridColumn: `${gridColStart} / ${gridColEnd}`,
-              backgroundColor: color + '15',
-              border: `2.5px solid ${color}${isCompleted ? '40' : '80'}`,
-              margin: '-2px',
-              zIndex: 1,
-            }}
-          />
-        ))}
+        {/* Task outline overlays — each frame slightly offset outward so overlaps are visible */}
+        {taskOverlays.map(({ taskIndex, color, gridRowStart, gridRowEnd, gridColStart, gridColEnd, isCompleted }) => {
+          const offset = -7; // all task frames same size
+          return (
+            <div
+              key={`task-bg-${taskIndex}`}
+              className={`rounded-xl pointer-events-none ${isCompleted ? 'opacity-25' : ''}`}
+              style={{
+                gridRow: `${gridRowStart} / ${gridRowEnd}`,
+                gridColumn: `${gridColStart} / ${gridColEnd}`,
+                border: `3px solid ${color}`,
+                margin: `${offset}px`,
+                zIndex: 0,
+              }}
+            />
+          );
+        })}
 
-        {/* Cells */}
+        {/* Cells — explicitly positioned to avoid auto-flow conflicts with overlays */}
         {Array.from({ length: gridBounds.rows }).map((_, rowIdx) =>
           Array.from({ length: gridBounds.cols }).map((_, colIdx) => {
             const actualRow = rowIdx + minRow;
             const actualCol = colIdx + minCol;
             const key = `${actualRow},${actualCol}`;
             const entry = cellGrid[key];
+            const gridStyle = {
+              gridRow: rowIdx + 1,
+              gridColumn: colIdx + 1,
+              zIndex: 2,
+            };
 
             if (!entry) {
-              return <div key={`empty-${rowIdx}-${colIdx}`} className="w-24 h-24" />;
+              return <div key={`empty-${rowIdx}-${colIdx}`} className="w-24 h-24" style={gridStyle} />;
             }
 
             const { cell } = entry;
             const isFillable = fillableCellIds.includes(String(cell.id));
 
+            const isHighlightedByPool = !cell.filledItem &&
+              hoveredPoolItemNames && hoveredPoolItemNames.length > 0 &&
+              hoveredPoolItemNames.includes(cell.itemName);
+
             return (
-              <GridCell
-                key={cell.id}
-                cell={cell}
-                isFillable={isFillable}
-                onClick={onFillCell}
-              />
+              <div key={cell.id} style={gridStyle}>
+                <GridCell
+                  cell={cell}
+                  isFillable={isFillable}
+                  isHighlighted={isHighlightedByPool}
+                  onClick={onFillCell}
+                />
+              </div>
             );
           })
         )}

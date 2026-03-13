@@ -367,6 +367,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 fillableCellIds={fillableCellIds}
                                 onFillCell={handleFillCell}
                                 milestoneNumber={milestoneNumber}
+                                hoveredPoolItemNames={hoveredPoolItemNames}
                             />
 
                         </div>

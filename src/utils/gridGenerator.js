@@ -168,7 +168,7 @@ export function generateTasks(cells, numTasks, minSize, maxSize) {
     for (let attempt = 0; attempt < 60 && !bestSegment; attempt++) {
       // Pick a starting cell — prefer covered cells for overlap
       let startIdx;
-      if (t > 0 && coveredIndices.size > 0 && Math.random() < 0.7) {
+      if (t > 0 && coveredIndices.size > 0 && Math.random() < 0.3) {
         const arr = [...coveredIndices];
         startIdx = arr[Math.floor(Math.random() * arr.length)];
       } else {
@@ -186,7 +186,21 @@ export function generateTasks(cells, numTasks, minSize, maxSize) {
       const segmentLen = minSize + Math.floor(Math.random() * (Math.min(maxSize, fullLine.length) - minSize + 1));
       const maxStart = fullLine.length - segmentLen;
       const segStart = Math.floor(Math.random() * (maxStart + 1));
-      bestSegment = fullLine.slice(segStart, segStart + segmentLen);
+      const candidate = fullLine.slice(segStart, segStart + segmentLen);
+
+      // Reject if this candidate fully overlaps with any existing task
+      // (identical set, or one is a subset of the other)
+      const candidateSet = new Set(candidate);
+      const isDuplicate = tasks.some(existing => {
+        const existingSet = new Set(existing.cellIndices);
+        const candidateInExisting = candidate.every(idx => existingSet.has(idx));
+        const existingInCandidate = existing.cellIndices.every(idx => candidateSet.has(idx));
+        return candidateInExisting || existingInCandidate;
+      });
+
+      if (!isDuplicate) {
+        bestSegment = candidate;
+      }
     }
 
     if (bestSegment) {
@@ -199,40 +213,44 @@ export function generateTasks(cells, numTasks, minSize, maxSize) {
     }
   }
 
-  // Assign uncovered cells to adjacent existing tasks
+  // Assign uncovered cells: try to extend existing line tasks at their ends.
+  // If that fails, create new single-cell tasks.
+  const uncovered = [];
   for (let i = 0; i < cells.length; i++) {
-    if (coveredIndices.has(i)) continue;
+    if (!coveredIndices.has(i)) uncovered.push(i);
+  }
 
+  for (const i of uncovered) {
     const cell = cells[i];
     let assigned = false;
 
-    // Check all 4 neighbors for a cell that belongs to a task
-    for (const n of getNeighbors(cell.row, cell.col, GRID_CONFIG.canvasSize)) {
-      const nIdx = cellIndexMap.get(cellKey(n.row, n.col));
-      if (nIdx !== undefined && coveredIndices.has(nIdx)) {
-        // Find the task and check if adding this cell keeps it as a straight line
-        for (const task of tasks) {
-          if (!task.cellIndices.includes(nIdx)) continue;
-          // Check line property: all cells in task must share a row or a column
-          const taskCells = task.cellIndices.map(idx => cells[idx]);
-          const allSameRow = taskCells.every(c => c.row === cell.row);
-          const allSameCol = taskCells.every(c => c.col === cell.col);
-          if (allSameRow || allSameCol) {
-            task.cellIndices.push(i);
-            coveredIndices.add(i);
-            assigned = true;
-            break;
-          }
+    for (const task of tasks) {
+      const taskCells = task.cellIndices.map(idx => cells[idx]);
+      const isHorizontal = taskCells.length <= 1 || taskCells.every(c => c.row === taskCells[0].row);
+
+      if (isHorizontal && cell.row === taskCells[0].row) {
+        // Check if cell is adjacent to either end of the horizontal line
+        const cols = taskCells.map(c => c.col).sort((a, b) => a - b);
+        if (cell.col === cols[0] - 1 || cell.col === cols[cols.length - 1] + 1) {
+          task.cellIndices.push(i);
+          coveredIndices.add(i);
+          assigned = true;
+          break;
         }
-        if (assigned) break;
+      } else if (!isHorizontal && cell.col === taskCells[0].col) {
+        // Check if cell is adjacent to either end of the vertical line
+        const rows = taskCells.map(c => c.row).sort((a, b) => a - b);
+        if (cell.row === rows[0] - 1 || cell.row === rows[rows.length - 1] + 1) {
+          task.cellIndices.push(i);
+          coveredIndices.add(i);
+          assigned = true;
+          break;
+        }
       }
     }
 
-    // Fallback: create a single-cell "task" or add to first task
-    if (!assigned) {
-      tasks[0].cellIndices.push(i);
-      coveredIndices.add(i);
-    }
+    // If can't extend a line, leave cell uncovered (no task)
+    // Don't create single-cell tasks — tasks must have at least 2 cells
   }
 
   return tasks;
@@ -355,6 +373,20 @@ export function generateMilestone(allItems, rarities, difficulty = 1) {
 
   // Step 3: Assign items and quality requirements to cells
   const cells = assignItemsToCells(shapeCells, tasks, allItems, rarities);
+
+  // Step 3.5: Ensure each task has at least one cell with a reward
+  for (const task of tasks) {
+    const hasReward = task.cellIndices.some(idx => cells[idx].scoreReward > 0);
+    if (!hasReward) {
+      // Pick a random cell in this task and give it a reward
+      const pick = task.cellIndices[Math.floor(Math.random() * task.cellIndices.length)];
+      const cell = cells[pick];
+      cells[pick] = {
+        ...cell,
+        scoreReward: Math.round(CELL_SCORE_WEIGHTS[cell.requiredRarity] || CELL_SCORE_WEIGHTS.common),
+      };
+    }
+  }
 
   // Step 4: Place evacuation marker(s) on random cell(s)
   const evacuationIndices = [];
