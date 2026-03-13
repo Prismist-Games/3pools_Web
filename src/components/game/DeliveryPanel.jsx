@@ -85,6 +85,156 @@ export const DeliveryPanel = ({
         );
     };
 
+    // Animation state
+    const [animState, setAnimState] = useState({
+        currentBump: 0,
+        currentCollision: 0,
+        step: 'focus', // 'focus' | 'impact' | 'resolve' | 'reset'
+        isPaused: false,
+        displayItems: null,
+    });
+
+    const [bumpSnapshots, setBumpSnapshots] = useState([]);
+
+    // Default animation speed (from config prop or fallback)
+    const animationSpeed = rarityConfig?._animationSpeed || {
+        focusDuration: 300,
+        impactDuration: 400,
+        resolveDuration: 500,
+        resetDuration: 300,
+        bumpTransitionDuration: 600,
+    };
+
+    // Initialize animation when entering animating phase
+    React.useEffect(() => {
+        if (phase === 'animating' && deliveryResult && !animState.displayItems) {
+            const initialSnapshot = arrangement.map(item => ({
+                ...item,
+                rarity: item.rarity ? { ...item.rarity } : null,
+            }));
+            setBumpSnapshots([initialSnapshot]);
+            setAnimState(prev => ({
+                ...prev,
+                currentBump: 0,
+                currentCollision: 0,
+                step: 'focus',
+                displayItems: initialSnapshot,
+            }));
+        }
+    }, [phase]);
+
+    // Auto-advance animation
+    React.useEffect(() => {
+        if (phase !== 'animating' || animState.isPaused || !animState.displayItems) return;
+        if (!deliveryResult) return;
+
+        const { bumpHistory } = deliveryResult;
+        const { currentBump, currentCollision, step } = animState;
+
+        if (currentBump >= bumpHistory.length) {
+            onAnimationComplete();
+            return;
+        }
+
+        const bump = bumpHistory[currentBump];
+        const collisions = bump.collisions.filter(c => c.type !== 'no_damage');
+
+        if (collisions.length === 0) {
+            const timer = setTimeout(() => {
+                advanceToBump(currentBump + 1);
+            }, 400);
+            return () => clearTimeout(timer);
+        }
+
+        if (currentCollision >= collisions.length) {
+            const timer = setTimeout(() => {
+                advanceToBump(currentBump + 1);
+            }, animationSpeed.bumpTransitionDuration);
+            return () => clearTimeout(timer);
+        }
+
+        const durations = {
+            focus: animationSpeed.focusDuration,
+            impact: animationSpeed.impactDuration,
+            resolve: animationSpeed.resolveDuration,
+            reset: animationSpeed.resetDuration,
+        };
+
+        const timer = setTimeout(() => {
+            const nextStep = { focus: 'impact', impact: 'resolve', resolve: 'reset', reset: 'focus' }[step];
+
+            if (nextStep === 'focus') {
+                applyCollisionToDisplay(collisions[currentCollision]);
+                setAnimState(prev => ({
+                    ...prev,
+                    currentCollision: prev.currentCollision + 1,
+                    step: 'focus',
+                }));
+            } else {
+                setAnimState(prev => ({ ...prev, step: nextStep }));
+            }
+        }, durations[step]);
+
+        return () => clearTimeout(timer);
+    }, [phase, animState.currentBump, animState.currentCollision, animState.step, animState.isPaused]);
+
+    const advanceToBump = (nextBump) => {
+        if (nextBump >= deliveryResult.bumpHistory.length) {
+            onAnimationComplete();
+            return;
+        }
+        const snapshot = deliveryResult.bumpHistory[nextBump - 1]?.itemsSnapshot
+            || arrangement.map(item => ({ ...item }));
+
+        setBumpSnapshots(prev => [...prev, snapshot]);
+        setAnimState(prev => ({
+            ...prev,
+            currentBump: nextBump,
+            currentCollision: 0,
+            step: 'focus',
+            displayItems: snapshot,
+        }));
+    };
+
+    const applyCollisionToDisplay = (collision) => {
+        setAnimState(prev => {
+            const newItems = prev.displayItems.map(item => {
+                if (item.uid === collision.defenderUid) {
+                    return {
+                        ...item,
+                        currentDurability: collision.durabilityAfter,
+                        rarity: collision.rarityAfter
+                            ? rarityConfig.find(r => r.id === collision.rarityAfter)
+                            : null,
+                        destroyed: collision.type === 'destroy',
+                    };
+                }
+                return item;
+            });
+            return { ...prev, displayItems: newItems };
+        });
+    };
+
+    const handlePause = () => setAnimState(prev => ({ ...prev, isPaused: !prev.isPaused }));
+
+    const handleStepBump = (delta) => {
+        const targetBump = animState.currentBump + delta;
+        if (targetBump < 0 || targetBump >= deliveryResult.bumpHistory.length) return;
+
+        const snapshot = targetBump === 0
+            ? arrangement.map(item => ({ ...item }))
+            : deliveryResult.bumpHistory[targetBump - 1].itemsSnapshot;
+
+        setAnimState(prev => ({
+            ...prev,
+            currentBump: targetBump,
+            currentCollision: 0,
+            step: 'focus',
+            displayItems: snapshot,
+            isPaused: true,
+        }));
+    };
+
     if (phase === 'packing') {
         return (
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -137,16 +287,95 @@ export const DeliveryPanel = ({
         );
     }
 
-    // Animation and result phases will be added in Tasks 6 and 7
-    if (phase === 'animating') {
+    if (phase === 'animating' && animState.displayItems) {
+        const { currentBump, currentCollision, step, isPaused, displayItems } = animState;
+        const { bumpHistory } = deliveryResult;
+        const bump = bumpHistory[currentBump];
+        const collisions = bump?.collisions.filter(c => c.type !== 'no_damage') || [];
+        const collision = collisions[currentCollision];
+
         return (
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                <div className="bg-white p-6 rounded-3xl shadow-2xl text-center">
-                    <p className="text-lg font-bold">{t("运送中...")}</p>
-                    {/* Placeholder — animation implemented in Task 6 */}
-                    <button onClick={onAnimationComplete} className="mt-4 px-6 py-2 bg-slate-800 text-white rounded-xl">
-                        {t("跳过")}
-                    </button>
+                <div className="bg-white p-6 rounded-3xl shadow-2xl max-w-2xl w-full flex flex-col gap-4 border-4 border-slate-200">
+                    {/* Header with bump progress */}
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-black text-slate-800">
+                            {t("运送中")} — {t("颠簸")} {currentBump + 1}/{bumpHistory.length}
+                        </h3>
+                        <span className={`px-3 py-1 rounded-full text-sm font-bold
+                            ${bump?.direction === '→' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                            {t("方向")}: {bump?.direction}
+                        </span>
+                    </div>
+
+                    {/* Items display */}
+                    <div className="flex items-center justify-center gap-2 py-4 min-h-[140px]">
+                        {displayItems.filter(item => !item.destroyed).map((item, i, arr) => {
+                            const isAttacker = collision && item.uid === collision.attackerUid && (step === 'impact' || step === 'resolve');
+                            const isDefender = collision && item.uid === collision.defenderUid && (step === 'impact' || step === 'resolve');
+
+                            return (
+                                <React.Fragment key={item.uid}>
+                                    <div className={`
+                                        relative flex flex-col items-center p-3 rounded-xl border-2 min-w-[90px]
+                                        transition-all duration-300
+                                        ${item.rarity?.color || 'border-slate-300 bg-slate-50'}
+                                        ${isAttacker && step === 'impact' ? (bump?.direction === '→' ? 'translate-x-3' : '-translate-x-3') : ''}
+                                        ${isDefender && step === 'impact' ? 'animate-pulse scale-95' : ''}
+                                        ${isAttacker || isDefender ? 'ring-2 ring-yellow-400 z-10' : 'opacity-50'}
+                                        ${!isAttacker && !isDefender && !collision ? 'opacity-100' : ''}
+                                    `}>
+                                        <span className="text-3xl mb-1">{item.icon}</span>
+                                        <span className="text-xs font-bold">{item.name}</span>
+                                        <div className="flex gap-2 mt-1.5">
+                                            <span className="flex items-center gap-0.5 text-xs">
+                                                <Umbrella size={12} className="text-blue-500" />
+                                                <span className="font-mono font-bold">{item.currentDurability}</span>
+                                            </span>
+                                            {(item.sharpness || 0) > 0 && (
+                                                <span className="flex items-center gap-0.5 text-xs">
+                                                    <TriangleAlert size={12} className="text-amber-500" />
+                                                    <span className="font-mono font-bold">{item.sharpness}</span>
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Damage popup */}
+                                        {isDefender && step === 'resolve' && collision.damage > 0 && (
+                                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-red-500 font-black text-sm animate-bounce">
+                                                -{collision.damage}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {i < arr.length - 1 && (
+                                        <div className="text-slate-300 text-lg">—</div>
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
+                    </div>
+
+                    {/* Playback controls */}
+                    <div className="flex items-center justify-center gap-4">
+                        <button onClick={() => handleStepBump(-1)} disabled={currentBump === 0}
+                            className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-sm font-bold">
+                            <ArrowLeft size={16} />
+                        </button>
+                        <button onClick={handlePause}
+                            className="px-4 py-1.5 rounded-lg bg-slate-800 text-white text-sm font-bold">
+                            {isPaused ? t("播放") : t("暂停")}
+                        </button>
+                        <button onClick={() => handleStepBump(1)}
+                            disabled={currentBump >= bumpHistory.length - 1}
+                            className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-sm font-bold">
+                            <ArrowRight size={16} />
+                        </button>
+                        <button onClick={onAnimationComplete}
+                            className="px-4 py-1.5 rounded-lg bg-slate-200 text-slate-600 text-sm font-bold ml-4">
+                            {t("跳过")}
+                        </button>
+                    </div>
                 </div>
             </div>
         );
