@@ -30,11 +30,11 @@ export const INITIAL_STAGE_CONFIG = [
             "4": 15
         },
         "rarityWeights": {
-            "common": 0.8,
-            "uncommon": 0.19,
-            "rare": 0.01,
-            "epic": 0.005,
-            "legendary": 0.001,
+            "common": 0.37,
+            "uncommon": 0.3,
+            "rare": 0.2,
+            "epic": 0.1,
+            "legendary": 0.03,
             "mythic": 0
         },
         "orderRarityWeights": {
@@ -216,6 +216,49 @@ export const SKILL_DEFINITIONS = [
     { id: 'big_order_expert', name: '大订单专家', desc: '完成需求物品数为 4 个的订单时，额外获得 5 金币。', Icon: Package, type: 'order', color: 'text-amber-600 bg-amber-600' },
     { id: 'hard_order_expert', name: '困难订单专家', desc: '完成需要史诗以上品质物品的订单时，额外获得 10 金币。', Icon: Trophy, type: 'order', color: 'text-fuchsia-600 bg-fuchsia-100' },
 ];
+
+// --- 工具物品定义 ---
+export const TOOL_ITEMS = [
+    {
+        id: 'tool_reforge',
+        name: '命运熔炉',
+        icon: '🔥',
+        desc: '使用后随机改变左侧物品的品质（品质概率与"有的放矢"词缀相同）。',
+        effectType: 'reforge_left',
+    },
+    {
+        id: 'tool_transmute',
+        name: '万象棱镜',
+        icon: '🔮',
+        desc: '使用后将左侧物品变为同类型（同奖池）的另一个物品，品质不变。',
+        effectType: 'transmute_left',
+    },
+    {
+        id: 'tool_enhance',
+        name: '星辉祝福',
+        icon: '✨',
+        desc: '使用后下一个抽出的物品品质提升1级。',
+        effectType: 'enhance_next',
+    },
+];
+
+// --- 工具物品掉落配置 ---
+export const TOOL_ITEM_CONFIG = {
+    dropChance: 0.2,           // 每次抽奖时掉落工具物品的概率
+    weights: {                  // 三种工具物品的相对权重
+        tool_reforge: 1,
+        tool_transmute: 1,
+        tool_enhance: 1,
+    },
+    reforgeRarityWeights: {     // 命运熔炉重roll品质的概率分布
+        common: 0.4,
+        uncommon: 0.3,
+        rare: 0.2,
+        epic: 0.08,
+        legendary: 0.02,
+        mythic: 0,
+    },
+};
 
 export const INITIAL_AFFIXES_CONFIG = [
     {
@@ -445,9 +488,9 @@ export const EMERGENCY_ORDER_CONFIG = {
     difficulty: {
         initial: 1,         // 初始难度
         increaseOnNewOrder: 1,  // 每个新撤离订单难度增加值
-        decreaseOnScoreOrder: 1,  // 完成积分订单时难度减少值
+        decreaseOnScoreOrder: 0,  // 完成积分订单时难度减少值
         minDifficulty: 1,   // 最小难度
-        maxDifficulty: 10   // 最大难度（可选）
+        maxDifficulty: 4    // 最大难度（可选）
     },
 
     // 基础配置
@@ -491,54 +534,31 @@ export const EMERGENCY_ORDER_CONFIG = {
         10: { common: 0.05, uncommon: 0.1, rare: 0.35, epic: 0.3, legendary: 0.2 }
     },
 
-    // 难度等级配置：难度 -> 固定 requiredValue
-    // 配置后该难度的撤离订单使用固定价值而非随机
-    difficultyRequiredValues: {
-        1: 0,
-        2: 1,
-        3: 2,
-        4: 3,
-        5: 4,
-        6: 6,
-        7: 8,
-        8: 12,
-        9: 16,
-        10: 20,
+    // 难度等级配置：难度 -> 精确品质需求（可选，如配置则优先使用）
+    // 数组中每项表示需要的品质和数量，会随机打乱后生成订单
+    // 示例: 1: [{ rarity: 'common', count: 1 }, { rarity: 'uncommon', count: 1 }] 
+    // 表示难度1固定需要1个普通+1个优秀品质的物品
+    difficultyRequirements: {
+        1: [{ rarity: 'uncommon', count: 1 }, { rarity: 'rare', count: 1 }],
+        2: [{ rarity: 'rare', count: 1 }, { rarity: 'rare', count: 1 }],
+        3: [{ rarity: 'rare', count: 1 }, { rarity: 'epic', count: 1 }],
+        4: [{ rarity: 'epic', count: 1 }, { rarity: 'epic', count: 1 }]
     }
-};
-
-// --- 价值系统配置 ---
-export const VALUE_SYSTEM_CONFIG = {
-    // 各品质的单个物品基础价值
-    baseValues: {
-        common: 0,
-        uncommon: 0,
-        rare: 1,
-        epic: 2,
-        legendary: 4,
-        mythic: 10
-    },
-    // 复合物品品质阈值表：组件数量 -> 各品质的最低价值 breakpoint
-    // 数组顺序: [Common, Uncommon, Rare, Epic, Legendary, Mythic]
-    compositeQualityThresholds: {
-        2: [0, 1, 2, 4, 8, 20],
-        3: [0, 1, 3, 6, 12, 30],
-    },
-    // 订单奖励系数: baseScoreReward = requiredValue * rewardMultiplier
-    rewardMultiplier: 1,
 };
 
 // --- 积分订单配置 ---
 export const SCORE_PROGRESS_CONFIG = {
-    targetProgress: Infinity,  // 无上限
-    progressOffset: 0.0,       // 计算偏移量
-    // 订单 requiredValue 生成权重 (value -> weight)
-    orderValueWeights: {
-        0: 0.4,
-        1: 0.35,
-        2: 0.2,
-        3: 0.05,
-    },
+    targetProgress: null,      // 无上限
+    progressOffset: 0,         // 计算偏移量
+    // 详细品质权重分配 (累加每个需求物品的值)
+    rarityWeights: {
+        common: 2,
+        uncommon: 2.5,
+        rare: 4,
+        epic: 8,
+        legendary: 16,
+        mythic: 32
+    }
 };
 
 export const INITIAL_GAME_CONFIG = {
@@ -548,7 +568,7 @@ export const INITIAL_GAME_CONFIG = {
     stages: INITIAL_STAGE_CONFIG,
     progress: SCORE_PROGRESS_CONFIG,
     emergency: EMERGENCY_ORDER_CONFIG,
-    valueSystem: VALUE_SYSTEM_CONFIG,
+    toolItems: TOOL_ITEM_CONFIG,
     enabledSkillIds: [
         "poverty_relief",
         "lucky_7",
@@ -567,8 +587,8 @@ export const INITIAL_GAME_CONFIG = {
     global: {
         "refreshCost": 5,
         "initialGold": 30,
-        "initialRefreshCount": 4,
-        "maxRefreshCount": 4
+        "initialRefreshCount": 3,
+        "maxRefreshCount": 3
     }
 };
 

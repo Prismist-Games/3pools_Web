@@ -2,7 +2,7 @@
 
 本文档是项目代码的完整技术参考，涵盖架构、数据流、每个文件的职责与实现细节、状态管理、UI 渲染逻辑和外部集成。阅读本文档后，无需再阅读源代码即可对项目做出正确修改。
 
-> **最后更新**: 2026-03-12 · 基于 `feature/fusion-system` 分支
+> **最后更新**: 2026-02-26 · 基于 `code_simplify` 分支 commit `4c22ee4`
 
 ---
 
@@ -154,7 +154,7 @@ INITIAL_GAME_CONFIG (constants.js)
     inventorySize: 10, orderSlots: 3, poolSize: 4, allowedPoolCount: 5,
     initialGold: 20,
     mechanics: { refresh: true, affixes: true, synthesis: true, variablePrice: true },
-    rarityWeights: { common: 0.8, uncommon: 0.19, rare: 0.01, epic: 0.005, legendary: 0.001, mythic: 0 },
+    rarityWeights: { common: 0.37, uncommon: 0.3, rare: 0.2, epic: 0.1, legendary: 0.03, mythic: 0 },
     orderRarityWeights: { common: 0.4, uncommon: 0.35, rare: 0.2, epic: 0.05 },
     orderCountWeights: { 2: 20, 3: 65, 4: 15 },
     baseRewards: { 2: 15, 3: 15, 4: 15 }
@@ -189,13 +189,28 @@ INITIAL_GAME_CONFIG (constants.js)
 
 Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通过 `hasSkill(id)` 检查后以条件分支实现。
 
-### 4.3 `INITIAL_AFFIXES_CONFIG`（7 种词缀）
+### 4.3 `TOOL_ITEMS`（3 种工具物品）
+
+| id | 名称 | 图标 | effectType | 行为 |
+|----|------|------|------------|------|
+| `tool_reforge` | 命运熔炉 | 🔥 | `reforge_left` | 右键→选目标→随机重置品质 |
+| `tool_transmute` | 万象棱镜 | 🔮 | `transmute_left` | 右键→选目标→变同池其他物品 |
+| `tool_enhance` | 星辉祝福 | ✨ | `enhance_next` | 右键→直接激活→下次抽卡品质+1 |
+
+### 4.4 `TOOL_ITEM_CONFIG`
+
+```js
+{ dropChance: 0.2, weights: { each: 1 },
+  reforgeRarityWeights: { common:0.4, uncommon:0.3, rare:0.2, epic:0.08, legendary:0.02, mythic:0 } }
+```
+
+### 4.5 `INITIAL_AFFIXES_CONFIG`（7 种词缀）
 
 | id | 名称 | 类型 | cost | 特殊权重 |
 |----|------|------|------|----------|
 | `trade_in` | 以旧换新的 | interaction | 1 | — |
-| `hardened` | 硬化的 | passive | 2 | rare:0.67, epic:0.3, legendary:0.03 |
-| `purified` | 提纯的 | passive | 3 | 同 hardened |
+| `hardened` | 硬化的 | passive | 2 | uncommon:0.2, rare:0.7, epic:0.09, legendary:0.01 |
+| `purified` | 提纯的 | passive | 3 | rare:0.67, epic:0.3, legendary:0.03 |
 | `volatile` | 波动的 | passive | 1 | — (逻辑约束只出 common/legendary) |
 | `fragmented` | 稀碎的 | passive | 1 | — (逻辑约束全 common) |
 | `precise` | 精准的 | interaction | 2 | — |
@@ -203,22 +218,20 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 
 每个词缀对象还包含 `name`、`desc`、`weight`（用于随机选取）等字段。
 
-### 4.4 `INITIAL_RARITY_CONFIG`（6 级品质）
+### 4.6 `INITIAL_RARITY_CONFIG`（6 级品质）
 
-| id | name | bonus | recycleValue | baseValue | color (Tailwind) |
-|----|------|-------|-------------|-----------|-----------------|
-| `common` | 普通 | 0 | 0 | 0 | gray-400 |
-| `uncommon` | 优秀 | 0.1 | 0 | 0 | green-400 |
-| `rare` | 稀有 | 0.25 | 1 | 1 | blue-400 |
-| `epic` | 史诗 | 0.5 | 2 | 2 | purple-400 |
-| `legendary` | 传说 | 1.0 | 4 | 4 | orange-400 |
-| `mythic` | 神话 | 2.0 | 10 | 10 | red-400 |
-
-> `baseValue` 来自 `config.valueSystem.baseValues`，不在品质对象本身中定义。
+| id | name | bonus | recycleValue | color (Tailwind) |
+|----|------|-------|-------------|-----------------|
+| `common` | 普通 | 0 | 0 | gray-400 |
+| `uncommon` | 优秀 | 0.1 | 0 | green-400 |
+| `rare` | 稀有 | 0.25 | 1 | blue-400 |
+| `epic` | 史诗 | 0.5 | 2 | purple-400 |
+| `legendary` | 传说 | 1.0 | 4 | orange-400 |
+| `mythic` | 神话 | 2.0 | 10 | red-400 |
 
 > 注意：`constants.js` 默认值可能被 JSON 配置覆盖（通过 App.jsx 的导入功能）。`game_rules.md` 中的数值以 JSON 配置为准。
 
-### 4.5 `INITIAL_POOLS_DATA`（5 个物品池）
+### 4.7 `INITIAL_POOLS_DATA`（5 个物品池）
 
 | poolId | 池名 | 图标 | 物品 (4个) |
 |--------|------|------|-----------|
@@ -228,32 +241,29 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 | `kitchenware` | 厨具 | 🍳 | 平底锅🍳 菜刀🔪 砧板🪵 汤勺🥄 |
 | `electronics` | 电器 | ⚡️ | 手机📱 耳机🎧 空调❄️ 电脑💻 |
 
-### 4.6 `EMERGENCY_ORDER_CONFIG`（撤离订单配置）
+### 4.8 `EMERGENCY_ORDER_CONFIG`（撤离订单配置）
 
 ```js
 {
-  difficulty: { initial: 1, increaseOnNewOrder: 1, decreaseOnScoreOrder: 1, min: 1, max: 10 },
+  difficulty: { initial: 1, increaseOnNewOrder: 1, decreaseOnScoreOrder: 0, min: 1, max: 4 },
   reqCountMin: 1, reqCountMax: 4,
-  emergencyNameCount: 3,
+  baseRarityWeights: { ... },
   difficultyReqCountWeights: { 1-10: { 2-4: weight } },
-  difficultyRarityWeights: { 1-10: { rarities } },  // still used for draw rarity
-  difficultyRequiredValues: {
-      // 键=难度等级，值=所需价值数字
-      1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 6, 7: 8, 8: 12, 9: 16, 10: 20
-  }
+  difficultyRarityWeights: { 1-10: { rarities } },
+  difficultyRequirements: { 1: [{uncommon,1},{rare,1}], 2: [{rare,1},{rare,1}], 3: [{rare,1},{epic,1}], 4: [{epic,1},{epic,1}] }
 }
 ```
 
 > 撤离订单没有时限和生命值系统。胜负由"金币耗尽前能否完成撤离订单"决定。
 
-### 4.7 `SCORE_PROGRESS_CONFIG`
+### 4.9 `SCORE_PROGRESS_CONFIG`
 
 ```js
-{ targetProgress: Infinity, progressOffset: 0,
-  orderValueWeights: { 0: 0.4, 1: 0.35, 2: 0.2, 3: 0.05 } }
+{ targetProgress: null, progressOffset: 0,
+  rarityWeights: { common:2, uncommon:2.5, rare:4, epic:8, legendary:16, mythic:32 } }
 ```
 
-### 4.8 `INITIAL_GAME_CONFIG`（总配置对象）
+### 4.10 `INITIAL_GAME_CONFIG`（总配置对象）
 
 将以上所有配置聚合：
 
@@ -265,22 +275,9 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
   stages: INITIAL_STAGE_CONFIG,
   progress: SCORE_PROGRESS_CONFIG,
   emergency: EMERGENCY_ORDER_CONFIG,
-  valueSystem: VALUE_SYSTEM_CONFIG,
+  toolItems: TOOL_ITEM_CONFIG,
   enabledSkillIds: [/* 全部13个技能ID */],
-  global: { refreshCost: 5, initialGold: 30, initialRefreshCount: 4, maxRefreshCount: 4 }
-}
-```
-
-### 4.9 `VALUE_SYSTEM_CONFIG`（价值系统配置）
-
-```js
-{
-  baseValues: { common: 0, uncommon: 0, rare: 1, epic: 2, legendary: 4, mythic: 10 },
-  compositeQualityThresholds: {
-    2: [0, 1, 2, 4, 8, 20],   // 2组件: Common≥0, Uncommon≥1, Rare≥2, Epic≥4, Legendary≥8, Mythic≥20
-    3: [0, 1, 3, 6, 12, 30],  // 3组件
-  },
-  rewardMultiplier: 1,  // baseScoreReward = requiredValue × rewardMultiplier
+  global: { refreshCost: 5, initialGold: 30, initialRefreshCount: 3, maxRefreshCount: 3 }
 }
 ```
 
@@ -302,34 +299,22 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 
 Fisher-Yates 洗牌后取前 `count` 个。
 
-### `getBaseValue(rarityId, config) → number`
+### `rollRequirementRarity(config, stageConfig, isEmergency, difficulty) → RarityId`
 
-Returns the base value for a single item's rarity from `config.valueSystem.baseValues`.
+确定订单需求的品质：
+- 撤离订单：先查 `difficultyRarityWeights[difficulty]`，fallback 到 `baseRarityWeights`，再 fallback 到 `stageConfig.orderRarityWeights`
+- 普通订单：使用 `stageConfig.orderRarityWeights`
+- 累积概率法随机选取
 
-### `getCompositeRarity(totalValue, componentCount, config) → Rarity`
+### `generateOrder(allItems, config, hasSkill, stageConfig, isEmergency, difficulty) → Order`
 
-Looks up the composite item's display rarity from threshold table based on total value and component count.
-
-### `getItemValue(item, config) → number`
-
-Returns item's value: uses `item.value` if present, otherwise calculates from rarity.
-
-### `rollRequiredValue(config, isEmergency, emergencyDifficulty) → number`
-
-Generates requiredValue for an order:
-- Emergency: looks up `config.emergency.difficultyRequiredValues[difficulty]`
-- Normal: weighted random from `config.progress.orderValueWeights`
-
-### `generateOrder(allNormalItems, config, hasSkill, stageConfig, isEmergency, emergencyDifficulty) → Order`
-
-基于名称的订单生成流程：
-1. 确定名称数量 `nameCount`：撤离订单使用 `config.emergency.emergencyNameCount`（默认3），普通订单固定3
-2. 从所有物品中随机选 `nameCount` 个不重复名称的物品
-3. 调用 `rollRequiredValue` 确定统一价值要求
-4. 计算 `baseScoreReward = max(1, floor(requiredValue × rewardMultiplier + offset))`（仅普通订单）
-5. 返回 `{ id, requiredNames, requiredIcons, requiredPoolIds, requiredValue, baseScoreReward, isScoreOrder, requirements[] }`
-
-> **注意**：订单现在使用统一价值 `requiredValue` 而非品质要求。`requirements` 数组保留用于向后兼容。
+完整订单生成流程：
+1. 检查 `difficultyRequirements[difficulty]` 是否存在精确模式（固定品质列表）
+2. 否则随机模式：按权重选需求数量 → 为每个需求选物品 + 品质
+3. 撤离订单强制不同池子（`getUniquePoolItems` 辅助函数）
+4. `cut_corners` 技能：20% 概率减少1个需求
+5. 计算 `baseScoreReward = max(1, floor(Σ rarityWeights + offset))`
+6. 返回 `{ id, requirements, baseScoreReward, isScoreOrder }`
 
 ### `rollRarity(config, affixKey, gold, hasSkill, skillState, stageConfig) → Rarity`
 
@@ -392,7 +377,8 @@ Generates requiredValue for an order:
 | `isSubmitMode` | boolean | 提交模式 |
 | `isRecycleMode` | boolean | 回收模式 |
 | `isEvacuationMode` | boolean | 撤离模式 |
-| `selectionMode` | object\|null | 交互词缀选择模式 `{ type, pool, items, cost }` 或融合模式 `{ type: 'fusion', step: 1\|2, firstItem, firstIndex }` |
+| `selectionMode` | object\|null | 交互词缀选择模式 `{ type, pool, items, cost }` |
+| `toolSelectionMode` | object\|null | 工具物品使用模式 `{ toolIndex, effectType }` |
 | `orderSlotAssignments` | object | 订单槽位分配映射 `{ "orderIdx-reqIdx": itemUid }` |
 | `orderCandidates` | object\|null | 当前候选订单 `{ slotIndex, candidates[] }` |
 | `orderCandidateQueue` | object[] | 候选订单队列 |
@@ -426,8 +412,8 @@ skillState = {
 | `maxRequirementRarityMap` | `orders`, `emergencyOrders`, `config.rarity` | 物品名→所有订单中该物品最高需求品质的 bonus |
 | `assignedItemUids` | `orderSlotAssignments` | 已分配物品 UID 集合 |
 | `phantomMarks` | `orders`, `emergencyOrders`, `orderSlotAssignments`, `inventory` | 交叉订单幻影标记：`{ "orderIdx-reqIdx": { orderIndex, reqIndex, itemUid }[] }` |
-| `satisfiableOrders` | `selectedIndices`, `inventory`, `orders`, `emergencyOrders` | 当前选中物品可满足的订单列表（仅在提交/撤离模式计算）。匹配逻辑：物品的 `names` 数组包含订单的全部 `requiredNames` 且价值 >= `requiredValue` |
-| `potentialSatisfiableOrders` | `inventory`, `orders`, `emergencyOrders` | 全背包物品可满足的订单（始终计算，用于预览），使用同样的名称包含匹配 |
+| `satisfiableOrders` | `selectedIndices`, `inventory`, `orders`, `emergencyOrders` | 当前选中物品可满足的订单列表（仅在提交/撤离模式计算） |
+| `potentialSatisfiableOrders` | `inventory`, `orders`, `emergencyOrders` | 全背包物品可满足的订单（始终计算，用于预览） |
 | `totalRecycleValue` | `selectedIndices`, `inventory` | 回收模式下选中物品的总回收金币值 |
 | `selectedItemNames` | `selectedIndices`, `inventory` | 选中物品名称集合 |
 
@@ -457,7 +443,7 @@ skillState = {
 #### 抽卡流程
 
 **`handleDraw(pool)`** — 抽卡入口：
-1. 守卫检查（非 submitMode、非 recycleMode、非 evacuationMode、非 selectionMode、非 pendingItem）
+1. 守卫检查（非 submitMode、非 recycleMode、非 evacuationMode、非 selectionMode、非 toolSelectionMode、非 pendingItem）
 2. `vip_discount` 技能：precise/targeted 词缀费用 -1
 3. 金币不足 → toast 提示，return
 4. 交互词缀 → `setSelectionMode(...)` 进入交互流程，return
@@ -469,11 +455,12 @@ skillState = {
    - `fragmented`：3 个 common 物品
    - 其他：1 个随机品质物品
 3. `nextDrawExtraItem`（auto_restock 技能）→ 额外复制第一个物品
-4. `nextDrawEnhanced`（enhance 技能效果）→ 品质 +1（`getNextRarity`）
+4. `nextDrawEnhanced`（enhance 工具）→ 品质 +1（`getNextRarity`）
 5. 更新 `skillState`（连续 common 计数、安慰奖触发等）
 6. 对当前背包应用熵增衰减
-7. `handleIncomingItems(items, decayedInventory)`
-8. `refreshPools(true)`
+7. `tryDropToolItem(items)` → 20% 概率追加一个工具物品
+8. `handleIncomingItems(items, decayedInventory)`
+9. `refreshPools(true)`
 
 **`handleIncomingItems(newItems, overrideInventory)`**：
 1. 检查 `negotiator` 技能（Epic+ 物品 → 刷新次数 +1）
@@ -483,27 +470,9 @@ skillState = {
    - 背包满 → 设为 `pendingItem`（或加入 `pendingQueue`）
    - 超载 → 设为 `pendingItem`
 
-#### 融合系统
+**`tryDropToolItem(items)`**：以 `dropChance`（0.2）概率调用 `rollToolItem` 并 push 到 items 数组。
 
-**`canFuse(item1, item2) → boolean`**：
-- 两个物品都不能为空或已衰变（decay ≤ 0）
-- 名称数组不能有重叠（`names1` 和 `names2` 无交集）
-
-**`fuseItems(item1, item2) → Item`**：
-- 合并 `names`、`icons`、`poolIds` 数组
-- 价值 = 所有组件基础价值之和
-- 品质由总价值和组件数量查 `compositeQualityThresholds` 阈值表决定
-- 名称用 `×` 连接（如 `西瓜×柠檬`）
-- 返回新物品（新 uid、`sterile: false`）
-
-**`enterFusionMode()`**：
-- 守卫检查（无 pendingItem、无 submit/recycle/evacuation/selection 模式、无 pendingQueue、无 orderCandidates）
-- 设 `selectionMode = { type: 'fusion', step: 1, firstItem: null, firstIndex: null }`
-
-融合在 `handleSlotClick` 的 fusion 分支中执行：
-- Step 1：点击物品选为第一个融合材料，进入 step 2
-- Step 2：点击第二个物品，验证 `canFuse`，执行 `fuseItems`，更新背包（替换一个槽位，清空另一个）
-- 不消耗金币、不增加 drawCount、不刷新奖池
+**`rollToolItem(config)`**：加权随机选择工具类型，创建工具物品实例（`isTool: true`, `sterile: true`）。
 
 #### 交互词缀处理
 
@@ -521,8 +490,7 @@ skillState = {
 
 | 当前模式 | 点击目标 | 行为 |
 |----------|----------|------|
-| `fusion` selectionMode (step 1) | 任意物品 | 选为第一个融合材料，进入 step 2 |
-| `fusion` selectionMode (step 2) | 任意物品 | 验证 `canFuse`→执行融合；点击第一个物品→取消选择回 step 1 |
+| `toolSelectionMode` | 任意物品 | `reforge`: 重新 roll 品质；`transmute`: 变同池其他物品 |
 | `trade_in` selectionMode | 任意物品 | 消耗该物品，从对应池子生成新物品（同品质，5% 升级，不同名称） |
 | submit/recycle/evacuation | 任意物品 | 切换 `selectedIndices` 中该索引 |
 | `pendingItem` + 空格 | null | 放入 pendingItem |
@@ -532,13 +500,9 @@ skillState = {
 | 无模式 + 物品 | item | 选中该格子 (`selectedSlot = index`) |
 | 无模式 + 空格 | null | 无操作 |
 
-**合成逻辑**（同名合成，非融合）：
-- 条件：同名（`names` 数组完全一致）、同品质、非 mythic、双方非 sterile、衰变非 0
+**合成逻辑**：
+- 条件：同名、同品质、非 mythic、双方非 sterile、衰变非 0
 - 结果：消耗两个物品，生成一个品质 +1 的新物品
-
-**融合逻辑**（不同名融合，通过融合模式触发）：
-- 条件：名称数组无重叠、双方未衰变
-- 结果：见上方"融合系统"章节
 
 **被分配物品的保护**：已分配到订单槽位的物品（`assignedItemUids` 包含其 uid）在大部分模式下不可交互（显示灰色+不透明），例外情况：trade_in、recycle mode、pendingItem 替换、selectedSlot 合成。
 
@@ -553,7 +517,7 @@ skillState = {
 管理 `orderSlotAssignments` 字典。
 
 **`handleOrderSlotClick(orderIdx, reqIdx)`**：
-- 根据当前模式分派（trade_in、recycle/submit/evacuation、pendingItem、selectedSlot、默认=取消分配）
+- 根据当前模式分派（toolSelectionMode、trade_in、recycle/submit/evacuation、pendingItem、selectedSlot、默认=取消分配）
 
 **`handleRefreshAllOrders()`**：
 为每个订单槽位生成 2 个候选，排入 `orderCandidateQueue` 供顺序选择。
@@ -568,7 +532,9 @@ skillState = {
 
 **`handleConfirmSubmission()`**：
 1. 验证 `satisfiableOrders.length > 0`
-2. 对每个可满足的订单累加 baseScoreReward
+2. 对每个可满足的订单计算奖励：
+   - `baseScoreReward` × `multiplier`（1 + Σ 物品品质 bonus）
+   - `ocd` 技能：同池物品时 multiplier ×2
    - `big_order_expert`：4 需求 +5 金币
    - `hard_order_expert`：含 Epic+ 需求 +10 金币
    - `poverty_relief`：金币 <20 时 +5 金币
@@ -603,6 +569,14 @@ skillState = {
 **`handleEvacuationExtract()`**：
 - 设 `modalContent = { type: 'victory' }`（触发胜利结算显示）
 
+#### 工具物品使用
+
+**`handleToolItemUse(index)`** — 右键点击工具触发：
+- `enhance_next`：直接激活 `skillState.nextDrawEnhanced = true`，从背包移除工具
+- `reforge_left` / `transmute_left`：设 `toolSelectionMode = { toolIndex, effectType }`，等待玩家点击目标
+
+工具效果在 `handleSlotClick` 的 `toolSelectionMode` 分支中实现。
+
 #### 技能选择
 
 **`triggerSkillSelection()`**：
@@ -633,7 +607,7 @@ skillState = {
     // 交互状态
     pendingItem, pendingQueue, selectedSlot,
     isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
-    selectionMode,
+    selectionMode, toolSelectionMode,
     orderSlotAssignments, assignedItemUids, phantomMarks,
     orderCandidates, orderCandidateQueue,
     modalContent, skillSelectionCandidates, toast,
@@ -659,8 +633,8 @@ skillState = {
     handleConfirmSubmission, handleConfirmRecycle, handleConfirmEvacuation,
     // 撤离
     handleEvacuate, handleEvacuationContinue, handleEvacuationExtract,
-    // 融合
-    canFuse, enterFusionMode,
+    // 工具
+    handleToolItemUse, handleCancelToolSelection,
     // 奖池
     refreshPools, handlePoolHover, handlePoolLeave,
     // 技能
@@ -708,7 +682,7 @@ skillState = {
 **`handleImportConfig(e)`**：解析上传的 JSON，**保护性合并**：
 - `stages`：仅合并 `rarityWeights`、`orderRarityWeights`、`orderCountWeights`、`baseRewards`、`entropyDecayValue`
 - `affixes`：按 key 匹配，仅合并 `cost` 和 `rarityWeights`
-- `progress`、`emergency`、`global`、`valueSystem`：浅层 spread 合并
+- `progress`、`emergency`、`global`、`toolItems`：浅层 spread 合并
 - `rarity`：按 id 匹配，仅合并 `bonus` 和 `recycleValue`
 - **不覆盖**：`pools`、`enabledSkillIds`
 
@@ -717,17 +691,15 @@ skillState = {
 一个 85vh 可滚动模态框，包含以下配置区：
 1. 调试物品生成（选择池/物品/品质，点击添加）
 2. 撤离订单配置（难度系统）
-3. 撤离订单难度配置（使用 requiredValue 数字输入而非品质下拉）
-4. 品质概率表（仅抽卡品质概率，无订单需求概率）
-5. 普通订单所需价值权重配置
-6. 订单数量权重与奖励
-7. 杂项参数（刷新费用、初始金币等）
-8. 词缀配置（每个词缀的费用和自定义品质权重）
+3. 撤离订单难度精确需求配置（1-10级折叠面板）
+4. 品质概率表（`rarityWeights` + `orderRarityWeights`）
+5. 订单数量权重与奖励
+6. 杂项参数（刷新费用、初始金币等）
+7. 词缀配置（每个词缀的费用和自定义品质权重）
+8. 工具物品配置（掉落率、各工具权重、重铸品质分布）
 9. 技能启用/禁用
 10. 调试技能选择
-11. 品质详情（bonus、recycleValue、基础价值）
-12. 复合物品品质阈值表
-13. 订单奖励系数
+11. 品质详情（bonus 和 recycleValue）
 
 ### 渲染结构
 
@@ -780,7 +752,7 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 │  │ (2个选项)    │  │  │ ├ 模式状态标签           │   │
 │  └──────────────┘  │  │ ├ 背包网格               │   │
 │                    │  │ │  (maxSize× InventorySlot│   │
-│                    │  │ ├ 操作按钮 (提交/回收/融合) │   │
+│                    │  │ ├ 操作按钮 (提交/回收)    │   │
 │                    │  │ └ 待定物品面板            │   │
 │                    │  └─────────────────────────┘   │
 └────────────────────┴────────────────────────────────┘
@@ -797,6 +769,7 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 | `isMaxSatisfied` | 品质是否已达到/超过最高订单需求 |
 | `hasUpgradePair` | 背包中是否存在同名同品质的配对物品 |
 | `isOverloadTarget` | specialization 模式下是否为超载替换目标 |
+| `isToolTarget` | 工具选择模式下是否为有效目标 |
 | `isAssigned` | 是否已分配到某个订单槽位 |
 
 在渲染 `OrderCard` 时，传递 `orderSlotAssignments`、`phantomMarks`、`potentialSatisfy` 等。
@@ -842,8 +815,6 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 
 **Props**（约 25 个）：完整的订单数据 + 所有交互回调 + UI 状态。
 
-> OrderCard 现在显示 `requiredValue` 而非 `requiredRarity`。
-
 **核心特性**：
 
 **奖励预览 memo（`rewardInfo`）**：
@@ -860,6 +831,7 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 | 状态             | 样式                     |
 | -------------- | ---------------------- |
 | 可合成            | 黄色 ring-4              |
+| 工具目标           | 青色 ring-4              |
 | 回收/trade-in 目标 | 琥珀色 ring-4             |
 | 被选中            | 红色 ring-4              |
 | 绝育             | "绝育" 暗色 badge          |
@@ -877,7 +849,11 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 
 **Props**（约 23 个）：物品数据 + 所有视觉状态标志 + 交互回调。
 
-> InventorySlot 现在在价值 > 0 时于右下角显示琥珀色价值 badge。
+**内嵌组件 `ToolItemTooltip`**：
+- 使用 `createPortal(…, document.body)` 渲染到 body
+- `useLayoutEffect` 中基于 anchor `ref.getBoundingClientRect()` 计算绝对定位
+- 显示工具名称、描述、"右键点击使用"提示
+- 避免溢出/z-index 裁剪
 
 **物品槽视觉状态**：
 
@@ -885,6 +861,7 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 |------|------|
 | 空格 | 虚线灰色边框 |
 | 有物品 | 品质色 + 阴影 + 图标(2xl/3xl) + 名称(10px 截断) |
+| 工具物品 | 琥珀渐变边框 + 脉冲图标 + "TOOL" badge |
 | 被选中（常规） | translate-y-4 上移 + scale |
 | 被选中（submit） | 蓝色边框 |
 | 被选中（recycle） | 琥珀色边框 |
@@ -896,6 +873,7 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 | 订单需求提示 | 右下角绿色/灰色对勾 |
 | 绝育标记 | 左下角 "绝育" 暗色 badge |
 | 衰变计数 | 左上角等宽数字；≤0 时 "损坏" + 红覆盖 |
+| 工具悬停 | 底部 "R-Click" 指示器 + portal tooltip |
 
 ### 9.4 SkillSelectionModal.jsx
 
@@ -956,7 +934,7 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
 - 13 个技能名称和描述
 - Toast/错误消息
 - 模态框标题和按钮
-- 融合系统、候选订单、撤离流程相关文案
+- 工具物品、候选订单、撤离流程相关文案
 
 **惯例**：中文是源语言。所有新增 UI 文本必须先用中文硬编码，然后在 `translations.js` 中添加英文翻译，组件中使用 `t()` 包裹。
 
@@ -983,6 +961,7 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
             ├── enhance → 品质+1
             ├── 更新 skillState
             ├── applyEntropy(inventory)
+            ├── tryDropToolItem(20%)
             ├── handleIncomingItems(items, decayed)
             │   ├── negotiator check (Epic+ → refresh+1)
             │   ├── specialization check
@@ -997,18 +976,13 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
 
 ```
 输入: selectedIndices（选中的背包格子）, inventory, orders+emergencyOrders
-输出: { index, finalScoreReward, isScoreOrder, matchedItemUid, requiredNames }[]
+输出: { orderIndex, matchedItems[], isScoreOrder }[]
 
 对每个订单:
-  1. 获取 requiredNames[] 和 requiredValue（统一价值门槛）
-  2. 在选中物品中找最佳匹配：
-     - 物品未被其他订单占用（usedItemUids）
-     - 物品未衰变（decay > 0 或无 decay）
-     - 名称包含匹配：物品的 names[] 包含订单的全部 requiredNames
-     - 价值满足：getItemValue(item) >= requiredValue
-     - 优先选价值最高的物品
-  3. 每个订单最多匹配一个物品（一个融合物品可满足一个多名称订单）
-  4. finalScoreReward = baseScoreReward（无品质乘数）
+  1. 收集该订单所有需求: [{ name, minRarityBonus }]
+  2. 收集可用物品: selectedIndices 中名称匹配 + 品质 >= 需求的物品
+  3. 使用贪心匹配（每个物品只能用一次）
+  4. 若所有需求满足 → 加入结果
 ```
 
 ### 12.3 幻影标记算法
@@ -1025,8 +999,10 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
 ### 12.4 积分计算公式
 
 ```
-baseScoreReward = max(1, floor(requiredValue × rewardMultiplier + progressOffset))
-finalScore = baseScoreReward（无品质乘数加成）
+baseScoreReward = max(1, floor(Σ req.rarityScoreWeight + progressOffset))
+multiplier = 1 + Σ submittedItem.rarity.bonus
+if (ocd && 全部同池) multiplier *= 2
+finalScore = ceil(baseScoreReward × multiplier)
 ```
 
 ---
@@ -1035,13 +1011,14 @@ finalScore = baseScoreReward（无品质乘数加成）
 
 此矩阵显示不同模式下各种交互的行为：
 
-| 操作\模式 | 默认       | submit | recycle | evacuation | pendingItem | selectedSlot | selectionMode（词缀） | selectionMode（融合） |
+| 操作\模式 | 默认       | submit | recycle | evacuation | pendingItem | selectedSlot | selectionMode | toolSelection |
 | ----- | -------- | ------ | ------- | ---------- | ----------- | ------------ | ------------- | ------------- |
 | 点击空格  | 无        | 无      | 无       | 无          | 放入物品        | 移动到空格        | 无             | 无             |
-| 点击物品  | 选中       | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成/交换        | trade_in消耗    | 选材料/执行融合      |
+| 点击物品  | 选中       | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成/交换        | trade_in消耗    | 应用工具效果        |
 | 点击奖池  | 抽卡       | 阻止     | 阻止      | 阻止         | 阻止          | 抽卡           | 阻止            | 阻止            |
 | 点击订单  | 自动选物     | 无      | 无       | 无          | 无           | 分配到槽位        | 无             | 无             |
-| 点击订单槽 | 取消分配     | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成           | trade_in      | 无             |
+| 点击订单槽 | 取消分配     | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成           | trade_in      | 应用工具          |
+| 右键物品  | 无（工具→使用） | 无      | 无       | 无          | 无           | 无            | 无             | 无             |
 | 确认按钮  | —        | 提交     | 回收      | 撤离确认       | —           | —            | —             | —             |
 
 **互斥规则**：进入任何模式会清除其他模式。`pendingItem` 阻止抽卡和模式切换。
@@ -1054,7 +1031,7 @@ finalScore = baseScoreReward（无品质乘数加成）
 
 1. **阶段系统**：4 个阶段完整定义在 `INITIAL_STAGE_CONFIG`，但 `useGameLogic` 硬编码 `config.stages[0]`，无阶段切换触发器。
 2. **技能获取流程**：`triggerSkillSelection()` 存在但无自动触发点。技能只能通过调试工具或未来代码手动触发。
-3. **积分进度**：`targetProgress: Infinity`，进度系统框架存在但无具体目标。
+3. **积分进度**：`targetProgress: null`，进度系统框架存在但无具体目标。
 
 ### 代码规模
 
@@ -1082,6 +1059,13 @@ finalScore = baseScoreReward（无品质乘数加成）
 2. 在 `useGameLogic.js` 中使用 `hasSkill('skill_id')` 在对应事件点添加条件逻辑
 3. 如需状态追踪，在 `skillState` 中添加字段
 4. 在 `translations.js` 中添加翻译
+
+### 添加新工具物品
+
+1. 在 `constants.js` 的 `TOOL_ITEMS` 添加定义
+2. 在 `useGameLogic.js` 的 `handleToolItemUse` 添加激活逻辑
+3. 如果是选择型（非直接激活），在 `handleSlotClick` 的 `toolSelectionMode` 分支添加效果
+4. 在 `InventorySlot.jsx` 中确保工具外观正确
 
 ### 添加新 UI 组件
 
@@ -1111,5 +1095,5 @@ finalScore = baseScoreReward（无品质乘数加成）
 
 ---
 
-*文档版本：基于 `feature/fusion-system` 分支全量源码分析生成*
-*最后更新：2026-03-12*
+*文档版本：基于 `code_simplify` 分支 commit `4c22ee4` 全量源码分析生成*
+*最后更新：2026-03-05*
