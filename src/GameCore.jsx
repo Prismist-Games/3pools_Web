@@ -10,7 +10,77 @@ import { InventorySlot } from './components/game/InventorySlot';
 import { PoolCard } from './components/game/PoolCard';
 
 import { OrderCard } from './components/game/OrderCard';
-import { SKILL_DEFINITIONS } from './data/constants';
+import { SKILL_DEFINITIONS, TRAIT_DEFINITIONS } from './data/constants';
+import { getItemValue } from './utils/helpers';
+import ItemDetailPanel from './components/game/ItemDetailPanel';
+
+const TraitSelectionModal = ({ traitSelectionPending, onConfirm, t }) => {
+    const [selected, setSelected] = React.useState(() => {
+        const allTraits = traitSelectionPending.item.traits || [];
+        const maxTraits = traitSelectionPending.item._maxTraits || traitSelectionPending.item.maxTraits || 1;
+        return allTraits.slice(0, maxTraits);
+    });
+    const maxTraits = traitSelectionPending.item._maxTraits || traitSelectionPending.item.maxTraits || 1;
+    const allTraits = traitSelectionPending.item.traits || [];
+    const materialTraitIds = traitSelectionPending.materialTraitIds || [];
+
+    const toggleTrait = (traitId) => {
+        if (selected.includes(traitId)) {
+            setSelected(selected.filter(t => t !== traitId));
+        } else if (selected.length < maxTraits) {
+            setSelected([...selected, traitId]);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                <h3 className="font-black text-lg mb-1">{t("选择保留的特质")}</h3>
+                <p className="text-sm text-slate-500 mb-4">
+                    {t("特质上限")}: {maxTraits}
+                </p>
+                <div className="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">
+                    {allTraits.map(traitId => {
+                        const trait = TRAIT_DEFINITIONS[traitId];
+                        if (!trait) return null;
+                        const isSelected = selected.includes(traitId);
+                        const isNew = materialTraitIds.includes(traitId);
+                        return (
+                            <button key={traitId}
+                                onClick={() => toggleTrait(traitId)}
+                                className={`p-3 rounded-lg border-2 text-left transition-all
+                                    ${isSelected ? 'border-purple-500 bg-purple-50' : 'border-slate-200 hover:border-slate-300'}
+                                    ${isNew ? 'ring-1 ring-purple-300' : ''}`}>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
+                                    <div className="font-bold text-sm">{t(trait.name)}</div>
+                                    {isNew && <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 rounded-full font-bold">NEW</span>}
+                                </div>
+                                <div className="text-xs text-slate-500 mt-1 ml-4">{t(trait.desc)}</div>
+                            </button>
+                        );
+                    })}
+                </div>
+                {traitSelectionPending.context === 'infusion' && materialTraitIds.length > 0 && (
+                    <button
+                        onClick={() => {
+                            const keepOriginal = allTraits.filter(tid => !materialTraitIds.includes(tid)).slice(0, maxTraits);
+                            onConfirm(keepOriginal);
+                        }}
+                        className="w-full text-sm text-slate-400 hover:text-slate-600 mb-2 py-1">
+                        {t("放弃新特质")}
+                    </button>
+                )}
+                <button
+                    onClick={() => onConfirm(selected)}
+                    disabled={selected.length === 0 || selected.length > maxTraits}
+                    className="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {t("确认")} ({selected.length}/{maxTraits})
+                </button>
+            </div>
+        </div>
+    );
+};
 
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -35,7 +105,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
-        toast, satisfiableOrders, totalRecycleValue, selectedItemNames
+        toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
+        infuseMode, traitSelectionPending
     } = state;
 
     const {
@@ -65,10 +136,25 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleEvacuationExtract,
         debugGetOrderItems,
         canFuse,
-        enterFusionMode
+        enterFusionMode,
+        handleStartInfuse,
+        handleInfuseTarget,
+        handleCancelInfuse,
+        handleConfirmTraitSelection
     } = actions;
 
     const { hasSkill } = helpers;
+
+    // ESC key to cancel infuse mode
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && infuseMode) {
+                handleCancelInfuse();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [infuseMode, handleCancelInfuse]);
 
     // Helper to render modals
     const renderModal = () => {
@@ -521,6 +607,15 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     </div>
                                 </div>
                             )}
+
+                            {/* Item Detail Panel — shows hovered inventory item */}
+                            <div className="mt-4">
+                                <ItemDetailPanel
+                                    item={hoveredSlotIndex !== null && hoveredSlotIndex >= 0 ? inventory[hoveredSlotIndex] : null}
+                                    config={config}
+                                    inventory={inventory}
+                                />
+                            </div>
                         </div>
                     </section>
 
@@ -730,6 +825,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         }
                                     </span>
                                 )}
+                                {infuseMode && (
+                                    <div className="flex items-center justify-center gap-2 text-purple-700 font-bold text-sm bg-purple-50 px-4 py-2 rounded-xl border border-purple-200 shadow-sm">
+                                        <span>{t("注入模式：选择目标物品")}</span>
+                                        <button onClick={handleCancelInfuse} className="text-purple-500 hover:text-purple-700 underline text-xs">
+                                            {t("取消")}
+                                        </button>
+                                    </div>
+                                )}
 
 
                             </div>
@@ -812,12 +915,26 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 hasUpgradePair={hasUpgradePair}
                                                 isOverloadTarget={isOverloadTarget}
 
-                                                onClick={handleSlotClick}
+                                                onClick={(clickIdx) => {
+                                                    if (infuseMode) {
+                                                        if (infuseMode.materialIndex !== clickIdx) {
+                                                            handleInfuseTarget(clickIdx);
+                                                        }
+                                                        return;
+                                                    }
+                                                    handleSlotClick(clickIdx);
+                                                }}
                                                 onMouseEnter={(i, item) => { state.setHoveredSlotIndex(i); if (item) state.setHoveredItemName(item.name); }}
                                                 onMouseLeave={() => { state.setHoveredSlotIndex(null); state.setHoveredItemName(null); }}
                                                 isHovered={hoveredSlotIndex === idx}
                                                 className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24"
                                                 nextDrawEnhanced={skillState?.nextDrawEnhanced}
+
+                                                isInfuseMaterial={!!infuseMode && infuseMode.materialIndex === idx}
+                                                isInfuseTarget={!!infuseMode && infuseMode.materialIndex !== idx && !!item && (item.remainingInfusions ?? 3) > 0 && !item.isTool}
+                                                isInfuseDisabled={!!infuseMode && (!item || infuseMode.materialIndex === idx || (item.remainingInfusions ?? 3) <= 0 || !!item.isTool)}
+                                                onContextMenu={(index) => handleStartInfuse(index)}
+                                                computedValue={item ? getItemValue(item, config, inventory) : 0}
                                             />
                                         )
                                     })}
@@ -981,6 +1098,15 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     </>
                 )
             }
+
+            {/* Trait Selection Modal */}
+            {traitSelectionPending && (
+                <TraitSelectionModal
+                    traitSelectionPending={traitSelectionPending}
+                    onConfirm={handleConfirmTraitSelection}
+                    t={t}
+                />
+            )}
         </div >
     );
 };

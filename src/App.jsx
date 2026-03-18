@@ -100,6 +100,7 @@ export default function App() {
                     if (imported.emergency) next.emergency = { ...prev.emergency, ...imported.emergency };
                     if (imported.global) next.global = { ...prev.global, ...imported.global };
                     if (imported.valueSystem) next.valueSystem = { ...prev.valueSystem, ...imported.valueSystem };
+                    if (imported.traitSystem) next.traitSystem = { ...prev.traitSystem, ...imported.traitSystem };
                     // 4. 特殊字段：品质属性 (Rarity Details)
                     // 只继承加成（bonus）和回收价值（recycleValue），不继承 id, name, color
                     if (imported.rarity) {
@@ -1110,6 +1111,26 @@ export default function App() {
                                         />
                                         <span className="text-[10px] text-slate-400">baseScoreReward = requiredValue × 此系数</span>
                                     </div>
+                                </div>
+                            </section>
+
+                            {/* Trait System Toggle */}
+                            <section>
+                                <h4 className="text-lg font-bold mb-4 border-l-4 border-purple-500 pl-3">{t("特质系统配置")}</h4>
+                                <div className="border rounded-lg p-3 bg-purple-50">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={config.traitSystem?.enabled !== false}
+                                            onChange={(e) => {
+                                                setConfig(prev => ({
+                                                    ...prev,
+                                                    traitSystem: { ...prev.traitSystem, enabled: e.target.checked }
+                                                }));
+                                            }}
+                                        />
+                                        <span className="font-bold text-sm">{t("特质系统")}</span>
+                                    </label>
                                 </div>
                             </section>
 

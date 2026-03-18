@@ -280,4 +280,137 @@ export const EN_TRANSLATIONS = {
 
     // --- Value System ---
     "价值": "Value",
+
+    // --- Trait System: Trait Names ---
+    // Passive Auras
+    "坚固": "Sturdy",
+    "增幅": "Amplify",
+    "纯净": "Pure",
+    "同源共鸣": "Pool Synergy",
+    "衰变亲和": "Decay Affinity",
+
+    // Pool Triggers
+    "水果亲和": "Fruit Affinity",
+    "药物亲和": "Medicine Affinity",
+    "电器亲和": "Electronics Affinity",
+    "厨具亲和": "Kitchenware Affinity",
+    "文具亲和": "Stationery Affinity",
+
+    // Name Triggers
+    "西瓜渴望": "Watermelon Craving",
+    "柠檬渴望": "Lemon Craving",
+    "芒果渴望": "Mango Craving",
+    "苹果渴望": "Apple Craving",
+    "冲剂渴望": "Granules Craving",
+    "滴眼液渴望": "Eye Drops Craving",
+    "注射器渴望": "Syringe Craving",
+    "胶囊渴望": "Capsule Craving",
+    "铅笔渴望": "Pencil Craving",
+    "橡皮渴望": "Eraser Craving",
+    "订书机渴望": "Stapler Craving",
+    "笔记本渴望": "Notebook Craving",
+    "平底锅渴望": "Pan Craving",
+    "菜刀渴望": "Knife Craving",
+    "砧板渴望": "Board Craving",
+    "汤勺渴望": "Ladle Craving",
+    "手机渴望": "Phone Craving",
+    "耳机渴望": "Headset Craving",
+    "空调渴望": "AC Craving",
+    "电脑渴望": "Laptop Craving",
+
+    // Quality Triggers
+    "品质吸收": "Quality Absorb",
+    "稀有汲取": "Rare Extract",
+
+    // Other Triggers
+    "同名共鸣": "Same-Name Resonance",
+    "异源增幅": "Cross-Pool Boost",
+    "普品免费": "Common Free",
+    "订单契合": "Order Match",
+
+    // Material
+    "精华转移": "Essence Transfer",
+    "注入传承": "Infuse Legacy",
+    "全员增幅": "Global Boost",
+    "回收返还": "Recycle Refund",
+
+    // Fusion
+    "融合增幅": "Fusion Boost",
+
+    // Capacity
+    "注入扩容": "Infuse Expand",
+    "特质扩容": "Trait Expand",
+
+    // Special
+    "双倍回收": "Double Recycle",
+    "注入爆发": "Infuse Burst",
+
+    // --- Trait System: Trait Descriptions ---
+    "价值+2": "Value +2",
+    "价值×1.5": "Value ×1.5",
+    "从未被注入过时，价值×2": "Value ×2 when never infused",
+    "背包中每有一个其他同类型池物品，价值+1": "+1 Value per other same-pool item in inventory",
+    "价值每回合-1，每次被注入时+3": "-1 Value per round, +3 per infusion received",
+    "注入水果时，价值+1": "+1 Value when infused with Fruit",
+    "注入药物时，价值+1": "+1 Value when infused with Medicine",
+    "注入电器时，价值+1": "+1 Value when infused with Electronics",
+    "注入厨具时，价值+1": "+1 Value when infused with Kitchenware",
+    "注入文具时，价值+1": "+1 Value when infused with Stationery",
+    "注入西瓜时，价值+2": "+2 Value when infused with Watermelon",
+    "注入柠檬时，价值+2": "+2 Value when infused with Lemon",
+    "注入芒果时，价值+2": "+2 Value when infused with Mango",
+    "注入苹果时，价值+2": "+2 Value when infused with Apple",
+    "注入冲剂时，价值+2": "+2 Value when infused with Granules",
+    "注入滴眼液时，价值+2": "+2 Value when infused with Eye Drops",
+    "注入注射器时，价值+2": "+2 Value when infused with Syringe",
+    "注入胶囊时，价值+2": "+2 Value when infused with Capsule",
+    "注入铅笔时，价值+2": "+2 Value when infused with Pencil",
+    "注入橡皮时，价值+2": "+2 Value when infused with Eraser",
+    "注入订书机时，价值+2": "+2 Value when infused with Stapler",
+    "注入笔记本时，价值+2": "+2 Value when infused with Notebook",
+    "注入平底锅时，价值+2": "+2 Value when infused with Pan",
+    "注入菜刀时，价值+2": "+2 Value when infused with Knife",
+    "注入砧板时，价值+2": "+2 Value when infused with Board",
+    "注入汤勺时，价值+2": "+2 Value when infused with Ladle",
+    "注入手机时，价值+2": "+2 Value when infused with Phone",
+    "注入耳机时，价值+2": "+2 Value when infused with Headset",
+    "注入空调时，价值+2": "+2 Value when infused with AC",
+    "注入电脑时，价值+2": "+2 Value when infused with Laptop",
+    "注入优秀以上品质物品时+1": "+1 when infused with Uncommon+ item",
+    "注入稀有以上品质物品时+3": "+3 when infused with Rare+ item",
+    "注入同名物品时+3": "+3 when infused with same-name item",
+    "注入不同类型池物品时+2": "+2 when infused with different-pool item",
+    "注入白色物品时，不消耗注入次数": "Infusing Common items doesn't consume infusion count",
+    "注入满足活跃订单名字需求的物品时+3": "+3 when infused with item matching active order",
+    "被消耗时，目标获得本物品全部当前价值": "When consumed, target gains this item's full value",
+    "被消耗时，目标注入次数上限+1": "When consumed, target's max infusions +1",
+    "被消耗时，背包中所有物品各+1价值": "When consumed, all inventory items gain +1 value",
+    "被消耗时，获得本物品品质对应的回收金币": "When consumed, gain recycle gold for this item's rarity",
+    "融合时，结果物品价值+3": "Fusion result gains +3 value",
+    "注入次数上限+3": "Max infusions +3",
+    "特质条目上限+1": "Max trait slots +1",
+    "回收本物品时，获得双倍金币": "Double gold when recycled",
+    "首次被注入时+5价值，之后本特质消失": "+5 value on first infusion, then this trait disappears",
+
+    // --- Trait System: UI Strings ---
+    "材料": "Material",
+    "注入模式：选择目标物品": "Infuse Mode: Select Target",
+    "选择保留的特质": "Select Traits to Keep",
+    "特质上限": "Trait Limit",
+    "放弃新特质": "Discard New Trait",
+    "注入": "Infuse",
+    "特质": "Traits",
+    "基础": "Base",
+    "永久": "Permanent",
+    "光环": "Aura",
+    "剩余注入": "Infusions Left",
+    "已注入": "Infused",
+    "特质系统": "Trait System",
+    "特质系统配置": "Trait System Config",
+    "注入次数": "Infusion Count",
+    "新": "New",
+    "订单所需价值权重": "Order Value Weights",
+    "悬浮物品查看详情": "Hover an item to view details",
+    "无特质": "No traits",
+    "空槽位": "Empty slot",
 };

@@ -260,6 +260,412 @@ export const TOOL_ITEM_CONFIG = {
     },
 };
 
+// --- 特质定义 ---
+export const TRAIT_DEFINITIONS = {
+    // §3.1 被动光环
+    flat_value_2: {
+        id: 'flat_value_2',
+        name: '坚固',
+        desc: '价值+2',
+        category: 'passive',
+        effectType: 'aura',
+        auraType: 'additive',
+        calcAdditive: (item, inv) => 2,
+    },
+    multiplier_1_5: {
+        id: 'multiplier_1_5',
+        name: '增幅',
+        desc: '价值×1.5',
+        category: 'passive',
+        effectType: 'aura',
+        auraType: 'multiplicative',
+        calcMultiplicative: (item, inv) => 1.5,
+    },
+    virgin_double: {
+        id: 'virgin_double',
+        name: '纯净',
+        desc: '从未被注入过时，价值×2',
+        category: 'passive',
+        effectType: 'aura',
+        auraType: 'multiplicative',
+        calcMultiplicative: (item) => (item.infusionHistory || []).length === 0 ? 2 : 1,
+    },
+    same_pool_synergy: {
+        id: 'same_pool_synergy',
+        name: '同源共鸣',
+        desc: '背包中每有一个其他同类型池物品，价值+1',
+        category: 'passive',
+        effectType: 'aura',
+        auraType: 'additive',
+        calcAdditive: (item, inventoryItems) => {
+            if (!inventoryItems) return 0;
+            const myPoolId = item.poolId || (item.poolIds && item.poolIds[0]);
+            return inventoryItems.filter(i => i && i.uid !== item.uid && (i.poolId || (i.poolIds && i.poolIds[0])) === myPoolId).length;
+        },
+    },
+    decay_infuse: {
+        id: 'decay_infuse',
+        name: '衰变亲和',
+        desc: '价值每回合-1，每次被注入时+3',
+        category: 'passive',
+        effectType: 'trigger',
+        onRound: () => -1,
+        onInfuse: () => 3,
+    },
+
+    // §3.2 池触发
+    infuse_fruit: {
+        id: 'infuse_fruit',
+        name: '水果亲和',
+        desc: '注入水果时，价值+1',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.poolId === 'fruit' ? 1 : 0,
+    },
+    infuse_medicine: {
+        id: 'infuse_medicine',
+        name: '药物亲和',
+        desc: '注入药物时，价值+1',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.poolId === 'medicine' ? 1 : 0,
+    },
+    infuse_electronics: {
+        id: 'infuse_electronics',
+        name: '电器亲和',
+        desc: '注入电器时，价值+1',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.poolId === 'electronics' ? 1 : 0,
+    },
+    infuse_kitchenware: {
+        id: 'infuse_kitchenware',
+        name: '厨具亲和',
+        desc: '注入厨具时，价值+1',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.poolId === 'kitchenware' ? 1 : 0,
+    },
+    infuse_stationery: {
+        id: 'infuse_stationery',
+        name: '文具亲和',
+        desc: '注入文具时，价值+1',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.poolId === 'stationery' ? 1 : 0,
+    },
+
+    // §3.3 名字触发
+    infuse_watermelon: {
+        id: 'infuse_watermelon',
+        name: '西瓜渴望',
+        desc: '注入西瓜时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '西瓜' ? 2 : 0,
+    },
+    infuse_lemon: {
+        id: 'infuse_lemon',
+        name: '柠檬渴望',
+        desc: '注入柠檬时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '柠檬' ? 2 : 0,
+    },
+    infuse_mango: {
+        id: 'infuse_mango',
+        name: '芒果渴望',
+        desc: '注入芒果时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '芒果' ? 2 : 0,
+    },
+    infuse_apple: {
+        id: 'infuse_apple',
+        name: '苹果渴望',
+        desc: '注入苹果时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '苹果' ? 2 : 0,
+    },
+    infuse_powder_drink: {
+        id: 'infuse_powder_drink',
+        name: '冲剂渴望',
+        desc: '注入冲剂时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '冲剂' ? 2 : 0,
+    },
+    infuse_eye_drops: {
+        id: 'infuse_eye_drops',
+        name: '滴眼液渴望',
+        desc: '注入滴眼液时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '滴眼液' ? 2 : 0,
+    },
+    infuse_syringe: {
+        id: 'infuse_syringe',
+        name: '注射器渴望',
+        desc: '注入注射器时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '注射器' ? 2 : 0,
+    },
+    infuse_capsule: {
+        id: 'infuse_capsule',
+        name: '胶囊渴望',
+        desc: '注入胶囊时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '胶囊' ? 2 : 0,
+    },
+    infuse_pencil: {
+        id: 'infuse_pencil',
+        name: '铅笔渴望',
+        desc: '注入铅笔时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '铅笔' ? 2 : 0,
+    },
+    infuse_eraser: {
+        id: 'infuse_eraser',
+        name: '橡皮渴望',
+        desc: '注入橡皮时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '橡皮' ? 2 : 0,
+    },
+    infuse_stapler: {
+        id: 'infuse_stapler',
+        name: '订书机渴望',
+        desc: '注入订书机时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '订书机' ? 2 : 0,
+    },
+    infuse_notebook: {
+        id: 'infuse_notebook',
+        name: '笔记本渴望',
+        desc: '注入笔记本时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '笔记本' ? 2 : 0,
+    },
+    infuse_frying_pan: {
+        id: 'infuse_frying_pan',
+        name: '平底锅渴望',
+        desc: '注入平底锅时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '平底锅' ? 2 : 0,
+    },
+    infuse_kitchen_knife: {
+        id: 'infuse_kitchen_knife',
+        name: '菜刀渴望',
+        desc: '注入菜刀时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '菜刀' ? 2 : 0,
+    },
+    infuse_cutting_board: {
+        id: 'infuse_cutting_board',
+        name: '砧板渴望',
+        desc: '注入砧板时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '砧板' ? 2 : 0,
+    },
+    infuse_soup_spoon: {
+        id: 'infuse_soup_spoon',
+        name: '汤勺渴望',
+        desc: '注入汤勺时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '汤勺' ? 2 : 0,
+    },
+    infuse_phone: {
+        id: 'infuse_phone',
+        name: '手机渴望',
+        desc: '注入手机时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '手机' ? 2 : 0,
+    },
+    infuse_earphones: {
+        id: 'infuse_earphones',
+        name: '耳机渴望',
+        desc: '注入耳机时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '耳机' ? 2 : 0,
+    },
+    infuse_ac: {
+        id: 'infuse_ac',
+        name: '空调渴望',
+        desc: '注入空调时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '空调' ? 2 : 0,
+    },
+    infuse_computer: {
+        id: 'infuse_computer',
+        name: '电脑渴望',
+        desc: '注入电脑时，价值+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => m.name === '电脑' ? 2 : 0,
+    },
+
+    // §3.4 品质触发
+    infuse_uncommon_plus: {
+        id: 'infuse_uncommon_plus',
+        name: '品质吸收',
+        desc: '注入优秀以上品质物品时+1',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => { const order = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic']; return order.indexOf(m.rarityId) >= 1 ? 1 : 0; },
+    },
+    infuse_rare_plus: {
+        id: 'infuse_rare_plus',
+        name: '稀有汲取',
+        desc: '注入稀有以上品质物品时+3',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m) => { const order = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic']; return order.indexOf(m.rarityId) >= 2 ? 3 : 0; },
+    },
+
+    // §3.5 其他触发
+    infuse_same_name: {
+        id: 'infuse_same_name',
+        name: '同名共鸣',
+        desc: '注入同名物品时+3',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m, target) => m.name === (target.name || (target.names && target.names[0])) ? 3 : 0,
+    },
+    infuse_different_pool: {
+        id: 'infuse_different_pool',
+        name: '异源增幅',
+        desc: '注入不同类型池物品时+2',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m, target) => { const tp = target.poolId || (target.poolIds && target.poolIds[0]); return m.poolId !== tp ? 2 : 0; },
+    },
+    infuse_common_free: {
+        id: 'infuse_common_free',
+        name: '普品免费',
+        desc: '注入白色物品时，不消耗注入次数',
+        category: 'infuse_trigger',
+        effectType: 'special',
+        specialType: 'common_free_infuse',
+    },
+    infuse_order_match: {
+        id: 'infuse_order_match',
+        name: '订单契合',
+        desc: '注入满足活跃订单名字需求的物品时+3',
+        category: 'infuse_trigger',
+        effectType: 'trigger',
+        onInfuse: (m, target, config, activeOrderNames) => (activeOrderNames || []).includes(m.name) ? 3 : 0,
+    },
+
+    // §3.6 材料触发
+    material_full_value: {
+        id: 'material_full_value',
+        name: '精华转移',
+        desc: '被消耗时，目标获得本物品全部当前价值',
+        category: 'material',
+        effectType: 'trigger',
+        onConsumed: (mat) => ({ targetBonusAdd: mat._currentValue || 0 }),
+    },
+    material_infuse_count: {
+        id: 'material_infuse_count',
+        name: '注入传承',
+        desc: '被消耗时，目标注入次数上限+1',
+        category: 'material',
+        effectType: 'trigger',
+        onConsumed: () => ({ targetMaxInfusionsAdd: 1 }),
+    },
+    material_inventory_boost: {
+        id: 'material_inventory_boost',
+        name: '全员增幅',
+        desc: '被消耗时，背包中所有物品各+1价值',
+        category: 'material',
+        effectType: 'trigger',
+        onConsumed: () => ({ inventoryBonusAdd: 1 }),
+    },
+    material_refund: {
+        id: 'material_refund',
+        name: '回收返还',
+        desc: '被消耗时，获得本物品品质对应的回收金币',
+        category: 'material',
+        effectType: 'trigger',
+        onConsumed: (mat) => ({ goldAdd: mat.rarity?.recycleValue || 0 }),
+    },
+
+    // §3.7 融合触发
+    fusion_value_3: {
+        id: 'fusion_value_3',
+        name: '融合增幅',
+        desc: '融合时，结果物品价值+3',
+        category: 'fusion',
+        effectType: 'trigger',
+        onFusion: () => 3,
+    },
+
+    // §3.8 容量
+    extra_infuse_3: {
+        id: 'extra_infuse_3',
+        name: '注入扩容',
+        desc: '注入次数上限+3',
+        category: 'capacity',
+        effectType: 'permanent_capacity',
+        capacityEffect: { maxInfusions: 3 },
+    },
+    extra_trait_1: {
+        id: 'extra_trait_1',
+        name: '特质扩容',
+        desc: '特质条目上限+1',
+        category: 'capacity',
+        effectType: 'permanent_capacity',
+        capacityEffect: { maxTraits: 1 },
+    },
+
+    // §3.9 特殊
+    recycle_double: {
+        id: 'recycle_double',
+        name: '双倍回收',
+        desc: '回收本物品时，获得双倍金币',
+        category: 'special',
+        effectType: 'special',
+        specialType: 'recycle_double',
+    },
+    infuse_burst: {
+        id: 'infuse_burst',
+        name: '注入爆发',
+        desc: '首次被注入时+5价值，之后本特质消失',
+        category: 'special',
+        effectType: 'special',
+        specialType: 'infuse_burst',
+    },
+};
+
+// --- 价值系统配置 ---
+export const VALUE_SYSTEM_CONFIG = {
+    baseValues: { common: 0, uncommon: 2, rare: 4, epic: 7, legendary: 12, mythic: 20 },
+    compositeQualityThresholds: { default: [0, 2, 4, 7, 12, 20] },
+    rewardMultiplier: 1,
+};
+
+// --- 特质系统配置 ---
+export const TRAIT_SYSTEM_CONFIG = {
+    enabled: true,
+    baseInfusionCount: 3,
+    maxTraitSlots: 3,
+    minRarityForTrait: 'uncommon',
+    traitWeights: { categoryPool: 0.4, categoryPoolSplit: 0.5, otherTraits: 0.6 },
+};
+
 export const INITIAL_AFFIXES_CONFIG = [
     {
         "id": "trade_in",
@@ -536,14 +942,15 @@ export const EMERGENCY_ORDER_CONFIG = {
 
     // 难度等级配置：难度 -> 精确品质需求（可选，如配置则优先使用）
     // 数组中每项表示需要的品质和数量，会随机打乱后生成订单
-    // 示例: 1: [{ rarity: 'common', count: 1 }, { rarity: 'uncommon', count: 1 }] 
+    // 示例: 1: [{ rarity: 'common', count: 1 }, { rarity: 'uncommon', count: 1 }]
     // 表示难度1固定需要1个普通+1个优秀品质的物品
     difficultyRequirements: {
         1: [{ rarity: 'uncommon', count: 1 }, { rarity: 'rare', count: 1 }],
         2: [{ rarity: 'rare', count: 1 }, { rarity: 'rare', count: 1 }],
         3: [{ rarity: 'rare', count: 1 }, { rarity: 'epic', count: 1 }],
         4: [{ rarity: 'epic', count: 1 }, { rarity: 'epic', count: 1 }]
-    }
+    },
+    difficultyRequiredValues: { 1: 3, 2: 4, 3: 5, 4: 7 },
 };
 
 // --- 积分订单配置 ---
@@ -558,7 +965,8 @@ export const SCORE_PROGRESS_CONFIG = {
         epic: 8,
         legendary: 16,
         mythic: 32
-    }
+    },
+    orderValueWeights: { 3: 0.15, 4: 0.25, 5: 0.25, 6: 0.15, 7: 0.10, 8: 0.05, 10: 0.03, 12: 0.02 }
 };
 
 export const INITIAL_GAME_CONFIG = {
@@ -569,6 +977,8 @@ export const INITIAL_GAME_CONFIG = {
     progress: SCORE_PROGRESS_CONFIG,
     emergency: EMERGENCY_ORDER_CONFIG,
     toolItems: TOOL_ITEM_CONFIG,
+    valueSystem: VALUE_SYSTEM_CONFIG,
+    traitSystem: TRAIT_SYSTEM_CONFIG,
     enabledSkillIds: [
         "poverty_relief",
         "lucky_7",

@@ -38,6 +38,13 @@ export const InventorySlot = ({
     // Order slot assignment
     isAssigned,
 
+    // Infuse mode props
+    isInfuseMaterial,
+    isInfuseTarget,
+    isInfuseDisabled,
+    onContextMenu,
+    computedValue,
+
     // Style overrides
     className = ""
 }) => {
@@ -80,8 +87,11 @@ export const InventorySlot = ({
                     ${isSelected && isRecycleMode ? 'border-amber-600 bg-amber-50 border-2 z-10' : ''}
                     ${isMultiSelectMode && !isSelected && item && !isPendingSlot ? 'opacity-70 hover:opacity-100 grayscale-[0.3]' : ''}
                     ${isAssigned ? '!opacity-30 !grayscale cursor-not-allowed !scale-95 pointer-events-none' : ''}
+                    ${isInfuseTarget ? 'ring-4 ring-purple-400 cursor-pointer hover:scale-105' : ''}
+                    ${isInfuseDisabled ? '!opacity-40 !grayscale-[0.5] !pointer-events-none' : ''}
                     ${className}
                 `}
+                onContextMenu={(e) => { e.preventDefault(); if (onContextMenu) onContextMenu(index); }}
             >
                 {isPendingSlot && !item && (
                     <div className="text-slate-300 font-bold text-xs uppercase tracking-widest">{t("排队中")}</div>
@@ -121,9 +131,17 @@ export const InventorySlot = ({
                                 </div>
                             )}
                             {/* 价值显示 */}
-                            {(item.value !== undefined && item.value > 0) && (
+                            {(computedValue !== undefined && computedValue > 0) && (
                                 <div className="absolute -top-1.5 -left-1.5 z-20 flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-amber-500 text-white shadow-md ring-1.5 ring-white">
-                                    <span className="text-[10px] font-black leading-none">{item.value}</span>
+                                    <span className="text-[10px] font-black leading-none">{computedValue}</span>
+                                </div>
+                            )}
+                            {/* Trait dot indicators */}
+                            {item.traits && item.traits.length > 0 && (
+                                <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5 z-10">
+                                    {item.traits.map((traitId, i) => (
+                                        <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500 ring-1 ring-white" />
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -132,6 +150,13 @@ export const InventorySlot = ({
                         {item.sterile && (
                             <div className="absolute bottom-0 left-0 p-0.5 bg-gray-800/80 rounded-tr-lg text-white z-10 text-[9px] px-1 font-bold">
                                 {t("绝育")}
+                            </div>
+                        )}
+
+                        {/* Infusion count display */}
+                        {item.traits && item.traits.length > 0 && !item.sterile && (
+                            <div className="absolute bottom-0 left-0 text-[7px] font-bold text-slate-500 bg-white/70 rounded-tr px-0.5 z-10">
+                                {item.remainingInfusions ?? 3}/{item.maxInfusions ?? 3}
                             </div>
                         )}
 
@@ -174,6 +199,13 @@ export const InventorySlot = ({
                                 ${isMaxSatisfied ? 'bg-green-500' : 'bg-slate-300'}
                             `}>
                                 <Check size={12} strokeWidth={4} />
+                            </div>
+                        )}
+
+                        {/* Infuse Material Overlay */}
+                        {isInfuseMaterial && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-purple-600/80 rounded-xl z-30 pointer-events-none">
+                                <span className="text-white text-[10px] font-black">{t("材料")}</span>
                             </div>
                         )}
 

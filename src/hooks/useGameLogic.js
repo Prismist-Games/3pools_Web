@@ -8,9 +8,10 @@ import {
     getRandomItems,
     getBaseValue,
     getCompositeRarity,
-    getItemValue
+    getItemValue,
+    rollTrait
 } from '../utils/helpers';
-import { SKILL_DEFINITIONS } from '../data/constants';
+import { SKILL_DEFINITIONS, TRAIT_DEFINITIONS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
@@ -63,6 +64,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const [skills, setSkills] = useState(initialSkills);
     const [skillSelectionCandidates, setSkillSelectionCandidates] = useState(null);
+    const [traitSelectionPending, setTraitSelectionPending] = useState(null);
+    // Shape: { item, replaceIndex, context: 'fusion'|'infusion', fusionValue3Count?, onComplete? }
+    const [infuseMode, setInfuseMode] = useState(null); // { materialIndex: number }
     const [skillState, setSkillState] = useState({
         consecutiveCommons: 0,
         nextDrawGuaranteedRare: false,
@@ -216,6 +220,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             names: [baseItem.name],
             icons: [baseItem.icon],
             poolIds: [baseItem.poolId],
+            traits: [],
+            permanentBonus: 0,
+            infusionHistory: [],
+            remainingInfusions: config.traitSystem?.baseInfusionCount || 3,
+            maxInfusions: config.traitSystem?.baseInfusionCount || 3,
+            maxTraits: 1,
+            componentCount: 1,
         };
         if (inventory.length < maxInventorySize) {
             setInventory(prev => [...prev, newItem]);
@@ -251,6 +262,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 names: [baseItem.name],
                 icons: [baseItem.icon],
                 poolIds: [baseItem.poolId],
+                traits: [],
+                permanentBonus: 0,
+                infusionHistory: [],
+                remainingInfusions: config.traitSystem?.baseInfusionCount || 3,
+                maxInfusions: config.traitSystem?.baseInfusionCount || 3,
+                maxTraits: 1,
+                componentCount: 1,
             };
         }).filter(Boolean);
 
@@ -425,7 +443,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!isRecycleMode || selectedIndices.length === 0) return 0;
         return selectedIndices.reduce((sum, idx) => {
             const item = inventory[idx];
-            return sum + (item ? item.rarity.recycleValue : 0);
+            if (!item) return sum;
+            let recycleVal = item.rarity?.recycleValue || 0;
+            if ((item.traits || []).includes('recycle_double')) {
+                recycleVal *= 2;
+            }
+            return sum + recycleVal;
         }, 0);
     }, [isRecycleMode, selectedIndices, inventory]);
 
@@ -478,7 +501,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const createItem = (pool, itemTemplate, affixKey = null) => {
         const rarity = rollRarity(config, affixKey, gold, hasSkill, skillState, currentStageConfig);
-        return {
+        const item = {
             ...itemTemplate,
             uid: Math.random().toString(36).substr(2, 9),
             poolName: pool.name,
@@ -489,7 +512,33 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             names: [itemTemplate.name],
             icons: [itemTemplate.icon],
             poolIds: [pool.id],
+            // Trait system fields
+            traits: [],
+            permanentBonus: 0,
+            infusionHistory: [],
+            remainingInfusions: config.traitSystem?.baseInfusionCount || 3,
+            maxInfusions: config.traitSystem?.baseInfusionCount || 3,
+            maxTraits: 1,
+            componentCount: 1,
         };
+
+        // Assign trait for uncommon+ items
+        if (config.traitSystem?.enabled !== false) {
+            const rarityOrder = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+            const minRarity = config.traitSystem?.minRarityForTrait || 'uncommon';
+            if (rarityOrder.indexOf(rarity.id) >= rarityOrder.indexOf(minRarity)) {
+                const traitId = rollTrait(config);
+                item.traits = [traitId];
+                // Apply capacity effects immediately
+                const trait = TRAIT_DEFINITIONS[traitId];
+                if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
+                    if (trait.capacityEffect.maxInfusions) item.maxInfusions += trait.capacityEffect.maxInfusions;
+                    if (trait.capacityEffect.maxTraits) item.maxTraits += trait.capacityEffect.maxTraits;
+                }
+            }
+        }
+
+        return item;
     };
 
     // Check if two items have identical name sets
@@ -525,16 +574,50 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const combinedIcons = [...icons1, ...icons2];
         const combinedPoolIds = [...poolIds1, ...poolIds2];
 
-        // 价值系统：总价值 = 所有组件基础价值之和
-        const value1 = getItemValue(item1, config);
-        const value2 = getItemValue(item2, config);
-        const totalValue = value1 + value2;
+        // Component count
+        const componentCount = (item1.componentCount || 1) + (item2.componentCount || 1);
 
-        // 显示品质由总价值和组件数量查阈值表决定
-        const componentCount = combinedNames.length;
-        const resultRarity = getCompositeRarity(totalValue, componentCount, config);
+        // Merge traits — deduplicate by ID
+        const allTraits = [...new Set([...(item1.traits || []), ...(item2.traits || [])])];
 
-        return {
+        // Max traits = min(componentCount, maxTraitSlots) + capacity bonuses
+        let maxTraits = Math.min(componentCount, config.traitSystem?.maxTraitSlots || 3);
+        [item1, item2].forEach(item => {
+            (item.traits || []).forEach(tid => {
+                const t = TRAIT_DEFINITIONS[tid];
+                if (t?.effectType === 'permanent_capacity' && t.capacityEffect?.maxTraits) {
+                    maxTraits += t.capacityEffect.maxTraits;
+                }
+            });
+        });
+
+        // Merge infusion data
+        const infusionHistory = [...(item1.infusionHistory || []), ...(item2.infusionHistory || [])];
+        const remainingInfusions = (item1.remainingInfusions ?? 3) + (item2.remainingInfusions ?? 3);
+        let maxInfusions = (item1.maxInfusions ?? 3) + (item2.maxInfusions ?? 3);
+        // Add capacity bonuses for extra_infuse_3
+        [item1, item2].forEach(item => {
+            (item.traits || []).forEach(tid => {
+                const t = TRAIT_DEFINITIONS[tid];
+                if (t?.effectType === 'permanent_capacity' && t.capacityEffect?.maxInfusions) {
+                    // Already included in item's maxInfusions, don't double-count
+                }
+            });
+        });
+
+        // Permanent bonus — sum both
+        const permanentBonus = (item1.permanentBonus || 0) + (item2.permanentBonus || 0);
+
+        // Track fusion_value_3 count from parents (for trigger after selection)
+        const fusionValue3Count = [item1, item2].filter(i => (i.traits || []).includes('fusion_value_3')).length;
+
+        // Display rarity from total value (compute from base + permanent + auras)
+        const baseVal1 = getBaseValue(item1.rarity?.id, config);
+        const baseVal2 = getBaseValue(item2.rarity?.id, config);
+        const totalBaseValue = baseVal1 + baseVal2 + permanentBonus;
+        const resultRarity = getCompositeRarity(totalBaseValue, componentCount, config);
+
+        const fusedItem = {
             name: combinedNames.join('\u00d7'),
             names: combinedNames,
             icon: combinedIcons[0],
@@ -547,7 +630,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }).join('\u00d7'),
             uid: Math.random().toString(36).substr(2, 9),
             rarity: resultRarity,
-            value: totalValue,
+            value: totalBaseValue, // backward compat cache
             sterile: false,
             decay: currentStageConfig.mechanics.entropy
                 ? Math.max(
@@ -555,7 +638,21 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     item2.decay !== undefined ? item2.decay : 0
                   )
                 : undefined,
+            // Trait system fields
+            traits: allTraits,
+            permanentBonus: permanentBonus,
+            infusionHistory: infusionHistory,
+            remainingInfusions: remainingInfusions,
+            maxInfusions: maxInfusions,
+            maxTraits: maxTraits,
+            componentCount: componentCount,
+            // Internal: for trait selection
+            _needsTraitSelection: allTraits.length > maxTraits,
+            _maxTraits: maxTraits,
+            _fusionValue3Count: fusionValue3Count,
         };
+
+        return fusedItem;
     };
 
     const handleIncomingItems = (newItems, overrideInventory = null) => {
@@ -662,6 +759,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 names: [target.name],
                 icons: [target.icon],
                 poolIds: [pool.id],
+                traits: [],
+                permanentBonus: 0,
+                infusionHistory: [],
+                remainingInfusions: config.traitSystem?.baseInfusionCount || 3,
+                maxInfusions: config.traitSystem?.baseInfusionCount || 3,
+                maxTraits: 1,
+                componentCount: 1,
             };
 
             setModalContent({
@@ -701,6 +805,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 names: [randomItem.name],
                 icons: [randomItem.icon],
                 poolIds: [randomPool.id],
+                traits: [],
+                permanentBonus: 0,
+                infusionHistory: [],
+                remainingInfusions: config.traitSystem?.baseInfusionCount || 3,
+                maxInfusions: config.traitSystem?.baseInfusionCount || 3,
+                maxTraits: 1,
+                componentCount: 1,
             };
 
             setModalContent({
@@ -770,11 +881,27 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         handleIncomingItems(itemsToProcess, decayedInventory);
 
+        // Per-round trait triggers (e.g. decay_infuse: -1 per round)
+        setInventory(prev => prev.map(item => {
+            if (!item || !item.traits) return item;
+            let bonusChange = 0;
+            for (const traitId of item.traits) {
+                const trait = TRAIT_DEFINITIONS[traitId];
+                if (trait?.onRound) {
+                    bonusChange += trait.onRound(item);
+                }
+            }
+            if (bonusChange !== 0) {
+                return { ...item, permanentBonus: (item.permanentBonus || 0) + bonusChange };
+            }
+            return item;
+        }));
+
         refreshPools(true);
     };
 
     const handleDraw = (pool) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates || infuseMode) return;
 
         // Use pool cost (from affix config)
         let finalCost = pool.cost || 2;
@@ -872,7 +999,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const enterFusionMode = () => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates || infuseMode) return;
         setSelectionMode({ type: 'fusion', step: 1, firstItem: null, firstIndex: null });
     };
 
@@ -977,6 +1104,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 pendingItem.rarity.id !== 'mythic') {
                 const nextRarity = getNextRarity(item.rarity.id, config);
                 const upgradedItem = { ...item, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
+                // White synthesis: two commons → uncommon gets a trait
+                if (pendingItem.rarity.id === 'common' && item.rarity.id === 'common' && config.traitSystem?.enabled !== false) {
+                    upgradedItem.componentCount = 2;
+                    upgradedItem.maxTraits = 2;
+                    const traitId = rollTrait(config);
+                    upgradedItem.traits = [traitId];
+                    const trait = TRAIT_DEFINITIONS[traitId];
+                    if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
+                        if (trait.capacityEffect.maxInfusions) upgradedItem.maxInfusions = (upgradedItem.maxInfusions || 3) + trait.capacityEffect.maxInfusions;
+                        if (trait.capacityEffect.maxTraits) upgradedItem.maxTraits += trait.capacityEffect.maxTraits;
+                    }
+                }
                 const newInventory = [...inventory];
                 newInventory[itemIndex] = upgradedItem;
                 setInventory(newInventory);
@@ -1024,6 +1163,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 (!item.decay || item.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0)) {
                 const nextRarity = getNextRarity(sourceItem.rarity.id, config);
                 const upgradedItem = { ...item, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
+                // White synthesis: two commons → uncommon gets a trait
+                if (sourceItem.rarity.id === 'common' && item.rarity.id === 'common' && config.traitSystem?.enabled !== false) {
+                    upgradedItem.componentCount = 2;
+                    upgradedItem.maxTraits = 2;
+                    const traitId = rollTrait(config);
+                    upgradedItem.traits = [traitId];
+                    const trait = TRAIT_DEFINITIONS[traitId];
+                    if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
+                        if (trait.capacityEffect.maxInfusions) upgradedItem.maxInfusions = (upgradedItem.maxInfusions || 3) + trait.capacityEffect.maxInfusions;
+                        if (trait.capacityEffect.maxTraits) upgradedItem.maxTraits += trait.capacityEffect.maxTraits;
+                    }
+                }
                 const newInventory = [...inventory];
                 newInventory[itemIndex] = upgradedItem;
                 newInventory[selectedSlot] = null;
@@ -1100,18 +1251,42 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 // Perform fusion
                 const fusedItem = fuseItems(firstItem, clickedItem);
 
-                // Update inventory: replace one slot with fused item, remove the other
-                const newInventory = [...inventory];
-                newInventory[index] = fusedItem;
-                newInventory[firstIndex] = null;
-                setInventory(newInventory.filter(item => item !== null));
-
                 // Clear any assignments
                 if (assignedItemUids.has(firstItem.uid)) removeAssignmentByUid(firstItem.uid);
                 if (assignedItemUids.has(clickedItem.uid)) removeAssignmentByUid(clickedItem.uid);
 
-                showToast(`${t("融合")}: ${firstItem.name} + ${clickedItem.name} → ${fusedItem.name}`, 'success');
+                if (fusedItem._needsTraitSelection) {
+                    // Need trait selection — store pending and remove source items
+                    const newInventory = [...inventory];
+                    newInventory[index] = null;
+                    newInventory[firstIndex] = null;
+                    setInventory(newInventory.filter(item => item !== null));
 
+                    setTraitSelectionPending({
+                        item: fusedItem,
+                        replaceIndex: null, // will append
+                        context: 'fusion',
+                        fusionValue3Count: fusedItem._fusionValue3Count || 0,
+                    });
+                } else {
+                    // No selection needed — clean up internal fields and place
+                    const finalItem = { ...fusedItem };
+                    delete finalItem._needsTraitSelection;
+                    delete finalItem._maxTraits;
+                    delete finalItem._fusionValue3Count;
+
+                    // Handle fusion_value_3 trigger
+                    if (fusedItem._fusionValue3Count > 0 && finalItem.traits.includes('fusion_value_3')) {
+                        finalItem.permanentBonus = (finalItem.permanentBonus || 0) + fusedItem._fusionValue3Count * 3;
+                    }
+
+                    const newInventory = [...inventory];
+                    newInventory[index] = finalItem;
+                    newInventory[firstIndex] = null;
+                    setInventory(newInventory.filter(item => item !== null));
+                }
+
+                showToast(`${t("融合")}: ${firstItem.name} + ${clickedItem.name}`, 'success');
                 setSelectionMode(null);
                 return;
             }
@@ -1169,7 +1344,29 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 names: [tpl.name],
                 icons: [tpl.icon],
                 poolIds: [pool.id],
+                traits: [],
+                permanentBonus: 0,
+                infusionHistory: [],
+                remainingInfusions: config.traitSystem?.baseInfusionCount || 3,
+                maxInfusions: config.traitSystem?.baseInfusionCount || 3,
+                maxTraits: 1,
+                componentCount: 1,
             };
+
+            // Assign trait for uncommon+ items
+            if (config.traitSystem?.enabled !== false) {
+                const rarityOrder = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+                const minRarity = config.traitSystem?.minRarityForTrait || 'uncommon';
+                if (rarityOrder.indexOf(newRarity.id) >= rarityOrder.indexOf(minRarity)) {
+                    const traitId = rollTrait(config);
+                    newItem.traits = [traitId];
+                    const trait = TRAIT_DEFINITIONS[traitId];
+                    if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
+                        if (trait.capacityEffect.maxInfusions) newItem.maxInfusions += trait.capacityEffect.maxInfusions;
+                        if (trait.capacityEffect.maxTraits) newItem.maxTraits += trait.capacityEffect.maxTraits;
+                    }
+                }
+            }
 
             let finalItem = newItem;
             if (skillState.nextDrawEnhanced) {
@@ -1207,6 +1404,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 const nextRarity = getNextRarity(targetItem.rarity.id, config);
 
                 const upgradedItem = { ...targetItem, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
+                // White synthesis: two commons → uncommon gets a trait
+                if (pendingItem.rarity.id === 'common' && targetItem.rarity.id === 'common' && config.traitSystem?.enabled !== false) {
+                    upgradedItem.componentCount = 2;
+                    upgradedItem.maxTraits = 2;
+                    const traitId = rollTrait(config);
+                    upgradedItem.traits = [traitId];
+                    const trait = TRAIT_DEFINITIONS[traitId];
+                    if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
+                        if (trait.capacityEffect.maxInfusions) upgradedItem.maxInfusions = (upgradedItem.maxInfusions || 3) + trait.capacityEffect.maxInfusions;
+                        if (trait.capacityEffect.maxTraits) upgradedItem.maxTraits += trait.capacityEffect.maxTraits;
+                    }
+                }
                 const newInventory = [...inventory];
                 newInventory[index] = upgradedItem;
                 setInventory(newInventory);
@@ -1288,6 +1497,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 const nextRarity = getNextRarity(sourceItem.rarity.id, config);
 
                 const upgradedItem = { ...targetItem, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
+                // White synthesis: two commons → uncommon gets a trait
+                if (sourceItem.rarity.id === 'common' && targetItem.rarity.id === 'common' && config.traitSystem?.enabled !== false) {
+                    upgradedItem.componentCount = 2;
+                    upgradedItem.maxTraits = 2;
+                    const traitId = rollTrait(config);
+                    upgradedItem.traits = [traitId];
+                    const trait = TRAIT_DEFINITIONS[traitId];
+                    if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
+                        if (trait.capacityEffect.maxInfusions) upgradedItem.maxInfusions = (upgradedItem.maxInfusions || 3) + trait.capacityEffect.maxInfusions;
+                        if (trait.capacityEffect.maxTraits) upgradedItem.maxTraits += trait.capacityEffect.maxTraits;
+                    }
+                }
                 const newInventory = [...inventory];
                 newInventory[index] = upgradedItem;
                 newInventory[selectedSlot] = null;
@@ -1325,7 +1546,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleRefreshAllOrders = () => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode || orderCandidates) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode || orderCandidates || infuseMode) return;
         if (!currentStageConfig.mechanics.refresh) {
             showToast(t("当前时代尚未解锁订单刷新技术！"), "error");
             return;
@@ -1352,7 +1573,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleRefreshSingleOrder = (index) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode || orderCandidates) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode || orderCandidates || infuseMode) return;
 
         if (!currentStageConfig.mechanics.refresh) {
             showToast(t("当前时代尚未解锁订单刷新技术！"), "error");
@@ -1656,7 +1877,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const toggleSubmitMode = () => {
-        if (pendingItem || selectionMode) return;
+        if (pendingItem || selectionMode || infuseMode) return;
         if (isSubmitMode) {
             setIsSubmitMode(false);
             setSelectedIndices([]);
@@ -1668,7 +1889,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const toggleRecycleMode = () => {
-        if (pendingItem || selectionMode) return;
+        if (pendingItem || selectionMode || infuseMode) return;
         if (isRecycleMode) {
             setIsRecycleMode(false);
             setSelectedIndices([]);
@@ -1796,6 +2017,211 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         });
     };
 
+    const handleStartInfuse = (index) => {
+        const item = inventory[index];
+        if (!item || item.isTool || (item.componentCount || 1) > 1) return;
+        if (isSubmitMode || isRecycleMode || isEvacuationMode || pendingItem || selectionMode || infuseMode || orderCandidates || traitSelectionPending) return;
+        if (pendingQueue.length > 0) return;
+        setInfuseMode({ materialIndex: index });
+        setSelectedSlot(null);
+    };
+
+    const handleCancelInfuse = () => setInfuseMode(null);
+
+    const handleInfuseTarget = (targetIndex) => {
+        if (!infuseMode) return;
+        const materialIndex = infuseMode.materialIndex;
+        const material = inventory[materialIndex];
+        const target = inventory[targetIndex];
+
+        if (!material || !target || targetIndex === materialIndex) return;
+        if ((target.remainingInfusions ?? 3) <= 0) return;
+
+        // Step 2: Record material info
+        const materialInfo = {
+            name: material.name,
+            poolId: material.poolId || (material.poolIds && material.poolIds[0]),
+            rarityId: material.rarity?.id,
+        };
+        const newTarget = { ...target };
+        newTarget.infusionHistory = [...(target.infusionHistory || []), materialInfo];
+
+        // Step 3: Trigger target's infuse triggers
+        let bonusAdd = 0;
+        const activeOrderNames = [...orders, ...emergencyOrders]
+            .filter(Boolean)
+            .flatMap(o => o.requiredNames || []);
+
+        for (const traitId of (target.traits || [])) {
+            const trait = TRAIT_DEFINITIONS[traitId];
+            if (!trait) continue;
+            if (trait.onInfuse) {
+                bonusAdd += trait.onInfuse(materialInfo, target, config, activeOrderNames);
+            }
+        }
+
+        // Handle infuse_burst special
+        let burstTriggered = false;
+        if ((target.traits || []).includes('infuse_burst')) {
+            bonusAdd += 5;
+            burstTriggered = true;
+        }
+
+        newTarget.permanentBonus = (target.permanentBonus || 0) + bonusAdd;
+
+        // Step 4: Trigger material's material-type traits
+        let goldAdd = 0;
+        let inventoryBonusAdd = 0;
+        let targetMaxInfusionsAdd = 0;
+
+        const materialValue = getItemValue(material, config, inventory);
+
+        for (const traitId of (material.traits || [])) {
+            const trait = TRAIT_DEFINITIONS[traitId];
+            if (!trait || trait.category !== 'material') continue;
+            if (trait.onConsumed) {
+                const matWithValue = { ...material, _currentValue: materialValue };
+                const effects = trait.onConsumed(matWithValue, newTarget, config, inventory);
+                if (effects.targetBonusAdd) newTarget.permanentBonus += effects.targetBonusAdd;
+                if (effects.goldAdd) goldAdd += effects.goldAdd;
+                if (effects.inventoryBonusAdd) inventoryBonusAdd += effects.inventoryBonusAdd;
+                if (effects.targetMaxInfusionsAdd) targetMaxInfusionsAdd += effects.targetMaxInfusionsAdd;
+            }
+        }
+
+        newTarget.maxInfusions = (newTarget.maxInfusions || 3) + targetMaxInfusionsAdd;
+
+        // Handle infuse_burst removal
+        if (burstTriggered) {
+            newTarget.traits = (newTarget.traits || []).filter(t => t !== 'infuse_burst');
+        }
+
+        // Step 5: Trait transfer
+        const materialTraits = material.traits || [];
+        const targetMaxTraits = newTarget.maxTraits || 1;
+        const currentTraits = newTarget.traits || [];
+
+        if (materialTraits.length > 0) {
+            if (currentTraits.length < targetMaxTraits) {
+                // Room for material trait — add it
+                newTarget.traits = [...currentTraits, ...materialTraits];
+                // Apply capacity effects for newly added traits
+                materialTraits.forEach(tid => {
+                    const t = TRAIT_DEFINITIONS[tid];
+                    if (t?.effectType === 'permanent_capacity' && t.capacityEffect) {
+                        if (t.capacityEffect.maxInfusions) newTarget.maxInfusions += t.capacityEffect.maxInfusions;
+                        if (t.capacityEffect.maxTraits) newTarget.maxTraits = (newTarget.maxTraits || 1) + t.capacityEffect.maxTraits;
+                    }
+                });
+            } else {
+                // Trait overflow — need selection popup
+                // Complete everything except trait assignment and inventory update
+                // Step 6: Deduct infusion count
+                const isCommonFree = (target.traits || []).includes('infuse_common_free') && materialInfo.rarityId === 'common';
+                if (!isCommonFree) {
+                    newTarget.remainingInfusions = (target.remainingInfusions ?? 3) - 1;
+                }
+
+                // Prepare pending state with all candidate traits
+                const allCandidateTraits = [...new Set([...currentTraits, ...materialTraits])];
+
+                // Remove material from inventory, but DON'T place newTarget yet
+                const newInventory = [...inventory];
+                newInventory[materialIndex] = null;
+                newInventory[targetIndex] = null; // Remove target too, will be re-placed after selection
+
+                // Apply inventory bonus before setting
+                if (inventoryBonusAdd > 0) {
+                    newInventory.forEach((item, i) => {
+                        if (item && i !== materialIndex && i !== targetIndex) {
+                            newInventory[i] = { ...item, permanentBonus: (item.permanentBonus || 0) + inventoryBonusAdd };
+                        }
+                    });
+                }
+
+                if (goldAdd > 0) setGold(prev => prev + goldAdd);
+                setInventory(newInventory.filter(i => i !== null));
+
+                if (assignedItemUids.has(material.uid)) removeAssignmentByUid(material.uid);
+
+                setTraitSelectionPending({
+                    item: { ...newTarget, traits: allCandidateTraits },
+                    replaceIndex: null,
+                    context: 'infusion',
+                    materialTraitIds: materialTraits,
+                });
+
+                setInfuseMode(null);
+                return;
+            }
+        }
+
+        // Step 6: Deduct infusion count (normal path — no overflow)
+        const isCommonFree = (target.traits || []).includes('infuse_common_free') && materialInfo.rarityId === 'common';
+        if (!isCommonFree) {
+            newTarget.remainingInfusions = (target.remainingInfusions ?? 3) - 1;
+        }
+
+        // Step 7: Destroy material, update inventory
+        const newInventory = [...inventory];
+        newInventory[targetIndex] = newTarget;
+        newInventory[materialIndex] = null;
+
+        if (inventoryBonusAdd > 0) {
+            newInventory.forEach((item, i) => {
+                if (item && i !== materialIndex) {
+                    newInventory[i] = { ...item, permanentBonus: (item.permanentBonus || 0) + inventoryBonusAdd };
+                }
+            });
+        }
+
+        if (goldAdd > 0) setGold(prev => prev + goldAdd);
+        setInventory(newInventory.filter(i => i !== null));
+
+        if (assignedItemUids.has(material.uid)) removeAssignmentByUid(material.uid);
+
+        setInfuseMode(null);
+    };
+
+    const handleConfirmTraitSelection = (selectedTraitIds) => {
+        if (!traitSelectionPending) return;
+        const { item, replaceIndex, context, fusionValue3Count } = traitSelectionPending;
+
+        const finalItem = { ...item };
+        finalItem.traits = selectedTraitIds;
+
+        // Clean up internal fields
+        delete finalItem._needsTraitSelection;
+        delete finalItem._maxTraits;
+        delete finalItem._fusionValue3Count;
+
+        // Handle fusion_value_3 trigger: only if trait is in final selection
+        if (context === 'fusion' && fusionValue3Count > 0 && selectedTraitIds.includes('fusion_value_3')) {
+            finalItem.permanentBonus = (finalItem.permanentBonus || 0) + fusionValue3Count * 3;
+        }
+
+        // Apply capacity effects for newly selected traits
+        selectedTraitIds.forEach(tid => {
+            const t = TRAIT_DEFINITIONS[tid];
+            if (t?.effectType === 'permanent_capacity' && t.capacityEffect) {
+                // These were already applied when items were created, but for transferred traits we need to check
+                // Actually capacity effects are permanent from when they were first obtained, so no new application needed here
+            }
+        });
+
+        // Place item in inventory
+        if (replaceIndex !== undefined && replaceIndex !== null) {
+            setInventory(prev => {
+                const newInv = [...prev];
+                newInv[replaceIndex] = finalItem;
+                return newInv.filter(i => i !== null);
+            });
+        } else {
+            setInventory(prev => [...prev, finalItem].filter(i => i !== null));
+        }
+
+        setTraitSelectionPending(null);
+    };
 
     return {
         state: {
@@ -1817,7 +2243,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
             setHoveredPoolId, setHoveredItemName, setHoveredSlotIndex, setHoveredPoolItemNames,
             isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
-            modalContent, selectionMode,
+            modalContent, selectionMode, infuseMode,
             skills, skillSelectionCandidates,
             toast,
             satisfiableOrders,
@@ -1826,7 +2252,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             selectedItemNames,
             skillState,
             orderSlotAssignments,
-            assignedItemUids
+            assignedItemUids,
+            traitSelectionPending
         },
         actions: {
             showToast,
@@ -1862,7 +2289,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleUnassignFromOrder,
             handleOrderSlotClick,
             canFuse,
-            enterFusionMode
+            enterFusionMode,
+            handleConfirmTraitSelection,
+            handleStartInfuse,
+            handleInfuseTarget,
+            handleCancelInfuse
         },
         helpers: {
             hasSkill

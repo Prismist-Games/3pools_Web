@@ -1,5 +1,7 @@
 // helpers.js - utility functions for game logic
 
+import { TRAIT_DEFINITIONS } from '../data/constants';
+
 export const getAllNormalItems = (pools, currentStageConfig) => {
     // 修正：限制池子类型（allowedPoolCount）和池内物品数量（poolSize）
     const allowedPools = pools.slice(0, currentStageConfig.allowedPoolCount);
@@ -40,11 +42,11 @@ export const getCompositeRarity = (totalValue, componentCount, config) => {
     const rarityOrder = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 
     // 找到匹配的组件数量阈值表，如果没有精确匹配则使用最大的
-    let breakpoints = thresholds[componentCount];
+    let breakpoints = thresholds[componentCount] || thresholds['default'];
     if (!breakpoints) {
-        const keys = Object.keys(thresholds).map(Number).sort((a, b) => a - b);
+        const keys = Object.keys(thresholds).map(Number).filter(k => !isNaN(k)).sort((a, b) => a - b);
         const maxKey = keys[keys.length - 1];
-        breakpoints = thresholds[maxKey] || [0, 1, 3, 6, 12, 30];
+        breakpoints = thresholds[maxKey] || [0, 2, 4, 7, 12, 20];
     }
 
     // 从高到低查找匹配的品质
@@ -59,13 +61,56 @@ export const getCompositeRarity = (totalValue, componentCount, config) => {
     return config.rarity.find(r => r.id === resultId) || config.rarity[0];
 };
 
-// 计算物品的价值（单个或复合）
-export const getItemValue = (item, config) => {
+// 计算物品的价值（单个或复合，支持特性光环）
+export const getItemValue = (item, config, inventoryItems = []) => {
     if (!item) return 0;
-    // 如果物品已经有 value 属性，直接使用
-    if (item.value !== undefined) return item.value;
-    // 否则从品质计算
-    return getBaseValue(item.rarity?.id, config);
+
+    const baseValue = getBaseValue(item.rarity?.id, config);
+    const permanentBonus = item.permanentBonus || 0;
+
+    let additiveAura = 0;
+    let multiplicativeAura = 1;
+
+    for (const traitId of (item.traits || [])) {
+        const trait = TRAIT_DEFINITIONS[traitId];
+        if (!trait || trait.effectType !== 'aura') continue;
+
+        if (trait.auraType === 'additive') {
+            additiveAura += trait.calcAdditive(item, inventoryItems);
+        } else if (trait.auraType === 'multiplicative') {
+            multiplicativeAura *= trait.calcMultiplicative(item, inventoryItems);
+        }
+    }
+
+    return Math.max(0, Math.floor(
+        (baseValue + permanentBonus + additiveAura) * multiplicativeAura
+    ));
+};
+
+// 随机抽取一个特性 ID
+export const rollTrait = (config) => {
+    const weights = config.traitSystem?.traitWeights || { categoryPool: 0.4, categoryPoolSplit: 0.5, otherTraits: 0.6 };
+
+    const poolTraits = ['infuse_fruit', 'infuse_medicine', 'infuse_electronics', 'infuse_kitchenware', 'infuse_stationery'];
+    const nameTraits = ['infuse_watermelon', 'infuse_lemon', 'infuse_mango', 'infuse_apple', 'infuse_powder_drink', 'infuse_eye_drops', 'infuse_syringe', 'infuse_capsule', 'infuse_pencil', 'infuse_eraser', 'infuse_stapler', 'infuse_notebook', 'infuse_frying_pan', 'infuse_kitchen_knife', 'infuse_cutting_board', 'infuse_soup_spoon', 'infuse_phone', 'infuse_earphones', 'infuse_ac', 'infuse_computer'];
+    const otherTraits = ['flat_value_2', 'multiplier_1_5', 'virgin_double', 'same_pool_synergy', 'decay_infuse', 'infuse_uncommon_plus', 'infuse_rare_plus', 'infuse_same_name', 'infuse_different_pool', 'infuse_common_free', 'infuse_order_match', 'material_full_value', 'material_infuse_count', 'material_inventory_boost', 'material_refund', 'fusion_value_3', 'extra_infuse_3', 'extra_trait_1', 'recycle_double', 'infuse_burst'];
+
+    const r = Math.random();
+
+    if (r < weights.categoryPool) {
+        // 40% — pool/name category
+        const r2 = Math.random();
+        if (r2 < weights.categoryPoolSplit) {
+            // Pool traits (equal weight)
+            return poolTraits[Math.floor(Math.random() * poolTraits.length)];
+        } else {
+            // Name traits (equal weight)
+            return nameTraits[Math.floor(Math.random() * nameTraits.length)];
+        }
+    } else {
+        // 60% — other traits (equal weight)
+        return otherTraits[Math.floor(Math.random() * otherTraits.length)];
+    }
 };
 
 // 随机生成订单的 requiredValue
@@ -149,7 +194,7 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
     const rewardMultiplier = config.valueSystem?.rewardMultiplier || 1;
     let baseScoreReward = 0;
     if (!isEmergency) {
-        baseScoreReward = Math.max(1, Math.floor(requiredValue * rewardMultiplier + (config.progress?.progressOffset || 0)));
+        baseScoreReward = Math.max(1, Math.ceil(requiredValue * rewardMultiplier));
     }
 
     return {
