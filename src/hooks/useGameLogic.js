@@ -602,12 +602,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const createItem = (pool, itemTemplate, affixKey = null) => {
         const rarity = rollRarity(config, affixKey, gold, hasSkill, skillState, currentStageConfig);
+        const affix = affixKey ? config.affixes.find(a => a.id === affixKey) : null;
+        const deliveryTag = affix?.deliveryEffect ? affixKey : null;
         return {
             ...itemTemplate,
             uid: Math.random().toString(36).substr(2, 9),
             poolName: pool.name,
             rarity: rarity,
             sterile: affixKey === 'hardened',
+            deliveryTag: deliveryTag,
             decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
         };
 
@@ -1094,6 +1097,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     poolName: sourcePool.name,
                     rarity: item.rarity,
                     sterile: item.sterile,
+                    deliveryTag: item.deliveryTag || null,
                     decay: item.decay,
                 };
                 const newInventory = [...inventory];
@@ -1253,6 +1257,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     poolName: sourcePool.name,
                     rarity: clickedItem.rarity,
                     sterile: clickedItem.sterile,
+                    deliveryTag: clickedItem.deliveryTag || null,
                     decay: clickedItem.decay,
                 };
                 const newInventory = [...inventory];
@@ -1345,6 +1350,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 poolName: pool.name,
                 rarity: newRarity,
                 sterile: consumedItem.sterile,
+                deliveryTag: consumedItem.deliveryTag || null,
                 decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
             };
 
@@ -1383,7 +1389,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
                 const nextRarity = getNextRarity(targetItem.rarity.id, config);
 
-                const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const mergedDeliveryTag = pendingItem.deliveryTag || targetItem.deliveryTag || null;
+                const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9), deliveryTag: mergedDeliveryTag };
                 const newInventory = [...inventory];
                 newInventory[index] = upgradedItem;
                 setInventory(newInventory);
@@ -1464,7 +1471,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
                 const nextRarity = getNextRarity(sourceItem.rarity.id, config);
 
-                const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const mergedDeliveryTag = sourceItem.deliveryTag || targetItem.deliveryTag || null;
+                const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9), deliveryTag: mergedDeliveryTag };
                 const newInventory = [...inventory];
                 newInventory[index] = upgradedItem;
                 newInventory[selectedSlot] = null;

@@ -232,15 +232,25 @@ export const InventorySlot = ({
                         {item.durability !== undefined && !isToolItem && (
                             <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-slate-800/50 text-white rounded-b-[10px] py-[2px]">
                                 <span className="flex items-center gap-0.5">
-                                    <Umbrella size={10} className="text-blue-300" />
-                                    <span className="text-[10px] font-mono font-bold">{item.durability + RARITY_ORDER.indexOf(item.rarity?.id || 'common') * durabilityPerTier}</span>
+                                    <Umbrella size={10} className={item.deliveryTag === 'fortified' ? 'text-green-300' : item.deliveryTag === 'fragile' ? 'text-red-300' : 'text-blue-300'} />
+                                    <span className="text-[10px] font-mono font-bold">
+                                        {item.deliveryTag === 'fragile' ? 1 : item.deliveryTag === 'fortified'
+                                            ? item.durability + RARITY_ORDER.indexOf(item.rarity?.id || 'common') * durabilityPerTier + 4
+                                            : item.durability + RARITY_ORDER.indexOf(item.rarity?.id || 'common') * durabilityPerTier}
+                                    </span>
                                 </span>
-                                {item.sharpness > 0 && (
+                                {((item.deliveryTag === 'angular' ? item.sharpness + 3 : item.sharpness) > 0) && (
                                     <span className="flex items-center gap-0.5">
-                                        <TriangleAlert size={10} className="text-amber-300" />
-                                        <span className="text-[10px] font-mono font-bold">{item.sharpness}</span>
+                                        <TriangleAlert size={10} className={item.deliveryTag === 'angular' ? 'text-red-300' : 'text-amber-300'} />
+                                        <span className="text-[10px] font-mono font-bold">{item.deliveryTag === 'angular' ? item.sharpness + 3 : item.sharpness}</span>
                                     </span>
                                 )}
+                            </div>
+                        )}
+                        {/* Delivery Tag indicator */}
+                        {item.deliveryTag && !isToolItem && (
+                            <div className="absolute top-0 left-0 bg-indigo-600/80 text-white text-[8px] font-bold px-1 rounded-br-md rounded-tl-[10px] leading-tight py-[1px]">
+                                {item.deliveryTag === 'fortified' ? '加固' : item.deliveryTag === 'fragile' ? '易碎' : item.deliveryTag === 'angular' ? '棱角' : item.deliveryTag === 'protective' ? '保护' : item.deliveryTag === 'explosive' ? '易爆' : item.deliveryTag === 'set_bonus' ? '套装' : item.deliveryTag === 'unidirectional' ? '单向' : ''}
                             </div>
                         )}
 

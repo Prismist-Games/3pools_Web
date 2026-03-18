@@ -337,6 +337,90 @@ export const INITIAL_AFFIXES_CONFIG = [
         "type": "interaction",
         "weight": 10,
         "cost": 4
+    },
+    {
+        "id": "fortified",
+        "name": "加固的",
+        "desc": "物品耐久+4，更抗运送冲击。",
+        "type": "passive",
+        "weight": 10,
+        "cost": 3,
+        "deliveryEffect": { "type": "durability_bonus", "value": 4 }
+    },
+    {
+        "id": "fragile",
+        "name": "易碎的",
+        "desc": "品质保底稀有，但物品耐久固定为1。",
+        "type": "passive",
+        "weight": 10,
+        "cost": 2,
+        "rarityWeights": {
+            "common": 0,
+            "uncommon": 0,
+            "rare": 0.67,
+            "epic": 0.3,
+            "legendary": 0.03
+        },
+        "deliveryEffect": { "type": "fixed_durability", "value": 1 }
+    },
+    {
+        "id": "angular",
+        "name": "棱角的",
+        "desc": "品质保底稀有，但物品运送时尖锐+3。",
+        "type": "passive",
+        "weight": 10,
+        "cost": 1,
+        "rarityWeights": {
+            "common": 0,
+            "uncommon": 0,
+            "rare": 0.67,
+            "epic": 0.3,
+            "legendary": 0.03
+        },
+        "deliveryEffect": { "type": "sharpness_bonus", "value": 3 }
+    },
+    {
+        "id": "protective",
+        "name": "保护的",
+        "desc": "运送时相邻物品耐久+3。",
+        "type": "passive",
+        "weight": 10,
+        "cost": 2,
+        "deliveryEffect": { "type": "neighbor_durability", "value": 3 }
+    },
+    {
+        "id": "explosive",
+        "name": "易爆的",
+        "desc": "免费获得稀有+物品，但每次降级对所有物品造成2伤害。",
+        "type": "passive",
+        "weight": 10,
+        "cost": 0,
+        "rarityWeights": {
+            "common": 0,
+            "uncommon": 0,
+            "rare": 0.67,
+            "epic": 0.3,
+            "legendary": 0.03
+        },
+        "deliveryEffect": { "type": "explosive", "damage": 2 }
+    },
+    {
+        "id": "set_bonus",
+        "name": "套装的",
+        "desc": "运送中每多一件套装物品，所有套装物品各+2耐久。",
+        "type": "passive",
+        "weight": 10,
+        "cost": 2,
+        "deliveryEffect": { "type": "set_bonus", "perItemBonus": 2 }
+    },
+    {
+        "id": "unidirectional",
+        "name": "单向的",
+        "desc": "→颠簸时尖锐=0，←颠簸时尖锐翻倍。",
+        "type": "passive",
+        "weight": 10,
+        "cost": 1,
+        "deliveryEffect": { "type": "unidirectional" }
     }
 ];
 
@@ -358,10 +442,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-green-100 text-green-800 border-green-200",
         "icon": "🍎",
         "items": [
-            { "name": "西瓜", "icon": "🍉", "durability": 5, "sharpness": 2 },
-            { "name": "柠檬", "icon": "🍋", "durability": 3, "sharpness": 2 },
-            { "name": "芒果", "icon": "🥭", "durability": 2, "sharpness": 1 },
-            { "name": "苹果", "icon": "🍎", "durability": 3, "sharpness": 1 }
+            { "name": "西瓜", "icon": "🍉", "durability": 5, "sharpness": 4 },
+            { "name": "柠檬", "icon": "🍋", "durability": 3, "sharpness": 4 },
+            { "name": "芒果", "icon": "🥭", "durability": 2, "sharpness": 2 },
+            { "name": "苹果", "icon": "🍎", "durability": 3, "sharpness": 2 }
         ]
     },
     {
@@ -372,10 +456,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-red-100 text-red-800 border-red-200",
         "icon": "💊",
         "items": [
-            { "name": "冲剂", "icon": "🍵", "durability": 3, "sharpness": 1 },
-            { "name": "滴眼液", "icon": "💧", "durability": 2, "sharpness": 1 },
-            { "name": "注射器", "icon": "💉", "durability": 2, "sharpness": 3 },
-            { "name": "胶囊", "icon": "💊", "durability": 3, "sharpness": 1 }
+            { "name": "冲剂", "icon": "🍵", "durability": 3, "sharpness": 2 },
+            { "name": "滴眼液", "icon": "💧", "durability": 2, "sharpness": 2 },
+            { "name": "注射器", "icon": "💉", "durability": 2, "sharpness": 6 },
+            { "name": "胶囊", "icon": "💊", "durability": 3, "sharpness": 2 }
         ]
     },
     {
@@ -386,9 +470,9 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-yellow-100 text-yellow-800 border-yellow-200",
         "icon": "✏️",
         "items": [
-            { "name": "铅笔", "icon": "✏️", "durability": 2, "sharpness": 2 },
+            { "name": "铅笔", "icon": "✏️", "durability": 2, "sharpness": 4 },
             { "name": "橡皮", "icon": "🧼", "durability": 5, "sharpness": 0 },
-            { "name": "订书机", "icon": "📎", "durability": 4, "sharpness": 2 },
+            { "name": "订书机", "icon": "📎", "durability": 4, "sharpness": 4 },
             { "name": "笔记本", "icon": "📒", "durability": 6, "sharpness": 0 }
         ]
     },
@@ -400,10 +484,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-orange-100 text-orange-800 border-orange-200",
         "icon": "🍳",
         "items": [
-            { "name": "平底锅", "icon": "🍳", "durability": 5, "sharpness": 2 },
-            { "name": "菜刀", "icon": "🔪", "durability": 3, "sharpness": 3 },
+            { "name": "平底锅", "icon": "🍳", "durability": 5, "sharpness": 4 },
+            { "name": "菜刀", "icon": "🔪", "durability": 3, "sharpness": 6 },
             { "name": "砧板", "icon": "🪵", "durability": 6, "sharpness": 0 },
-            { "name": "汤勺", "icon": "🥄", "durability": 3, "sharpness": 1 }
+            { "name": "汤勺", "icon": "🥄", "durability": 3, "sharpness": 2 }
         ]
     },
     {
@@ -414,10 +498,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-blue-100 text-blue-800 border-blue-200",
         "icon": "⚡️",
         "items": [
-            { "name": "手机", "icon": "📱", "durability": 2, "sharpness": 1 },
+            { "name": "手机", "icon": "📱", "durability": 2, "sharpness": 2 },
             { "name": "耳机", "icon": "🎧", "durability": 2, "sharpness": 0 },
-            { "name": "空调", "icon": "❄️", "durability": 6, "sharpness": 2 },
-            { "name": "电脑", "icon": "💻", "durability": 4, "sharpness": 2 }
+            { "name": "空调", "icon": "❄️", "durability": 6, "sharpness": 4 },
+            { "name": "电脑", "icon": "💻", "durability": 4, "sharpness": 4 }
         ]
     }
 ];
