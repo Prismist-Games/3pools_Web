@@ -2,7 +2,7 @@
 
 本文档是项目代码的完整技术参考，涵盖架构、数据流、每个文件的职责与实现细节、状态管理、UI 渲染逻辑和外部集成。阅读本文档后，无需再阅读源代码即可对项目做出正确修改。
 
-> **最后更新**: 2026-02-26 · 基于 `code_simplify` 分支 commit `4c22ee4`
+> **最后更新**: 2026-03-18 · 基于 `value-crafting` 分支
 
 ---
 
@@ -90,6 +90,7 @@ npm run lint      # ESLint 检查
 │       ├── ErrorBoundary.jsx       ← 错误边界（类组件）
 │       ├── game/
 │       │   ├── InventorySlot.jsx   ← 背包格子 (~14KB)
+│       │   ├── ItemDetailPanel.jsx ← 物品详情面板（左侧固定）
 │       │   ├── OrderCard.jsx       ← 订单卡片 (~33KB)
 │       │   ├── PoolCard.jsx        ← 奖池卡片 (~4KB)
 │       │   ├── SkillSelectionModal.jsx ← 技能选择弹窗 (~10KB)
@@ -260,10 +261,40 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 
 ```js
 { targetProgress: null, progressOffset: 0,
-  rarityWeights: { common:2, uncommon:2.5, rare:4, epic:8, legendary:16, mythic:32 } }
+  rarityWeights: { common:2, uncommon:2.5, rare:4, epic:8, legendary:16, mythic:32 },
+  orderValueWeights: { 10: 1 } }
 ```
 
-### 4.10 `INITIAL_GAME_CONFIG`（总配置对象）
+### 4.10 `VALUE_SYSTEM_CONFIG`
+
+```js
+{ baseValues: { common:0, uncommon:2, rare:4, epic:7, legendary:12, mythic:20 },
+  compositeQualityThresholds: { default: [0,2,4,7,12,20] },
+  rewardMultiplier: 1 }
+```
+
+### 4.11 `TRAIT_SYSTEM_CONFIG`
+
+```js
+{ enabled: true, baseInfusionCount: 3, maxTraitSlots: 3,
+  minRarityForTrait: 'uncommon',
+  traitWeights: { categoryPool: 0.4, categoryPoolSplit: 0.5, otherTraits: 0.6 } }
+```
+
+### 4.12 `TRAIT_DEFINITIONS`（45 条特质）
+
+对象字典，key 为特质 ID。每条特质包含：`id, name, desc, category, effectType`，以及效果类型相关字段。
+
+| category | 数量 | effectType | 特殊字段 |
+|----------|------|-----------|----------|
+| passive | 5 | aura / trigger | calcAdditive/calcMultiplicative, onRound, onInfuse |
+| infuse_trigger | 31 | trigger / special | onInfuse(material, target, config, activeOrderNames) |
+| material | 4 | trigger | onConsumed(mat, target, config, inv) → {targetBonusAdd?, goldAdd?, inventoryBonusAdd?, targetMaxInfusionsAdd?} |
+| fusion | 1 | trigger | onFusion() → number |
+| capacity | 2 | permanent_capacity | capacityEffect: {maxInfusions?, maxTraits?} |
+| special | 2 | special | specialType: 'recycle_double' / 'infuse_burst' |
+
+### 4.13 `INITIAL_GAME_CONFIG`（总配置对象）
 
 将以上所有配置聚合：
 
@@ -276,6 +307,8 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
   progress: SCORE_PROGRESS_CONFIG,
   emergency: EMERGENCY_ORDER_CONFIG,
   toolItems: TOOL_ITEM_CONFIG,
+  valueSystem: VALUE_SYSTEM_CONFIG,
+  traitSystem: TRAIT_SYSTEM_CONFIG,
   enabledSkillIds: [/* 全部13个技能ID */],
   global: { refreshCost: 5, initialGold: 30, initialRefreshCount: 3, maxRefreshCount: 3 }
 }
@@ -285,7 +318,7 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 
 ## 5. 纯工具函数：helpers.js
 
-所有函数为纯函数，不依赖 React，不持有状态。
+所有函数为纯函数，不依赖 React，不持有状态。`helpers.js` 从 `constants.js` 导入 `TRAIT_DEFINITIONS`，用于特质效果计算。
 
 ### `getAllNormalItems(pools, currentStageConfig) → Item[]`
 
@@ -313,7 +346,7 @@ Fisher-Yates 洗牌后取前 `count` 个。
 2. 否则随机模式：按权重选需求数量 → 为每个需求选物品 + 品质
 3. 撤离订单强制不同池子（`getUniquePoolItems` 辅助函数）
 4. `cut_corners` 技能：20% 概率减少1个需求
-5. 计算 `baseScoreReward = max(1, floor(Σ rarityWeights + offset))`
+5. 计算 `baseScoreReward = ceil(requiredValue × rewardMultiplier)`，其中 `requiredValue` 为需求物品价值之和，`rewardMultiplier` 来自 `config.valueSystem.rewardMultiplier`
 6. 返回 `{ id, requirements, baseScoreReward, isScoreOrder }`
 
 ### `rollRarity(config, affixKey, gold, hasSkill, skillState, stageConfig) → Rarity`
@@ -329,6 +362,18 @@ Fisher-Yates 洗牌后取前 `count` 个。
 ### `getNextRarity(currentRarityId, config) → Rarity | null`
 
 返回比当前品质高一级的品质对象，mythic 返回 null。
+
+### `getItemValue(item, config, inventoryItems = []) → number`
+
+动态计算物品总价值：`Math.max(0, floor((baseValue + permanentBonus + additiveAura) * multiplicativeAura))`。其中 `baseValue` 来自 `config.valueSystem.baseValues[rarity]`。遍历 `item.traits`，在 `TRAIT_DEFINITIONS` 中查找每条特质，调用 `calcAdditive`（aura 类型）或 `calcMultiplicative` 累积加成。
+
+### `getCompositeRarity(totalValue, config) → RarityId`
+
+根据物品总价值确定合成品质。使用 `config.valueSystem.compositeQualityThresholds` 中 `'default'` 键的阈值数组作为 fallback，逐级比较返回对应 rarityId。
+
+### `rollTrait(config) → traitId`
+
+加权随机选择特质 ID：40% 概率从池子/名称分类（50/50 均分）中选取，60% 概率从其余 20 个特质中等权选取。
 
 ---
 
@@ -385,6 +430,8 @@ Fisher-Yates 洗牌后取前 `count` 个。
 | `modalContent` | object\|null | 模态框数据 |
 | `skillSelectionCandidates` | Skill[]\|null | 技能选择候选列表 |
 | `toast` | object\|null | 浮动提示数据 |
+| `infuseMode` | object\|null | 注入模式 `{ materialIndex }` |
+| `traitSelectionPending` | object\|null | 特质选择待定 `{ item, replaceIndex, context, fusionValue3Count?, materialTraitIds? }` |
 
 #### 悬停状态（UI高亮用）
 | 变量 | 说明 |
@@ -414,7 +461,7 @@ skillState = {
 | `phantomMarks` | `orders`, `emergencyOrders`, `orderSlotAssignments`, `inventory` | 交叉订单幻影标记：`{ "orderIdx-reqIdx": { orderIndex, reqIndex, itemUid }[] }` |
 | `satisfiableOrders` | `selectedIndices`, `inventory`, `orders`, `emergencyOrders` | 当前选中物品可满足的订单列表（仅在提交/撤离模式计算） |
 | `potentialSatisfiableOrders` | `inventory`, `orders`, `emergencyOrders` | 全背包物品可满足的订单（始终计算，用于预览） |
-| `totalRecycleValue` | `selectedIndices`, `inventory` | 回收模式下选中物品的总回收金币值 |
+| `totalRecycleValue` | `selectedIndices`, `inventory` | 回收模式下选中物品的总回收金币值；若物品持有 `recycle_double` 特质则该物品回收价值 ×2 |
 | `selectedItemNames` | `selectedIndices`, `inventory` | 选中物品名称集合 |
 
 ### 6.3 Effects（副作用）
@@ -425,6 +472,10 @@ skillState = {
 4. **候选队列处理**：`orderCandidates` 为 null 且 `orderCandidateQueue` 非空时，自动取出队首设为当前候选。
 
 ### 6.4 核心函数详解
+
+#### 物品创建
+
+**`createItem`**：创建物品实例时，除原有字段外，还附加特质系统字段：`traits`（特质 ID 数组）、`permanentBonus`（永久加值）、`infusionHistory`（注入历史）、`remainingInfusions`（剩余注入次数）、`maxInfusions`（最大注入次数）、`maxTraits`（最大特质槽）、`componentCount`（合成来源物品数）。品质 ≥ `minRarityForTrait`（uncommon）的物品在创建时通过 `rollTrait` 随机获得一条初始特质。
 
 #### 奖池管理
 
@@ -505,6 +556,33 @@ skillState = {
 - 结果：消耗两个物品，生成一个品质 +1 的新物品
 
 **被分配物品的保护**：已分配到订单槽位的物品（`assignedItemUids` 包含其 uid）在大部分模式下不可交互（显示灰色+不透明），例外情况：trade_in、recycle mode、pendingItem 替换、selectedSlot 合成。
+
+#### 合成与特质
+
+**`mergeUpgradeTraits(sourceItem, targetItem, upgradedItem)`**：同名升级时的特质处理助手。处理白板合成（随机获得特质）、特质合并去重、溢出超过 `maxTraits` 时置 `traitSelectionPending`。
+
+**`fuseItems`**（融合/跨池合成）：合并两件不同物品时，除品质计算外还处理特质去重合并、计算 `componentCount` 和 `maxTraits`、初始化注入数据，以及计算 `permanentBonus = sumBaseValues - resultBaseValue`（补偿值，确保 `getItemValue` 返回正确总量）。若合并后特质数量超过上限，置 `_needsTraitSelection` 标记。
+
+#### 注入系统
+
+**`handleStartInfuse(index)`**：右键点击非工具物品、`componentCount === 1`、无冲突模式时，设置 `infuseMode = { materialIndex: index }`。进入注入选材阶段。
+
+**`handleInfuseTarget(targetIndex)`**：完整 7 步注入流程：
+1. 验证目标合法（非 material 本身、有剩余注入次数）
+2. 触发目标物品的 infuse_trigger 特质 `onInfuse(material, target, config, activeOrderNames)`
+3. 触发 material 的 material 类特质 `onConsumed(mat, target, config, inv)` 并应用返回值（targetBonusAdd、goldAdd、inventoryBonusAdd、targetMaxInfusionsAdd）
+4. 将 material 的特质转移到目标（去重），超出上限时进入特质选择流程
+5. 目标 `remainingInfusions -= 1`
+6. 从背包销毁 material
+7. 清除 `infuseMode`
+
+**`handleCancelInfuse()`**：清除 `infuseMode`，退出注入模式。
+
+**`handleConfirmTraitSelection(selectedTraitIds)`**：收到玩家在特质选择弹窗中的最终选择，应用到物品后将其放置到背包。同时处理 `fusion_value_3` 触发器（三件来源时激活 fusion 特质效果）。
+
+#### 每轮触发
+
+在 `handleNormalDraw` 中，`handleIncomingItems` 执行完毕后，遍历背包所有物品，对每条特质调用 `trait.onRound()`（如 `decay_infuse` 每轮 `remainingInfusions -= 1`）。
 
 #### 订单交互
 
@@ -608,6 +686,7 @@ skillState = {
     pendingItem, pendingQueue, selectedSlot,
     isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
     selectionMode, toolSelectionMode,
+    infuseMode, traitSelectionPending,
     orderSlotAssignments, assignedItemUids, phantomMarks,
     orderCandidates, orderCandidateQueue,
     modalContent, skillSelectionCandidates, toast,
@@ -635,6 +714,10 @@ skillState = {
     handleEvacuate, handleEvacuationContinue, handleEvacuationExtract,
     // 工具
     handleToolItemUse, handleCancelToolSelection,
+    // 注入
+    handleStartInfuse, handleInfuseTarget, handleCancelInfuse, handleConfirmTraitSelection,
+    // 融合
+    canFuse, enterFusionMode,
     // 奖池
     refreshPools, handlePoolHover, handlePoolLeave,
     // 技能
@@ -749,12 +832,13 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 │                    │  │ ├ 技能面板 (可折叠)       │   │
 │  ┌──────────────┐  │  │ ├ 品质加成行             │   │
 │  │ 候选面板     │  │  │ ├ 背包状态栏             │   │
-│  │ (2个选项)    │  │  │ ├ 模式状态标签           │   │
-│  └──────────────┘  │  │ ├ 背包网格               │   │
-│                    │  │ │  (maxSize× InventorySlot│   │
-│                    │  │ ├ 操作按钮 (提交/回收)    │   │
-│                    │  │ └ 待定物品面板            │   │
-│                    │  └─────────────────────────┘   │
+│  │ (2个选项)    │  │  │ ├ 注入模式状态栏         │   │
+│  └──────────────┘  │  │ ├ 模式状态标签           │   │
+│                    │  │ ├ 背包网格               │   │
+│  ┌──────────────┐  │  │ │  (maxSize× InventorySlot│  │
+│  │ItemDetailPanel│  │  │ ├ 操作按钮 (提交/回收)   │   │
+│  │ 物品详情面板  │  │  │ └ 待定物品面板           │   │
+│  └──────────────┘  │  └─────────────────────────┘   │
 └────────────────────┴────────────────────────────────┘
 ```
 
@@ -771,6 +855,10 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 | `isOverloadTarget` | specialization 模式下是否为超载替换目标 |
 | `isToolTarget` | 工具选择模式下是否为有效目标 |
 | `isAssigned` | 是否已分配到某个订单槽位 |
+| `isInfuseMaterial` | 是否为当前注入的 material（紫色标签） |
+| `isInfuseTarget` | 注入模式下是否为合法目标（紫色环） |
+| `isInfuseDisabled` | 注入模式下是否为禁用目标（灰显） |
+| `computedValue` | 由 `getItemValue` 动态计算的物品当前价值 |
 
 在渲染 `OrderCard` 时，传递 `orderSlotAssignments`、`phantomMarks`、`potentialSatisfy` 等。
 
@@ -783,6 +871,18 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 4. `modalContent.type === 'game_over'` → 游戏结束
 5. `modalContent.type === 'evacuation_success'` → 撤离成功（继续/提取按钮）
 6. 其他 → 标准物品模态
+
+### TraitSelectionModal
+
+定义为 GameCore 文件内的独立组件，在 `traitSelectionPending` 非 null 时渲染。本地管理选中特质 ID 的 toggle 状态，提供确认（保留选中特质）和"丢弃新特质"（直接放置不带溢出特质）两个操作。
+
+### 注入模式状态栏
+
+`infuseMode` 激活时，在背包区域上方显示状态栏，提示玩家点击目标物品或按 ESC 取消。GameCore 监听 ESC 键触发 `handleCancelInfuse`。
+
+### 点击路由（infuseMode）
+
+`infuseMode` 激活时，`InventorySlot` 的 `onClick` 路由到 `handleInfuseTarget(index)` 而非 `handleSlotClick(index)`。右键点击路由到 `handleStartInfuse(index)`。`detailPanelItem` state 用于非背包悬停（精确选择面板、待定队列）时的 `ItemDetailPanel` 显示。
 
 ### Trade-in 覆盖层
 
@@ -847,7 +947,7 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 
 ### 9.3 InventorySlot.jsx
 
-**Props**（约 23 个）：物品数据 + 所有视觉状态标志 + 交互回调。
+**Props**（约 30 个）：物品数据 + 所有视觉状态标志 + 交互回调。新增 props：`isInfuseMaterial, isInfuseTarget, isInfuseDisabled, onContextMenu, computedValue`。
 
 **内嵌组件 `ToolItemTooltip`**：
 - 使用 `createPortal(…, document.body)` 渲染到 body
@@ -874,6 +974,12 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 | 绝育标记 | 左下角 "绝育" 暗色 badge |
 | 衰变计数 | 左上角等宽数字；≤0 时 "损坏" + 红覆盖 |
 | 工具悬停 | 底部 "R-Click" 指示器 + portal tooltip |
+| 注入 material | 紫色 "注入材料" 标签 + 高亮边框 |
+| 注入目标（合法） | 紫色 ring 指示可注入 |
+| 注入目标（禁用） | 灰显 + pointer-events-none |
+| 特质点指示 | 物品底部紫色点（每条特质一个点） |
+| 注入次数 | 右下角显示 `remainingInfusions/maxInfusions` |
+| 价值 badge | 使用 `computedValue` 动态计算值（非静态品质数值）|
 
 ### 9.4 SkillSelectionModal.jsx
 
@@ -886,6 +992,21 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 **特殊功能**：
 - "按住查看"按钮：`isPeeking` 状态使弹窗背景透明、隐藏内容，方便查看游戏状态
 - "放弃新技能"按钮始终可用
+
+### 9.5 ItemDetailPanel.jsx
+
+**路径**：`src/components/game/ItemDetailPanel.jsx`
+
+**Props**: `item, config, inventory`
+
+固定在左栏底部（订单区域下方）。当 `hoveredSlotIndex` 有值或 `detailPanelItem` 非 null 时显示物品详情；否则显示占位提示文字。
+
+**面板内容**：
+- 标题栏：物品名称（来源合成时显示多名称）+ 品质色彩标识
+- 价值区块：base value + permanentBonus + aura 加成拆解 + 乘数 → 大字显示最终 value
+- 来源组件图标（右对齐，大图标，`componentCount` 个）
+- 特质列表：每条特质名称 + 描述，空槽位显示灰色占位
+- 注入计数（`remainingInfusions / maxInfusions`）和注入历史摘要
 
 ---
 
@@ -979,8 +1100,8 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
 输出: { orderIndex, matchedItems[], isScoreOrder }[]
 
 对每个订单:
-  1. 收集该订单所有需求: [{ name, minRarityBonus }]
-  2. 收集可用物品: selectedIndices 中名称匹配 + 品质 >= 需求的物品
+  1. 收集该订单所有需求: [{ name, requiredValue }]
+  2. 收集可用物品: selectedIndices 中名称匹配 + getItemValue(item, config, inventory) >= order.requiredValue 的物品
   3. 使用贪心匹配（每个物品只能用一次）
   4. 若所有需求满足 → 加入结果
 ```
@@ -999,11 +1120,11 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
 ### 12.4 积分计算公式
 
 ```
-baseScoreReward = max(1, floor(Σ req.rarityScoreWeight + progressOffset))
-multiplier = 1 + Σ submittedItem.rarity.bonus
-if (ocd && 全部同池) multiplier *= 2
-finalScore = ceil(baseScoreReward × multiplier)
+baseScoreReward = ceil(requiredValue × rewardMultiplier)
+finalScore = baseScoreReward  （无品质乘数）
 ```
+
+其中 `requiredValue` 为订单所有需求物品价值之和，`rewardMultiplier` 来自 `config.valueSystem.rewardMultiplier`。`ocd` 技能等同池乘数逻辑在新公式体系下需重新评估（参见设计债务）。
 
 ---
 
@@ -1011,17 +1132,18 @@ finalScore = ceil(baseScoreReward × multiplier)
 
 此矩阵显示不同模式下各种交互的行为：
 
-| 操作\模式 | 默认       | submit | recycle | evacuation | pendingItem | selectedSlot | selectionMode | toolSelection |
-| ----- | -------- | ------ | ------- | ---------- | ----------- | ------------ | ------------- | ------------- |
-| 点击空格  | 无        | 无      | 无       | 无          | 放入物品        | 移动到空格        | 无             | 无             |
-| 点击物品  | 选中       | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成/交换        | trade_in消耗    | 应用工具效果        |
-| 点击奖池  | 抽卡       | 阻止     | 阻止      | 阻止         | 阻止          | 抽卡           | 阻止            | 阻止            |
-| 点击订单  | 自动选物     | 无      | 无       | 无          | 无           | 分配到槽位        | 无             | 无             |
-| 点击订单槽 | 取消分配     | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成           | trade_in      | 应用工具          |
-| 右键物品  | 无（工具→使用） | 无      | 无       | 无          | 无           | 无            | 无             | 无             |
-| 确认按钮  | —        | 提交     | 回收      | 撤离确认       | —           | —            | —             | —             |
+| 操作\模式 | 默认       | submit | recycle | evacuation | pendingItem | selectedSlot | selectionMode | toolSelection | infuseMode |
+| ----- | -------- | ------ | ------- | ---------- | ----------- | ------------ | ------------- | ------------- | ---------- |
+| 点击空格  | 无        | 无      | 无       | 无          | 放入物品        | 移动到空格        | 无             | 无             | 无          |
+| 点击物品  | 选中       | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成/交换        | trade_in消耗    | 应用工具效果        | 注入目标       |
+| 点击奖池  | 抽卡       | 阻止     | 阻止      | 阻止         | 阻止          | 抽卡           | 阻止            | 阻止            | 阻止         |
+| 点击订单  | 自动选物     | 无      | 无       | 无          | 无           | 分配到槽位        | 无             | 无             | 无          |
+| 点击订单槽 | 取消分配     | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成           | trade_in      | 应用工具          | 无          |
+| 右键物品  | 无（工具→使用） | 无      | 无       | 无          | 无           | 无            | 无             | 无             | —          |
+| 确认按钮  | —        | 提交     | 回收      | 撤离确认       | —           | —            | —             | —             | —          |
+| ESC键  | 无        | 无      | 无       | 无          | 无           | 无            | 无             | 无             | 取消注入       |
 
-**互斥规则**：进入任何模式会清除其他模式。`pendingItem` 阻止抽卡和模式切换。
+**互斥规则**：进入任何模式会清除其他模式。`pendingItem` 阻止抽卡和模式切换。`infuseMode` 激活时，右键无效（已在选材阶段）；点击背包格子走 `handleInfuseTarget` 路由。
 
 ---
 
@@ -1095,5 +1217,5 @@ finalScore = ceil(baseScoreReward × multiplier)
 
 ---
 
-*文档版本：基于 `code_simplify` 分支 commit `4c22ee4` 全量源码分析生成*
-*最后更新：2026-03-05*
+*文档版本：基于 `value-crafting` 分支特质系统实现更新*
+*最后更新：2026-03-18*

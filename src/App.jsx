@@ -619,14 +619,33 @@ export default function App() {
                                     <h5 className="text-sm font-bold text-amber-700 mb-3 flex items-center gap-2">
                                         <Flag size={16} className="text-amber-500" /> 普通订单所需价值权重
                                     </h5>
-                                    <div className="text-[10px] text-amber-600 mb-3">配置普通订单生成时 requiredValue 的概率分布。键=价值, 值=权重。</div>
-                                    <div className="flex flex-wrap gap-3">
-                                        {Object.entries(config.progress?.orderValueWeights || {}).map(([val, weight]) => (
-                                            <div key={val} className="flex items-center gap-1 bg-white px-3 py-2 rounded-lg border border-amber-200">
-                                                <span className="text-xs font-bold text-amber-700">价值 {val}:</span>
+                                    <div className="text-[10px] text-amber-600 mb-3">配置普通订单生成时 requiredValue 的概率分布。按价值从小到大排列。</div>
+                                    <div className="flex flex-col gap-2">
+                                        {Object.entries(config.progress?.orderValueWeights || {})
+                                            .sort(([a], [b]) => Number(a) - Number(b))
+                                            .map(([val, weight]) => (
+                                            <div key={val} className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-amber-200">
+                                                <span className="text-xs font-bold text-amber-700 shrink-0">≥</span>
                                                 <input
-                                                    type="number" step="0.05" min="0"
-                                                    className="w-16 p-1 border rounded text-center bg-amber-50 font-mono text-sm"
+                                                    type="number" min="1" step="1"
+                                                    className="w-16 p-1 border rounded text-center font-mono text-sm"
+                                                    value={val}
+                                                    onChange={(e) => {
+                                                        const newKey = parseInt(e.target.value);
+                                                        if (isNaN(newKey) || newKey < 1) return;
+                                                        const oldWeights = { ...(config.progress?.orderValueWeights || {}) };
+                                                        delete oldWeights[val];
+                                                        oldWeights[newKey] = weight;
+                                                        setConfig({
+                                                            ...config,
+                                                            progress: { ...config.progress, orderValueWeights: oldWeights }
+                                                        });
+                                                    }}
+                                                />
+                                                <span className="text-xs text-slate-400 shrink-0">权重</span>
+                                                <input
+                                                    type="number" step="0.01" min="0"
+                                                    className="w-20 p-1 border rounded text-center bg-amber-50 font-mono text-sm"
                                                     value={weight}
                                                     onChange={(e) => {
                                                         const newWeights = { ...(config.progress?.orderValueWeights || {}) };
@@ -637,21 +656,35 @@ export default function App() {
                                                         });
                                                     }}
                                                 />
+                                                <button
+                                                    onClick={() => {
+                                                        const newWeights = { ...(config.progress?.orderValueWeights || {}) };
+                                                        delete newWeights[val];
+                                                        setConfig({
+                                                            ...config,
+                                                            progress: { ...config.progress, orderValueWeights: newWeights }
+                                                        });
+                                                    }}
+                                                    className="text-slate-400 hover:text-red-500 transition-colors ml-auto shrink-0"
+                                                    title="删除"
+                                                >
+                                                    <X size={14} />
+                                                </button>
                                             </div>
                                         ))}
                                         <button
                                             onClick={() => {
                                                 const currentWeights = { ...(config.progress?.orderValueWeights || {}) };
-                                                const maxKey = Math.max(...Object.keys(currentWeights).map(Number), -1);
-                                                currentWeights[maxKey + 1] = 0;
+                                                const maxKey = Math.max(...Object.keys(currentWeights).map(Number), 0);
+                                                currentWeights[maxKey + 1] = 0.1;
                                                 setConfig({
                                                     ...config,
                                                     progress: { ...config.progress, orderValueWeights: currentWeights }
                                                 });
                                             }}
-                                            className="text-xs px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg font-bold border border-amber-300"
+                                            className="text-xs px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg font-bold border border-amber-300 self-start"
                                         >
-                                            + 添加价值等级
+                                            + 添加价值档位
                                         </button>
                                     </div>
                                 </div>

@@ -548,6 +548,39 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         return n1.length === n2.length && n1.every(n => n2.includes(n));
     };
 
+    // Helper: merge traits when upgrading (same name + same rarity → rarity+1)
+    // Returns { traits, needsSelection, allTraits, maxTraits }
+    const mergeUpgradeTraits = (sourceItem, targetItem, upgradedItem) => {
+        const sourceTraits = sourceItem.traits || [];
+        const targetTraits = targetItem.traits || [];
+        const maxTraits = upgradedItem.maxTraits || 1;
+
+        // White synthesis: both common → give random trait
+        if (sourceItem.rarity.id === 'common' && targetItem.rarity.id === 'common' && config.traitSystem?.enabled !== false) {
+            const traitId = rollTrait(config);
+            upgradedItem.traits = [traitId];
+            const trait = TRAIT_DEFINITIONS[traitId];
+            if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
+                if (trait.capacityEffect.maxInfusions) upgradedItem.maxInfusions = (upgradedItem.maxInfusions || 3) + trait.capacityEffect.maxInfusions;
+                if (trait.capacityEffect.maxTraits) upgradedItem.maxTraits += trait.capacityEffect.maxTraits;
+            }
+            return { needsSelection: false };
+        }
+
+        // Merge and deduplicate traits from both items
+        const allTraits = [...new Set([...targetTraits, ...sourceTraits])];
+
+        if (allTraits.length <= maxTraits) {
+            // Fits within limit — just keep all
+            upgradedItem.traits = allTraits;
+            return { needsSelection: false };
+        }
+
+        // Exceeds limit — need player to choose
+        upgradedItem.traits = allTraits; // temporarily store all
+        return { needsSelection: true, allTraits, maxTraits };
+    };
+
     const canFuse = (item1, item2) => {
         if (!item1 || !item2) return false;
         if ((item1.decay !== undefined && item1.decay <= 0) ||
@@ -611,11 +644,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Track fusion_value_3 count from parents (for trigger after selection)
         const fusionValue3Count = [item1, item2].filter(i => (i.traits || []).includes('fusion_value_3')).length;
 
-        // Display rarity from total value (compute from base + permanent + auras)
+        // Compute total value for display rarity
         const baseVal1 = getBaseValue(item1.rarity?.id, config);
         const baseVal2 = getBaseValue(item2.rarity?.id, config);
-        const totalBaseValue = baseVal1 + baseVal2 + permanentBonus;
-        const resultRarity = getCompositeRarity(totalBaseValue, componentCount, config);
+        const sumBaseValues = baseVal1 + baseVal2;
+        const totalValue = sumBaseValues + permanentBonus;
+        const resultRarity = getCompositeRarity(totalValue, componentCount, config);
+
+        // Compensate: the result's rarity baseValue may differ from sumBaseValues
+        // Put the difference into permanentBonus so getItemValue() stays correct
+        const resultBaseValue = getBaseValue(resultRarity.id, config);
+        const compensatedBonus = permanentBonus + (sumBaseValues - resultBaseValue);
 
         const fusedItem = {
             name: combinedNames.join('\u00d7'),
@@ -630,7 +669,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }).join('\u00d7'),
             uid: Math.random().toString(36).substr(2, 9),
             rarity: resultRarity,
-            value: totalBaseValue, // backward compat cache
+            value: totalValue, // backward compat cache
             sterile: false,
             decay: currentStageConfig.mechanics.entropy
                 ? Math.max(
@@ -640,7 +679,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 : undefined,
             // Trait system fields
             traits: allTraits,
-            permanentBonus: permanentBonus,
+            permanentBonus: compensatedBonus,
             infusionHistory: infusionHistory,
             remainingInfusions: remainingInfusions,
             maxInfusions: maxInfusions,
@@ -1104,23 +1143,26 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 pendingItem.rarity.id !== 'mythic') {
                 const nextRarity = getNextRarity(item.rarity.id, config);
                 const upgradedItem = { ...item, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
-                // White synthesis: two commons → uncommon gets a trait
-                if (pendingItem.rarity.id === 'common' && item.rarity.id === 'common' && config.traitSystem?.enabled !== false) {
-                    upgradedItem.componentCount = 2;
-                    upgradedItem.maxTraits = 2;
-                    const traitId = rollTrait(config);
-                    upgradedItem.traits = [traitId];
-                    const trait = TRAIT_DEFINITIONS[traitId];
-                    if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
-                        if (trait.capacityEffect.maxInfusions) upgradedItem.maxInfusions = (upgradedItem.maxInfusions || 3) + trait.capacityEffect.maxInfusions;
-                        if (trait.capacityEffect.maxTraits) upgradedItem.maxTraits += trait.capacityEffect.maxTraits;
-                    }
+                const traitResult = mergeUpgradeTraits(pendingItem, item, upgradedItem);
+                if (traitResult.needsSelection) {
+                    const newInventory = [...inventory];
+                    newInventory[itemIndex] = null;
+                    setInventory(newInventory.filter(i => i !== null));
+                    if (assignedItemUids.has(item.uid)) removeAssignmentByUid(item.uid);
+                    setPendingItem(null);
+                    setTraitSelectionPending({
+                        item: upgradedItem,
+                        replaceIndex: null,
+                        context: 'upgrade',
+                        fusionValue3Count: 0,
+                    });
+                } else {
+                    const newInventory = [...inventory];
+                    newInventory[itemIndex] = upgradedItem;
+                    setInventory(newInventory);
+                    updateAssignmentUid(item.uid, upgradedItem.uid);
+                    setPendingItem(null);
                 }
-                const newInventory = [...inventory];
-                newInventory[itemIndex] = upgradedItem;
-                setInventory(newInventory);
-                updateAssignmentUid(item.uid, upgradedItem.uid);
-                setPendingItem(null);
                 return;
             }
 
@@ -1163,24 +1205,28 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 (!item.decay || item.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0)) {
                 const nextRarity = getNextRarity(sourceItem.rarity.id, config);
                 const upgradedItem = { ...item, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
-                // White synthesis: two commons → uncommon gets a trait
-                if (sourceItem.rarity.id === 'common' && item.rarity.id === 'common' && config.traitSystem?.enabled !== false) {
-                    upgradedItem.componentCount = 2;
-                    upgradedItem.maxTraits = 2;
-                    const traitId = rollTrait(config);
-                    upgradedItem.traits = [traitId];
-                    const trait = TRAIT_DEFINITIONS[traitId];
-                    if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
-                        if (trait.capacityEffect.maxInfusions) upgradedItem.maxInfusions = (upgradedItem.maxInfusions || 3) + trait.capacityEffect.maxInfusions;
-                        if (trait.capacityEffect.maxTraits) upgradedItem.maxTraits += trait.capacityEffect.maxTraits;
-                    }
+                const traitResult = mergeUpgradeTraits(sourceItem, item, upgradedItem);
+                if (traitResult.needsSelection) {
+                    const newInventory = [...inventory];
+                    newInventory[itemIndex] = null;
+                    newInventory[selectedSlot] = null;
+                    setInventory(newInventory.filter(i => i !== null));
+                    if (assignedItemUids.has(item.uid)) removeAssignmentByUid(item.uid);
+                    setSelectedSlot(null);
+                    setTraitSelectionPending({
+                        item: upgradedItem,
+                        replaceIndex: null,
+                        context: 'upgrade',
+                        fusionValue3Count: 0,
+                    });
+                } else {
+                    const newInventory = [...inventory];
+                    newInventory[itemIndex] = upgradedItem;
+                    newInventory[selectedSlot] = null;
+                    setInventory(newInventory.filter(i => i !== null));
+                    updateAssignmentUid(item.uid, upgradedItem.uid);
+                    setSelectedSlot(null);
                 }
-                const newInventory = [...inventory];
-                newInventory[itemIndex] = upgradedItem;
-                newInventory[selectedSlot] = null;
-                setInventory(newInventory.filter(i => i !== null));
-                updateAssignmentUid(item.uid, upgradedItem.uid);
-                setSelectedSlot(null);
                 return;
             }
             return; // 不可合成，不做任何操作
@@ -1398,30 +1444,28 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 namesMatch(pendingItem, targetItem) &&
                 pendingItem.rarity.id === targetItem.rarity.id &&
                 pendingItem.rarity.id !== 'mythic') {
-
-
-
                 const nextRarity = getNextRarity(targetItem.rarity.id, config);
-
                 const upgradedItem = { ...targetItem, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
-                // White synthesis: two commons → uncommon gets a trait
-                if (pendingItem.rarity.id === 'common' && targetItem.rarity.id === 'common' && config.traitSystem?.enabled !== false) {
-                    upgradedItem.componentCount = 2;
-                    upgradedItem.maxTraits = 2;
-                    const traitId = rollTrait(config);
-                    upgradedItem.traits = [traitId];
-                    const trait = TRAIT_DEFINITIONS[traitId];
-                    if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
-                        if (trait.capacityEffect.maxInfusions) upgradedItem.maxInfusions = (upgradedItem.maxInfusions || 3) + trait.capacityEffect.maxInfusions;
-                        if (trait.capacityEffect.maxTraits) upgradedItem.maxTraits += trait.capacityEffect.maxTraits;
-                    }
+                const traitResult = mergeUpgradeTraits(pendingItem, targetItem, upgradedItem);
+                if (traitResult.needsSelection) {
+                    const newInventory = [...inventory];
+                    newInventory[index] = null;
+                    setInventory(newInventory.filter(i => i !== null));
+                    if (assignedItemUids.has(targetItem.uid)) removeAssignmentByUid(targetItem.uid);
+                    setPendingItem(null);
+                    setTraitSelectionPending({
+                        item: upgradedItem,
+                        replaceIndex: null,
+                        context: 'upgrade',
+                        fusionValue3Count: 0,
+                    });
+                } else {
+                    const newInventory = [...inventory];
+                    newInventory[index] = upgradedItem;
+                    setInventory(newInventory);
+                    if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
+                    setPendingItem(null);
                 }
-                const newInventory = [...inventory];
-                newInventory[index] = upgradedItem;
-                setInventory(newInventory);
-                // 如果目标物品在订单槽位上，更新 uid
-                if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
-                setPendingItem(null);
                 return;
             }
 
@@ -1491,31 +1535,30 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 namesMatch(sourceItem, targetItem) &&
                 sourceItem.rarity.id === targetItem.rarity.id &&
                 sourceItem.rarity.id !== 'mythic') {
-
-
-
                 const nextRarity = getNextRarity(sourceItem.rarity.id, config);
-
                 const upgradedItem = { ...targetItem, rarity: nextRarity, value: getBaseValue(nextRarity.id, config), uid: Math.random().toString(36).substr(2, 9) };
-                // White synthesis: two commons → uncommon gets a trait
-                if (sourceItem.rarity.id === 'common' && targetItem.rarity.id === 'common' && config.traitSystem?.enabled !== false) {
-                    upgradedItem.componentCount = 2;
-                    upgradedItem.maxTraits = 2;
-                    const traitId = rollTrait(config);
-                    upgradedItem.traits = [traitId];
-                    const trait = TRAIT_DEFINITIONS[traitId];
-                    if (trait?.effectType === 'permanent_capacity' && trait.capacityEffect) {
-                        if (trait.capacityEffect.maxInfusions) upgradedItem.maxInfusions = (upgradedItem.maxInfusions || 3) + trait.capacityEffect.maxInfusions;
-                        if (trait.capacityEffect.maxTraits) upgradedItem.maxTraits += trait.capacityEffect.maxTraits;
-                    }
+                const traitResult = mergeUpgradeTraits(sourceItem, targetItem, upgradedItem);
+                if (traitResult.needsSelection) {
+                    const newInventory = [...inventory];
+                    newInventory[index] = null;
+                    newInventory[selectedSlot] = null;
+                    setInventory(newInventory.filter(i => i !== null));
+                    if (assignedItemUids.has(targetItem.uid)) removeAssignmentByUid(targetItem.uid);
+                    setSelectedSlot(null);
+                    setTraitSelectionPending({
+                        item: upgradedItem,
+                        replaceIndex: null,
+                        context: 'upgrade',
+                        fusionValue3Count: 0,
+                    });
+                } else {
+                    const newInventory = [...inventory];
+                    newInventory[index] = upgradedItem;
+                    newInventory[selectedSlot] = null;
+                    setInventory(newInventory.filter(i => i !== null));
+                    if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
+                    setSelectedSlot(null);
                 }
-                const newInventory = [...inventory];
-                newInventory[index] = upgradedItem;
-                newInventory[selectedSlot] = null;
-                setInventory(newInventory.filter(item => item !== null));
-                // 如果目标物品在订单槽位上，更新 uid
-                if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
-                setSelectedSlot(null);
                 return;
             }
             if (targetItem) {

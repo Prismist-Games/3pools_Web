@@ -966,7 +966,7 @@ export const SCORE_PROGRESS_CONFIG = {
         legendary: 16,
         mythic: 32
     },
-    orderValueWeights: { 3: 0.15, 4: 0.25, 5: 0.25, 6: 0.15, 7: 0.10, 8: 0.05, 10: 0.03, 12: 0.02 }
+    orderValueWeights: { 10: 1 }
 };
 
 export const INITIAL_GAME_CONFIG = {

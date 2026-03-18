@@ -85,6 +85,7 @@ const TraitSelectionModal = ({ traitSelectionPending, onConfirm, t }) => {
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
     const [isSkillsCollapsed, setIsSkillsCollapsed] = useState(true);
+    const [detailPanelItem, setDetailPanelItem] = useState(null);
 
     // Initialize Logic Hook
     const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialScore);
@@ -611,7 +612,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             {/* Item Detail Panel — shows hovered inventory item */}
                             <div className="mt-4">
                                 <ItemDetailPanel
-                                    item={hoveredSlotIndex !== null && hoveredSlotIndex >= 0 ? inventory[hoveredSlotIndex] : null}
+                                    item={detailPanelItem || (hoveredSlotIndex !== null && hoveredSlotIndex >= 0 ? inventory[hoveredSlotIndex] : null)}
                                     config={config}
                                     inventory={inventory}
                                 />
@@ -689,8 +690,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 <button
                                                     key={idx}
                                                     onClick={() => handleSelectionSelect(item)}
-                                                    onMouseEnter={() => state.setHoveredItemName(item.name)}
-                                                    onMouseLeave={() => state.setHoveredItemName(null)}
+                                                    onMouseEnter={() => { state.setHoveredItemName(item.name); setDetailPanelItem(item); }}
+                                                    onMouseLeave={() => { state.setHoveredItemName(null); setDetailPanelItem(null); }}
                                                     className={`
                                       relative transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group
                                       flex flex-col items-center justify-center gap-3
@@ -924,7 +925,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     }
                                                     handleSlotClick(clickIdx);
                                                 }}
-                                                onMouseEnter={(i, item) => { state.setHoveredSlotIndex(i); if (item) state.setHoveredItemName(item.name); }}
+                                                onMouseEnter={(i, item) => { state.setHoveredSlotIndex(i); if (item) state.setHoveredItemName(item.name); setDetailPanelItem(null); }}
                                                 onMouseLeave={() => { state.setHoveredSlotIndex(null); state.setHoveredItemName(null); }}
                                                 isHovered={hoveredSlotIndex === idx}
                                                 className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24"
@@ -1032,8 +1033,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                                     isNeededForOrder={isNeeded}
                                                                     isMaxSatisfied={isMaxSatisfied}
                                                                     onClick={handleSlotClick}
-                                                                    onMouseEnter={(i, item) => { state.setHoveredSlotIndex(-1); if (item) state.setHoveredItemName(item.name); }}
-                                                                    onMouseLeave={() => { state.setHoveredSlotIndex(null); state.setHoveredItemName(null); }}
+                                                                    onMouseEnter={(i, itm) => { state.setHoveredSlotIndex(-1); if (itm) { state.setHoveredItemName(itm.name); setDetailPanelItem(itm); } }}
+                                                                    onMouseLeave={() => { state.setHoveredSlotIndex(null); state.setHoveredItemName(null); setDetailPanelItem(null); }}
                                                                     isHovered={hoveredSlotIndex === -1}
                                                                     className="w-16 h-16"
                                                                 />
@@ -1068,8 +1069,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                                 isPendingSlot={true}
                                                                 isNeededForOrder={isNeeded}
                                                                 isMaxSatisfied={isMaxSatisfied}
-                                                                onClick={() => { }} onMouseEnter={() => { }} onMouseLeave={() => { }}
-                                                                className="w-16 h-16 pointer-events-none"
+                                                                onClick={() => { }}
+                                                                onMouseEnter={(i, itm) => { if (itm) setDetailPanelItem(itm); }}
+                                                                onMouseLeave={() => { setDetailPanelItem(null); }}
+                                                                className="w-16 h-16"
                                                             />
                                                         </div>
                                                     );
