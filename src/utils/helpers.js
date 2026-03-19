@@ -76,9 +76,9 @@ export const getItemValue = (item, config, inventoryItems = []) => {
         if (!trait || trait.effectType !== 'aura') continue;
 
         if (trait.auraType === 'additive') {
-            additiveAura += trait.calcAdditive(item, inventoryItems);
+            additiveAura += trait.calcAdditive(item, inventoryItems, config);
         } else if (trait.auraType === 'multiplicative') {
-            multiplicativeAura *= trait.calcMultiplicative(item, inventoryItems);
+            multiplicativeAura *= trait.calcMultiplicative(item, inventoryItems, config);
         }
     }
 
@@ -93,7 +93,7 @@ export const rollTrait = (config) => {
 
     const poolTraits = ['infuse_fruit', 'infuse_medicine', 'infuse_electronics', 'infuse_kitchenware', 'infuse_stationery'];
     const nameTraits = ['infuse_watermelon', 'infuse_lemon', 'infuse_mango', 'infuse_apple', 'infuse_powder_drink', 'infuse_eye_drops', 'infuse_syringe', 'infuse_capsule', 'infuse_pencil', 'infuse_eraser', 'infuse_stapler', 'infuse_notebook', 'infuse_frying_pan', 'infuse_kitchen_knife', 'infuse_cutting_board', 'infuse_soup_spoon', 'infuse_phone', 'infuse_earphones', 'infuse_ac', 'infuse_computer'];
-    const otherTraits = ['flat_value_2', 'multiplier_1_5', 'virgin_double', 'same_pool_synergy', 'decay_infuse', 'infuse_uncommon_plus', 'infuse_rare_plus', 'infuse_same_name', 'infuse_different_pool', 'infuse_common_free', 'infuse_order_match', 'material_full_value', 'material_infuse_count', 'material_inventory_boost', 'material_refund', 'fusion_value_3', 'extra_infuse_3', 'extra_trait_1', 'recycle_double', 'infuse_burst'];
+    const otherTraits = ['flat_value_2', 'multiplier_1_5', 'virgin_double', 'same_pool_synergy', 'decay_infuse', 'infuse_uncommon_plus', 'infuse_rare_plus', 'infuse_same_name', 'infuse_different_pool', 'infuse_common_free', 'infuse_order_match', 'material_full_value', 'material_infuse_count', 'material_inventory_boost', 'material_refund', 'fusion_value_3', 'extra_infuse_3', 'extra_trait_1', 'recycle_double', 'infuse_burst', 'growth_per_round', 'empty_slot_bonus', 'refresh_growth', 'infuse_risky', 'full_inventory_bonus', 'trait_count_bonus'];
 
     const r = Math.random();
 

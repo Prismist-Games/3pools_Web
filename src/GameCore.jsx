@@ -861,14 +861,22 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             currentStageConfig.mechanics.synthesis;
 
                                         // Badge Logic: Scans all orders (including emergency order)
-                                        // Check if any of item's names are needed by any order
+                                        // For composite items, only show green check if some order's
+                                        // required names fully contain all of the composite's names
                                         const itemNames = item ? (item.names || [item.name]) : [];
-                                        const allOrderNames = [
-                                            ...orders.filter(Boolean).flatMap(o => o.requiredNames || o.requirements?.map(r => r.name) || []),
-                                            ...emergencyOrders.flatMap(o => o.requiredNames || o.requirements?.map(r => r.name) || [])
-                                        ];
-                                        const isNeeded = item && itemNames.some(n => allOrderNames.includes(n));
-                                        // In the new system, if the item has the name, it satisfies (no rarity check)
+                                        const allOrders = [...orders.filter(Boolean), ...emergencyOrders.filter(Boolean)];
+                                        let isNeeded = false;
+                                        if (item && itemNames.length > 1) {
+                                            // Composite: check if any order fully contains all component names
+                                            isNeeded = allOrders.some(o => {
+                                                const reqNames = new Set(o.requiredNames || o.requirements?.map(r => r.name) || []);
+                                                return itemNames.every(n => reqNames.has(n));
+                                            });
+                                        } else if (item) {
+                                            // Single item: any order needing this name
+                                            const allOrderNames = allOrders.flatMap(o => o.requiredNames || o.requirements?.map(r => r.name) || []);
+                                            isNeeded = itemNames.some(n => allOrderNames.includes(n));
+                                        }
                                         const isMaxSatisfied = isNeeded;
 
                                         // Upgrade Badge Logic (merge - same name, same rarity)

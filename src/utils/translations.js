@@ -413,4 +413,18 @@ export const EN_TRANSLATIONS = {
     "悬浮物品查看详情": "Hover an item to view details",
     "无特质": "No traits",
     "空槽位": "Empty slot",
+
+    // New traits
+    "持续成长": "Steady Growth",
+    "每回合永久加值+1": "+1 permanent value per round",
+    "空间共鸣": "Space Resonance",
+    "背包中每有一个空格，价值+1": "+1 value per empty inventory slot",
+    "时光积淀": "Time Accumulation",
+    "每次奖池刷新时，永久加值+1": "+1 permanent value per pool refresh",
+    "危险注入": "Risky Infusion",
+    "被注入时永久加值+4，但随机失去一条已有特质": "+4 value when infused, but randomly lose a trait",
+    "满载增幅": "Full Load Boost",
+    "背包已满时，价值+3": "+3 value when inventory is full",
+    "特质共鸣": "Trait Resonance",
+    "该物品每有一条特质，价值+2": "+2 value per trait on this item",
 };

@@ -648,6 +648,65 @@ export const TRAIT_DEFINITIONS = {
         effectType: 'special',
         specialType: 'infuse_burst',
     },
+
+    // 新增特质
+    growth_per_round: {
+        id: 'growth_per_round',
+        name: '持续成长',
+        desc: '每回合永久加值+1',
+        category: 'passive',
+        effectType: 'trigger',
+        onRound: () => 1,
+    },
+    empty_slot_bonus: {
+        id: 'empty_slot_bonus',
+        name: '空间共鸣',
+        desc: '背包中每有一个空格，价值+1',
+        category: 'passive',
+        effectType: 'aura',
+        auraType: 'additive',
+        calcAdditive: (item, inv, config) => {
+            const max = config?.stages?.[0]?.inventorySize || 10;
+            return Math.max(0, max - (inv ? inv.length : 0));
+        },
+    },
+    refresh_growth: {
+        id: 'refresh_growth',
+        name: '时光积淀',
+        desc: '每次奖池刷新时，永久加值+1',
+        category: 'passive',
+        effectType: 'trigger',
+        onRound: () => 1,
+    },
+    infuse_risky: {
+        id: 'infuse_risky',
+        name: '危险注入',
+        desc: '被注入时永久加值+4，但随机失去一条已有特质',
+        category: 'special',
+        effectType: 'special',
+        specialType: 'infuse_risky',
+    },
+    full_inventory_bonus: {
+        id: 'full_inventory_bonus',
+        name: '满载增幅',
+        desc: '背包已满时，价值+3',
+        category: 'passive',
+        effectType: 'aura',
+        auraType: 'additive',
+        calcAdditive: (item, inv, config) => {
+            const max = config?.stages?.[0]?.inventorySize || 10;
+            return inv && inv.length >= max ? 3 : 0;
+        },
+    },
+    trait_count_bonus: {
+        id: 'trait_count_bonus',
+        name: '特质共鸣',
+        desc: '该物品每有一条特质，价值+2',
+        category: 'passive',
+        effectType: 'aura',
+        auraType: 'additive',
+        calcAdditive: (item) => (item.traits || []).length * 2,
+    },
 };
 
 // --- 价值系统配置 ---
@@ -663,7 +722,7 @@ export const TRAIT_SYSTEM_CONFIG = {
     baseInfusionCount: 3,
     maxTraitSlots: 3,
     minRarityForTrait: 'uncommon',
-    traitWeights: { categoryPool: 0.4, categoryPoolSplit: 0.5, otherTraits: 0.6 },
+    traitWeights: { categoryPool: 0.3, categoryPoolSplit: 0.5, otherTraits: 0.7 },
 };
 
 export const INITIAL_AFFIXES_CONFIG = [

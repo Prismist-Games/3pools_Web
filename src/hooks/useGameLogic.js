@@ -1240,31 +1240,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const clickedItem = inventory[index];
         const isAssignedToOrder = clickedItem && assignedItemUids.has(clickedItem.uid);
 
-        // 已分配到订单的物品：只允许特定操作通过，阻止选中/交换位置
-        // 允许通过的：合成（pendingItem/selectedSlot）、以旧换新、回收、overload
+        // 已分配到订单的物品：大部分操作允许通过（选中、交换、合成等）
+        // 仅在提交/撤离模式下阻止（防止重复提交）
         if (isAssignedToOrder) {
-            // 允许以旧换新
-            if (selectionMode?.type === 'trade_in') { /* fall through to trade_in logic below */ }
-            // 允许融合池选择
-            else if (selectionMode?.type === 'fusion') { /* fall through to fusion logic below */ }
-            // 允许回收模式
-            else if (isRecycleMode) { /* fall through to recycle logic below */ }
-            // 允许 pendingItem 合成和 overload
-            else if (pendingItem) { /* fall through to pending logic below */ }
-            // 允许 selectedSlot 合成
-            else if (selectedSlot !== null) {
-                const sourceItem = inventory[selectedSlot];
-                const canMergeItems = sourceItem && clickedItem && !clickedItem.sterile && !sourceItem.sterile &&
-                    namesMatch(sourceItem, clickedItem) &&
-                    sourceItem.rarity.id === clickedItem.rarity.id &&
-                    sourceItem.rarity.id !== 'mythic' &&
-                    (!clickedItem.decay || clickedItem.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0);
-                if (!canMergeItems) {
-                    return; // 不可合成，阻止
-                }
+            if (isSubmitMode || isEvacuationMode) {
+                // 提交/撤离模式下，允许切换选择（toggle selectedIndices）
+                // fall through to submit/recycle handler below
             }
-            // 其他情况（尝试选中等）阻止
-            else { return; }
+            // 其他模式全部允许通过
         }
 
         // Fusion pool selection mode
@@ -1671,8 +1654,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 if (order) {
                     const requiredNames = order.requiredNames || order.requirements?.map(r => r.name) || [];
                     const itemNames = item.names || [item.name];
-                    // Check if this item's names contain any of the required names
-                    const hasMatch = requiredNames.some(rn => itemNames.includes(rn));
+                    // For composite items: only match if ALL component names are required by this order
+                    const hasMatch = itemNames.length > 1
+                        ? requiredNames.length >= itemNames.length && itemNames.every(n => requiredNames.includes(n))
+                        : requiredNames.some(rn => itemNames.includes(rn));
                     if (hasMatch) {
                         // Find the first unassigned requirement slot matching one of the item's names
                         const reqIdx = (order.requirements || []).findIndex((req, rIdx) => {
@@ -2110,6 +2095,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             burstTriggered = true;
         }
 
+        // Handle infuse_risky special: +4 but lose a random trait
+        let riskyTriggered = false;
+        if ((target.traits || []).includes('infuse_risky')) {
+            bonusAdd += 4;
+            riskyTriggered = true;
+        }
+
         newTarget.permanentBonus = (target.permanentBonus || 0) + bonusAdd;
 
         // Step 4: Trigger material's material-type traits
@@ -2137,6 +2129,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Handle infuse_burst removal
         if (burstTriggered) {
             newTarget.traits = (newTarget.traits || []).filter(t => t !== 'infuse_burst');
+        }
+
+        // Handle infuse_risky: remove a random trait (other than infuse_risky itself)
+        if (riskyTriggered) {
+            const otherTraits = (newTarget.traits || []).filter(t => t !== 'infuse_risky');
+            if (otherTraits.length > 0) {
+                const removeIdx = Math.floor(Math.random() * otherTraits.length);
+                const traitToRemove = otherTraits[removeIdx];
+                newTarget.traits = (newTarget.traits || []).filter(t => t !== traitToRemove);
+            }
         }
 
         // Step 5: Trait transfer

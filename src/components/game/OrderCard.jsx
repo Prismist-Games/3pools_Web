@@ -52,13 +52,21 @@ const OrderCardBase = ({
     const isSatisfied = !!canSatisfy;
 
     // Check which required names the player has in inventory, and track best rarity
+    // For composite items (fusions), only count them if ALL of the composite's names
+    // are required by THIS order. Otherwise the fusion is "locked" to another order.
     const nameAvailability = useMemo(() => {
         if (!displayNames.length) return [];
+        const orderNameSet = new Set(displayNames);
         return displayNames.map(name => {
             let bestRarity = null;
             for (const item of inventory) {
                 if (!item) continue;
                 const itemNames = item.names || [item.name];
+                // For composite items: only match if every name in the composite
+                // is also required by this order
+                if (itemNames.length > 1) {
+                    if (!itemNames.every(n => orderNameSet.has(n))) continue;
+                }
                 if (itemNames.includes(name)) {
                     if (!bestRarity || item.rarity.bonus > bestRarity.bonus) {
                         bestRarity = item.rarity;
