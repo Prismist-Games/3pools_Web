@@ -405,7 +405,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             if (!order) return null;
             const tempHand = JSON.parse(JSON.stringify(handGroups));
             let isSatisfied = true;
-            let totalSubmitBonus = 0;
 
             const allReqs = order.requirements;
             let isSameType = false;
@@ -420,20 +419,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     isSatisfied = false;
                     break;
                 }
-                const matchIndex = availableItems.findIndex(item => (item.rarity.bonus >= req.requiredRarity.bonus && (!item.decay || item.decay > 0)));
+                const matchIndex = availableItems.findIndex(item => (!item.decay || item.decay > 0));
                 if (matchIndex === -1) {
                     isSatisfied = false;
                     break;
                 }
-                const matchedItem = availableItems[matchIndex];
-                totalSubmitBonus += matchedItem.rarity.bonus;
                 availableItems.splice(matchIndex, 1);
             }
             if (!isSatisfied) return null;
 
-            let multiplier = 1 + totalSubmitBonus;
-            if (isSameType) multiplier *= 2;
-
+            // 品质不再影响积分乘数
+            let multiplier = isSameType ? 2 : 1;
             const finalScoreReward = Math.ceil(order.baseScoreReward * multiplier);
 
             return {
@@ -483,13 +479,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         });
 
         const checkOrder = (order, idx, isMain) => {
-            const tempHand = JSON.parse(JSON.stringify(handGroups)); // Deep copy for simulation
+            const tempHand = JSON.parse(JSON.stringify(handGroups));
             let isSatisfied = true;
-            let totalSubmitBonus = 0;
 
             const allReqs = order.requirements;
             let isSameType = false;
-            // Helper function for OCD check (same as above)
             if (hasSkill('ocd') && allReqs.length > 1) {
                 const firstPool = allReqs[0].poolId;
                 isSameType = allReqs.every(r => r.poolId === firstPool);
@@ -501,20 +495,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     isSatisfied = false;
                     break;
                 }
-                const matchIndex = availableItems.findIndex(item => (item.rarity.bonus >= req.requiredRarity.bonus && (!item.decay || item.decay > 0)));
+                const matchIndex = availableItems.findIndex(item => (!item.decay || item.decay > 0));
                 if (matchIndex === -1) {
                     isSatisfied = false;
                     break;
                 }
-                const matchedItem = availableItems[matchIndex];
-                totalSubmitBonus += matchedItem.rarity.bonus;
                 availableItems.splice(matchIndex, 1);
             }
             if (!isSatisfied) return null;
 
-            let multiplier = 1 + totalSubmitBonus;
-            if (isSameType) multiplier *= 2;
-
+            // 品质不再影响积分乘数
+            let multiplier = isSameType ? 2 : 1;
             const finalScoreReward = Math.ceil(order.baseScoreReward * multiplier);
 
             return {
@@ -1885,7 +1876,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }));
 
         const { bumpHistory, finalItems } = resolveDelivery(
-            itemsForResolution, bumps, config.rarity
+            itemsForResolution, bumps, config.rarity, config.delivery?.durabilityPerTier || 1
         );
 
         const { passed, slotResults } = evaluateDeliveryResult(

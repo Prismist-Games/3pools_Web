@@ -27,58 +27,8 @@ export const getRandomItems = (array, count) => {
     return shuffled.slice(0, count);
 };
 
-export const rollRequirementRarity = (config, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
-    // P0: Use orderRarityWeights if available (specific to orders), otherwise fallback to general rarityWeights
-    // For emergency orders, use emergency-specific weights if available
-    let weights;
-    if (isEmergency && config.emergency) {
-        // 优先使用难度相关的品质权重
-        const difficultyWeights = config.emergency.difficultyRarityWeights?.[emergencyDifficulty];
-        if (difficultyWeights) {
-            weights = difficultyWeights;
-        } else if (config.emergency.rarityWeights) {
-            weights = config.emergency.rarityWeights;
-        } else if (config.emergency.baseRarityWeights) {
-            weights = config.emergency.baseRarityWeights;
-        } else {
-            weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
-        }
-    } else {
-        weights = currentStageConfig.orderRarityWeights || currentStageConfig.rarityWeights;
-    }
-
-    const r = Math.random();
-
-    // 累积概率计算
-    let accumulated = 0;
-
-    // 强制按照 weights 权重 Roll，如果阶段没有配置该稀有度权重，则不会 Roll 出来
-    if (weights.common > 0) {
-        accumulated += weights.common;
-        if (r <= accumulated) return config.rarity.find(r => r.id === 'common');
-    }
-    if (weights.uncommon > 0) {
-        accumulated += weights.uncommon;
-        if (r <= accumulated) return config.rarity.find(r => r.id === 'uncommon');
-    }
-    if (weights.rare > 0) {
-        accumulated += weights.rare;
-        if (r <= accumulated) return config.rarity.find(r => r.id === 'rare');
-    }
-    if (weights.epic > 0) {
-        accumulated += weights.epic;
-        if (r <= accumulated) return config.rarity.find(r => r.id === 'epic');
-    }
-    if (weights.legendary > 0) {
-        accumulated += weights.legendary;
-        if (r <= accumulated) return config.rarity.find(r => r.id === 'legendary');
-    }
-    if (weights.mythic > 0) {
-        accumulated += weights.mythic;
-        if (r <= accumulated) return config.rarity.find(r => r.id === 'mythic');
-    }
-
-    // Fallback to common
+export const rollRequirementRarity = (config, _currentStageConfig, _isEmergency = false, _emergencyDifficulty = 1) => {
+    // 订单不再要求特定品质，统一返回 common（bonus: 0），任何品质的物品都可满足
     return config.rarity.find(r => r.id === 'common');
 };
 
@@ -129,28 +79,12 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
             rawRequirements = getRandomItems(allNormalItems, count);
         }
 
-        // 将配置的品质需求展开成数组
-        const rarityList = [];
-        difficultyRequirements.forEach(req => {
-            const rarityObj = config.rarity.find(r => r.id === req.rarity);
-            if (rarityObj) {
-                for (let i = 0; i < req.count; i++) {
-                    rarityList.push(rarityObj);
-                }
-            }
-        });
+        // 订单不再要求特定品质，统一使用 common
+        const commonRarity = config.rarity.find(r => r.id === 'common');
 
-        // 截断 rarityList 以匹配实际 count (如果因唯一性被缩减)
-        if (rarityList.length > count) {
-            rarityList.length = count;
-        }
-
-        // 随机打乱品质列表，避免每次都是相同顺序
-        const shuffledRarities = rarityList.sort(() => Math.random() - 0.5);
-
-        requirements = rawRequirements.map((item, index) => ({
+        requirements = rawRequirements.map((item) => ({
             ...item,
-            requiredRarity: shuffledRarities[index] || config.rarity.find(r => r.id === 'common')
+            requiredRarity: commonRarity
         }));
     } else {
         // 使用随机模式

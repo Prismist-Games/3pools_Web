@@ -339,31 +339,6 @@ export const INITIAL_AFFIXES_CONFIG = [
         "cost": 4
     },
     {
-        "id": "fortified",
-        "name": "加固的",
-        "desc": "物品耐久+4，更抗运送冲击。",
-        "type": "passive",
-        "weight": 10,
-        "cost": 3,
-        "deliveryEffect": { "type": "durability_bonus", "value": 4 }
-    },
-    {
-        "id": "fragile",
-        "name": "易碎的",
-        "desc": "品质保底稀有，但物品耐久固定为1。",
-        "type": "passive",
-        "weight": 10,
-        "cost": 2,
-        "rarityWeights": {
-            "common": 0,
-            "uncommon": 0,
-            "rare": 0.67,
-            "epic": 0.3,
-            "legendary": 0.03
-        },
-        "deliveryEffect": { "type": "fixed_durability", "value": 1 }
-    },
-    {
         "id": "angular",
         "name": "棱角的",
         "desc": "品质保底稀有，但物品运送时尖锐+3。",
@@ -382,16 +357,16 @@ export const INITIAL_AFFIXES_CONFIG = [
     {
         "id": "protective",
         "name": "保护的",
-        "desc": "运送时相邻物品耐久+3。",
+        "desc": "运送时相邻物品品质视为+1级。",
         "type": "passive",
         "weight": 10,
         "cost": 2,
-        "deliveryEffect": { "type": "neighbor_durability", "value": 3 }
+        "deliveryEffect": { "type": "neighbor_quality_boost", "value": 2 }
     },
     {
         "id": "explosive",
         "name": "易爆的",
-        "desc": "免费获得稀有+物品，但每次降级对所有物品造成2伤害。",
+        "desc": "品质保底稀有，但被摧毁时对所有物品造成2伤害。",
         "type": "passive",
         "weight": 10,
         "cost": 0,
@@ -407,11 +382,11 @@ export const INITIAL_AFFIXES_CONFIG = [
     {
         "id": "set_bonus",
         "name": "套装的",
-        "desc": "运送中每多一件套装物品，所有套装物品各+2耐久。",
+        "desc": "同样带有套装标记的物品运送时互相不造成伤害。",
         "type": "passive",
         "weight": 10,
         "cost": 2,
-        "deliveryEffect": { "type": "set_bonus", "perItemBonus": 2 }
+        "deliveryEffect": { "type": "set_immunity" }
     },
     {
         "id": "unidirectional",
@@ -595,7 +570,7 @@ export const INITIAL_GAME_CONFIG = {
     emergency: EMERGENCY_ORDER_CONFIG,
     toolItems: TOOL_ITEM_CONFIG,
     delivery: {
-        durabilityPerTier: 1,  // +1 durability per rarity tier above Common
+        durabilityPerTier: 2,  // +2 durability per rarity tier above Common
         distanceWeights: {
             1: 0.15,  // 近途: 1 bump
             2: 0.50,  // 中途: 2 bumps

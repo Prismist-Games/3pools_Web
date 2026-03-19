@@ -75,43 +75,16 @@ const OrderCardBase = ({
             isSameType = requirements.every(r => r.poolId === firstPool);
         }
 
-        // 1. 最低品质奖励：按所有需求的最低品质 bonus 计算
-        const minBonus = requirements.reduce((sum, req) => sum + req.requiredRarity.bonus, 0);
-        let minMultiplier = 1 + minBonus;
-        if (isSameType) minMultiplier *= 2;
-        const minScoreReward = Math.ceil(baseScoreReward * minMultiplier);
-
-        // 2. 槽位预期奖励：根据已放入物品和幻影物品的品质实时计算
-        let hasAnySlot = false;
-        const slotBonus = requirements.reduce((sum, req, rIdx) => {
-            const key = `${index}-${rIdx}`;
-            // 优先检查直接分配的物品
-            const assignedUid = orderSlotAssignments?.[key];
-            if (assignedUid) {
-                const assignedItem = inventory.find(i => i && i.uid === assignedUid);
-                if (assignedItem) {
-                    hasAnySlot = true;
-                    return sum + Math.max(req.requiredRarity.bonus, assignedItem.rarity.bonus);
-                }
-            }
-            // 其次检查幻影物品
-            const phantom = phantomMarks?.[key];
-            if (phantom?.item) {
-                hasAnySlot = true;
-                return sum + Math.max(req.requiredRarity.bonus, phantom.item.rarity.bonus);
-            }
-            // 未放入物品：使用最低需求品质
-            return sum + req.requiredRarity.bonus;
-        }, 0);
-        let slotMultiplier = 1 + slotBonus;
-        if (isSameType) slotMultiplier *= 2;
-        const slotScoreReward = Math.ceil(baseScoreReward * slotMultiplier);
+        // 品质不再影响积分乘数，直接使用 baseScoreReward
+        const minScoreReward = isSameType
+            ? Math.ceil(baseScoreReward * 2)
+            : baseScoreReward;
 
         return {
             minScoreReward,
-            slotScoreReward,
-            hasAnySlot,
-            isDifferent: hasAnySlot && slotScoreReward !== minScoreReward
+            slotScoreReward: minScoreReward,
+            hasAnySlot: false,
+            isDifferent: false
         };
     }, [requirements, baseScoreReward, index, orderSlotAssignments, phantomMarks, inventory, hasSkill, order.isEmergency]);
 
@@ -393,16 +366,6 @@ const OrderCardBase = ({
                                             <span className={`font-bold ${isCandidate ? 'text-[10px]' : 'text-xs'} max-w-[80px] truncate`}>{t(req.name)}</span>
                                         </div>
 
-                                        {/* Shared Animated Dot */}
-                                        <div className={`
-                                            absolute rounded-full shadow-sm border
-                                            transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-20
-                                            ${req.requiredRarity.dotColor}
-                                            ${isSlotMode
-                                                ? '-top-1 -left-1 w-3 h-3 border-white scale-100'
-                                                : `left-[7px] top-[50%] -translate-y-1/2 w-2 h-2 border-white/50`
-                                            }
-                                        `} title={`${t("需要")}: ${t(req.requiredRarity.name)}`} />
 
                                         {/* Shared Animated Icon */}
                                         <div className={`
@@ -410,7 +373,7 @@ const OrderCardBase = ({
                                             transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                                             ${isSlotMode
                                                 ? `left-[50%] top-[4px] -translate-x-1/2 translate-y-0 text-[26px] scale-100 origin-top ${slotQualitySatisfied ? '' : 'grayscale opacity-50'}`
-                                                : `left-[20px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-xs'} scale-100 origin-center ${iconFilterClass}`
+                                                : `left-[10px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-xs'} scale-100 origin-center ${iconFilterClass}`
                                             }
                                         `}>
                                             {displayIcon}
@@ -422,7 +385,7 @@ const OrderCardBase = ({
                                             transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                                             ${isSlotMode
                                                 ? `left-[50%] top-[42px] -translate-x-1/2 translate-y-0 text-[10px] w-full text-center px-1 ${slotQualitySatisfied ? 'text-slate-700' : 'text-slate-400'}`
-                                                : `left-[38px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-xs'} max-w-[80px] text-left ${textColorClass}`
+                                                : `left-[28px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-xs'} max-w-[80px] text-left ${textColorClass}`
                                             }
                                         `}>
                                             {displayName}

@@ -71,7 +71,7 @@ export const DeliveryPanel = ({
                 {/* Delivery attributes */}
                 <div className="flex gap-2 mt-1.5">
                     <span className="flex items-center gap-0.5 text-xs">
-                        <Umbrella size={12} className={item.deliveryTag === 'fortified' ? 'text-green-500' : item.deliveryTag === 'fragile' ? 'text-red-500' : 'text-blue-500'} />
+                        <Umbrella size={12} className="text-blue-500" />
                         <span className="font-mono font-bold">{item.currentDurability}</span>
                     </span>
                     {(item.effectiveSharpness ?? item.sharpness ?? 0) > 0 && (
@@ -85,7 +85,7 @@ export const DeliveryPanel = ({
                 {/* Delivery tag badge */}
                 {item.deliveryTag && (
                     <div className="text-[9px] font-bold mt-1 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 border border-indigo-200">
-                        {item.deliveryTag === 'fortified' ? '加固' : item.deliveryTag === 'fragile' ? '易碎' : item.deliveryTag === 'angular' ? '棱角' : item.deliveryTag === 'protective' ? '保护' : item.deliveryTag === 'explosive' ? '易爆' : item.deliveryTag === 'set_bonus' ? '套装' : item.deliveryTag === 'unidirectional' ? '单向' : ''}
+                        {item.deliveryTag === 'angular' ? '棱角' : item.deliveryTag === 'protective' ? '保护' : item.deliveryTag === 'explosive' ? '易爆' : item.deliveryTag === 'set_bonus' ? '套装' : item.deliveryTag === 'unidirectional' ? '单向' : ''}
                     </div>
                 )}
             </div>
@@ -210,9 +210,6 @@ export const DeliveryPanel = ({
                     return {
                         ...item,
                         currentDurability: collision.durabilityAfter,
-                        rarity: collision.rarityAfter
-                            ? rarityConfig.find(r => r.id === collision.rarityAfter)
-                            : null,
                         destroyed: collision.type === 'destroy',
                     };
                 }
@@ -336,7 +333,7 @@ export const DeliveryPanel = ({
                                         <span className="text-xs font-bold">{item.name}</span>
                                         <div className="flex gap-2 mt-1.5">
                                             <span className="flex items-center gap-0.5 text-xs">
-                                                <Umbrella size={12} className={item.deliveryTag === 'fortified' ? 'text-green-500' : item.deliveryTag === 'fragile' ? 'text-red-500' : 'text-blue-500'} />
+                                                <Umbrella size={12} className="text-blue-500" />
                                                 <span className="font-mono font-bold">{item.currentDurability}</span>
                                             </span>
                                             {(item.effectiveSharpness ?? item.sharpness ?? 0) > 0 && (
@@ -428,14 +425,8 @@ export const DeliveryPanel = ({
                                     <div className="flex items-center gap-1">
                                         {result.reason === 'destroyed' ? (
                                             <span className="text-xs font-bold text-red-600">{t("已损坏")}</span>
-                                        ) : result.reason === 'degraded' ? (
-                                            <span className="text-xs font-bold text-red-600">
-                                                {t("降至")} {rarityConfig.find(r => r.id === result.actualRarity)?.name}
-                                            </span>
                                         ) : (
-                                            <span className="text-xs font-bold text-green-600">
-                                                {rarityConfig.find(r => r.id === result.actualRarity)?.name} ✓
-                                            </span>
+                                            <span className="text-xs font-bold text-green-600">✓</span>
                                         )}
                                     </div>
                                 </div>

@@ -13,25 +13,15 @@ export function getActualDurability(item, durabilityPerTier) {
 
 /**
  * Prepare items for delivery — creates working copies with currentDurability.
- * Applies delivery tag effects (fortified, fragile, angular, protective, set_bonus).
+ * Applies angular S bonus. Protective bonus is deferred to resolveDelivery
+ * so it uses the final arrangement after packing swaps.
  */
 export function prepareDeliveryItems(items, durabilityPerTier) {
-    // Phase 1: Create working copies with base durability
-    const workingItems = items.map(item => {
+    return items.map(item => {
         let currentDurability = getActualDurability(item, durabilityPerTier);
         let effectiveSharpness = item.sharpness || 0;
 
-        // Fortified: +4 base durability
-        if (item.deliveryTag === 'fortified') {
-            currentDurability += 4;
-        }
-
-        // Fragile: D fixed at 1
-        if (item.deliveryTag === 'fragile') {
-            currentDurability = 1;
-        }
-
-        // Angular: S+3 (stored as effective value for delivery)
+        // Angular: S+3
         if (item.deliveryTag === 'angular') {
             effectiveSharpness += 3;
         }
@@ -42,29 +32,8 @@ export function prepareDeliveryItems(items, durabilityPerTier) {
             effectiveSharpness,
             destroyed: false,
             originalRarityId: item.rarity.id,
-            explosiveTriggeredThisBump: false,
         };
     });
-
-    // Phase 2: Set bonus — +2D per other set item
-    const setCount = workingItems.filter(i => i.deliveryTag === 'set_bonus').length;
-    if (setCount > 1) {
-        for (const item of workingItems) {
-            if (item.deliveryTag === 'set_bonus') {
-                item.currentDurability += (setCount - 1) * 2;
-            }
-        }
-    }
-
-    // Phase 3: Protective — adjacent items get +3D (one-time, based on initial arrangement)
-    for (let i = 0; i < workingItems.length; i++) {
-        if (workingItems[i].deliveryTag === 'protective') {
-            if (i > 0) workingItems[i - 1].currentDurability += 3;
-            if (i < workingItems.length - 1) workingItems[i + 1].currentDurability += 3;
-        }
-    }
-
-    return workingItems;
 }
 
 /**
@@ -83,11 +52,23 @@ function getEffectiveSharpness(attacker, direction) {
 
 /**
  * Resolve a single collision between attacker and defender.
+ * Single HP layer: if D >= damage, subtract. If D < damage, item is destroyed.
+ * Set bonus items do not damage each other.
  * Mutates defender in place. Returns collision record for animation.
  */
-function resolveCollision(attacker, defender, rarityConfig, direction) {
+function resolveCollision(attacker, defender, direction) {
     if (attacker.destroyed || defender.destroyed) {
         return null;
+    }
+
+    // Set bonus: items with set_bonus tag do NOT damage each other
+    if (attacker.deliveryTag === 'set_bonus' && defender.deliveryTag === 'set_bonus') {
+        return {
+            attackerUid: attacker.uid,
+            defenderUid: defender.uid,
+            damage: 0,
+            type: 'no_damage',
+        };
     }
 
     const damage = getEffectiveSharpness(attacker, direction);
@@ -105,9 +86,7 @@ function resolveCollision(attacker, defender, rarityConfig, direction) {
         defenderUid: defender.uid,
         damage,
         durabilityBefore: defender.currentDurability,
-        rarityBefore: defender.rarity.id,
         durabilityAfter: defender.currentDurability,
-        rarityAfter: defender.rarity.id,
         type: 'absorb',
     };
 
@@ -115,44 +94,23 @@ function resolveCollision(attacker, defender, rarityConfig, direction) {
         defender.currentDurability -= damage;
         record.durabilityAfter = defender.currentDurability;
         record.type = 'absorb';
-    } else if (defender.currentDurability > 0) {
-        defender.currentDurability = 0;
-        degradeQuality(defender, rarityConfig);
-        record.durabilityAfter = 0;
-        record.rarityAfter = defender.destroyed ? null : defender.rarity.id;
-        record.type = defender.destroyed ? 'destroy' : 'pierce';
     } else {
-        degradeQuality(defender, rarityConfig);
+        // Item is destroyed
+        defender.currentDurability = 0;
+        defender.destroyed = true;
         record.durabilityAfter = 0;
-        record.rarityAfter = defender.destroyed ? null : defender.rarity.id;
-        record.type = defender.destroyed ? 'destroy' : 'degrade';
+        record.type = 'destroy';
     }
 
     return record;
 }
 
 /**
- * Degrade item quality by one tier. Common with no durability → destroyed.
- * Mutates item in place.
- */
-function degradeQuality(item, rarityConfig) {
-    const currentIndex = RARITY_ORDER.indexOf(item.rarity.id);
-    if (currentIndex <= 0) {
-        item.destroyed = true;
-        item.rarity = null;
-    } else {
-        const lowerRarityId = RARITY_ORDER[currentIndex - 1];
-        const lowerRarity = rarityConfig.find(r => r.id === lowerRarityId);
-        item.rarity = { ...lowerRarity };
-        item.degradedThisBump = true;
-    }
-}
-
-/**
  * Apply damage to a target item (used by explosive chain).
- * Returns a collision record if quality changed.
+ * Single HP layer: if D >= damage, subtract. Otherwise, destroy.
+ * Returns a collision record.
  */
-function applyExplosiveDamage(source, target, damage, rarityConfig) {
+function applyExplosiveDamage(source, target, damage) {
     if (target.destroyed) return null;
 
     const record = {
@@ -160,26 +118,19 @@ function applyExplosiveDamage(source, target, damage, rarityConfig) {
         defenderUid: target.uid,
         damage,
         durabilityBefore: target.currentDurability,
-        rarityBefore: target.rarity?.id,
         durabilityAfter: target.currentDurability,
-        rarityAfter: target.rarity?.id,
         type: 'explosive_damage',
     };
 
     if (target.currentDurability >= damage) {
         target.currentDurability -= damage;
         record.durabilityAfter = target.currentDurability;
-    } else if (target.currentDurability > 0) {
-        target.currentDurability = 0;
-        degradeQuality(target, rarityConfig);
-        record.durabilityAfter = 0;
-        record.rarityAfter = target.destroyed ? null : target.rarity?.id;
-        record.type = target.destroyed ? 'explosive_destroy' : 'explosive_pierce';
     } else {
-        degradeQuality(target, rarityConfig);
+        // Item is destroyed
+        target.currentDurability = 0;
+        target.destroyed = true;
         record.durabilityAfter = 0;
-        record.rarityAfter = target.destroyed ? null : target.rarity?.id;
-        record.type = target.destroyed ? 'explosive_destroy' : 'explosive_degrade';
+        record.type = 'explosive_destroy';
     }
 
     return record;
@@ -187,9 +138,10 @@ function applyExplosiveDamage(source, target, damage, rarityConfig) {
 
 /**
  * Process explosive triggers after collisions in a bump.
- * Each explosive item triggers at most once per bump. Allows chain reactions.
+ * Triggers when an explosive item is destroyed this bump. Allows chain reactions.
+ * The explosive item itself is already destroyed (it blew up), then deals damage to all others.
  */
-function processExplosiveTriggers(workingItems, rarityConfig) {
+function processExplosiveTriggers(workingItems) {
     const explosiveRecords = [];
     const triggeredUids = new Set();
     let hasNewTrigger = true;
@@ -199,8 +151,7 @@ function processExplosiveTriggers(workingItems, rarityConfig) {
 
         for (const item of workingItems) {
             if (item.deliveryTag === 'explosive' &&
-                item.degradedThisBump &&
-                !item.destroyed &&
+                item.destroyed &&
                 !triggeredUids.has(item.uid)) {
 
                 triggeredUids.add(item.uid);
@@ -209,7 +160,7 @@ function processExplosiveTriggers(workingItems, rarityConfig) {
                 // Deal 2 damage to all other surviving items
                 for (const target of workingItems) {
                     if (target.uid !== item.uid && !target.destroyed) {
-                        const record = applyExplosiveDamage(item, target, 2, rarityConfig);
+                        const record = applyExplosiveDamage(item, target, 2);
                         if (record) explosiveRecords.push(record);
                     }
                 }
@@ -224,30 +175,24 @@ function processExplosiveTriggers(workingItems, rarityConfig) {
  * Resolve one bump (one direction). Returns array of collision records.
  * Mutates workingItems in place.
  */
-function resolveBump(workingItems, direction, rarityConfig) {
-    // Reset per-bump flags
-    for (const item of workingItems) {
-        item.degradedThisBump = false;
-        item.explosiveTriggeredThisBump = false;
-    }
-
+function resolveBump(workingItems, direction) {
     const activeItems = workingItems.filter(item => !item.destroyed);
     const collisions = [];
 
     if (direction === '→') {
         for (let i = 0; i < activeItems.length - 1; i++) {
-            const collision = resolveCollision(activeItems[i], activeItems[i + 1], rarityConfig, direction);
+            const collision = resolveCollision(activeItems[i], activeItems[i + 1], direction);
             if (collision) collisions.push(collision);
         }
     } else {
         for (let i = activeItems.length - 1; i > 0; i--) {
-            const collision = resolveCollision(activeItems[i], activeItems[i - 1], rarityConfig, direction);
+            const collision = resolveCollision(activeItems[i], activeItems[i - 1], direction);
             if (collision) collisions.push(collision);
         }
     }
 
     // Process explosive chain reactions after all collisions
-    const explosiveRecords = processExplosiveTriggers(workingItems, rarityConfig);
+    const explosiveRecords = processExplosiveTriggers(workingItems);
     collisions.push(...explosiveRecords);
 
     return collisions;
@@ -255,12 +200,23 @@ function resolveBump(workingItems, direction, rarityConfig) {
 
 /**
  * Main entry point. Resolves full delivery sequence.
+ * Protective bonus is applied here (not in prepareDeliveryItems) so it uses
+ * the final arrangement after all packing swaps.
  */
-export function resolveDelivery(items, bumps, rarityConfig) {
+export function resolveDelivery(items, bumps, rarityConfig, durabilityPerTier = 1) {
+    // Apply protective bonus based on final arrangement
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].deliveryTag === 'protective') {
+            const protectiveBonus = 1 * durabilityPerTier;  // +1 quality tier worth of D
+            if (i > 0) items[i - 1].currentDurability += protectiveBonus;
+            if (i < items.length - 1) items[i + 1].currentDurability += protectiveBonus;
+        }
+    }
+
     const bumpHistory = [];
 
     for (const direction of bumps) {
-        const collisions = resolveBump(items, direction, rarityConfig);
+        const collisions = resolveBump(items, direction);
 
         const activeItems = items.filter(item => !item.destroyed);
         const snapshot = activeItems.map(item => ({
@@ -286,6 +242,7 @@ export function resolveDelivery(items, bumps, rarityConfig) {
 
 /**
  * Check if post-delivery items still satisfy order requirements.
+ * Simple check: is the item still alive (not destroyed)?
  */
 export function evaluateDeliveryResult(finalItems, requirements, assignedUids) {
     const itemMap = new Map();
@@ -299,14 +256,7 @@ export function evaluateDeliveryResult(finalItems, requirements, assignedUids) {
             return { uid, met: false, reason: 'destroyed' };
         }
 
-        const requiredIndex = RARITY_ORDER.indexOf(req.requiredRarity.id);
-        const actualIndex = RARITY_ORDER.indexOf(item.rarity.id);
-
-        if (actualIndex < requiredIndex) {
-            return { uid, met: false, reason: 'degraded', actualRarity: item.rarity.id };
-        }
-
-        return { uid, met: true, actualRarity: item.rarity.id };
+        return { uid, met: true };
     });
 
     const passed = slotResults.every(s => s.met);

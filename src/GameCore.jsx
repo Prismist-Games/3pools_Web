@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Truck, Trash2, Package, RefreshCw, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Timer } from 'lucide-react';
+import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Truck, Trash2, Package, RefreshCw, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Timer, Umbrella } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
@@ -695,13 +695,13 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 </div>
                             </div>
 
-                            {/* Permanently Visible Rarity Bonuses */}
+                            {/* Permanently Visible Rarity Durability Bonuses */}
                             <div className="flex items-center justify-center gap-3 py-2 border-b border-slate-100 flex-wrap bg-white/50">
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-2 border-r border-slate-200 pr-3">{t("品质得分加成")}</div>
-                                {config.rarity.map(rarity => (
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-2 border-r border-slate-200 pr-3">{t("品质耐久加成")}</div>
+                                {config.rarity.map((rarity, idx) => (
                                     <div key={rarity.id} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full shadow-sm border border-slate-100 animate-in fade-in">
-                                        <Star size={10} fill="currentColor" className={rarity.starColor} />
-                                        <span>{t(rarity.name)} +{Math.round(rarity.bonus * 100)}%</span>
+                                        <Umbrella size={10} className={rarity.starColor} />
+                                        <span>{t(rarity.name)} +{idx * (config.delivery?.durabilityPerTier || 1)}</span>
                                     </div>
                                 ))}
                             </div>
