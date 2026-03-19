@@ -92,23 +92,15 @@ export const rollTrait = (config) => {
     const weights = config.traitSystem?.traitWeights || { categoryPool: 0.4, categoryPoolSplit: 0.5, otherTraits: 0.6 };
 
     const poolTraits = ['infuse_fruit', 'infuse_medicine', 'infuse_electronics', 'infuse_kitchenware', 'infuse_stationery'];
-    const nameTraits = ['infuse_watermelon', 'infuse_lemon', 'infuse_mango', 'infuse_apple', 'infuse_powder_drink', 'infuse_eye_drops', 'infuse_syringe', 'infuse_capsule', 'infuse_pencil', 'infuse_eraser', 'infuse_stapler', 'infuse_notebook', 'infuse_frying_pan', 'infuse_kitchen_knife', 'infuse_cutting_board', 'infuse_soup_spoon', 'infuse_phone', 'infuse_earphones', 'infuse_ac', 'infuse_computer'];
     const otherTraits = ['flat_value_2', 'multiplier_1_5', 'virgin_double', 'same_pool_synergy', 'decay_infuse', 'infuse_uncommon_plus', 'infuse_rare_plus', 'infuse_same_name', 'infuse_different_pool', 'infuse_common_free', 'infuse_order_match', 'material_full_value', 'material_infuse_count', 'material_inventory_boost', 'material_refund', 'fusion_value_3', 'extra_infuse_3', 'extra_trait_1', 'recycle_double', 'infuse_burst', 'growth_per_round', 'empty_slot_bonus', 'refresh_growth', 'infuse_risky', 'full_inventory_bonus', 'trait_count_bonus'];
 
     const r = Math.random();
 
     if (r < weights.categoryPool) {
-        // 40% — pool/name category
-        const r2 = Math.random();
-        if (r2 < weights.categoryPoolSplit) {
-            // Pool traits (equal weight)
-            return poolTraits[Math.floor(Math.random() * poolTraits.length)];
-        } else {
-            // Name traits (equal weight)
-            return nameTraits[Math.floor(Math.random() * nameTraits.length)];
-        }
+        // 20% — pool category (5 traits, equal weight, each 4%)
+        return poolTraits[Math.floor(Math.random() * poolTraits.length)];
     } else {
-        // 60% — other traits (equal weight)
+        // 80% — other traits (26 traits, equal weight, each ~3.1%)
         return otherTraits[Math.floor(Math.random() * otherTraits.length)];
     }
 };
