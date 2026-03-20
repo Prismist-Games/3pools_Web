@@ -213,44 +213,116 @@ export function generateTasks(cells, numTasks, minSize, maxSize) {
     }
   }
 
-  // Assign uncovered cells: try to extend existing line tasks at their ends.
-  // If that fails, create new single-cell tasks.
-  const uncovered = [];
-  for (let i = 0; i < cells.length; i++) {
-    if (!coveredIndices.has(i)) uncovered.push(i);
+  // --- Ensure full connectivity ---
+  // 1. Cover all uncovered cells by extending tasks or creating bridge tasks
+  // 2. Ensure the task graph is fully connected (no isolated clusters)
+
+  const cellNeighborMap = new Map();
+  cells.forEach((c, i) => {
+    const neighbors = [];
+    cells.forEach((other, j) => {
+      if (i !== j && Math.abs(c.row - other.row) + Math.abs(c.col - other.col) === 1) {
+        neighbors.push(j);
+      }
+    });
+    cellNeighborMap.set(i, neighbors);
+  });
+
+  // Union-Find helpers
+  const parent = Array.from({ length: cells.length }, (_, i) => i);
+  function find(x) {
+    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+    return x;
+  }
+  function union(a, b) {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
   }
 
+  // Build initial connectivity from existing tasks
+  function rebuildUnions() {
+    for (let i = 0; i < cells.length; i++) parent[i] = i;
+    for (const task of tasks) {
+      for (let i = 0; i < task.cellIndices.length - 1; i++) {
+        union(task.cellIndices[i], task.cellIndices[i + 1]);
+      }
+    }
+  }
+
+  // Step 1: Assign uncovered cells — extend existing tasks or create 2-cell bridges
+  const getUncovered = () => {
+    const covered = new Set();
+    for (const task of tasks) for (const idx of task.cellIndices) covered.add(idx);
+    return cells.map((_, i) => i).filter(i => !covered.has(i));
+  };
+
+  let uncovered = getUncovered();
   for (const i of uncovered) {
     const cell = cells[i];
     let assigned = false;
 
+    // Try extending existing task at its ends
     for (const task of tasks) {
       const taskCells = task.cellIndices.map(idx => cells[idx]);
       const isHorizontal = taskCells.length <= 1 || taskCells.every(c => c.row === taskCells[0].row);
 
       if (isHorizontal && cell.row === taskCells[0].row) {
-        // Check if cell is adjacent to either end of the horizontal line
         const cols = taskCells.map(c => c.col).sort((a, b) => a - b);
         if (cell.col === cols[0] - 1 || cell.col === cols[cols.length - 1] + 1) {
           task.cellIndices.push(i);
-          coveredIndices.add(i);
           assigned = true;
           break;
         }
       } else if (!isHorizontal && cell.col === taskCells[0].col) {
-        // Check if cell is adjacent to either end of the vertical line
         const rows = taskCells.map(c => c.row).sort((a, b) => a - b);
         if (cell.row === rows[0] - 1 || cell.row === rows[rows.length - 1] + 1) {
           task.cellIndices.push(i);
-          coveredIndices.add(i);
           assigned = true;
           break;
         }
       }
     }
 
-    // If can't extend a line, leave cell uncovered (no task)
-    // Don't create single-cell tasks — tasks must have at least 2 cells
+    // If can't extend, create a 2-cell bridge task with an adjacent covered cell
+    if (!assigned) {
+      const covered = new Set();
+      for (const task of tasks) for (const idx of task.cellIndices) covered.add(idx);
+      const neighbor = cellNeighborMap.get(i).find(j => covered.has(j));
+      if (neighbor !== undefined) {
+        tasks.push({
+          id: tasks.length,
+          cellIndices: [neighbor, i],
+          isCompleted: false,
+        });
+      }
+    }
+  }
+
+  // Step 2: Bridge disconnected components
+  rebuildUnions();
+
+  let safetyLimit = cells.length;
+  while (safetyLimit-- > 0) {
+    const roots = new Set(cells.map((_, i) => find(i)));
+    if (roots.size <= 1) break;
+
+    // Find a pair of adjacent cells in different components
+    let bridged = false;
+    for (let i = 0; i < cells.length && !bridged; i++) {
+      for (const j of cellNeighborMap.get(i)) {
+        if (find(i) !== find(j)) {
+          tasks.push({
+            id: tasks.length,
+            cellIndices: [i, j],
+            isCompleted: false,
+          });
+          union(i, j);
+          bridged = true;
+          break;
+        }
+      }
+    }
+    if (!bridged) break;
   }
 
   return tasks;
@@ -326,11 +398,18 @@ export function assignItemsToCells(cells, tasks, allItems, rarities) {
     [itemAssignments[i], itemAssignments[j]] = [itemAssignments[j], itemAssignments[i]];
   }
 
-  // Build cell objects — only some cells get rewards
+  // Find intersection cells (belonging to ≥2 tasks) — no rewards on these
+  const memberCount = new Array(numCells).fill(0);
+  for (const task of tasks) {
+    for (const idx of task.cellIndices) memberCount[idx]++;
+  }
+  const isIntersection = new Set(memberCount.map((c, i) => c >= 2 ? i : -1).filter(i => i >= 0));
+
+  // Build cell objects — only some cells get rewards (never on intersections)
   return cells.map((cell, idx) => {
     const item = itemAssignments[idx];
     const requiredRarity = rollCellRarity(rarities, CELL_RARITY_WEIGHTS);
-    const hasReward = Math.random() < CELL_REWARD_CHANCE;
+    const hasReward = !isIntersection.has(idx) && Math.random() < CELL_REWARD_CHANCE;
     const scoreReward = hasReward ? (CELL_SCORE_WEIGHTS[requiredRarity] || CELL_SCORE_WEIGHTS.common) : 0;
 
     return {
@@ -374,12 +453,23 @@ export function generateMilestone(allItems, rarities, difficulty = 1) {
   // Step 3: Assign items and quality requirements to cells
   const cells = assignItemsToCells(shapeCells, tasks, allItems, rarities);
 
-  // Step 3.5: Ensure each task has at least one cell with a reward
+  // Step 3.5: Ensure each task has at least one cell with a reward (prefer non-intersection cells)
+  const intersectionIndices = new Set();
+  for (const task of tasks) {
+    for (const idx of task.cellIndices) {
+      // Count across all tasks
+      if (tasks.filter(t => t.cellIndices.includes(idx)).length >= 2) {
+        intersectionIndices.add(idx);
+      }
+    }
+  }
   for (const task of tasks) {
     const hasReward = task.cellIndices.some(idx => cells[idx].scoreReward > 0);
     if (!hasReward) {
-      // Pick a random cell in this task and give it a reward
-      const pick = task.cellIndices[Math.floor(Math.random() * task.cellIndices.length)];
+      // Prefer non-intersection cells
+      const nonIntersection = task.cellIndices.filter(idx => !intersectionIndices.has(idx));
+      const pool = nonIntersection.length > 0 ? nonIntersection : task.cellIndices;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
       const cell = cells[pick];
       cells[pick] = {
         ...cell,
@@ -388,17 +478,39 @@ export function generateMilestone(allItems, rarities, difficulty = 1) {
     }
   }
 
-  // Step 4: Place evacuation marker(s) on random cell(s)
-  const evacuationIndices = [];
-  const availableIndices = cells.map((_, i) => i);
-  for (let i = availableIndices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [availableIndices[i], availableIndices[j]] = [availableIndices[j], availableIndices[i]];
+  // Step 4: Place evacuation marker(s) — only on cells belonging to ≥2 tasks
+  const taskMembership = new Array(cells.length).fill(0);
+  for (const task of tasks) {
+    for (const idx of task.cellIndices) {
+      taskMembership[idx]++;
+    }
   }
-  const numEvac = Math.min(evacuationCellCount, cells.length);
+
+  const wellConnected = cells
+    .map((_, i) => i)
+    .filter(i => taskMembership[i] >= 2);
+
+  // Shuffle candidates
+  for (let i = wellConnected.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [wellConnected[i], wellConnected[j]] = [wellConnected[j], wellConnected[i]];
+  }
+
+  // Fallback to all cells if no well-connected candidates
+  const evacuationIndices = [];
+  const candidates = wellConnected.length > 0 ? wellConnected : cells.map((_, i) => i);
+  const rarityOrder = rarities.map(r => r.id);
+  const rareIdx = rarityOrder.indexOf('rare');
+  const numEvac = Math.min(evacuationCellCount, candidates.length);
   for (let i = 0; i < numEvac; i++) {
-    const evacIdx = availableIndices[i];
+    const evacIdx = candidates[i];
     cells[evacIdx].hasEvacuation = true;
+    // Ensure evacuation cell requires at least rare rarity, and gives no score
+    const cellRarityIdx = rarityOrder.indexOf(cells[evacIdx].requiredRarity);
+    if (cellRarityIdx < rareIdx) {
+      cells[evacIdx].requiredRarity = 'rare';
+    }
+    cells[evacIdx].scoreReward = 0;
     evacuationIndices.push(evacIdx);
   }
 

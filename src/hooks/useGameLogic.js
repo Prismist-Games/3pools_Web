@@ -501,13 +501,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         refreshPools(true);
     };
 
-    // 尝试提附工具物品：按概率判断是否在物品列表末尾添加一个工具物品
-    const tryDropToolItem = (items) => {
-        const toolConfig = config.toolItems;
-        if (!toolConfig || Math.random() >= (toolConfig.dropChance || 0)) return items;
-        const toolItem = rollToolItem(toolConfig);
-        return toolItem ? [...items, toolItem] : items;
-    };
+    // 工具道具掉落已禁用
+    const tryDropToolItem = (items) => items;
 
     // 根据权重随机选择一个工具物品并创建实例
     const rollToolItem = (toolConfig) => {
@@ -1083,7 +1078,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 (sum, idx) => sum + updatedCells[idx].scoreReward, 0
             );
             scoreGain += Math.ceil(taskScore);
-            goldGain += TASK_GOLD_REWARD;
 
             if (task.cellIndices.some(idx => updatedCells[idx].hasEvacuation)) {
                 triggerEvacuation = true;

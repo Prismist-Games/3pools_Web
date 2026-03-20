@@ -39,7 +39,7 @@ const GridCellBase = ({ cell, isFillable, isHighlighted, onClick }) => {
         relative w-24 h-24 rounded-lg flex flex-col items-center justify-center
         transition-all duration-200 select-none overflow-hidden z-10
         border-2 ${rarityStyle}
-        ${isFillable && !isFilled ? 'cursor-pointer ring-2 ring-yellow-400 animate-pulse' : ''}
+        ${isFillable && !isFilled ? 'cursor-pointer ring-2 ring-green-400 shadow-[0_0_12px_rgba(34,197,94,0.5)]' : ''}
         ${isHighlighted && !isFilled ? 'ring-2 ring-sky-400 scale-105 shadow-lg shadow-sky-200/50' : ''}
         ${!isFillable && !isHighlighted && !isFilled ? 'cursor-default' : ''}
         ${isFilled ? 'bg-green-50 border-green-300' : ''}
@@ -75,6 +75,15 @@ const GridCellBase = ({ cell, isFillable, isHighlighted, onClick }) => {
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="rounded-full p-0.5 bg-green-500/70">
             <Check size={16} className="text-white" strokeWidth={3} />
+          </div>
+        </div>
+      )}
+
+      {/* Fillable checkmark — inventory has a matching item */}
+      {!isFilled && isFillable && (
+        <div className="absolute top-1 right-1">
+          <div className="rounded-full p-0.5 bg-green-500/80">
+            <Check size={12} className="text-white" strokeWidth={3} />
           </div>
         </div>
       )}

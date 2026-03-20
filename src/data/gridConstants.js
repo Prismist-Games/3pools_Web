@@ -30,6 +30,7 @@ export const CELL_RARITY_WEIGHTS = {
 
 export const TASK_COLORS = [
   '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
+  '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16',
 ];
 
 // Probability that a cell gets a reward

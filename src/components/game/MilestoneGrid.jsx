@@ -20,16 +20,13 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
     return { cellGrid: grid, minRow: minR, minCol: minC };
   }, [cells]);
 
-  // Compute task overlay positions (straight-line tasks → colored background bars)
-  const taskOverlays = useMemo(() => {
+  // Compute task connection lines (straight-line tasks → colored lines through cell centers)
+  const taskLines = useMemo(() => {
     return tasks.map((task, taskIndex) => {
       const taskCells = task.cellIndices.map(idx => cells[idx]);
       const color = TASK_COLORS[taskIndex % TASK_COLORS.length];
-
-      // Determine direction
       const isHorizontal = taskCells.length <= 1 || taskCells.every(c => c.row === taskCells[0].row);
 
-      // Compute grid placement (1-indexed for CSS Grid)
       let gridRowStart, gridRowEnd, gridColStart, gridColEnd;
       if (isHorizontal) {
         const row = taskCells[0].row - minRow + 1;
@@ -47,7 +44,7 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
         gridColEnd = col + 1;
       }
 
-      return { taskIndex, color, gridRowStart, gridRowEnd, gridColStart, gridColEnd, isCompleted: task.isCompleted };
+      return { taskIndex, color, isHorizontal, gridRowStart, gridRowEnd, gridColStart, gridColEnd, isCompleted: task.isCompleted, cellCount: taskCells.length };
     });
   }, [tasks, cells, minRow, minCol]);
 
@@ -65,23 +62,34 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
           gap: '16px',
         }}
       >
-        {/* Task outline overlays — each frame slightly offset outward so overlaps are visible */}
-        {taskOverlays.map(({ taskIndex, color, gridRowStart, gridRowEnd, gridColStart, gridColEnd, isCompleted }) => {
-          const offset = -7; // all task frames same size
-          return (
-            <div
-              key={`task-bg-${taskIndex}`}
-              className={`rounded-xl pointer-events-none ${isCompleted ? 'opacity-25' : ''}`}
-              style={{
-                gridRow: `${gridRowStart} / ${gridRowEnd}`,
-                gridColumn: `${gridColStart} / ${gridColEnd}`,
-                border: `3px solid ${color}`,
-                margin: `${offset}px`,
-                zIndex: 0,
-              }}
-            />
-          );
-        })}
+        {/* Task connection lines — colored lines through cell centers */}
+        {taskLines.map(({ taskIndex, color, isHorizontal, gridRowStart, gridRowEnd, gridColStart, gridColEnd, isCompleted, cellCount }) => (
+          <div
+            key={`task-line-${taskIndex}`}
+            className={`pointer-events-none flex items-center justify-center ${isCompleted ? 'opacity-25' : ''}`}
+            style={{
+              gridRow: `${gridRowStart} / ${gridRowEnd}`,
+              gridColumn: `${gridColStart} / ${gridColEnd}`,
+              zIndex: 1,
+            }}
+          >
+            {cellCount <= 1 ? (
+              <div
+                className="rounded-full"
+                style={{ width: 10, height: 10, backgroundColor: color }}
+              />
+            ) : (
+              <div
+                className="rounded-full"
+                style={{
+                  width: isHorizontal ? '100%' : 5,
+                  height: isHorizontal ? 5 : '100%',
+                  backgroundColor: color,
+                }}
+              />
+            )}
+          </div>
+        ))}
 
         {/* Cells — explicitly positioned to avoid auto-flow conflicts with overlays */}
         {Array.from({ length: gridBounds.rows }).map((_, rowIdx) =>
