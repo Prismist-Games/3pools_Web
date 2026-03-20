@@ -278,5 +278,33 @@ export const EN_TRANSLATIONS = {
     "同奖池中没有其他物品！": "No other items in the same pool!",
     "星辉祝福已激活：下次抽取品质+1": "Starlight Blessing active: Next draw rarity +1",
     "当前状态下无法使用工具物品": "Cannot use tool items in current state",
-    "工具道具无法用于以旧换新！": "Tool items cannot be used for trade-in!"
+    "工具道具无法用于以旧换新！": "Tool items cannot be used for trade-in!",
+
+    // --- Matrix System ---
+    // Shape names
+    "短线": "Short Line",
+    "长线": "Long Line",
+    "方块": "Square",
+    "长杆": "Long Rod",
+    "十字": "Cross",
+
+    // UI labels
+    "选择形状": "Select Shape",
+    "放置形状": "Place Shape",
+    "资源矩阵": "Resource Matrix",
+    "锚点": "Anchor",
+    "旋转方向": "Rotate",
+    "请先选择形状": "Select a shape first",
+    "无效放置：必须覆盖至少一个锚点": "Invalid: must cover at least one anchor",
+    "没有资源点被覆盖": "No resource points covered",
+    "生成矩阵中...": "Generating matrix...",
+    "横": "Horizontal",
+    "竖": "Vertical",
+    "资源点": "Resource Point",
+    "形状成本": "Shape Cost",
+    "点击放置": "Click to place",
+    "覆盖资源点": "Covered points",
+    "单格": "Single",
+    "双格": "Double",
+    "三格": "Triple"
 };
