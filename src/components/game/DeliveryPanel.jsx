@@ -11,6 +11,7 @@ export const DeliveryPanel = ({
     onAnimationComplete,
     onProceed,
     rarityConfig,
+    durabilityPerTier = 1,
 }) => {
     const { t } = useLanguage();
     const { queue, currentIndex, phase, arrangement, deliveryResult } = deliveryState;
@@ -49,9 +50,23 @@ export const DeliveryPanel = ({
         </div>
     );
 
+    // Compute protective bonuses based on current arrangement
+    const protectiveBonuses = React.useMemo(() => {
+        const bonuses = new Array(arrangement.length).fill(0);
+        for (let i = 0; i < arrangement.length; i++) {
+            if (arrangement[i].deliveryTag === 'protective') {
+                const bonus = 1 * durabilityPerTier;
+                if (i > 0) bonuses[i - 1] += bonus;
+                if (i < arrangement.length - 1) bonuses[i + 1] += bonus;
+            }
+        }
+        return bonuses;
+    }, [arrangement, durabilityPerTier]);
+
     // Render a single item card in the arrangement
     const renderItemCard = (item, index) => {
         const isSelected = selectedSlot === index;
+        const protectiveBonus = protectiveBonuses[index] || 0;
         const rarityColors = item.rarity?.color || 'border-slate-300 bg-slate-50';
 
         return (
@@ -68,16 +83,22 @@ export const DeliveryPanel = ({
                 <span className="text-3xl mb-1">{item.icon}</span>
                 <span className="text-xs font-bold truncate w-full text-center">{item.name}</span>
 
-                {/* Delivery attributes */}
+                {/* Delivery attributes — hearts for D (+ protective bonus), triangles for S */}
                 <div className="flex gap-2 mt-1.5">
-                    <span className="flex items-center gap-0.5 text-xs">
-                        <Umbrella size={12} className="text-blue-500" />
-                        <span className="font-mono font-bold">{item.currentDurability}</span>
+                    <span className="flex items-center">
+                        {Array.from({ length: item.currentDurability }, (_, i) => (
+                            <span key={`h${i}`} className="text-sm leading-none text-red-500">♥</span>
+                        ))}
+                        {protectiveBonus > 0 && Array.from({ length: protectiveBonus }, (_, i) => (
+                            <span key={`p${i}`} className="text-sm leading-none text-green-400">♥</span>
+                        ))}
+                        {item.currentDurability === 0 && <span className="text-sm leading-none text-slate-300">♡</span>}
                     </span>
                     {(item.effectiveSharpness ?? item.sharpness ?? 0) > 0 && (
-                        <span className="flex items-center gap-0.5 text-xs">
-                            <TriangleAlert size={12} className={item.deliveryTag === 'angular' ? 'text-red-500' : 'text-amber-500'} />
-                            <span className="font-mono font-bold">{item.effectiveSharpness ?? item.sharpness}</span>
+                        <span className="flex items-center">
+                            {Array.from({ length: item.effectiveSharpness ?? item.sharpness ?? 0 }, (_, i) => (
+                                <span key={`s${i}`} className={`text-sm leading-none ${item.deliveryTag === 'angular' ? 'text-red-500' : 'text-amber-500'}`}>▲</span>
+                            ))}
                             {item.deliveryTag === 'unidirectional' && <span className="text-[9px] ml-0.5">→0/←×2</span>}
                         </span>
                     )}
@@ -332,22 +353,27 @@ export const DeliveryPanel = ({
                                         <span className="text-3xl mb-1">{item.icon}</span>
                                         <span className="text-xs font-bold">{item.name}</span>
                                         <div className="flex gap-2 mt-1.5">
-                                            <span className="flex items-center gap-0.5 text-xs">
-                                                <Umbrella size={12} className="text-blue-500" />
-                                                <span className="font-mono font-bold">{item.currentDurability}</span>
+                                            <span className="flex items-center">
+                                                {Array.from({ length: item.currentDurability }, (_, i) => (
+                                                    <span key={`h${i}`} className="text-sm leading-none text-red-500">♥</span>
+                                                ))}
+                                                {item.currentDurability === 0 && <span className="text-sm leading-none text-slate-300">♡</span>}
                                             </span>
                                             {(item.effectiveSharpness ?? item.sharpness ?? 0) > 0 && (
-                                                <span className="flex items-center gap-0.5 text-xs">
-                                                    <TriangleAlert size={12} className={item.deliveryTag === 'angular' ? 'text-red-500' : 'text-amber-500'} />
-                                                    <span className="font-mono font-bold">{item.effectiveSharpness ?? item.sharpness}</span>
+                                                <span className="flex items-center">
+                                                    {Array.from({ length: item.effectiveSharpness ?? item.sharpness ?? 0 }, (_, i) => (
+                                                        <span key={`s${i}`} className={`text-sm leading-none ${item.deliveryTag === 'angular' ? 'text-red-500' : 'text-amber-500'}`}>▲</span>
+                                                    ))}
                                                 </span>
                                             )}
                                         </div>
 
-                                        {/* Damage popup */}
+                                        {/* Damage popup — show lost hearts */}
                                         {isDefender && step === 'resolve' && collision.damage > 0 && (
-                                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-red-500 font-black text-sm animate-bounce">
-                                                -{collision.damage}
+                                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center text-red-500 font-black text-sm animate-bounce">
+                                                -{Array.from({ length: collision.damage }, (_, i) => (
+                                                    <span key={i} className="text-xs leading-none">♥</span>
+                                                ))}
                                             </div>
                                         )}
                                     </div>

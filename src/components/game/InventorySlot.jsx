@@ -5,6 +5,64 @@ import { useLanguage } from '../../contexts/LanguageContext';
 
 const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 
+// Delivery tag descriptions
+const DELIVERY_TAG_INFO = {
+    angular: { name: '棱角的', desc: '品质保底稀有，但物品运送时▲+1。' },
+    protective: { name: '保护的', desc: '运送时相邻物品+1♥。' },
+    explosive: { name: '易爆的', desc: '品质保底稀有，但每受到2次伤害时对所有物品造成1♥伤害。' },
+    set_bonus: { name: '套装的', desc: '带有套装标记的物品运送时互相不造成伤害。' },
+    unidirectional: { name: '单向的', desc: '→颠簸时▲=0，←颠簸时▲翻倍。' },
+};
+
+// Delivery tag tooltip via Portal
+const DeliveryTagTooltip = ({ item, anchorRef, visible }) => {
+    const { t } = useLanguage();
+    const [pos, setPos] = useState(null);
+
+    useLayoutEffect(() => {
+        if (!visible || !anchorRef.current) {
+            setPos(null);
+            return;
+        }
+        const rect = anchorRef.current.getBoundingClientRect();
+        setPos({
+            top: rect.top + window.scrollY - 8,
+            left: rect.left + window.scrollX + rect.width / 2,
+        });
+    }, [visible, anchorRef]);
+
+    if (!visible || !item?.deliveryTag || !pos) return null;
+    const info = DELIVERY_TAG_INFO[item.deliveryTag];
+    if (!info) return null;
+
+    return createPortal(
+        <div
+            style={{
+                position: 'absolute',
+                top: pos.top,
+                left: pos.left,
+                transform: 'translate(-50%, -100%)',
+                zIndex: 99999,
+                pointerEvents: 'none',
+            }}
+            className="animate-in fade-in zoom-in-95 duration-150"
+        >
+            <div className="bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border border-indigo-400/30 min-w-[180px] max-w-[240px]">
+                <div className="flex items-center gap-2 mb-1.5 border-b border-slate-700 pb-1.5">
+                    <span className="text-xs font-black px-1.5 py-0.5 rounded bg-indigo-600 text-white">{t(info.name)}</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                    {t(info.desc)}
+                </p>
+            </div>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-slate-900" />
+            </div>
+        </div>,
+        document.body
+    );
+};
+
 // Tooltip 通过 Portal 渲染到 body，避免被父级 overflow/z-index 遮挡
 const ToolItemTooltip = ({ item, anchorRef, visible }) => {
     const { t } = useLanguage();
@@ -96,6 +154,7 @@ export const InventorySlot = ({
 
     // Delivery config
     durabilityPerTier = 0,
+    baseDurability = 3,
 
     // Style overrides
     className = ""
@@ -129,7 +188,7 @@ export const InventorySlot = ({
                 onContextMenu={handleContextMenu}
                 onMouseEnter={() => {
                     onMouseEnter(index, item);
-                    if (isToolItem) setShowTooltip(true);
+                    if (isToolItem || item?.deliveryTag) setShowTooltip(true);
                 }}
                 onMouseLeave={() => {
                     onMouseLeave();
@@ -228,19 +287,19 @@ export const InventorySlot = ({
                             </>
                         )}
 
-                        {/* Delivery Attributes — bottom bar with icons (shows actual quality-adjusted durability) */}
-                        {item.durability !== undefined && !isToolItem && (
-                            <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-slate-800/50 text-white rounded-b-[10px] py-[2px]">
-                                <span className="flex items-center gap-0.5">
-                                    <Umbrella size={10} className="text-blue-300" />
-                                    <span className="text-[10px] font-mono font-bold">
-                                        {item.durability + RARITY_ORDER.indexOf(item.rarity?.id || 'common') * durabilityPerTier}
-                                    </span>
+                        {/* Delivery Attributes — bottom bar with hearts (D) and triangles (S) */}
+                        {item.sharpness !== undefined && !isToolItem && (
+                            <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1 bg-slate-800/50 text-white rounded-b-[10px] py-[2px] px-1">
+                                <span className="flex items-center">
+                                    {Array.from({ length: baseDurability + RARITY_ORDER.indexOf(item.rarity?.id || 'common') * durabilityPerTier }, (_, i) => (
+                                        <span key={`h${i}`} className="text-[8px] leading-none text-red-400">♥</span>
+                                    ))}
                                 </span>
-                                {((item.deliveryTag === 'angular' ? item.sharpness + 3 : item.sharpness) > 0) && (
-                                    <span className="flex items-center gap-0.5">
-                                        <TriangleAlert size={10} className={item.deliveryTag === 'angular' ? 'text-red-300' : 'text-amber-300'} />
-                                        <span className="text-[10px] font-mono font-bold">{item.deliveryTag === 'angular' ? item.sharpness + 3 : item.sharpness}</span>
+                                {((item.deliveryTag === 'angular' ? item.sharpness + 1 : item.sharpness) > 0) && (
+                                    <span className="flex items-center ml-0.5">
+                                        {Array.from({ length: item.deliveryTag === 'angular' ? item.sharpness + 1 : item.sharpness }, (_, i) => (
+                                            <span key={`s${i}`} className={`text-[8px] leading-none ${item.deliveryTag === 'angular' ? 'text-red-300' : 'text-amber-300'}`}>▲</span>
+                                        ))}
                                     </span>
                                 )}
                             </div>
@@ -307,6 +366,11 @@ export const InventorySlot = ({
                 item={item}
                 anchorRef={slotRef}
                 visible={isToolItem && showTooltip && !isMultiSelectMode}
+            />
+            <DeliveryTagTooltip
+                item={item}
+                anchorRef={slotRef}
+                visible={!isToolItem && !!item?.deliveryTag && showTooltip && !isMultiSelectMode}
             />
         </div>
     );

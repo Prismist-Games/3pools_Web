@@ -33,8 +33,11 @@ export const rollRequirementRarity = (config, _currentStageConfig, _isEmergency 
 };
 
 export const generateOrder = (allNormalItems, config, hasSkill = () => false, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
-    // 检查是否有精确的难度需求配置（优先级最高）
-    const difficultyRequirements = isEmergency && config.emergency?.difficultyRequirements?.[emergencyDifficulty];
+    // 新难度系统：从 difficultyLevels 读取配置
+    const difficultyLevel = isEmergency && config.emergency?.difficultyLevels?.[emergencyDifficulty];
+
+    // Legacy: 精确的难度需求配置（兼容旧配置）
+    const difficultyRequirements = !difficultyLevel && isEmergency && config.emergency?.difficultyRequirements?.[emergencyDifficulty];
 
     // Helper: Get unique pool items
     const getUniquePoolItems = (sourceItems, num) => {
@@ -56,7 +59,40 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
     let count;
     let requirements;
 
-    if (difficultyRequirements && difficultyRequirements.length > 0) {
+    if (difficultyLevel) {
+        // 新难度系统：从 difficultyLevels 配置读取物品数和最低总S值
+        count = difficultyLevel.reqCount || 2;
+        const minTotalS = difficultyLevel.minTotalSharpness || 0;
+
+        // 限制数量为可用池子数量（保证种类唯一）
+        const availablePoolCount = new Set(allNormalItems.map(i => i.poolId)).size;
+        if (count > availablePoolCount) count = availablePoolCount;
+
+        // 尝试选择满足最低总S值的物品组合
+        const commonRarity = config.rarity.find(r => r.id === 'common');
+        let bestCombo = null;
+        const maxAttempts = 50;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            const candidate = getUniquePoolItems(allNormalItems, count);
+            const totalS = candidate.reduce((sum, item) => sum + (item.sharpness || 0), 0);
+            if (totalS === minTotalS) {
+                bestCombo = candidate;
+                break;
+            }
+            // 记录最接近目标值的组合作为 fallback
+            const bestDiff = bestCombo ? Math.abs(bestCombo.reduce((s, i) => s + (i.sharpness || 0), 0) - minTotalS) : Infinity;
+            const currDiff = Math.abs(totalS - minTotalS);
+            if (currDiff < bestDiff) {
+                bestCombo = candidate;
+            }
+        }
+
+        requirements = bestCombo.map(item => ({
+            ...item,
+            requiredRarity: commonRarity
+        }));
+    } else if (difficultyRequirements && difficultyRequirements.length > 0) {
         // 使用精确配置模式 - 数量由配置的总物品数决定
         count = difficultyRequirements.reduce((sum, req) => sum + req.count, 0);
 
@@ -187,13 +223,20 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         baseScoreReward = Math.max(1, calculatedScore);
     }
 
-    // Delivery info (only for score orders)
+    // Delivery info — all orders get delivery (including emergency)
     let deliveryDistance = null;
     let deliveryBumps = null;
 
-    if (!isEmergency && config.delivery) {
-        deliveryDistance = rollDeliveryDistance(config.delivery.distanceWeights);
-        deliveryBumps = generateBumpDirections(deliveryDistance);
+    if (config.delivery) {
+        if (isEmergency && difficultyLevel?.bumps) {
+            // Emergency orders use fixed bumps from difficulty config
+            deliveryDistance = difficultyLevel.bumps;
+            deliveryBumps = generateBumpDirections(deliveryDistance);
+        } else {
+            // Regular orders: fixed 2 bumps (distanceWeights kept for compatibility)
+            deliveryDistance = 2;
+            deliveryBumps = generateBumpDirections(2);
+        }
     }
 
     return {

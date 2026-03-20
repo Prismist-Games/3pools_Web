@@ -341,7 +341,7 @@ export const INITIAL_AFFIXES_CONFIG = [
     {
         "id": "angular",
         "name": "棱角的",
-        "desc": "品质保底稀有，但物品运送时尖锐+3。",
+        "desc": "品质保底稀有，但物品运送时▲+1。",
         "type": "passive",
         "weight": 10,
         "cost": 1,
@@ -352,12 +352,12 @@ export const INITIAL_AFFIXES_CONFIG = [
             "epic": 0.3,
             "legendary": 0.03
         },
-        "deliveryEffect": { "type": "sharpness_bonus", "value": 3 }
+        "deliveryEffect": { "type": "sharpness_bonus", "value": 1 }
     },
     {
         "id": "protective",
         "name": "保护的",
-        "desc": "运送时相邻物品品质视为+1级。",
+        "desc": "运送时相邻物品+1♥。",
         "type": "passive",
         "weight": 10,
         "cost": 2,
@@ -366,7 +366,7 @@ export const INITIAL_AFFIXES_CONFIG = [
     {
         "id": "explosive",
         "name": "易爆的",
-        "desc": "品质保底稀有，但被摧毁时对所有物品造成2伤害。",
+        "desc": "品质保底稀有，但每受到2次伤害时对所有物品造成1♥伤害。",
         "type": "passive",
         "weight": 10,
         "cost": 0,
@@ -377,12 +377,12 @@ export const INITIAL_AFFIXES_CONFIG = [
             "epic": 0.3,
             "legendary": 0.03
         },
-        "deliveryEffect": { "type": "explosive", "damage": 2 }
+        "deliveryEffect": { "type": "explosive", "damage": 1 }
     },
     {
         "id": "set_bonus",
         "name": "套装的",
-        "desc": "同样带有套装标记的物品运送时互相不造成伤害。",
+        "desc": "带有套装标记的物品运送时互相不造成伤害。",
         "type": "passive",
         "weight": 10,
         "cost": 2,
@@ -391,7 +391,7 @@ export const INITIAL_AFFIXES_CONFIG = [
     {
         "id": "unidirectional",
         "name": "单向的",
-        "desc": "→颠簸时尖锐=0，←颠簸时尖锐翻倍。",
+        "desc": "→颠簸时▲=0，←颠簸时▲翻倍。",
         "type": "passive",
         "weight": 10,
         "cost": 1,
@@ -417,10 +417,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-green-100 text-green-800 border-green-200",
         "icon": "🍎",
         "items": [
-            { "name": "西瓜", "icon": "🍉", "durability": 5, "sharpness": 4 },
-            { "name": "柠檬", "icon": "🍋", "durability": 3, "sharpness": 4 },
-            { "name": "芒果", "icon": "🥭", "durability": 2, "sharpness": 2 },
-            { "name": "苹果", "icon": "🍎", "durability": 3, "sharpness": 2 }
+            { "name": "西瓜", "icon": "🍉", "durability": 5, "sharpness": 2 },
+            { "name": "柠檬", "icon": "🍋", "durability": 3, "sharpness": 2 },
+            { "name": "芒果", "icon": "🥭", "durability": 2, "sharpness": 1 },
+            { "name": "苹果", "icon": "🍎", "durability": 3, "sharpness": 1 }
         ]
     },
     {
@@ -431,10 +431,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-red-100 text-red-800 border-red-200",
         "icon": "💊",
         "items": [
-            { "name": "冲剂", "icon": "🍵", "durability": 3, "sharpness": 2 },
-            { "name": "滴眼液", "icon": "💧", "durability": 2, "sharpness": 2 },
-            { "name": "注射器", "icon": "💉", "durability": 2, "sharpness": 6 },
-            { "name": "胶囊", "icon": "💊", "durability": 3, "sharpness": 2 }
+            { "name": "冲剂", "icon": "🍵", "durability": 3, "sharpness": 1 },
+            { "name": "滴眼液", "icon": "💧", "durability": 2, "sharpness": 1 },
+            { "name": "注射器", "icon": "💉", "durability": 2, "sharpness": 3 },
+            { "name": "胶囊", "icon": "💊", "durability": 3, "sharpness": 1 }
         ]
     },
     {
@@ -445,9 +445,9 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-yellow-100 text-yellow-800 border-yellow-200",
         "icon": "✏️",
         "items": [
-            { "name": "铅笔", "icon": "✏️", "durability": 2, "sharpness": 4 },
+            { "name": "铅笔", "icon": "✏️", "durability": 2, "sharpness": 2 },
             { "name": "橡皮", "icon": "🧼", "durability": 5, "sharpness": 0 },
-            { "name": "订书机", "icon": "📎", "durability": 4, "sharpness": 4 },
+            { "name": "订书机", "icon": "📎", "durability": 4, "sharpness": 2 },
             { "name": "笔记本", "icon": "📒", "durability": 6, "sharpness": 0 }
         ]
     },
@@ -459,10 +459,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-orange-100 text-orange-800 border-orange-200",
         "icon": "🍳",
         "items": [
-            { "name": "平底锅", "icon": "🍳", "durability": 5, "sharpness": 4 },
-            { "name": "菜刀", "icon": "🔪", "durability": 3, "sharpness": 6 },
+            { "name": "平底锅", "icon": "🍳", "durability": 5, "sharpness": 2 },
+            { "name": "菜刀", "icon": "🔪", "durability": 3, "sharpness": 3 },
             { "name": "砧板", "icon": "🪵", "durability": 6, "sharpness": 0 },
-            { "name": "汤勺", "icon": "🥄", "durability": 3, "sharpness": 2 }
+            { "name": "汤勺", "icon": "🥄", "durability": 3, "sharpness": 1 }
         ]
     },
     {
@@ -473,10 +473,10 @@ export const INITIAL_POOLS_DATA = [
         "color": "bg-blue-100 text-blue-800 border-blue-200",
         "icon": "⚡️",
         "items": [
-            { "name": "手机", "icon": "📱", "durability": 2, "sharpness": 2 },
+            { "name": "手机", "icon": "📱", "durability": 2, "sharpness": 1 },
             { "name": "耳机", "icon": "🎧", "durability": 2, "sharpness": 0 },
-            { "name": "空调", "icon": "❄️", "durability": 6, "sharpness": 4 },
-            { "name": "电脑", "icon": "💻", "durability": 4, "sharpness": 4 }
+            { "name": "空调", "icon": "❄️", "durability": 6, "sharpness": 2 },
+            { "name": "电脑", "icon": "💻", "durability": 4, "sharpness": 2 }
         ]
     }
 ];
@@ -492,58 +492,33 @@ export const EMERGENCY_ORDER_CONFIG = {
         maxDifficulty: 10   // 最大难度（可选）
     },
 
-    // 基础配置
-    reqCountMin: 1,         // 需求数量最小值
-    reqCountMax: 4,         // 需求数量最大值
-
-    // 基础品质权重（难度=1时使用）
-    baseRarityWeights: {
-        common: 0.5,
-        uncommon: 0.3,
-        rare: 0.15,
-        epic: 0.04,
-        legendary: 0.01
+    // 难度等级配置表：每个等级定义物品数、最低总S值、颠簸次数
+    // reqCount: 订单需求物品数量
+    // minTotalSharpness: 所选物品的S值之和必须 >= 此值
+    // bumps: 运送颠簸次数
+    difficultyLevels: {
+        1: { reqCount: 2, minTotalSharpness: 2, bumps: 2 },
+        2: { reqCount: 2, minTotalSharpness: 3, bumps: 2 },
+        3: { reqCount: 2, minTotalSharpness: 4, bumps: 2 },
+        4: { reqCount: 3, minTotalSharpness: 4, bumps: 2 },
+        5: { reqCount: 3, minTotalSharpness: 6, bumps: 2 },
     },
+
+    // Legacy (unused, kept for reference)
+    reqCountMin: 1,
+    reqCountMax: 4,
 
     // 难度等级配置：难度 -\u003e 需求数量权重
-    difficultyReqCountWeights: {
-        1: { 1: 0.5, 2: 0.3, 3: 0.15, 4: 0.05 },
-        2: { 1: 0.4, 2: 0.35, 3: 0.2, 4: 0.05 },
-        3: { 1: 0.3, 2: 0.35, 3: 0.25, 4: 0.1 },
-        4: { 1: 0.2, 2: 0.3, 3: 0.3, 4: 0.2 },
-        5: { 1: 0.1, 2: 0.25, 3: 0.35, 4: 0.3 },
-        6: { 1: 0.05, 2: 0.2, 3: 0.35, 4: 0.4 },
-        7: { 1: 0.05, 2: 0.15, 3: 0.3, 4: 0.5 },
-        8: { 1: 0.0, 2: 0.1, 3: 0.3, 4: 0.6 },
-        9: { 1: 0.0, 2: 0.05, 3: 0.25, 4: 0.7 },
-        10: { 1: 0.0, 2: 0.0, 3: 0.2, 4: 0.8 }
-    },
+    // (difficultyReqCountWeights removed — replaced by difficultyLevels)
 
     // 难度等级配置：难度 -\u003e 品质权重
-    difficultyRarityWeights: {
-        1: { common: 0.5, uncommon: 0.3, rare: 0.15, epic: 0.04, legendary: 0.01 },
-        2: { common: 0.45, uncommon: 0.3, rare: 0.18, epic: 0.06, legendary: 0.01 },
-        3: { common: 0.4, uncommon: 0.3, rare: 0.2, epic: 0.08, legendary: 0.02 },
-        4: { common: 0.35, uncommon: 0.3, rare: 0.22, epic: 0.1, legendary: 0.03 },
-        5: { common: 0.3, uncommon: 0.28, rare: 0.25, epic: 0.12, legendary: 0.05 },
-        6: { common: 0.25, uncommon: 0.25, rare: 0.28, epic: 0.15, legendary: 0.07 },
-        7: { common: 0.2, uncommon: 0.22, rare: 0.3, epic: 0.18, legendary: 0.1 },
-        8: { common: 0.15, uncommon: 0.2, rare: 0.32, epic: 0.2, legendary: 0.13 },
-        9: { common: 0.1, uncommon: 0.15, rare: 0.35, epic: 0.25, legendary: 0.15 },
-        10: { common: 0.05, uncommon: 0.1, rare: 0.35, epic: 0.3, legendary: 0.2 }
-    },
+    // (difficultyRarityWeights removed — replaced by difficultyLevels)
 
     // 难度等级配置：难度 -> 精确品质需求（可选，如配置则优先使用）
     // 数组中每项表示需要的品质和数量，会随机打乱后生成订单
     // 示例: 1: [{ rarity: 'common', count: 1 }, { rarity: 'uncommon', count: 1 }] 
     // 表示难度1固定需要1个普通+1个优秀品质的物品
-    difficultyRequirements: {
-        // 默认为空，使用随机模式
-        // 示例配置：
-        // 1: [{ rarity: 'common', count: 2 }],
-        // 5: [{ rarity: 'rare', count: 2 }, { rarity: 'epic', count: 1 }],
-        // 10: [{ rarity: 'epic', count: 2 }, { rarity: 'legendary', count: 2 }]
-    }
+    // (difficultyRequirements removed — replaced by difficultyLevels)
 };
 
 // --- 积分订单配置 ---
@@ -570,11 +545,11 @@ export const INITIAL_GAME_CONFIG = {
     emergency: EMERGENCY_ORDER_CONFIG,
     toolItems: TOOL_ITEM_CONFIG,
     delivery: {
-        durabilityPerTier: 2,  // +2 durability per rarity tier above Common
+        baseDurability: 1,     // Common base D (all items share this)
+        durabilityPerTier: 1,  // +1 durability per rarity tier above Common
         distanceWeights: {
-            1: 0.15,  // 近途: 1 bump
-            2: 0.50,  // 中途: 2 bumps
-            3: 0.35,  // 远途: 3 bumps
+            1: 0.30,  // 近途: 1 bump
+            2: 0.70,  // 中途: 2 bumps
         },
         // Animation timing (ms)
         animationSpeed: {

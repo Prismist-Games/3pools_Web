@@ -165,6 +165,17 @@ const OrderCardBase = ({
                                         <span>LV.{order.difficulty}</span>
                                     </div>
                                 )}
+                                {order.deliveryBumps && (
+                                    <div className="flex items-center gap-1 text-xs">
+                                        <Package size={12} className="text-slate-400" />
+                                        {order.deliveryBumps.map((dir, i) => (
+                                            <span key={i} className={`font-mono font-bold
+                                                ${dir === '→' ? 'text-blue-500' : 'text-orange-500'}`}>
+                                                {dir}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             /* Rewards Badge for Normal/Score Orders */
@@ -306,25 +317,20 @@ const OrderCardBase = ({
                             const displayName = isSlotMode ? t(slotItem.name) : t(req.name);
 
                             // Calculate D/S values for display
+                            // D is now quality-based only; only show when player has a matching item
                             const durabilityPerTier = config?.delivery?.durabilityPerTier || 0;
-                            let dsDisplayItem = null; // which item's stats to show
-                            let dsRarityId = req.requiredRarity?.id || 'common'; // which rarity for durability calc
+                            const baseDurability = config?.delivery?.baseDurability || 3;
+                            let dsDisplayItem = null;
 
                             if (isSlotMode && slotItem && !isPhantom) {
-                                // State 3: item placed in slot
                                 dsDisplayItem = slotItem;
-                                dsRarityId = slotItem.rarity?.id || 'common';
                             } else if (hasItem && matchedItem) {
-                                // State 2: have a matching item in inventory
                                 dsDisplayItem = matchedItem;
-                                dsRarityId = matchedItem.rarity?.id || 'common';
                             }
-                            // State 1: not met — use req itself with requiredRarity
 
-                            const dsBaseDurability = (dsDisplayItem || req).durability || 0;
                             const dsSharpness = (dsDisplayItem || req).sharpness || 0;
-                            const dsRarityIndex = RARITY_ORDER.indexOf(dsRarityId);
-                            const dsActualDurability = dsBaseDurability + dsRarityIndex * durabilityPerTier;
+                            const dsRarityIndex = dsDisplayItem ? RARITY_ORDER.indexOf(dsDisplayItem.rarity?.id || 'common') : -1;
+                            const dsActualDurability = dsDisplayItem ? baseDurability + dsRarityIndex * durabilityPerTier : null;
 
                             return (
                                 <div key={rIdx} className="flex flex-col items-stretch gap-1 relative">
@@ -458,17 +464,21 @@ const OrderCardBase = ({
                                         </div>
                                     </div>
 
-                                    {/* D/S indicator below requirement */}
-                                    {req.durability !== undefined && config?.delivery && (
-                                        <div className={`flex items-center justify-center gap-1.5 ${isSlotMode ? 'mt-0' : '-mt-0.5'}`}>
-                                            <span className="flex items-center gap-0.5">
-                                                <Umbrella size={9} className="text-blue-400" />
-                                                <span className="text-[9px] font-mono font-bold text-blue-500">{dsActualDurability}</span>
-                                            </span>
+                                    {/* D/S indicator — hearts for D (only when owned), triangles for S (always) */}
+                                    {config?.delivery && (dsDisplayItem || dsSharpness > 0) && (
+                                        <div className={`flex items-center justify-center gap-1 ${isSlotMode ? 'mt-0' : '-mt-0.5'}`}>
+                                            {dsDisplayItem && dsActualDurability > 0 && (
+                                                <span className="flex items-center">
+                                                    {Array.from({ length: dsActualDurability }, (_, i) => (
+                                                        <span key={`h${i}`} className="text-[7px] leading-none text-red-400">♥</span>
+                                                    ))}
+                                                </span>
+                                            )}
                                             {dsSharpness > 0 && (
-                                                <span className="flex items-center gap-0.5">
-                                                    <TriangleAlert size={9} className="text-amber-400" />
-                                                    <span className="text-[9px] font-mono font-bold text-amber-500">{dsSharpness}</span>
+                                                <span className="flex items-center">
+                                                    {Array.from({ length: dsSharpness }, (_, i) => (
+                                                        <span key={`s${i}`} className="text-[7px] leading-none text-amber-400">▲</span>
+                                                    ))}
                                                 </span>
                                             )}
                                         </div>

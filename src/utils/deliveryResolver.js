@@ -3,12 +3,13 @@
 const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 
 /**
- * Calculate actual durability for an item (base + quality bonus).
+ * Calculate actual durability for an item.
+ * D is determined solely by quality tier: baseDurability + rarityIndex * durabilityPerTier.
+ * Individual item base durability is no longer used.
  */
-export function getActualDurability(item, durabilityPerTier) {
-    const base = item.durability || 0;
+export function getActualDurability(item, durabilityPerTier, baseDurability = 3) {
     const rarityIndex = RARITY_ORDER.indexOf(item.rarity?.id || 'common');
-    return base + rarityIndex * durabilityPerTier;
+    return baseDurability + rarityIndex * durabilityPerTier;
 }
 
 /**
@@ -16,14 +17,14 @@ export function getActualDurability(item, durabilityPerTier) {
  * Applies angular S bonus. Protective bonus is deferred to resolveDelivery
  * so it uses the final arrangement after packing swaps.
  */
-export function prepareDeliveryItems(items, durabilityPerTier) {
+export function prepareDeliveryItems(items, durabilityPerTier, baseDurability = 3) {
     return items.map(item => {
-        let currentDurability = getActualDurability(item, durabilityPerTier);
+        let currentDurability = getActualDurability(item, durabilityPerTier, baseDurability);
         let effectiveSharpness = item.sharpness || 0;
 
-        // Angular: S+3
+        // Angular: S+2
         if (item.deliveryTag === 'angular') {
-            effectiveSharpness += 3;
+            effectiveSharpness += 1;
         }
 
         return {
@@ -32,6 +33,7 @@ export function prepareDeliveryItems(items, durabilityPerTier) {
             effectiveSharpness,
             destroyed: false,
             originalRarityId: item.rarity.id,
+            explosiveHitCount: 0,  // tracks hits for explosive trigger (explodes every 2 hits)
         };
     });
 }
@@ -90,16 +92,15 @@ function resolveCollision(attacker, defender, direction) {
         type: 'absorb',
     };
 
-    if (defender.currentDurability >= damage) {
-        defender.currentDurability -= damage;
-        record.durabilityAfter = defender.currentDurability;
-        record.type = 'absorb';
-    } else {
-        // Item is destroyed
+    defender.currentDurability -= damage;
+    if (defender.currentDurability <= 0) {
         defender.currentDurability = 0;
         defender.destroyed = true;
         record.durabilityAfter = 0;
         record.type = 'destroy';
+    } else {
+        record.durabilityAfter = defender.currentDurability;
+        record.type = 'absorb';
     }
 
     return record;
@@ -107,7 +108,7 @@ function resolveCollision(attacker, defender, direction) {
 
 /**
  * Apply damage to a target item (used by explosive chain).
- * Single HP layer: if D >= damage, subtract. Otherwise, destroy.
+ * D reaches 0 = destroyed.
  * Returns a collision record.
  */
 function applyExplosiveDamage(source, target, damage) {
@@ -122,15 +123,14 @@ function applyExplosiveDamage(source, target, damage) {
         type: 'explosive_damage',
     };
 
-    if (target.currentDurability >= damage) {
-        target.currentDurability -= damage;
-        record.durabilityAfter = target.currentDurability;
-    } else {
-        // Item is destroyed
+    target.currentDurability -= damage;
+    if (target.currentDurability <= 0) {
         target.currentDurability = 0;
         target.destroyed = true;
         record.durabilityAfter = 0;
         record.type = 'explosive_destroy';
+    } else {
+        record.durabilityAfter = target.currentDurability;
     }
 
     return record;
@@ -138,12 +138,19 @@ function applyExplosiveDamage(source, target, damage) {
 
 /**
  * Process explosive triggers after collisions in a bump.
- * Triggers when an explosive item is destroyed this bump. Allows chain reactions.
- * The explosive item itself is already destroyed (it blew up), then deals damage to all others.
+ * Explosive items accumulate hits; every 2 hits taken triggers an explosion
+ * dealing 1 damage to all other surviving items. Can chain-react.
  */
-function processExplosiveTriggers(workingItems) {
+function processExplosiveTriggers(workingItems, bumpCollisions) {
+    // Count hits taken by explosive items this bump
+    for (const collision of bumpCollisions) {
+        const defender = workingItems.find(i => i.uid === collision.defenderUid);
+        if (defender && defender.deliveryTag === 'explosive' && collision.damage > 0 && collision.type !== 'no_damage') {
+            defender.explosiveHitCount = (defender.explosiveHitCount || 0) + 1;
+        }
+    }
+
     const explosiveRecords = [];
-    const triggeredUids = new Set();
     let hasNewTrigger = true;
 
     while (hasNewTrigger) {
@@ -151,16 +158,16 @@ function processExplosiveTriggers(workingItems) {
 
         for (const item of workingItems) {
             if (item.deliveryTag === 'explosive' &&
-                item.destroyed &&
-                !triggeredUids.has(item.uid)) {
+                !item.destroyed &&
+                item.explosiveHitCount >= 2) {
 
-                triggeredUids.add(item.uid);
+                item.explosiveHitCount -= 2;  // consume 2 hits
                 hasNewTrigger = true;
 
-                // Deal 2 damage to all other surviving items
+                // Deal 1 damage to all other surviving items
                 for (const target of workingItems) {
                     if (target.uid !== item.uid && !target.destroyed) {
-                        const record = applyExplosiveDamage(item, target, 2);
+                        const record = applyExplosiveDamage(item, target, 1);
                         if (record) explosiveRecords.push(record);
                     }
                 }
@@ -191,8 +198,8 @@ function resolveBump(workingItems, direction) {
         }
     }
 
-    // Process explosive chain reactions after all collisions
-    const explosiveRecords = processExplosiveTriggers(workingItems);
+    // Process explosive triggers (every 2 hits taken → explode)
+    const explosiveRecords = processExplosiveTriggers(workingItems, collisions);
     collisions.push(...explosiveRecords);
 
     return collisions;

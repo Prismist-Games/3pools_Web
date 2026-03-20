@@ -1787,9 +1787,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const usedUids = new Set();
 
         const queue = satisfiableOrdersData
-            .filter(o => o.isScoreOrder)
-            .map(({ index }) => {
-                const order = orders[index];
+            .filter(o => {
+                // Include both score orders and emergency orders that have delivery bumps
+                const order = o.isScoreOrder ? orders[o.index] : emergencyOrders[o.index - 998];
+                return order?.deliveryBumps;
+            })
+            .map(({ index, isScoreOrder }) => {
+                const order = isScoreOrder ? orders[index] : emergencyOrders[index - 998];
                 const assignedUids = [];
                 const items = [];
 
@@ -1841,7 +1845,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         const firstItems = prepareDeliveryItems(
             queue[0].items,
-            config.delivery.durabilityPerTier
+            config.delivery.durabilityPerTier,
+            config.delivery.baseDurability
         );
 
         setDeliveryState({
@@ -1913,7 +1918,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (nextIndex < queue.length) {
             const nextItems = prepareDeliveryItems(
                 queue[nextIndex].items,
-                config.delivery.durabilityPerTier
+                config.delivery.durabilityPerTier,
+                config.delivery.baseDurability
             );
             setDeliveryState(prev => ({
                 ...prev,
@@ -2031,7 +2037,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
         setInventory(newInventory);
 
+        // Check if emergency orders were completed via delivery
+        const emergencyCompleted = completedIndices.some(idx => idx >= 998);
+        if (emergencyCompleted) {
+            setModalContent({
+                type: 'evacuation_success',
+                score: score + gainedScore
+            });
+        }
+
         setIsSubmitMode(false);
+        setIsEvacuationMode(false);
         setSelectedIndices([]);
     };
 
@@ -2041,9 +2057,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
-        const hasDeliveryOrders = satisfiableOrders.some(o =>
-            o.isScoreOrder && orders[o.index]?.deliveryBumps
-        );
+        const hasDeliveryOrders = satisfiableOrders.some(o => {
+            const order = o.isScoreOrder ? orders[o.index] : null;
+            return order?.deliveryBumps;
+        });
 
         if (hasDeliveryOrders) {
             startDelivery(satisfiableOrders);
@@ -2211,10 +2228,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const handleConfirmEvacuation = () => {
         if (emergencyOrders.length === 0) return;
 
-        // Find satisfies emergency order
-        // satisfiableOrders calculates based on *selection* and *isEvacuationMode* (which is true)
-        // It returns an array of satisfied orders (indices 998, 999)
-
         const satisfied = satisfiableOrders.filter(o => o.index >= 998);
 
         if (satisfied.length === 0) {
@@ -2222,10 +2235,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
-        setModalContent({
-            type: 'evacuation_success',
-            score: score
-        });
+        // Check if emergency orders have delivery bumps
+        const hasDelivery = satisfied.some(o => emergencyOrders[o.index - 998]?.deliveryBumps);
+
+        if (hasDelivery) {
+            startDelivery(satisfied);
+        } else {
+            setModalContent({
+                type: 'evacuation_success',
+                score: score
+            });
+        }
     };
 
 

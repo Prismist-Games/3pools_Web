@@ -341,7 +341,7 @@ export default function App() {
 
                                             {/* Note about difficulty */}
                                             <div className="text-[9px] text-slate-400 bg-slate-50 p-2 rounded border border-slate-100 mb-3">
-                                                💡 提示：难度等级的详细配置（每个难度的需求数量和品质）在 <code className="bg-white px-1 rounded">constants.js</code> 中的 <code className="bg-white px-1 rounded">difficultyReqCountWeights</code> 和 <code className="bg-white px-1 rounded">difficultyRarityWeights</code> 里配置
+                                                💡 提示：下方"难度等级配置"表格可以设置每个难度的物品数、最低总▲值和颠簸次数
                                             </div>
 
                                             {/* Fallback configs - collapsed by default */}
@@ -488,214 +488,84 @@ export default function App() {
                                 </div>
                             </section>
 
-                            {/* Emergency Order Difficulty Levels Config */}
+                            {/* Emergency Order Difficulty Levels Config — new 3-param system */}
                             <section className="bg-gradient-to-br from-orange-50 to-red-50 p-5 rounded-xl border-2 border-orange-200">
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-orange-500 pl-3 flex items-center gap-2">
-                                    🎚️ 离开关卡难度等级配置 (1-{config.emergency?.difficulty?.maxDifficulty || 10})
+                                    🎚️ 离开关卡难度等级配置
                                 </h4>
                                 <div className="text-xs text-slate-600 mb-4 bg-white/60 p-3 rounded-lg border border-orange-100">
-                                    为每个难度等级配置精确的品质需求。难度越高，可以设置更高品质的要求。
+                                    每个难度等级配置3个参数：物品数量、最低总▲值、颠簸次数。
                                     <br />
-                                    <span className="text-orange-600 font-bold">💡 当前最大难度: {config.emergency?.difficulty?.maxDifficulty || 10}，可在上方"难度系统"中调整</span>
+                                    <span className="text-orange-600 font-bold">💡 当前最大难度: {config.emergency?.difficulty?.maxDifficulty || 10}，可在上方调整</span>
+                                </div>
+
+                                {/* Table header */}
+                                <div className="grid grid-cols-[60px_1fr_1fr_1fr_40px] gap-2 mb-2 px-3 text-[10px] font-bold text-slate-500 uppercase">
+                                    <span>难度</span>
+                                    <span>物品数</span>
+                                    <span>最低总▲</span>
+                                    <span>颠簸次数</span>
+                                    <span></span>
                                 </div>
 
                                 {Array.from({ length: config.emergency?.difficulty?.maxDifficulty || 10 }, (_, i) => i + 1).map(difficulty => {
+                                    const level = config.emergency?.difficultyLevels?.[difficulty];
+                                    const updateLevel = (field, value) => {
+                                        const levels = { ...(config.emergency?.difficultyLevels || {}) };
+                                        levels[difficulty] = { ...(levels[difficulty] || {}), [field]: value };
+                                        setConfig({
+                                            ...config,
+                                            emergency: { ...config.emergency, difficultyLevels: levels }
+                                        });
+                                    };
+
                                     return (
-                                        <details key={difficulty} className="mb-3 bg-white rounded-lg border border-orange-200 shadow-sm">
-                                            <summary className="p-3 cursor-pointer hover:bg-orange-50 rounded-lg font-bold text-sm flex items-center gap-2 select-none">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-black ${difficulty <= 3 ? 'bg-green-100 text-green-700' :
-                                                    difficulty <= 6 ? 'bg-yellow-100 text-yellow-700' :
-                                                        difficulty <= 8 ? 'bg-orange-100 text-orange-700' :
-                                                            'bg-red-100 text-red-700'
-                                                    }`}>
-                                                    难度 {difficulty}
-                                                </span>
-                                                <span className="text-[10px] text-slate-400 font-normal">
-                                                    (点击展开编辑)
-                                                </span>
-                                            </summary>
-
-                                            <div className="p-4 border-t border-orange-100 space-y-4">
-                                                {/* Exact Requirements Configuration */}
-                                                <div>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <label className="text-xs font-bold text-purple-700 flex items-center gap-2">
-                                                            🎯 精确品质需求配置
-                                                        </label>
-                                                        <button
-                                                            onClick={() => {
-                                                                const currentRequirements = config.emergency?.difficultyRequirements || {};
-                                                                if (currentRequirements[difficulty]) {
-                                                                    // 清除配置
-                                                                    const newRequirements = { ...currentRequirements };
-                                                                    delete newRequirements[difficulty];
-                                                                    setConfig({
-                                                                        ...config,
-                                                                        emergency: {
-                                                                            ...config.emergency,
-                                                                            difficultyRequirements: newRequirements
-                                                                        }
-                                                                    });
-                                                                } else {
-                                                                    // 初始化配置
-                                                                    setConfig({
-                                                                        ...config,
-                                                                        emergency: {
-                                                                            ...config.emergency,
-                                                                            difficultyRequirements: {
-                                                                                ...currentRequirements,
-                                                                                [difficulty]: [{ rarity: 'common', count: 2 }]
-                                                                            }
-                                                                        }
-                                                                    });
-                                                                }
-                                                            }}
-                                                            className={`text-[10px] px-3 py-1 rounded font-bold transition-all ${(config.emergency?.difficultyRequirements?.[difficulty])
-                                                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                                                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                                                                }`}
-                                                        >
-                                                            {(config.emergency?.difficultyRequirements?.[difficulty]) ? '清除配置' : '添加配置'}
-                                                        </button>
-                                                    </div>
-
-                                                    {(config.emergency?.difficultyRequirements?.[difficulty]) && (
-                                                        <div className="bg-purple-50 p-3 rounded-lg border border-purple-200 space-y-2">
-                                                            <div className="text-[9px] text-purple-600 mb-2">
-                                                                配置此难度需要的具体品质和数量，订单会随机选择物品但固定品质。
-                                                            </div>
-
-                                                            {/* Requirement Items List */}
-                                                            {(config.emergency?.difficultyRequirements?.[difficulty] || []).map((req, idx) => (
-                                                                <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded border">
-                                                                    <select
-                                                                        value={req.rarity}
-                                                                        onChange={(e) => {
-                                                                            const newReqs = [...(config.emergency?.difficultyRequirements?.[difficulty] || [])];
-                                                                            newReqs[idx] = { ...newReqs[idx], rarity: e.target.value };
-                                                                            setConfig({
-                                                                                ...config,
-                                                                                emergency: {
-                                                                                    ...config.emergency,
-                                                                                    difficultyRequirements: {
-                                                                                        ...(config.emergency?.difficultyRequirements || {}),
-                                                                                        [difficulty]: newReqs
-                                                                                    }
-                                                                                }
-                                                                            });
-                                                                        }}
-                                                                        className="flex-1 p-1.5 border rounded text-xs font-bold"
-                                                                    >
-                                                                        <option value="common">普通</option>
-                                                                        <option value="uncommon">优秀</option>
-                                                                        <option value="rare">稀有</option>
-                                                                        <option value="epic">史诗</option>
-                                                                        <option value="legendary">传说</option>
-                                                                    </select>
-                                                                    <span className="text-xs text-slate-500">×</span>
-                                                                    <input
-                                                                        type="number"
-                                                                        min="1"
-                                                                        max="4"
-                                                                        value={req.count}
-                                                                        onChange={(e) => {
-                                                                            const newReqs = [...(config.emergency?.difficultyRequirements?.[difficulty] || [])];
-                                                                            newReqs[idx] = { ...newReqs[idx], count: parseInt(e.target.value) || 1 };
-                                                                            setConfig({
-                                                                                ...config,
-                                                                                emergency: {
-                                                                                    ...config.emergency,
-                                                                                    difficultyRequirements: {
-                                                                                        ...(config.emergency?.difficultyRequirements || {}),
-                                                                                        [difficulty]: newReqs
-                                                                                    }
-                                                                                }
-                                                                            });
-                                                                        }}
-                                                                        className="w-16 p-1.5 border rounded text-center font-mono text-sm"
-                                                                    />
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            const newReqs = (config.emergency?.difficultyRequirements?.[difficulty] || []).filter((_, i) => i !== idx);
-                                                                            setConfig({
-                                                                                ...config,
-                                                                                emergency: {
-                                                                                    ...config.emergency,
-                                                                                    difficultyRequirements: {
-                                                                                        ...(config.emergency?.difficultyRequirements || {}),
-                                                                                        [difficulty]: newReqs.length > 0 ? newReqs : undefined
-                                                                                    }
-                                                                                }
-                                                                            });
-                                                                        }}
-                                                                        className="p-1 bg-red-100 hover:bg-red-200 text-red-600 rounded"
-                                                                    >
-                                                                        <X size={14} />
-                                                                    </button>
-                                                                </div>
-                                                            ))}
-
-                                                            {/* Add Button */}
-                                                            <button
-                                                                onClick={() => {
-                                                                    const newReqs = [...(config.emergency?.difficultyRequirements?.[difficulty] || []), { rarity: 'common', count: 1 }];
-                                                                    setConfig({
-                                                                        ...config,
-                                                                        emergency: {
-                                                                            ...config.emergency,
-                                                                            difficultyRequirements: {
-                                                                                ...(config.emergency?.difficultyRequirements || {}),
-                                                                                [difficulty]: newReqs
-                                                                            }
-                                                                        }
-                                                                    });
-                                                                }}
-                                                                className="w-full text-[10px] px-2 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded font-bold"
-                                                            >
-                                                                + 添加品质需求
-                                                            </button>
-
-                                                            {/* Preview */}
-                                                            <div className="text-[9px] text-slate-500 bg-white p-2 rounded border border-purple-100">
-                                                                <strong>预览:</strong> 总共需要 {(config.emergency?.difficultyRequirements?.[difficulty] || []).reduce((sum, r) => sum + r.count, 0)} 个物品
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Quick preset buttons */}
-                                                <div className="pt-2 border-t flex gap-2 flex-wrap">
-                                                    <button
-                                                        onClick={() => {
-                                                            // 恢复默认
-                                                            const defaults = {
-                                                                1: { reqCount: { 1: 0.5, 2: 0.3, 3: 0.15, 4: 0.05 }, rarity: { common: 0.5, uncommon: 0.3, rare: 0.15, epic: 0.04, legendary: 0.01 } },
-                                                                5: { reqCount: { 1: 0.1, 2: 0.25, 3: 0.35, 4: 0.3 }, rarity: { common: 0.3, uncommon: 0.28, rare: 0.25, epic: 0.12, legendary: 0.05 } },
-                                                                10: { reqCount: { 1: 0, 2: 0, 3: 0.2, 4: 0.8 }, rarity: { common: 0.05, uncommon: 0.1, rare: 0.35, epic: 0.3, legendary: 0.2 } }
-                                                            };
-                                                            const preset = defaults[difficulty] || defaults[1];
-                                                            setConfig({
-                                                                ...config,
-                                                                emergency: {
-                                                                    ...config.emergency,
-                                                                    difficultyReqCountWeights: {
-                                                                        ...difficultyReqCountWeights,
-                                                                        [difficulty]: preset.reqCount
-                                                                    },
-                                                                    difficultyRarityWeights: {
-                                                                        ...difficultyRarityWeights,
-                                                                        [difficulty]: preset.rarity
-                                                                    }
-                                                                }
-                                                            });
-                                                        }}
-                                                        className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded font-bold"
-                                                    >
-                                                        恢复默认
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </details>
+                                        <div key={difficulty} className={`grid grid-cols-[60px_1fr_1fr_1fr_40px] gap-2 mb-1 px-3 py-1.5 items-center rounded ${level ? 'bg-white' : 'bg-slate-50 opacity-60'}`}>
+                                            <span className={`text-xs font-black text-center px-2 py-1 rounded-full ${
+                                                difficulty <= 2 ? 'bg-green-100 text-green-700' :
+                                                difficulty <= 4 ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-red-100 text-red-700'
+                                            }`}>{difficulty}</span>
+                                            <input
+                                                type="number" min="1" max="4"
+                                                className="p-1.5 border rounded font-mono text-sm text-center"
+                                                value={level?.reqCount ?? ''}
+                                                placeholder="-"
+                                                onChange={(e) => updateLevel('reqCount', parseInt(e.target.value) || 2)}
+                                            />
+                                            <input
+                                                type="number" min="0" max="12"
+                                                className="p-1.5 border rounded font-mono text-sm text-center"
+                                                value={level?.minTotalSharpness ?? ''}
+                                                placeholder="-"
+                                                onChange={(e) => updateLevel('minTotalSharpness', parseInt(e.target.value) || 0)}
+                                            />
+                                            <input
+                                                type="number" min="1" max="5"
+                                                className="p-1.5 border rounded font-mono text-sm text-center"
+                                                value={level?.bumps ?? ''}
+                                                placeholder="-"
+                                                onChange={(e) => updateLevel('bumps', parseInt(e.target.value) || 2)}
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    const levels = { ...(config.emergency?.difficultyLevels || {}) };
+                                                    if (levels[difficulty]) {
+                                                        delete levels[difficulty];
+                                                    } else {
+                                                        levels[difficulty] = { reqCount: 2, minTotalSharpness: difficulty, bumps: 2 };
+                                                    }
+                                                    setConfig({
+                                                        ...config,
+                                                        emergency: { ...config.emergency, difficultyLevels: levels }
+                                                    });
+                                                }}
+                                                className={`text-xs p-1 rounded ${level ? 'text-red-500 hover:bg-red-50' : 'text-green-500 hover:bg-green-50'}`}
+                                                title={level ? '清除' : '添加'}
+                                            >
+                                                {level ? <X size={14} /> : '+'}
+                                            </button>
+                                        </div>
                                     );
                                 })}
                             </section>

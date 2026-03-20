@@ -85,6 +85,7 @@ export const EN_TRANSLATIONS = {
     "离开关卡时未完成扣1血": "Lose 1 HP if stage requirements unmet",
     "品质得分加成": "Rarity Score Bonus",
     "品质耐久加成": "Rarity Durability Bonus",
+    "品质耐久值": "Durability by Rarity",
 
     // --- Rarity ---
     "普通": "Common",

@@ -695,15 +695,22 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 </div>
                             </div>
 
-                            {/* Permanently Visible Rarity Durability Bonuses */}
+                            {/* Permanently Visible Rarity Durability Hearts */}
                             <div className="flex items-center justify-center gap-3 py-2 border-b border-slate-100 flex-wrap bg-white/50">
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-2 border-r border-slate-200 pr-3">{t("品质耐久加成")}</div>
-                                {config.rarity.map((rarity, idx) => (
-                                    <div key={rarity.id} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full shadow-sm border border-slate-100 animate-in fade-in">
-                                        <Umbrella size={10} className={rarity.starColor} />
-                                        <span>{t(rarity.name)} +{idx * (config.delivery?.durabilityPerTier || 1)}</span>
-                                    </div>
-                                ))}
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-2 border-r border-slate-200 pr-3">{t("品质耐久值")}</div>
+                                {config.rarity.map((rarity, idx) => {
+                                    const hearts = (config.delivery?.baseDurability || 1) + idx * (config.delivery?.durabilityPerTier || 1);
+                                    return (
+                                        <div key={rarity.id} className="flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full shadow-sm border border-slate-100 animate-in fade-in">
+                                            <span className={rarity.color.split(' ')[2]}>{t(rarity.name)}</span>
+                                            <span className="flex items-center">
+                                                {Array.from({ length: hearts }, (_, i) => (
+                                                    <span key={i} className="text-[9px] leading-none text-red-400">♥</span>
+                                                ))}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
                             </div>
 
                             {/* Collapse Toggle Tab */}
@@ -838,6 +845,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 nextDrawEnhanced={skillState?.nextDrawEnhanced}
                                                 isAssigned={item && assignedItemUids.has(item.uid)}
                                                 durabilityPerTier={config.delivery?.durabilityPerTier || 0}
+                                                baseDurability={config.delivery?.baseDurability || 3}
                                             />
                                         )
                                     })}
@@ -936,6 +944,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                                     onMouseEnter={(i, item) => { state.setHoveredSlotIndex(-1); if (item) state.setHoveredItemName(item.name); }}
                                                                     onMouseLeave={() => { state.setHoveredSlotIndex(null); state.setHoveredItemName(null); }}
                                                                     isHovered={hoveredSlotIndex === -1}
+                                                                    durabilityPerTier={config.delivery?.durabilityPerTier || 0}
+                                                                    baseDurability={config.delivery?.baseDurability || 3}
                                                                     className="w-16 h-16"
                                                                 />
                                                             )
@@ -970,6 +980,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                                 isNeededForOrder={isNeeded}
                                                                 isMaxSatisfied={isMaxSatisfied}
                                                                 onClick={() => { }} onMouseEnter={() => { }} onMouseLeave={() => { }}
+                                                                durabilityPerTier={config.delivery?.durabilityPerTier || 0}
+                                                                baseDurability={config.delivery?.baseDurability || 3}
                                                                 className="w-16 h-16 pointer-events-none"
                                                             />
                                                         </div>
@@ -1008,6 +1020,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     onAnimationComplete={handleDeliveryAnimationComplete}
                     onProceed={handleDeliveryProceed}
                     rarityConfig={config.rarity}
+                    durabilityPerTier={config.delivery?.durabilityPerTier || 1}
                 />
             )}
         </div >
