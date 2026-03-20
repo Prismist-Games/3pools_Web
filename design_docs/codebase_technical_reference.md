@@ -80,8 +80,9 @@ npm run lint      # ESLint 检查
 │   │   └── useGameLogic.js        ← 游戏全部状态与逻辑 (~92KB, ~2200行)
 │   │
 │   ├── utils/
-│   │   ├── helpers.js             ← 纯函数工具 (~14KB)
-│   │   ├── translations.js        ← 英文翻译映射 (~15KB)
+│   │   ├── helpers.js             ← 纯函数工具（订单生成、品质roll）
+│   │   ├── deliveryResolver.js    ← 运送碰撞模拟引擎
+│   │   ├── translations.js        ← 英文翻译映射
 │   │
 │   ├── contexts/
 │   │   └── LanguageContext.jsx     ← 语言切换 Context + t() 翻译函数
@@ -89,10 +90,11 @@ npm run lint      # ESLint 检查
 │   └── components/
 │       ├── ErrorBoundary.jsx       ← 错误边界（类组件）
 │       ├── game/
-│       │   ├── InventorySlot.jsx   ← 背包格子 (~14KB)
-│       │   ├── OrderCard.jsx       ← 订单卡片 (~33KB)
-│       │   ├── PoolCard.jsx        ← 奖池卡片 (~4KB)
-│       │   ├── SkillSelectionModal.jsx ← 技能选择弹窗 (~10KB)
+│       │   ├── InventorySlot.jsx   ← 背包格子 + delivery tag tooltip
+│       │   ├── OrderCard.jsx       ← 订单卡片（♥▲显示）
+│       │   ├── DeliveryPanel.jsx   ← 运送面板（装箱/动画/结果）
+│       │   ├── PoolCard.jsx        ← 奖池卡片
+│       │   ├── SkillSelectionModal.jsx ← 技能选择弹窗
 │       └── ui/
 │           ├── ConfirmDialog.jsx   ← 通用确认对话框
 │           └── Toast.jsx           ← 浮动提示
@@ -218,43 +220,54 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 
 每个词缀对象还包含 `name`、`desc`、`weight`（用于随机选取）等字段。
 
-### 4.6 `INITIAL_RARITY_CONFIG`（6 级品质）
+### 4.6 `INITIAL_RARITY_CONFIG`（6 级品质 = 耐久♥）
 
-| id | name | bonus | recycleValue | color (Tailwind) |
-|----|------|-------|-------------|-----------------|
-| `common` | 普通 | 0 | 1 | gray-400 |
-| `uncommon` | 优秀 | 0.1 | 2 | green-400 |
-| `rare` | 稀有 | 0.25 | 5 | blue-400 |
-| `epic` | 史诗 | 0.5 | 15 | purple-400 |
-| `legendary` | 传说 | 1.0 | 50 | orange-400 |
-| `mythic` | 神话 | 2.0 | 200 | red-400 |
+品质是耐久(♥)的唯一来源。`bonus` 字段为 legacy，实际 D = baseDurability + tierIndex × durabilityPerTier。
 
-> 注意：`constants.js` 默认值可能被 JSON 配置覆盖（通过 App.jsx 的导入功能）。`game_rules.md` 中的数值以 JSON 配置为准。
+| id | name | 耐久(♥) | recycleValue | color (Tailwind) |
+|----|------|---------|-------------|-----------------|
+| `common` | 普通 | 1 | 1 | gray-400 |
+| `uncommon` | 优秀 | 2 | 2 | green-400 |
+| `rare` | 稀有 | 3 | 5 | blue-400 |
+| `epic` | 史诗 | 4 | 15 | purple-400 |
+| `legendary` | 传说 | 5 | 50 | orange-400 |
+| `mythic` | 神话 | 6 | 200 | red-400 |
 
 ### 4.7 `INITIAL_POOLS_DATA`（5 个物品池）
 
-| poolId | 池名 | 图标 | 物品 (4个) |
-|--------|------|------|-----------|
-| `fruit` | 水果 | 🍎 | 西瓜🍉 柠檬🍋 芒果🥭 苹果🍎 |
-| `medicine` | 药物 | 💊 | 冲剂🍵 滴眼液💧 注射器💉 胶囊💊 |
-| `stationery` | 文具 | ✏️ | 铅笔✏️ 橡皮🧼 订书机📎 笔记本📒 |
-| `kitchenware` | 厨具 | 🍳 | 平底锅🍳 菜刀🔪 砧板🪵 汤勺🥄 |
-| `electronics` | 电器 | ⚡️ | 手机📱 耳机🎧 空调❄️ 电脑💻 |
+每个物品有固定的 `sharpness` (▲, 0-3)。`durability` 字段为 legacy，D 由品质统一决定。
+
+| poolId | 池名 | 物品 (名称 ▲) |
+|--------|------|-----------|
+| `fruit` | 水果 | 西瓜▲2 柠檬▲2 芒果▲1 苹果▲1 |
+| `medicine` | 药物 | 冲剂▲1 滴眼液▲1 注射器▲3 胶囊▲1 |
+| `stationery` | 文具 | 铅笔▲2 橡皮▲0 订书机▲2 笔记本▲0 |
+| `kitchenware` | 厨具 | 平底锅▲2 菜刀▲3 砧板▲0 汤勺▲1 |
+| `electronics` | 电器 | 手机▲1 耳机▲0 空调▲2 电脑▲2 |
 
 ### 4.8 `EMERGENCY_ORDER_CONFIG`（撤离订单配置）
 
 ```js
 {
   difficulty: { initial: 1, increaseOnNewOrder: 1, decreaseOnScoreOrder: 1, min: 1, max: 10 },
-  reqCountMin: 1, reqCountMax: 4,
-  baseRarityWeights: { ... },
-  difficultyReqCountWeights: { 1-10: { 2-4: weight } },
-  difficultyRarityWeights: { 1-10: { rarities } },
-  difficultyRequirements: {}  // 空=使用随机模式；可配置精确模式
+  difficultyLevels: {
+    1: { reqCount: 2, minTotalSharpness: 2, bumps: 2 },
+    // ... 每个难度等级定义物品数、最低总▲值、颠簸次数
+  }
 }
 ```
 
-> 撤离订单没有时限和生命值系统。胜负由"金币耗尽前能否完成撤离订单"决定。
+> 撤离订单现在走运送结算流程。难度通过物品▲值控制（高▲ = 物品运送中互相伤害更大）。
+
+### 4.8.1 `delivery` 配置（运送系统）
+
+```js
+delivery: {
+  baseDurability: 1,      // 普通品质基础♥
+  durabilityPerTier: 1,   // 每品质等级+1♥
+  distanceWeights: { 1: 0.30, 2: 0.70 },  // 普通订单颠簸权重（当前固定2bumps）
+}
+```
 
 ### 4.9 `SCORE_PROGRESS_CONFIG`
 
@@ -329,6 +342,28 @@ Fisher-Yates 洗牌后取前 `count` 个。
 ### `getNextRarity(currentRarityId, config) → Rarity | null`
 
 返回比当前品质高一级的品质对象，mythic 返回 null。
+
+---
+
+## 5.5 运送碰撞引擎：deliveryResolver.js
+
+处理运送阶段的物理碰撞模拟。纯函数，无状态。
+
+### 核心导出
+
+| 函数 | 说明 |
+|------|------|
+| `getActualDurability(item, durabilityPerTier, baseDurability)` | D = baseDurability + rarityIndex × durabilityPerTier。item.durability 不再使用。 |
+| `prepareDeliveryItems(items, durabilityPerTier, baseDurability)` | 创建工作副本，计算 D 和有效 S（angular +1）。保护加成延迟到 resolveDelivery。 |
+| `resolveDelivery(items, bumps, rarityConfig, durabilityPerTier)` | 主入口。先应用保护加成，然后逐个 bump 处理碰撞。返回 `{ bumpHistory, finalItems }`。 |
+| `evaluateDeliveryResult(finalItems, requirements, assignedUids)` | 检查物品是否存活（不检查品质，只看是否被摧毁）。 |
+
+### 碰撞模型
+
+- 单层 HP：D -= 攻击方S。D ≤ 0 即摧毁。
+- 套装免伤：同为 `set_bonus` tag 的物品跳过碰撞。
+- 易爆蓄能：explosive 物品累计受伤次数，每 2 次触发一次对全体 1 伤害。
+- 保护加成：protective 物品给相邻物品 +1×durabilityPerTier D（在 resolveDelivery 开始时计算，使用最终排列）。
 
 ---
 
