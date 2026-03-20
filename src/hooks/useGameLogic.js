@@ -527,7 +527,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const rarityOrder = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
             const minRarity = config.traitSystem?.minRarityForTrait || 'uncommon';
             if (rarityOrder.indexOf(rarity.id) >= rarityOrder.indexOf(minRarity)) {
-                const traitId = rollTrait(config);
+                // If pool has a trait affix, use that trait; otherwise roll random
+                const traitId = pool.affix?.traitId || rollTrait(config);
                 item.traits = [traitId];
                 // Apply capacity effects immediately
                 const trait = TRAIT_DEFINITIONS[traitId];
@@ -568,7 +569,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
 
         // Merge and deduplicate traits from both items
-        const allTraits = [...new Set([...targetTraits, ...sourceTraits])];
+        const allTraits = [...targetTraits, ...sourceTraits];
 
         if (allTraits.length <= maxTraits) {
             // Fits within limit — just keep all
@@ -611,7 +612,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const componentCount = (item1.componentCount || 1) + (item2.componentCount || 1);
 
         // Merge traits — deduplicate by ID
-        const allTraits = [...new Set([...(item1.traits || []), ...(item2.traits || [])])];
+        const allTraits = [...(item1.traits || []), ...(item2.traits || [])];
 
         // Max traits = min(componentCount, maxTraitSlots) + capacity bonuses
         let maxTraits = Math.min(componentCount, config.traitSystem?.maxTraitSlots || 3);
@@ -2168,7 +2169,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 }
 
                 // Prepare pending state with all candidate traits
-                const allCandidateTraits = [...new Set([...currentTraits, ...materialTraits])];
+                const allCandidateTraits = [...currentTraits, ...materialTraits];
 
                 // Remove material from inventory, but DON'T place newTarget yet
                 const newInventory = [...inventory];

@@ -564,83 +564,47 @@ export const TRAIT_SYSTEM_CONFIG = {
 };
 
 export const INITIAL_AFFIXES_CONFIG = [
-    {
-        "id": "trade_in",
-        "name": "以旧换新的",
-        "desc": "用背包内的 1 个物品随机置换 1 个同品质的物品。",
-        "type": "interaction",
-        "weight": 10,
-        "cost": 1
-    },
-    {
-        "id": "hardened",
-        "name": "硬化的",
-        "desc": "稀有度更高，但物品带有【绝育】效果，无法合成。",
-        "type": "passive",
-        "weight": 10,
-        "cost": 2,
-        "rarityWeights": {
-            "common": 0,
-            "uncommon": 0.2,
-            "rare": 0.7,
-            "epic": 0.09,
-            "legendary": 0.01
-        }
-    },
-    {
-        "id": "purified",
-        "name": "提纯的",
-        "desc": "保底产出稀有、史诗或传说物品。",
-        "type": "passive",
-        "weight": 10,
-        "cost": 3,
-        "rarityWeights": {
-            "common": 0,
-            "uncommon": 0,
-            "rare": 0.67,
-            "epic": 0.3,
-            "legendary": 0.03
-        }
-    },
-    {
-        "id": "volatile",
-        "name": "波动的",
-        "desc": "有更高的概率出现传说物品，但只会产出普通和传说物品",
-        "type": "passive",
-        "weight": 10,
-        "cost": 1,
-        "rarityWeights": {
-            "common": 0.9,
-            "uncommon": 0,
-            "rare": 0,
-            "epic": 0,
-            "legendary": 0.1
-        }
-    },
-    {
-        "id": "fragmented",
-        "name": "稀碎的",
-        "desc": "一次抽取获得 3 个物品，但必定为普通品质。",
-        "type": "passive",
-        "weight": 10,
-        "cost": 1
-    },
-    {
-        "id": "precise",
-        "name": "精准的",
-        "desc": "从 2 个不同的候选物品中任选其一。",
-        "type": "interaction",
-        "weight": 10,
-        "cost": 2
-    },
-    {
-        "id": "targeted",
-        "name": "有的放矢的",
-        "desc": "指定一个想要的物品类型。",
-        "type": "interaction",
-        "weight": 10,
-        "cost": 4
-    }
+    // --- 旧词缀（weight=0，禁用但保留代码） ---
+    { "id": "trade_in", "name": "以旧换新的", "desc": "用背包内的 1 个物品随机置换 1 个同品质的物品。", "type": "interaction", "weight": 0, "cost": 1 },
+    { "id": "hardened", "name": "硬化的", "desc": "稀有度更高，但物品带有【绝育】效果，无法合成。", "type": "passive", "weight": 0, "cost": 2, "rarityWeights": { "common": 0, "uncommon": 0.2, "rare": 0.7, "epic": 0.09, "legendary": 0.01 } },
+    { "id": "purified", "name": "提纯的", "desc": "保底产出稀有、史诗或传说物品。", "type": "passive", "weight": 0, "cost": 3, "rarityWeights": { "common": 0, "uncommon": 0, "rare": 0.67, "epic": 0.3, "legendary": 0.03 } },
+    { "id": "volatile", "name": "波动的", "desc": "有更高的概率出现传说物品，但只会产出普通和传说物品", "type": "passive", "weight": 0, "cost": 1, "rarityWeights": { "common": 0.9, "uncommon": 0, "rare": 0, "epic": 0, "legendary": 0.1 } },
+    { "id": "fragmented", "name": "稀碎的", "desc": "一次抽取获得 3 个物品，但必定为普通品质。", "type": "passive", "weight": 0, "cost": 1 },
+    { "id": "precise", "name": "精准的", "desc": "从 2 个不同的候选物品中任选其一。", "type": "interaction", "weight": 0, "cost": 2 },
+    { "id": "targeted", "name": "有的放矢的", "desc": "指定一个想要的物品类型。", "type": "interaction", "weight": 0, "cost": 4 },
+
+    // --- 特质词缀（从该池子抽出的 uncommon+ 物品自带该特质） ---
+    { id: 'trait_affix_flat_value_2', name: '坚固', desc: '价值+2', type: 'passive', weight: 10, cost: 1, traitId: 'flat_value_2' },
+    { id: 'trait_affix_multiplier_1_5', name: '增幅', desc: '价值×1.5', type: 'passive', weight: 10, cost: 1, traitId: 'multiplier_1_5' },
+    { id: 'trait_affix_virgin_double', name: '纯净', desc: '未被注入时价值×2', type: 'passive', weight: 10, cost: 1, traitId: 'virgin_double' },
+    { id: 'trait_affix_same_pool_synergy', name: '同源共鸣', desc: '每有一个同池物品，价值+1', type: 'passive', weight: 10, cost: 1, traitId: 'same_pool_synergy' },
+    { id: 'trait_affix_decay_infuse', name: '衰变亲和', desc: '每回合-1，被注入时+3', type: 'passive', weight: 10, cost: 1, traitId: 'decay_infuse' },
+    { id: 'trait_affix_infuse_fruit', name: '水果亲和', desc: '注入水果时+1', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_fruit' },
+    { id: 'trait_affix_infuse_medicine', name: '药物亲和', desc: '注入药物时+1', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_medicine' },
+    { id: 'trait_affix_infuse_electronics', name: '电器亲和', desc: '注入电器时+1', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_electronics' },
+    { id: 'trait_affix_infuse_kitchenware', name: '厨具亲和', desc: '注入厨具时+1', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_kitchenware' },
+    { id: 'trait_affix_infuse_stationery', name: '文具亲和', desc: '注入文具时+1', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_stationery' },
+    { id: 'trait_affix_infuse_uncommon_plus', name: '品质吸收', desc: '注入优秀以上物品时+1', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_uncommon_plus' },
+    { id: 'trait_affix_infuse_rare_plus', name: '稀有汲取', desc: '注入稀有以上物品时+3', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_rare_plus' },
+    { id: 'trait_affix_infuse_same_name', name: '同名共鸣', desc: '注入同名物品时+3', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_same_name' },
+    { id: 'trait_affix_infuse_different_pool', name: '异源增幅', desc: '注入不同池物品时+2', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_different_pool' },
+    { id: 'trait_affix_infuse_common_free', name: '普品免费', desc: '注入白色物品不消耗次数', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_common_free' },
+    { id: 'trait_affix_infuse_order_match', name: '订单契合', desc: '注入订单需求物品时+3', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_order_match' },
+    { id: 'trait_affix_material_full_value', name: '精华转移', desc: '被消耗时目标获得全部价值', type: 'passive', weight: 10, cost: 1, traitId: 'material_full_value' },
+    { id: 'trait_affix_material_infuse_count', name: '注入传承', desc: '被消耗时目标注入上限+1', type: 'passive', weight: 10, cost: 1, traitId: 'material_infuse_count' },
+    { id: 'trait_affix_material_inventory_boost', name: '全员增幅', desc: '被消耗时全背包+1价值', type: 'passive', weight: 10, cost: 1, traitId: 'material_inventory_boost' },
+    { id: 'trait_affix_material_refund', name: '回收返还', desc: '被消耗时获得回收金币', type: 'passive', weight: 10, cost: 1, traitId: 'material_refund' },
+    { id: 'trait_affix_fusion_value_3', name: '融合增幅', desc: '融合时结果+3价值', type: 'passive', weight: 10, cost: 1, traitId: 'fusion_value_3' },
+    { id: 'trait_affix_extra_infuse_3', name: '注入扩容', desc: '注入次数上限+3', type: 'passive', weight: 10, cost: 1, traitId: 'extra_infuse_3' },
+    { id: 'trait_affix_extra_trait_1', name: '特质扩容', desc: '特质上限+1', type: 'passive', weight: 10, cost: 1, traitId: 'extra_trait_1' },
+    { id: 'trait_affix_recycle_double', name: '双倍回收', desc: '回收时获得双倍金币', type: 'passive', weight: 10, cost: 1, traitId: 'recycle_double' },
+    { id: 'trait_affix_infuse_burst', name: '注入爆发', desc: '首次被注入时+5，特质消失', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_burst' },
+    { id: 'trait_affix_growth_per_round', name: '持续成长', desc: '每回合永久加值+1', type: 'passive', weight: 10, cost: 1, traitId: 'growth_per_round' },
+    { id: 'trait_affix_empty_slot_bonus', name: '空间共鸣', desc: '每有一个空格，价值+1', type: 'passive', weight: 10, cost: 1, traitId: 'empty_slot_bonus' },
+    { id: 'trait_affix_refresh_growth', name: '时光积淀', desc: '每次刷新永久加值+1', type: 'passive', weight: 10, cost: 1, traitId: 'refresh_growth' },
+    { id: 'trait_affix_infuse_risky', name: '危险注入', desc: '被注入时+4，随机失去一条特质', type: 'passive', weight: 10, cost: 1, traitId: 'infuse_risky' },
+    { id: 'trait_affix_full_inventory_bonus', name: '满载增幅', desc: '背包满时价值+3', type: 'passive', weight: 10, cost: 1, traitId: 'full_inventory_bonus' },
+    { id: 'trait_affix_trait_count_bonus', name: '特质共鸣', desc: '每有一条特质，价值+2', type: 'passive', weight: 10, cost: 1, traitId: 'trait_count_bonus' },
 ];
 
 export const INITIAL_RARITY_CONFIG = [
