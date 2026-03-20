@@ -7,7 +7,8 @@ import { Toast } from './components/ui/Toast';
 import { SkillSelectionModal } from './components/game/SkillSelectionModal';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
-import { PoolCard } from './components/game/PoolCard';
+import ResourceMatrix from './components/game/ResourceMatrix';
+import ShapeSelector from './components/game/ShapeSelector';
 
 import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
@@ -29,9 +30,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
     const {
         gold, score, currentStageConfig, maxInventorySize,
-        drawCount, activePools, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
+        drawCount, matrix, availableShapes, selectedShape, shapeOrientation, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
-        hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
+        hoveredItemName, hoveredSlotIndex,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
@@ -53,13 +54,13 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleConfirmSubmission,
         toggleSubmitMode,
         toggleRecycleMode,
-        handleDraw,
+        handleMatrixDraw,
+        handleSelectShape,
+        handleToggleOrientation,
         handleSelectionSelect,
         handleSelectionCancel,
         handleConfirmRecycle,
         handleSortInventory,
-        handlePoolHover,
-        handlePoolLeave,
         handleEvacuate,
         toggleEvacuationMode,
         handleConfirmEvacuation,
@@ -414,9 +415,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     inventory={inventory}
                                                     selectedIndices={selectedIndices}
                                                     hasSkill={hasSkill}
-                                                    hoveredPoolId={hoveredPoolId}
+                                                    hoveredPoolId={null}
                                                     hoveredItemName={hoveredItemName}
-                                                    hoveredPoolItemNames={hoveredPoolItemNames}
+                                                    hoveredPoolItemNames={[]}
                                                     selectedItemNames={selectedItemNames}
 
                                                     isBeingReplaced={false}
@@ -457,9 +458,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         inventory={inventory}
                                         selectedIndices={selectedIndices}
                                         hasSkill={hasSkill}
-                                        hoveredPoolId={hoveredPoolId}
+                                        hoveredPoolId={null}
                                         hoveredItemName={hoveredItemName}
-                                        hoveredPoolItemNames={hoveredPoolItemNames}
+                                        hoveredPoolItemNames={[]}
                                         selectedItemNames={selectedItemNames}
                                         isBeingReplaced={orderCandidates?.slotIndex === idx}
                                         orderSlotAssignments={orderSlotAssignments}
@@ -531,9 +532,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                             inventory={inventory}
                                                             selectedIndices={[]}
                                                             hasSkill={hasSkill}
-                                                            hoveredPoolId={hoveredPoolId}
+                                                            hoveredPoolId={null}
                                                             hoveredItemName={hoveredItemName}
-                                                            hoveredPoolItemNames={hoveredPoolItemNames}
+                                                            hoveredPoolItemNames={[]}
                                                             selectedItemNames={[]}
                                                             isBeingReplaced={false}
                                                             isCandidate={true}
@@ -554,10 +555,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         <div className="flex-1 overflow-y-auto p-4 lg:p-8 relative custom-scrollbar">
                             <div className="flex justify-between items-center mb-4 gap-4">
                                 <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
-                                    <RefreshCw size={16} /> {t("抽取物品")}
+                                    <RefreshCw size={16} /> {t("资源矩阵")}
                                 </h2>
 
-                                <span className="text-xs text-slate-400 hidden md:block">{t("点击卡片购买")}</span>
+                                <span className="text-xs text-slate-400 hidden md:block">{t("选择形状后点击矩阵放置")}</span>
                             </div>
 
                             <div className={`
@@ -565,88 +566,30 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         transition-opacity duration-300
                         ${pendingItem || isSubmitMode || isRecycleMode || selectionMode ? 'opacity-100' : 'opacity-100'}
                     `}>
-                                {activePools.map((pool) => {
-                                    const relevantRequirements = [...orders]
-                                        .filter(Boolean)
-                                        .flatMap(o => o.requirements)
-                                        .filter(req => {
-                                            // 1. Must be in the pool
-                                            if (!pool.items.some(pi => pi.name === req.name)) return false;
+                                {/* Shape Selector */}
+                                <div className="mb-4">
+                                    <ShapeSelector
+                                        shapes={availableShapes}
+                                        selectedShape={selectedShape}
+                                        orientation={shapeOrientation}
+                                        onSelectShape={handleSelectShape}
+                                        onToggleOrientation={handleToggleOrientation}
+                                        gold={gold}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
+                                    />
+                                </div>
 
-                                            // 2. Hide if satisfied in inventory
-                                            const isSatisfied = inventory.some(item =>
-                                                item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
-                                            );
-                                            return !isSatisfied;
-                                        });
-
-                                    return (
-                                        <PoolCard
-                                            key={pool.id}
-                                            pool={pool}
-                                            gold={gold}
-                                            inventory={inventory}
-                                            hasSkill={hasSkill}
-                                            config={config}
-                                            onDraw={handleDraw}
-                                            onMouseEnter={handlePoolHover}
-                                            onMouseLeave={handlePoolLeave}
-                                            isHovered={hoveredPoolId === (pool.originalId || pool.id)}
-                                            relevantRequirements={relevantRequirements}
-                                            disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
-                                        />
-                                    )
-                                })}
+                                {/* Resource Matrix */}
+                                <ResourceMatrix
+                                    matrix={matrix}
+                                    selectedShape={selectedShape}
+                                    orientation={shapeOrientation}
+                                    onCellClick={handleMatrixDraw}
+                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
+                                    gold={gold}
+                                />
                             </div>
 
-                            {/* SELECTION OVERLAY (Trade-in / Targeted) */}
-                            {selectionMode && selectionMode.type !== 'trade_in' && (
-                                <div className="absolute inset-0 bg-white z-40 flex flex-col items-center justify-center p-4 animate-in fade-in cursor-default">
-                                    <h3 className="text-2xl font-black mb-8 text-slate-800 text-center">
-                                        {selectionMode.type === 'precise' ? t("精准：二选一 (不可取消)") : t("有的放矢：请选择你想要的")}
-                                    </h3>
-
-                                    <div className={`
-                            ${selectionMode.type === 'precise'
-                                            ? 'flex gap-6 w-full max-w-xl justify-center items-stretch'
-                                            : 'flex flex-wrap gap-4 justify-center max-w-2xl'}
-                          `}>
-                                        {selectionMode.items.map((item, idx) => {
-                                            const isPrecise = selectionMode.type === 'precise';
-
-                                            return (
-                                                <button
-                                                    key={idx}
-                                                    onClick={() => handleSelectionSelect(item)}
-                                                    onMouseEnter={() => state.setHoveredItemName(item.name)}
-                                                    onMouseLeave={() => state.setHoveredItemName(null)}
-                                                    className={`
-                                      relative transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group
-                                      flex flex-col items-center justify-center gap-3
-                                      ${isPrecise
-                                                            ? `flex-1 aspect-[4/5] rounded-3xl border-[4px] ${item.rarity.color}`
-                                                            : `w-28 h-36 rounded-2xl border-2 bg-white border-slate-200 hover:border-slate-400 shadow-sm`}
-                                   `}
-                                                >
-                                                    <div className={`${isPrecise ? 'text-6xl' : 'text-4xl'} filter drop-shadow-sm transition-transform group-hover:scale-110`}>{item.icon}</div>
-                                                    <div className="flex flex-col items-center gap-1">
-                                                        <span className={`font-black ${isPrecise ? 'text-xl' : 'text-sm text-slate-700'}`}>{t(item.name)}</span>
-                                                        {item.rarity && (
-                                                            <span className={`text-[10px] font-bold uppercase tracking-wider opacity-60`}>{t(item.rarity.name)}</span>
-                                                        )}
-                                                    </div>
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
-
-                                    {selectionMode.type === 'targeted' && (
-                                        <button onClick={handleSelectionCancel} className="mt-8 bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 px-8 py-2 rounded-full font-bold transition-colors">
-                                            {t("取消")}
-                                        </button>
-                                    )}
-                                </div>
-                            )}
                         </div>
 
                         {/* BOTTOM UI (Previously Footer) */}
