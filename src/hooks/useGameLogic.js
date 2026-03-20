@@ -2,11 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import {
     getAllNormalItems,
     generateOrder,
-    rollRarity,
     getNextRarity,
-    getRandomAffix,
     getRandomItems
 } from '../utils/helpers';
+import { generateResourceMatrix, selectAvailableShapes, getShapeCells, isValidPlacement, getCoveredResourcePoints } from '../utils/matrixHelpers';
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -27,7 +26,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const [drawCount, setDrawCount] = useState(0);
 
-    const [activePools, setActivePools] = useState([]);
+    const [matrix, setMatrix] = useState(null);
+    const [availableShapes, setAvailableShapes] = useState([]);
+    const [selectedShape, setSelectedShape] = useState(null);
+    const [shapeOrientation, setShapeOrientation] = useState('h');
     const [orders, setOrders] = useState([]);
     const [emergencyOrders, setEmergencyOrders] = useState([]);
 
@@ -121,45 +123,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [config, allNormalItems, currentStageConfig.orderSlots, orders.length, emergencyOrders.length, emergencyDifficulty]);
 
-    const generateActivePools = () => {
-        const result = [];
-        const usedAffixIds = new Set();
-        let tempPools = [...config.pools.slice(0, currentStageConfig.allowedPoolCount)];
-
-        for (let i = 0; i < 3; i++) {
-            if (tempPools.length === 0) break;
-            const totalWeight = tempPools.reduce((sum, p) => sum + (p.weight || 1), 0);
-            let r = Math.random() * totalWeight;
-            let selectedIndex = -1;
-            for (let j = 0; j < tempPools.length; j++) {
-                r -= (tempPools[j].weight || 1);
-                if (r <= 0) {
-                    selectedIndex = j;
-                    break;
-                }
-            }
-            if (selectedIndex === -1) selectedIndex = tempPools.length - 1;
-            const selectedPool = JSON.parse(JSON.stringify(tempPools[selectedIndex]));
-            selectedPool.originalId = selectedPool.id;
-            selectedPool.id = selectedPool.originalId;
-            selectedPool.items = selectedPool.items.slice(0, currentStageConfig.poolSize);
-            if (currentStageConfig.mechanics.affixes) {
-                const availableAffixes = config.affixes.filter(a => !usedAffixIds.has(a.id));
-                const affixPool = availableAffixes.length > 0 ? availableAffixes : config.affixes;
-                const affix = getRandomAffix(affixPool);
-                selectedPool.affixKey = affix.id;
-                selectedPool.affix = affix;
-                selectedPool.cost = affix.cost || 2; // Use affix cost if defined
-                usedAffixIds.add(affix.id);
-            } else {
-                selectedPool.cost = 2;
-            }
-            result.push(selectedPool);
-            tempPools.splice(selectedIndex, 1);
-        }
-        return result;
-    };
-
     const applyEntropy = (inv) => {
         if (!currentStageConfig.mechanics.entropy) return inv;
         return inv.map(item => {
@@ -168,20 +131,21 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         });
     };
 
-    const refreshPools = (tick = false) => {
-        setActivePools(generateActivePools());
+    const refreshMatrix = (tick = false) => {
+        setMatrix(generateResourceMatrix(allNormalItems, config, currentStageConfig));
+        setAvailableShapes(selectAvailableShapes());
+        setSelectedShape(null);
+        setShapeOrientation('h');
         if (tick && currentStageConfig.mechanics.entropy) {
             setInventory(prev => prev.map(item => {
                 if (!item || item.decay === undefined) return item;
                 return { ...item, decay: item.decay - 1 };
             }));
         }
-
-        // NOTE: Evacuation orders have no deadline - player evacuates manually
     };
 
     useEffect(() => {
-        refreshPools(false);
+        refreshMatrix(false);
     }, [config]);
 
     const triggerSkillSelection = () => {
@@ -596,20 +560,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [orderCandidates, orderCandidateQueue]);
 
-    const createItem = (pool, itemTemplate, affixKey = null) => {
-        const rarity = rollRarity(config, affixKey, gold, hasSkill, skillState, currentStageConfig);
-        return {
-            ...itemTemplate,
-            uid: Math.random().toString(36).substr(2, 9),
-            poolName: pool.name,
-            rarity: rarity,
-            sterile: affixKey === 'hardened',
-            decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
-        };
-
-    };
-
-
     const handleIncomingItems = (newItems, overrideInventory = null) => {
         // Negotiator Skill Check
         if (hasSkill('negotiator')) {
@@ -697,104 +647,81 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setInventory(currentInventory);
     };
 
-    const handleScoreDraw = (pool) => {
-        const scoreRate = config.global.scoreDropRate || 0.3;
-        const isScoreItem = Math.random() < scoreRate;
-
-        if (isScoreItem) {
-            const target = pool.targetItem;
-            const mythicRarity = config.rarity.find(r => r.id === 'mythic');
-            const newItem = {
-                ...target,
-                uid: Math.random().toString(36).substr(2, 9),
-                poolName: pool.name,
-                rarity: mythicRarity,
-                isScoreItem: true
-            };
-
-            setModalContent({
-                title: t("传说降临！"),
-                item: newItem,
-                message: t("获得了稀有的主线道具！"),
-                type: 'resource',
-                actualItem: newItem
-            });
-
-        } else {
-            const currentStageConfig = config.stages[score];
-            const allowedCount = currentStageConfig ? currentStageConfig.allowedPoolCount : config.pools.length;
-            const validPools = config.pools.slice(0, allowedCount);
-
-            const randomPool = validPools[Math.floor(Math.random() * validPools.length)];
-
-            const poolSize = currentStageConfig ? currentStageConfig.poolSize : (config.pools[0]?.items.length || 4);
-            const validItems = randomPool.items.slice(0, poolSize);
-            const randomItem = validItems[Math.floor(Math.random() * validItems.length)];
-
-            const currentStageId = config.stages[score]?.id;
-
-            let targetRarityId = 'common';
-            if (currentStageId === 1) targetRarityId = 'uncommon';
-            else if (currentStageId === 2) targetRarityId = 'rare';
-            else if (currentStageId >= 3) targetRarityId = 'epic';
-
-            const rarity = config.rarity.find(r => r.id === targetRarityId) || config.rarity[0];
-
-            const newItem = {
-                ...randomItem,
-                uid: Math.random().toString(36).substr(2, 9),
-                poolName: randomPool.name,
-                rarity: rarity
-            };
-
-            setModalContent({
-                title: rarity.id === 'legendary' ? t("金色传说！") : (rarity.id === 'epic' ? t("史诗物品") : t("意外收获")),
-                item: newItem,
-                message: t("来自主线池的意外收获"),
-                type: 'normal',
-                actualItem: newItem
-            });
+    const handleMatrixDraw = (row, col) => {
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates) return;
+        if (!selectedShape) {
+            showToast(t("请先选择形状"), "error");
+            return;
         }
-    };
+        if (!matrix) return;
 
-    const handleNormalDraw = (pool) => {
+        const shapeCells = getShapeCells(selectedShape, row, col, shapeOrientation);
+        if (!isValidPlacement(shapeCells, 5, matrix.anchors)) {
+            showToast(t("无效放置：必须覆盖至少一个锚点"), "error");
+            return;
+        }
+
+        const cost = selectedShape.cost;
+        if (gold < cost) {
+            showToast(t("金币不足！"), "error");
+            return;
+        }
+
+        const coveredPoints = getCoveredResourcePoints(shapeCells, matrix.resourcePoints);
+        if (coveredPoints.length === 0) {
+            showToast(t("没有资源点被覆盖"), "error");
+            return;
+        }
+
+        // Deduct gold
+        setGold(prev => prev - cost);
         setDrawCount(prev => prev + 1);
 
-        let itemsToProcess = [];
+        // Random pick 1 resource point from covered set
+        const selectedPoint = coveredPoints[Math.floor(Math.random() * coveredPoints.length)];
 
-        // 星辉祝福辅助：创建物品后立即提升品质，确保每个物品（包括稀碎的3个）都被提升
-        const withEnhancement = (item) => {
-            if (!skillState.nextDrawEnhanced) return item;
-            const nextRarity = getNextRarity(item.rarity.id, config);
-            return nextRarity ? { ...item, rarity: nextRarity } : item;
+        // Create item from the resource point
+        let newItem = {
+            ...selectedPoint.item,
+            uid: Math.random().toString(36).substr(2, 9),
+            rarity: selectedPoint.rarity,
+            poolName: selectedPoint.item.poolName,
+            decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
         };
 
-        if (pool.affixKey === 'fragmented') {
-            for (let i = 0; i < 3; i++) {
-                const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-                // 稀碎一次出3个，星辉祝福只提升第一个
-                itemsToProcess.push(i === 0 ? withEnhancement(createItem(pool, tpl, 'fragmented')) : createItem(pool, tpl, 'fragmented'));
-            }
-        } else {
-            const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-            itemsToProcess.push(withEnhancement(createItem(pool, tpl, pool.affixKey)));
+        // Apply enhance (星辉祝福)
+        if (skillState.nextDrawEnhanced) {
+            const nextRarity = getNextRarity(newItem.rarity.id, config);
+            if (nextRarity) newItem = { ...newItem, rarity: nextRarity };
         }
 
+        let itemsToProcess = [newItem];
+
+        // Auto Restock skill: extra item
         if (skillState.nextDrawExtraItem) {
-            const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-            itemsToProcess.push(withEnhancement(createItem(pool, tpl, pool.affixKey)));
+            const extraPoint = coveredPoints[Math.floor(Math.random() * coveredPoints.length)];
+            let extraItem = {
+                ...extraPoint.item,
+                uid: Math.random().toString(36).substr(2, 9),
+                rarity: extraPoint.rarity,
+                poolName: extraPoint.item.poolName,
+                decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
+            };
+            if (skillState.nextDrawEnhanced) {
+                const nextRarity = getNextRarity(extraItem.rarity.id, config);
+                if (nextRarity) extraItem = { ...extraItem, rarity: nextRarity };
+            }
+            itemsToProcess.push(extraItem);
         }
 
+        // Update skill state
         const newSkillState = { ...skillState };
         newSkillState.nextDrawExtraItem = false;
         newSkillState.nextDrawGuaranteedRare = false;
         newSkillState.nextDrawEnhanced = false;
 
-        let allCommon = true;
-        itemsToProcess.forEach(item => {
-            if (item.rarity.id !== 'common') allCommon = false;
-        });
-
+        // Consolation prize tracking
+        let allCommon = itemsToProcess.every(item => item.rarity.id === 'common');
         if (allCommon) {
             newSkillState.consecutiveCommons += 1;
         } else {
@@ -807,14 +734,31 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             showToast(t("【安慰奖】触发：下一次必定稀有！"), "info");
         }
 
+        // Negotiator skill
+        if (hasSkill('negotiator')) {
+            const hasEpicPlus = itemsToProcess.some(item => item.rarity.bonus >= 0.5);
+            if (hasEpicPlus) {
+                setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + 1));
+                showToast(t("【谈判专家】触发：订单刷新次数+1"));
+            }
+        }
+
         setSkillState(newSkillState);
 
-        // Apply Entropy (Time passes on draw)
+        // Apply Entropy
         const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
 
         handleIncomingItems(tryDropToolItem(itemsToProcess), decayedInventory);
 
-        refreshPools(true);
+        refreshMatrix(true);
+    };
+
+    const handleSelectShape = (shape) => {
+        setSelectedShape(prev => prev?.id === shape.id ? null : shape);
+    };
+
+    const handleToggleOrientation = () => {
+        setShapeOrientation(prev => prev === 'h' ? 'v' : 'h');
     };
 
     // 尝试提附工具物品：按概率判断是否在物品列表末尾添加一个工具物品
@@ -902,57 +846,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         return config.rarity[0];
     };
 
-    const handleDraw = (pool) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates) return;
-
-        // Use pool cost (from affix config)
-        let finalCost = pool.cost || 2;
-
-        if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
-            finalCost = Math.max(0, finalCost - 1);
-        }
-
-        // Check gold affordability
-        if (gold < finalCost) {
-            showToast(t("金币不足！"), "error");
-            return;
-        }
-
-        if (pool.affixKey === 'trade_in') {
-            setGold(prev => prev - finalCost);
-            setSelectionMode({ type: 'trade_in', pool });
-            return;
-        }
-        if (pool.affixKey === 'precise') {
-            setGold(prev => prev - finalCost);
-
-            const candidates = [];
-            let itemIndices = pool.items.map((_, i) => i);
-
-            for (let i = 0; i < 2; i++) {
-                if (itemIndices.length === 0) itemIndices = pool.items.map((_, i) => i);
-                const randArrIdx = Math.floor(Math.random() * itemIndices.length);
-                const actualItemIdx = itemIndices[randArrIdx];
-                itemIndices.splice(randArrIdx, 1);
-                const tpl = pool.items[actualItemIdx];
-                candidates.push(createItem(pool, tpl, pool.affixKey));
-            }
-            setSelectionMode({ type: 'precise', pool, items: candidates });
-            return;
-        }
-        if (pool.affixKey === 'targeted') {
-            setGold(prev => prev - finalCost);
-            // "有的放矢" 应呈现该池子的全部原始物品，不受当前阶段 poolSize 限制
-            const originalPool = config.pools.find(p => p.id === (pool.originalId || pool.id));
-            const allItems = originalPool ? originalPool.items : pool.items;
-            setSelectionMode({ type: 'targeted', pool, items: allItems, cost: finalCost });
-            return;
-        }
-
-        setGold(prev => prev - finalCost);
-        handleNormalDraw(pool);
-    };
-
     const handleCloseModal = () => {
         // Victory modal handling
         if (modalContent?.type === 'victory') {
@@ -965,39 +858,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleIncomingItems([modalContent.actualItem], decayedInventory);
         }
         setDrawCount(prev => prev + 1);
-        refreshPools(true);
+        refreshMatrix(true);
         setModalContent(null);
     };
 
-    const handleSelectionSelect = (selectedItem) => {
-        const { type, pool } = selectionMode;
-
-        // Fix: Apply Entropy when confirming a selection (Time passes)
-        const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
-
-        // 星辉祝福：提升品质1级
-        const applyEnhancement = (item) => {
-            if (!skillState.nextDrawEnhanced) return item;
-            const nextRarity = getNextRarity(item.rarity.id, config);
-            return nextRarity ? { ...item, rarity: nextRarity } : item;
-        };
-
-        if (type === 'precise') {
-            setDrawCount(prev => prev + 1);
-            const enhancedItem = applyEnhancement(selectedItem);
-            handleIncomingItems(tryDropToolItem([enhancedItem]), decayedInventory);
-            refreshPools(true);
-            setSelectionMode(null);
-            if (skillState.nextDrawEnhanced) setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
-        } else if (type === 'targeted') {
-            const newItem = createItem(pool, selectedItem, pool.affixKey);
-            const enhancedItem = applyEnhancement(newItem);
-            setDrawCount(prev => prev + 1);
-            handleIncomingItems(tryDropToolItem([enhancedItem]), decayedInventory);
-            refreshPools(true);
-            setSelectionMode(null);
-            if (skillState.nextDrawEnhanced) setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
-        }
+    const handleSelectionSelect = (_selectedItem) => {
+        // precise/targeted affix modes removed (no longer used with matrix system)
+        setSelectionMode(null);
     };
 
     const handleSelectionCancel = () => {
@@ -1353,7 +1220,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             setDrawCount(prev => prev + 1);
             handleIncomingItems(tryDropToolItem([finalItem]), decayedInv);
-            refreshPools(true);
+            refreshMatrix(true);
             setSelectionMode(null);
             return;
         }
@@ -2074,7 +1941,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             currentStageConfig,
             maxInventorySize,
             drawCount,
-            activePools,
+            matrix, availableShapes, selectedShape, shapeOrientation,
             orders,
             orderRefreshCount,
             REFRESH_MAX,
@@ -2104,7 +1971,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             triggerSkillSelection,
             handleSkillSelect,
             handleSkillReplace,
-            handleDraw,
+            handleMatrixDraw,
+            handleSelectShape,
+            handleToggleOrientation,
+            refreshMatrix,
             handleCloseModal,
             handleSelectionSelect,
             handleSelectionCancel,
@@ -2124,7 +1994,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handlePoolHover,
             handlePoolLeave,
             handleEvacuate,
-            refreshPools,
             addInventoryItem,
             handleEvacuationContinue,
             handleEvacuationExtract,
