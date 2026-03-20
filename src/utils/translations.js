@@ -306,5 +306,7 @@ export const EN_TRANSLATIONS = {
     "覆盖资源点": "Covered points",
     "单格": "Single",
     "双格": "Double",
-    "三格": "Triple"
+    "三格": "Triple",
+    "形状超出矩阵范围": "Shape extends out of bounds",
+    "悬浮形状预览，点击形状抽取": "Hover shapes to preview, click to draw"
 };

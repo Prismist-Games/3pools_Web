@@ -30,7 +30,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
     const {
         gold, score, currentStageConfig, maxInventorySize,
-        drawCount, matrix, availableShapes, selectedShape, shapeOrientation, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
+        drawCount, matrix, availableShapes, hoveredShape, shapeOrientation, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredItemName, hoveredSlotIndex,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
@@ -55,7 +55,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         toggleSubmitMode,
         toggleRecycleMode,
         handleMatrixDraw,
-        handleSelectShape,
+        handleShapeHover,
+        handleShapeLeave,
         handleToggleOrientation,
         handleSelectionSelect,
         handleSelectionCancel,
@@ -558,7 +559,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     <RefreshCw size={16} /> {t("资源矩阵")}
                                 </h2>
 
-                                <span className="text-xs text-slate-400 hidden md:block">{t("选择形状后点击矩阵放置")}</span>
+                                <span className="text-xs text-slate-400 hidden md:block">{t("悬浮形状预览，点击形状抽取")}</span>
                             </div>
 
                             <div className={`
@@ -570,9 +571,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <div className="mb-4">
                                     <ShapeSelector
                                         shapes={availableShapes}
-                                        selectedShape={selectedShape}
+                                        hoveredShape={hoveredShape}
                                         orientation={shapeOrientation}
-                                        onSelectShape={handleSelectShape}
+                                        onDraw={handleMatrixDraw}
+                                        onHoverShape={handleShapeHover}
+                                        onLeaveShape={handleShapeLeave}
                                         onToggleOrientation={handleToggleOrientation}
                                         gold={gold}
                                         disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
@@ -582,11 +585,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 {/* Resource Matrix */}
                                 <ResourceMatrix
                                     matrix={matrix}
-                                    selectedShape={selectedShape}
+                                    hoveredShape={hoveredShape}
                                     orientation={shapeOrientation}
-                                    onCellClick={handleMatrixDraw}
                                     disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
-                                    gold={gold}
                                 />
                             </div>
 

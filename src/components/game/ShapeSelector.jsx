@@ -15,6 +15,7 @@ const renderShapePreview = (shape, orientation) => {
     const maxRow = Math.max(...rows);
     const minCol = Math.min(...cols);
     const maxCol = Math.max(...cols);
+    const pivot = shape.pivot || [0, 0];
 
     const filledSet = new Set(cells.map(([r, c]) => `${r},${c}`));
 
@@ -23,10 +24,14 @@ const renderShapePreview = (shape, orientation) => {
         const gridCols = [];
         for (let c = minCol; c <= maxCol; c++) {
             const filled = filledSet.has(`${r},${c}`);
+            const isPivot = r === pivot[0] && c === pivot[1];
             gridCols.push(
                 <div
                     key={`${r}-${c}`}
-                    className={`w-3 h-3 rounded-sm ${filled ? 'bg-slate-600' : 'bg-transparent'}`}
+                    className={`w-3 h-3 rounded-sm ${
+                        isPivot ? 'bg-blue-500' :
+                        filled ? 'bg-slate-500' : 'bg-transparent'
+                    }`}
                 />
             );
         }
@@ -46,31 +51,38 @@ const renderShapePreview = (shape, orientation) => {
 
 const ShapeSelector = ({
     shapes,
-    selectedShape,
     orientation,
-    onSelectShape,
+    onDraw,
+    onHoverShape,
+    onLeaveShape,
     onToggleOrientation,
     gold,
     disabled,
+    hoveredShape,
 }) => {
     const { t } = useLanguage();
+
+    // Show orientation toggle when any orientable shape is being hovered
+    const showOrientationToggle = shapes.some(s => s.hasOrientation);
 
     return (
         <div className={`flex items-center gap-3 flex-wrap ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
             {shapes.map(shape => {
                 const canAfford = gold >= shape.cost;
-                const isSelected = selectedShape && selectedShape.id === shape.id;
+                const isHovered = hoveredShape && hoveredShape.id === shape.id;
 
                 return (
                     <button
                         key={shape.id}
-                        onClick={() => canAfford && onSelectShape(shape)}
+                        onClick={() => canAfford && onDraw(shape)}
+                        onMouseEnter={() => canAfford && onHoverShape(shape)}
+                        onMouseLeave={onLeaveShape}
                         disabled={!canAfford}
                         className={`
                             flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl border-2
                             transition-all duration-150 select-none
-                            ${isSelected
-                                ? 'ring-2 ring-blue-500 border-blue-400 bg-blue-50'
+                            ${isHovered
+                                ? 'ring-2 ring-green-400 border-green-400 bg-green-50 scale-105'
                                 : 'border-slate-200 bg-white hover:border-slate-300'}
                             ${!canAfford ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
                         `}
@@ -88,7 +100,7 @@ const ShapeSelector = ({
                 );
             })}
 
-            {selectedShape?.hasOrientation && (
+            {showOrientationToggle && (
                 <button
                     onClick={onToggleOrientation}
                     className="flex flex-col items-center gap-1 px-2.5 py-2 rounded-xl border-2

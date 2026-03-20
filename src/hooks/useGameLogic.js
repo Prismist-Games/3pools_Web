@@ -3,9 +3,10 @@ import {
     getAllNormalItems,
     generateOrder,
     getNextRarity,
-    getRandomItems
+    getRandomItems,
+    rollRarity
 } from '../utils/helpers';
-import { generateResourceMatrix, selectAvailableShapes, getShapeCells, isValidPlacement, getCoveredResourcePoints } from '../utils/matrixHelpers';
+import { generateResourceMatrix, selectAvailableShapes, getShapeCellsAtAnchor, isValidPlacement, getCoveredResourcePoints } from '../utils/matrixHelpers';
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -28,7 +29,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const [matrix, setMatrix] = useState(null);
     const [availableShapes, setAvailableShapes] = useState([]);
-    const [selectedShape, setSelectedShape] = useState(null);
+    const [hoveredShape, setHoveredShape] = useState(null);
     const [shapeOrientation, setShapeOrientation] = useState('h');
     const [orders, setOrders] = useState([]);
     const [emergencyOrders, setEmergencyOrders] = useState([]);
@@ -132,9 +133,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const refreshMatrix = (tick = false) => {
-        setMatrix(generateResourceMatrix(allNormalItems, config, currentStageConfig));
+        setMatrix(generateResourceMatrix(allNormalItems));
         setAvailableShapes(selectAvailableShapes());
-        setSelectedShape(null);
+        setHoveredShape(null);
         setShapeOrientation('h');
         if (tick && currentStageConfig.mechanics.entropy) {
             setInventory(prev => prev.map(item => {
@@ -647,21 +648,21 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setInventory(currentInventory);
     };
 
-    const handleMatrixDraw = (row, col) => {
+    const handleMatrixDraw = (shape) => {
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates) return;
-        if (!selectedShape) {
-            showToast(t("请先选择形状"), "error");
+        if (!shape || !matrix || !matrix.playerPosition) return;
+
+        const { row, col } = matrix.playerPosition;
+        const shapeCells = getShapeCellsAtAnchor(shape, row, col, shapeOrientation);
+
+        // Validate bounds
+        const inBounds = shapeCells.every(([r, c]) => r >= 0 && r < 5 && c >= 0 && c < 5);
+        if (!inBounds) {
+            showToast(t("形状超出矩阵范围"), "error");
             return;
         }
-        if (!matrix) return;
 
-        const shapeCells = getShapeCells(selectedShape, row, col, shapeOrientation);
-        if (!isValidPlacement(shapeCells, 5, matrix.anchors)) {
-            showToast(t("无效放置：必须覆盖至少一个锚点"), "error");
-            return;
-        }
-
-        const cost = selectedShape.cost;
+        const cost = shape.cost;
         if (gold < cost) {
             showToast(t("金币不足！"), "error");
             return;
@@ -680,37 +681,41 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Random pick 1 resource point from covered set
         const selectedPoint = coveredPoints[Math.floor(Math.random() * coveredPoints.length)];
 
-        // Create item from the resource point
-        let newItem = {
-            ...selectedPoint.item,
-            uid: Math.random().toString(36).substr(2, 9),
-            rarity: selectedPoint.rarity,
-            poolName: selectedPoint.item.poolName,
-            decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
-        };
+        // Roll rarity at draw time (not pre-rolled on matrix)
+        let rarity = rollRarity(config, null, gold - cost, hasSkill, skillState, currentStageConfig);
 
         // Apply enhance (星辉祝福)
         if (skillState.nextDrawEnhanced) {
-            const nextRarity = getNextRarity(newItem.rarity.id, config);
-            if (nextRarity) newItem = { ...newItem, rarity: nextRarity };
+            const nextRarity = getNextRarity(rarity.id, config);
+            if (nextRarity) rarity = nextRarity;
         }
+
+        // Create item from the resource point + rolled rarity
+        let newItem = {
+            ...selectedPoint.item,
+            uid: Math.random().toString(36).substr(2, 9),
+            rarity,
+            poolName: selectedPoint.item.poolName,
+            decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
+        };
 
         let itemsToProcess = [newItem];
 
         // Auto Restock skill: extra item
         if (skillState.nextDrawExtraItem) {
             const extraPoint = coveredPoints[Math.floor(Math.random() * coveredPoints.length)];
-            let extraItem = {
+            let extraRarity = rollRarity(config, null, gold - cost, hasSkill, skillState, currentStageConfig);
+            if (skillState.nextDrawEnhanced) {
+                const next = getNextRarity(extraRarity.id, config);
+                if (next) extraRarity = next;
+            }
+            const extraItem = {
                 ...extraPoint.item,
                 uid: Math.random().toString(36).substr(2, 9),
-                rarity: extraPoint.rarity,
+                rarity: extraRarity,
                 poolName: extraPoint.item.poolName,
                 decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
             };
-            if (skillState.nextDrawEnhanced) {
-                const nextRarity = getNextRarity(extraItem.rarity.id, config);
-                if (nextRarity) extraItem = { ...extraItem, rarity: nextRarity };
-            }
             itemsToProcess.push(extraItem);
         }
 
@@ -753,8 +758,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         refreshMatrix(true);
     };
 
-    const handleSelectShape = (shape) => {
-        setSelectedShape(prev => prev?.id === shape.id ? null : shape);
+    const handleShapeHover = (shape) => {
+        setHoveredShape(shape);
+    };
+
+    const handleShapeLeave = () => {
+        setHoveredShape(null);
     };
 
     const handleToggleOrientation = () => {
@@ -1941,7 +1950,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             currentStageConfig,
             maxInventorySize,
             drawCount,
-            matrix, availableShapes, selectedShape, shapeOrientation,
+            matrix, availableShapes, hoveredShape, shapeOrientation,
             orders,
             orderRefreshCount,
             REFRESH_MAX,
@@ -1972,7 +1981,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleSkillSelect,
             handleSkillReplace,
             handleMatrixDraw,
-            handleSelectShape,
+            handleShapeHover,
+            handleShapeLeave,
             handleToggleOrientation,
             refreshMatrix,
             handleCloseModal,

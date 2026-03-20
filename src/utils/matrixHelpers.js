@@ -4,7 +4,6 @@
  * shape placement, coverage checking, and matrix generation.
  */
 
-import { rollRarity } from './helpers';
 import { SHAPE_DEFINITIONS, MATRIX_CONFIG } from '../data/matrixConfig';
 
 // ---------------------------------------------------------------------------
@@ -24,6 +23,21 @@ export const getShapeCells = (shapeDef, row, col, orientation) => {
   const key = shapeDef.hasOrientation ? orientation : 'default';
   const offsets = shapeDef.cells[key] || shapeDef.cells.default || [];
   return offsets.map(([dr, dc]) => [row + dr, col + dc]);
+};
+
+// ---------------------------------------------------------------------------
+// 1b. getShapeCellsAtAnchor
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns shape cells positioned so the shape's pivot aligns with the anchor.
+ * The pivot is the cell within the shape that represents the player's position.
+ */
+export const getShapeCellsAtAnchor = (shapeDef, anchorRow, anchorCol, orientation) => {
+  const pivot = shapeDef.pivot || [0, 0];
+  const originRow = anchorRow - pivot[0];
+  const originCol = anchorCol - pivot[1];
+  return getShapeCells(shapeDef, originRow, originCol, orientation);
 };
 
 // ---------------------------------------------------------------------------
@@ -102,11 +116,9 @@ export const selectAvailableShapes = (shapesPerRound = MATRIX_CONFIG.shapesPerRo
  * Generates a complete matrix state: grid, resourcePoints, anchors.
  *
  * @param {Array<{name,icon,poolId,poolName}>} allNormalItems
- * @param {object} config              - Full game config (for rollRarity)
- * @param {object} currentStageConfig  - Current stage config (for rollRarity)
  * @returns {{ grid: Array<Array>, resourcePoints: Array, anchors: Array }}
  */
-export const generateResourceMatrix = (allNormalItems, config, currentStageConfig) => {
+export const generateResourceMatrix = (allNormalItems) => {
   const { gridSize, singleCellCount, doubleCellCount, tripleCellCount, anchorCount } = MATRIX_CONFIG;
 
   // --- helpers ---
@@ -159,11 +171,10 @@ export const generateResourceMatrix = (allNormalItems, config, currentStageConfi
       // Commit
       const id = uid();
       const item = randomItem();
-      const rarity = rollRarity(config, null, 0, () => false, {}, currentStageConfig);
 
       cells.forEach(([r, c]) => occupiedByResource.add(cellKey(r, c)));
 
-      resourcePoints.push({ id, cells, item, rarity, size });
+      resourcePoints.push({ id, cells, item, size });
       return true;
     }
     return false; // could not place
@@ -196,26 +207,20 @@ export const generateResourceMatrix = (allNormalItems, config, currentStageConfi
     const [r, c] = emptyCells[i];
     const id = uid();
     const item = randomItem();
-    const rarity = rollRarity(config, null, 0, () => false, {}, currentStageConfig);
     occupiedByResource.add(cellKey(r, c));
-    resourcePoints.push({ id, cells: [[r, c]], item, rarity, size: 1 });
+    resourcePoints.push({ id, cells: [[r, c]], item, size: 1 });
   }
 
   // --- Place anchors ---
-  // Candidate cells: prefer empty cells, fall back to single-cell resource cells
+  // Anchors only go on empty cells (never on resource cells)
   const resourceCellKeys = new Set(resourcePoints.flatMap(rp => rp.cells.map(([r, c]) => cellKey(r, c))));
-  const singleResourceCells = resourcePoints
-    .filter(rp => rp.size === 1)
-    .flatMap(rp => rp.cells);
 
-  const emptyNonResourceCells = [];
+  const anchorCandidates = [];
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
-      if (!resourceCellKeys.has(cellKey(r, c))) emptyNonResourceCells.push([r, c]);
+      if (!resourceCellKeys.has(cellKey(r, c))) anchorCandidates.push([r, c]);
     }
   }
-
-  const anchorCandidates = [...emptyNonResourceCells, ...singleResourceCells];
 
   const manhattanDist = ([r1, c1], [r2, c2]) => Math.abs(r1 - r2) + Math.abs(c1 - c2);
 
@@ -255,16 +260,15 @@ export const generateResourceMatrix = (allNormalItems, config, currentStageConfi
     }
   }
 
-  // Then, anchors (may overlap single-cell resource cells)
+  // Then, anchors (always on empty cells, never overlap resources)
   for (const anchor of anchors) {
-    const { row, col } = anchor;
-    const existing = grid[row][col];
-    if (existing && existing.type === 'resource') {
-      grid[row][col] = { type: 'resource_anchor', resourcePointId: existing.resourcePointId };
-    } else {
-      grid[row][col] = { type: 'anchor' };
-    }
+    grid[anchor.row][anchor.col] = { type: 'anchor' };
   }
 
-  return { grid, resourcePoints, anchors };
+  // Player position: randomly assigned to one of the anchors
+  const playerPosition = anchors.length > 0
+    ? anchors[Math.floor(Math.random() * anchors.length)]
+    : { row: 2, col: 2 };
+
+  return { grid, resourcePoints, anchors, playerPosition };
 };
