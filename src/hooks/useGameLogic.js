@@ -504,7 +504,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!item || !item.isToolItem) return;
 
         // 不允许在特殊模式中使用
-        if (pendingItem || isSubmitMode || isRecycleMode || isEvacuationMode || selectionMode || toolSelectionMode) {
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || toolSelectionMode) {
             showToast(t("当前状态下无法使用工具物品"), 'error');
             return;
         }
@@ -574,7 +574,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleDraw = (pool) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0) return;
 
         // Use pool cost (from affix config)
         let finalCost = pool.cost || 2;
@@ -793,7 +793,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
-        if (isSubmitMode || isRecycleMode || isEvacuationMode) {
+        if (isSubmitMode || isRecycleMode) {
             if (!inventory[index]) return;
             if (selectedIndices.includes(index)) {
                 setSelectedIndices(prev => prev.filter(i => i !== index));
@@ -970,7 +970,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleSortInventory = () => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode) return;
 
         setInventory(prev => {
             const validItems = prev.filter(i => i !== null);

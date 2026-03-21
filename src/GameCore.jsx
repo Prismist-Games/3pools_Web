@@ -391,7 +391,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     selectedIndex={selectedFrameIndex}
                                     gold={gold}
                                     onSelect={handleFrameSelect}
-                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode}
+                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode }
                                 />
                                 <ItemMap
                                     itemMap={itemMap}
