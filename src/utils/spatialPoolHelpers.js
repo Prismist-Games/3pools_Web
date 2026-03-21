@@ -8,6 +8,7 @@ import {
   QUALITY_EFFECTS,
   MAP_ROWS,
   MAP_COLS,
+  MAP_ITEMS,
   MIN_COVERAGE_EFFECTS,
   calculateFrameCost,
 } from '../data/spatialConstants.js';
@@ -53,7 +54,6 @@ export function getUniqueRotations(baseCells) {
 }
 
 // --- Pre-computed shape variants ---
-// Each entry: { baseId, name, cells, coverageCount }
 let _allShapeVariants = null;
 
 export function getAllShapeVariants() {
@@ -64,8 +64,6 @@ export function getAllShapeVariants() {
     for (let ri = 0; ri < rotations.length; ri++) {
       const raw = rotations[ri];
       // Re-anchor: make cells[0] the origin [0,0].
-      // This ensures the hovered cell is always ON the shape, not on an
-      // empty corner of the bounding box. Other cells may have negative offsets.
       const anchor = raw[0];
       const cells = raw.map(([r, c]) => [r - anchor[0], c - anchor[1]]);
       _allShapeVariants.push({
@@ -83,8 +81,9 @@ export function getAllShapeVariants() {
 // --- Item map generation ---
 
 /**
- * Generate a random 5×4 item map by shuffling all 20 items.
- * Returns a 2D array [row][col] of item objects: { name, icon, poolId, poolName }.
+ * Generate a random 3×4 item map by picking 12 random items from all 20.
+ * Returns a 2D array [row][col] of item objects.
+ * Regenerated every draw — each item has 12/20 = 60% equal appearance chance.
  */
 export function generateItemMap() {
   const shuffled = [...ALL_ITEMS];
@@ -93,12 +92,14 @@ export function generateItemMap() {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
+  // Take first 12
+  const selected = shuffled.slice(0, MAP_ITEMS);
   const grid = [];
   let idx = 0;
   for (let r = 0; r < MAP_ROWS; r++) {
     const row = [];
     for (let c = 0; c < MAP_COLS; c++) {
-      row.push(shuffled[idx++]);
+      row.push(selected[idx++]);
     }
     grid.push(row);
   }
@@ -109,9 +110,6 @@ export function generateItemMap() {
 
 /**
  * Generate 3 random frames with unique quality effects.
- * Each frame: { shape, qualityEffect, cost }
- * shape: { baseId, name, cells, coverageCount, rotationIndex }
- * qualityEffect: affix object from QUALITY_EFFECTS
  */
 export function generateFrames() {
   const allVariants = getAllShapeVariants();
@@ -119,17 +117,14 @@ export function generateFrames() {
   const usedEffectIds = new Set();
 
   for (let i = 0; i < 3; i++) {
-    // Pick random shape variant
     let shape = allVariants[Math.floor(Math.random() * allVariants.length)];
 
-    // Pick random quality effect (no repeats, respecting coverage constraints)
     let availableEffects = QUALITY_EFFECTS.filter(e => {
       if (usedEffectIds.has(e.id)) return false;
       if (MIN_COVERAGE_EFFECTS.has(e.id) && shape.coverageCount < 2) return false;
       return true;
     });
 
-    // If no effects available for this shape, pick a bigger shape
     if (availableEffects.length === 0) {
       const bigVariants = allVariants.filter(v => v.coverageCount >= 2);
       shape = bigVariants[Math.floor(Math.random() * bigVariants.length)];
@@ -148,101 +143,19 @@ export function generateFrames() {
   return frames;
 }
 
-// --- Closure mask generation ---
-
-const CELLS_TO_CLOSE = 8;
-
-/**
- * Check that no open cell is isolated (has no orthogonally adjacent open cell).
- */
-function hasNoIslands(closedSet) {
-  for (let r = 0; r < MAP_ROWS; r++) {
-    for (let c = 0; c < MAP_COLS; c++) {
-      if (closedSet.has(`${r},${c}`)) continue;
-      const hasOpenNeighbor = [
-        [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
-      ].some(([nr, nc]) =>
-        nr >= 0 && nr < MAP_ROWS && nc >= 0 && nc < MAP_COLS && !closedSet.has(`${nr},${nc}`)
-      );
-      if (!hasOpenNeighbor) return false;
-    }
-  }
-  return true;
-}
-
-/**
- * Check if a closure mask leaves valid placements for all base shape types.
- */
-function hasValidPlacements(closedSet) {
-  const variants = getAllShapeVariants();
-  const baseIds = [...new Set(BASE_SHAPES.map(s => s.id))];
-  for (const baseId of baseIds) {
-    const baseVariants = variants.filter(v => v.baseId === baseId);
-    let hasAny = false;
-    for (const v of baseVariants) {
-      if (hasAny) break;
-      for (let r = 0; r < MAP_ROWS && !hasAny; r++) {
-        for (let c = 0; c < MAP_COLS && !hasAny; c++) {
-          if (isValidPlacement(v, r, c, closedSet)) hasAny = true;
-        }
-      }
-    }
-    if (!hasAny) return false;
-  }
-  return true;
-}
-
-/**
- * Generate a random closure mask (Set of "row,col" strings for closed cells).
- * Randomly closes 8 of 20 cells (equal probability per cell = 40% closed / 60% open).
- * Re-rolls if the open area can't fit all shape types.
- */
-export function generateClosureMask() {
-  const allCells = [];
-  for (let r = 0; r < MAP_ROWS; r++) {
-    for (let c = 0; c < MAP_COLS; c++) {
-      allCells.push(`${r},${c}`);
-    }
-  }
-
-  for (let attempt = 0; attempt < 100; attempt++) {
-    // Fisher-Yates shuffle
-    const shuffled = [...allCells];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    const closed = new Set(shuffled.slice(0, CELLS_TO_CLOSE));
-    if (hasNoIslands(closed) && hasValidPlacements(closed)) return closed;
-  }
-
-  // Fallback: close top 2 rows (guaranteed valid)
-  const fallback = new Set();
-  for (let r = 0; r < 2; r++) {
-    for (let c = 0; c < MAP_COLS; c++) {
-      fallback.add(`${r},${c}`);
-    }
-  }
-  return fallback;
-}
-
 // --- Coverage calculation ---
 
 /**
- * Given a shape and an anchor position (row, col), return the grid cells covered.
- * Returns null if any cell would be out of bounds or on a closed cell.
- * Otherwise returns array of { row, col, item } objects.
+ * Given a shape and an anchor position, return the grid cells covered.
+ * Returns null if any cell would be out of bounds.
  */
-export function getFrameCoverage(shape, anchorRow, anchorCol, itemMap, closureMask) {
+export function getFrameCoverage(shape, anchorRow, anchorCol, itemMap) {
   const covered = [];
   for (const [dr, dc] of shape.cells) {
     const r = anchorRow + dr;
     const c = anchorCol + dc;
     if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) {
-      return null; // out of bounds
-    }
-    if (closureMask && closureMask.has(`${r},${c}`)) {
-      return null; // on a closed cell
+      return null;
     }
     covered.push({ row: r, col: c, item: itemMap[r][c] });
   }
@@ -250,16 +163,13 @@ export function getFrameCoverage(shape, anchorRow, anchorCol, itemMap, closureMa
 }
 
 /**
- * Check if a placement is valid (all shape cells within bounds and on open cells).
+ * Check if a placement is valid (all shape cells within grid bounds).
  */
-export function isValidPlacement(shape, anchorRow, anchorCol, closureMask) {
+export function isValidPlacement(shape, anchorRow, anchorCol) {
   for (const [dr, dc] of shape.cells) {
     const r = anchorRow + dr;
     const c = anchorCol + dc;
     if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) {
-      return false;
-    }
-    if (closureMask && closureMask.has(`${r},${c}`)) {
       return false;
     }
   }

@@ -10,7 +10,7 @@ import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
-import { generateItemMap, generateFrames, generateClosureMask, getFrameCoverage } from '../utils/spatialPoolHelpers.js';
+import { generateItemMap, generateFrames, getFrameCoverage } from '../utils/spatialPoolHelpers.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
     const { t } = useLanguage();
@@ -27,7 +27,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [itemMap, setItemMap] = useState(() => generateItemMap());
     const [availableFrames, setAvailableFrames] = useState(() => generateFrames());
     const [selectedFrameIndex, setSelectedFrameIndex] = useState(null);
-    const [closureMask, setClosureMask] = useState(() => generateClosureMask());
 
     // Milestone grid system
     const [milestone, setMilestone] = useState(null);
@@ -106,9 +105,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const refreshPools = (tick = false) => {
+        setItemMap(generateItemMap()); // new 12 items each draw
         setAvailableFrames(generateFrames());
         setSelectedFrameIndex(null);
-        setClosureMask(generateClosureMask());
         if (tick && currentStageConfig.mechanics.entropy) {
             setInventory(prev => prev.map(item => {
                 if (!item || item.decay === undefined) return item;
@@ -553,7 +552,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const frame = availableFrames[selectedFrameIndex];
         if (!frame) return;
 
-        const coverage = getFrameCoverage(frame.shape, anchorRow, anchorCol, itemMap, closureMask);
+        const coverage = getFrameCoverage(frame.shape, anchorRow, anchorCol, itemMap);
         if (!coverage) return; // invalid placement (out of bounds)
 
         const coveredItems = coverage.map(c => c.item);
@@ -1103,7 +1102,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setItemMap(generateItemMap());
         setAvailableFrames(generateFrames());
         setSelectedFrameIndex(null);
-        setClosureMask(generateClosureMask());
     };
 
     const handleEvacuationExtract = () => {
@@ -1126,7 +1124,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             itemMap,
             availableFrames,
             selectedFrameIndex,
-            closureMask,
             milestone,
             milestoneNumber,
             cellMatches,

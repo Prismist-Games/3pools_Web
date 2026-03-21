@@ -81,8 +81,8 @@ export function calculateFrameCost(coverageCount, qualityEffectId) {
 export const MIN_COVERAGE_EFFECTS = new Set(['trade_in', 'precise']);
 
 // --- Map dimensions ---
-export const MAP_ROWS = 5;
+// 3×4 grid: 12 items per draw, randomly selected from 20.
+// Regenerated every draw — no closure masks needed.
+export const MAP_ROWS = 3;
 export const MAP_COLS = 4;
-
-// Closure mask is now generated randomly in spatialPoolHelpers.js
-// (8 random cells closed per draw, with shape validity check)
+export const MAP_ITEMS = MAP_ROWS * MAP_COLS; // 12

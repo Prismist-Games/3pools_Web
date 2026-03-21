@@ -3,7 +3,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { isValidPlacement } from '../../utils/spatialPoolHelpers';
 import { MAP_ROWS, MAP_COLS } from '../../data/spatialConstants';
 
-// Rarity background tints for needed-item highlighting (subtle, not full rarity colors)
+// Rarity background tints for needed-item highlighting
 const RARITY_BG = {
   common: 'bg-slate-100 border-slate-300',
   uncommon: 'bg-green-50 border-green-300',
@@ -32,19 +32,21 @@ const RARITY_LABEL_COLOR = {
 };
 
 /**
- * ItemMap — renders the 5×4 item grid and handles frame placement interaction.
+ * ItemMap — renders the 3×4 item grid with frame placement interaction.
  *
  * Props:
- *   itemMap, selectedFrame, closureMask, onPlace, onHoverCoverage, disabled
+ *   itemMap: 2D array [row][col] of item objects
+ *   selectedFrame: currently selected frame object (or null)
  *   milestone: milestone object with cells array (for needed-item highlighting)
  *   rarityConfig: array of rarity objects from config
+ *   onPlace: (anchorRow, anchorCol) => void
+ *   onHoverCoverage: (itemNames[]) => void
+ *   disabled: boolean
  */
-function ItemMap({ itemMap, selectedFrame, closureMask, milestone, rarityConfig, onPlace, onHoverCoverage, disabled }) {
+function ItemMap({ itemMap, selectedFrame, milestone, rarityConfig, onPlace, onHoverCoverage, disabled }) {
   const { t } = useLanguage();
   const [hoverAnchor, setHoverAnchor] = useState(null);
 
-  // Compute needed items from milestone (unfilled cells)
-  // Map: itemName -> highest requiredRarity ID needed
   const neededItems = useMemo(() => {
     if (!milestone || !rarityConfig) return new Map();
     const rarityOrder = rarityConfig.map(r => r.id);
@@ -55,7 +57,6 @@ function ItemMap({ itemMap, selectedFrame, closureMask, milestone, rarityConfig,
       if (!existing) {
         needs.set(cell.itemName, cell.requiredRarity);
       } else {
-        // Keep the highest required rarity
         const existingIdx = rarityOrder.indexOf(existing);
         const newIdx = rarityOrder.indexOf(cell.requiredRarity);
         if (newIdx > existingIdx) {
@@ -69,23 +70,23 @@ function ItemMap({ itemMap, selectedFrame, closureMask, milestone, rarityConfig,
   const coveredCells = useMemo(() => {
     if (!selectedFrame || !hoverAnchor) return new Set();
     const { row, col } = hoverAnchor;
-    if (!isValidPlacement(selectedFrame.shape, row, col, closureMask)) return new Set();
+    if (!isValidPlacement(selectedFrame.shape, row, col)) return new Set();
     const cells = new Set();
     for (const [dr, dc] of selectedFrame.shape.cells) {
       cells.add(`${row + dr},${col + dc}`);
     }
     return cells;
-  }, [selectedFrame, hoverAnchor, closureMask]);
+  }, [selectedFrame, hoverAnchor]);
 
   const isValidHover = useMemo(() => {
     if (!selectedFrame || !hoverAnchor) return false;
-    return isValidPlacement(selectedFrame.shape, hoverAnchor.row, hoverAnchor.col, closureMask);
-  }, [selectedFrame, hoverAnchor, closureMask]);
+    return isValidPlacement(selectedFrame.shape, hoverAnchor.row, hoverAnchor.col);
+  }, [selectedFrame, hoverAnchor]);
 
   const handleCellHover = (row, col) => {
     if (!selectedFrame || disabled) return;
     setHoverAnchor({ row, col });
-    if (isValidPlacement(selectedFrame.shape, row, col, closureMask) && onHoverCoverage) {
+    if (isValidPlacement(selectedFrame.shape, row, col) && onHoverCoverage) {
       const names = selectedFrame.shape.cells
         .map(([dr, dc]) => itemMap[row + dr]?.[col + dc]?.name)
         .filter(Boolean);
@@ -100,7 +101,7 @@ function ItemMap({ itemMap, selectedFrame, closureMask, milestone, rarityConfig,
 
   const handleCellClick = (row, col) => {
     if (!selectedFrame || disabled) return;
-    if (!isValidPlacement(selectedFrame.shape, row, col, closureMask)) return;
+    if (!isValidPlacement(selectedFrame.shape, row, col)) return;
     onPlace(row, col);
     setHoverAnchor(null);
   };
@@ -120,20 +121,9 @@ function ItemMap({ itemMap, selectedFrame, closureMask, milestone, rarityConfig,
         const row = Math.floor(i / MAP_COLS);
         const col = i % MAP_COLS;
         const item = itemMap[row][col];
-        const isClosed = closureMask && closureMask.has(`${row},${col}`);
         const isCovered = coveredCells.has(`${row},${col}`);
         const neededRarity = neededItems.get(item.name);
 
-        if (isClosed) {
-          return (
-            <div
-              key={`${row}-${col}`}
-              className="w-16 h-16 rounded-md bg-slate-200/60 border border-slate-200/40"
-            />
-          );
-        }
-
-        // Determine background: coverage highlight > needed highlight > default
         let bgClass;
         if (isCovered && isValidHover) {
           bgClass = 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
