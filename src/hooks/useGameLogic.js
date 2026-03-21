@@ -46,6 +46,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const [isSubmitMode, setIsSubmitMode] = useState(false);
     const [isEvacuationMode, setIsEvacuationMode] = useState(false);
+    const [evacuationReady, setEvacuationReady] = useState(false);
     const [isRecycleMode, setIsRecycleMode] = useState(false);
     const [selectedIndices, setSelectedIndices] = useState([]);
 
@@ -1076,7 +1077,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
 
         if (triggerEvacuation) {
-            setIsEvacuationMode(true);
+            setEvacuationReady(true);
             showToast(t('撤离已就绪！点击撤离按钮离开'), 'info');
         }
     };
@@ -1102,6 +1103,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setSelectedIndices([]);
         setIsSubmitMode(false);
         setIsEvacuationMode(false);
+        setEvacuationReady(false);
         setItemMap(generateItemMap());
         setAvailableFrames(generateFrames());
         setSelectedFrameIndex(null);
@@ -1137,7 +1139,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             selectedSlot,
             hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
             setHoveredPoolId, setHoveredItemName, setHoveredSlotIndex, setHoveredPoolItemNames,
-            isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
+            isSubmitMode, isRecycleMode, isEvacuationMode, evacuationReady, selectedIndices,
             modalContent, selectionMode,
             skills, skillSelectionCandidates,
             toast,

@@ -36,7 +36,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
-        isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
+        isSubmitMode, isRecycleMode, isEvacuationMode, evacuationReady, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, totalRecycleValue, selectedItemNames,
@@ -374,7 +374,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     milestoneNumber={milestoneNumber}
                                     hoveredPoolItemNames={hoveredPoolItemNames}
                                 />
-                                {isEvacuationMode && (
+                                {evacuationReady && (
                                     <button
                                         onClick={handleTriggerEvacuation}
                                         className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all animate-pulse"
