@@ -153,6 +153,24 @@ export function generateFrames() {
 const CELLS_TO_CLOSE = 8;
 
 /**
+ * Check that no open cell is isolated (has no orthogonally adjacent open cell).
+ */
+function hasNoIslands(closedSet) {
+  for (let r = 0; r < MAP_ROWS; r++) {
+    for (let c = 0; c < MAP_COLS; c++) {
+      if (closedSet.has(`${r},${c}`)) continue;
+      const hasOpenNeighbor = [
+        [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
+      ].some(([nr, nc]) =>
+        nr >= 0 && nr < MAP_ROWS && nc >= 0 && nc < MAP_COLS && !closedSet.has(`${nr},${nc}`)
+      );
+      if (!hasOpenNeighbor) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Check if a closure mask leaves valid placements for all base shape types.
  */
 function hasValidPlacements(closedSet) {
@@ -195,7 +213,7 @@ export function generateClosureMask() {
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     const closed = new Set(shuffled.slice(0, CELLS_TO_CLOSE));
-    if (hasValidPlacements(closed)) return closed;
+    if (hasNoIslands(closed) && hasValidPlacements(closed)) return closed;
   }
 
   // Fallback: close top 2 rows (guaranteed valid)
