@@ -7,7 +7,9 @@ import { Toast } from './components/ui/Toast';
 import { SkillSelectionModal } from './components/game/SkillSelectionModal';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
-import { PoolCard } from './components/game/PoolCard';
+// import { PoolCard } from './components/game/PoolCard';
+import FrameSelector from './components/game/FrameSelector';
+import ItemMap from './components/game/ItemMap';
 
 import MilestoneGrid from './components/game/MilestoneGrid';
 import { SKILL_DEFINITIONS } from './data/constants';
@@ -30,6 +32,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     const {
         gold, score, currentStageConfig, maxInventorySize,
         drawCount, activePools,
+        itemMap, availableFrames, selectedFrameIndex,
         milestone, milestoneNumber, cellMatches, fillableCellIds, relevantPoolIds,
         inventory,
         pendingItem, pendingQueue, selectedSlot,
@@ -62,7 +65,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         refreshPools,
         addInventoryItem,
         handleToolItemUse,
-        handleCancelToolSelection
+        handleCancelToolSelection,
+        handleFrameSelect,
+        handleMapPlace,
     } = actions;
 
     const { hasSkill } = helpers;
@@ -375,54 +380,40 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                     {/* MIDDLE: POOLS (horizontal row) */}
                     <section className="flex-none border-b border-slate-200 relative">
-                        <div className="px-4 py-3">
-                            <div className={`
-                                flex gap-3 overflow-x-auto pb-1 custom-scrollbar
-                                transition-opacity duration-300
-                            `}>
-                                {activePools.map((pool) => {
-                                    const relevantRequirements = milestone
-                                        ? milestone.cells
-                                            .filter(c => !c.filledItem && pool.items.some(pi => pi.name === c.itemName))
-                                            .map(c => ({ name: c.itemName, requiredRarity: { bonus: 0 } }))
-                                        : [];
+                        <div className="flex flex-col items-center gap-3 px-4 py-3">
+                            {/* Frame selector */}
+                            <FrameSelector
+                                frames={availableFrames}
+                                selectedIndex={selectedFrameIndex}
+                                gold={gold}
+                                onSelect={handleFrameSelect}
+                                disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode}
+                            />
 
-                                    return (
-                                        <div key={pool.id} className="flex-1 min-w-[200px]">
-                                            <PoolCard
-                                                pool={pool}
-                                                gold={gold}
-                                                inventory={inventory}
-                                                hasSkill={hasSkill}
-                                                config={config}
-                                                onDraw={handleDraw}
-                                                onMouseEnter={handlePoolHover}
-                                                onMouseLeave={handlePoolLeave}
-                                                isHovered={hoveredPoolId === (pool.originalId || pool.id)}
-                                                relevantRequirements={relevantRequirements}
-                                                disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode}
-                                            />
-                                        </div>
-                                    )
-                                })}
-                            </div>
+                            {/* Item map */}
+                            <ItemMap
+                                itemMap={itemMap}
+                                selectedFrame={selectedFrameIndex !== null ? availableFrames[selectedFrameIndex] : null}
+                                onPlace={handleMapPlace}
+                                onHoverCoverage={(names) => {
+                                    // Reuse the existing hoveredPoolItemNames mechanism for milestone highlighting
+                                    state.setHoveredPoolItemNames(names);
+                                }}
+                                disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || selectedFrameIndex === null}
+                            />
                         </div>
 
-                        {/* SELECTION OVERLAY (Trade-in / Targeted) */}
+                        {/* SELECTION OVERLAY (Precise 2-pick-1) */}
                         {selectionMode && selectionMode.type !== 'trade_in' && (
                             <div className="absolute inset-0 bg-white z-40 flex flex-col items-center justify-center p-4 animate-in fade-in cursor-default">
-                                <h3 className="text-2xl font-black mb-8 text-slate-800 text-center">
-                                    {selectionMode.type === 'precise' ? t("精准：二选一 (不可取消)") : t("有的放矢：请选择你想要的")}
-                                </h3>
+                                {selectionMode.type === 'precise' && (
+                                    <h3 className="text-2xl font-black mb-8 text-slate-800 text-center">
+                                        {t("精准：二选一 (不可取消)")}
+                                    </h3>
+                                )}
 
-                                <div className={`
-                                    ${selectionMode.type === 'precise'
-                                        ? 'flex gap-6 w-full max-w-xl justify-center items-stretch'
-                                        : 'flex flex-wrap gap-4 justify-center max-w-2xl'}
-                                `}>
+                                <div className="flex gap-6 w-full max-w-xl justify-center items-stretch">
                                     {selectionMode.items.map((item, idx) => {
-                                        const isPrecise = selectionMode.type === 'precise';
-
                                         return (
                                             <button
                                                 key={idx}
@@ -432,28 +423,20 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 className={`
                                                     relative transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group
                                                     flex flex-col items-center justify-center gap-3
-                                                    ${isPrecise
-                                                        ? `flex-1 aspect-[4/5] rounded-3xl border-[4px] ${item.rarity.color}`
-                                                        : `w-28 h-36 rounded-2xl border-2 bg-white border-slate-200 hover:border-slate-400 shadow-sm`}
+                                                    flex-1 aspect-[4/5] rounded-3xl border-[4px] ${item.rarity.color}
                                                 `}
                                             >
-                                                <div className={`${isPrecise ? 'text-6xl' : 'text-4xl'} filter drop-shadow-sm transition-transform group-hover:scale-110`}>{item.icon}</div>
+                                                <div className="text-6xl filter drop-shadow-sm transition-transform group-hover:scale-110">{item.icon}</div>
                                                 <div className="flex flex-col items-center gap-1">
-                                                    <span className={`font-black ${isPrecise ? 'text-xl' : 'text-sm text-slate-700'}`}>{t(item.name)}</span>
+                                                    <span className="font-black text-xl">{t(item.name)}</span>
                                                     {item.rarity && (
-                                                        <span className={`text-[10px] font-bold uppercase tracking-wider opacity-60`}>{t(item.rarity.name)}</span>
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">{t(item.rarity.name)}</span>
                                                     )}
                                                 </div>
                                             </button>
                                         )
                                     })}
                                 </div>
-
-                                {selectionMode.type === 'targeted' && (
-                                    <button onClick={handleSelectionCancel} className="mt-8 bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 px-8 py-2 rounded-full font-bold transition-colors">
-                                        {t("取消")}
-                                    </button>
-                                )}
                             </div>
                         )}
                     </section>
