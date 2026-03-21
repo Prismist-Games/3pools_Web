@@ -1,5 +1,5 @@
 // src/data/spatialConstants.js
-// Shape definitions, quality effects, and cost calculation for the spatial pool system.
+// Spatial pool system constants.
 
 import { INITIAL_POOLS_DATA, INITIAL_AFFIXES_CONFIG } from './constants.js';
 
@@ -13,76 +13,21 @@ export const ALL_ITEMS = INITIAL_POOLS_DATA.flatMap(pool =>
   }))
 );
 
-// --- Base shape definitions ---
-// cells are [row, col] offsets from anchor (top-left origin)
-export const BASE_SHAPES = [
-  {
-    id: 'single',
-    name: '单格',
-    cells: [[0, 0]],
-  },
-  {
-    id: 'domino',
-    name: '双格',
-    cells: [[0, 0], [0, 1]],
-  },
-  {
-    id: 'tromino_line',
-    name: '三连',
-    cells: [[0, 0], [0, 1], [0, 2]],
-  },
-  {
-    id: 'tromino_l',
-    name: 'L形',
-    cells: [[0, 0], [1, 0], [1, 1]],
-  },
-  {
-    id: 'tetromino_square',
-    name: '方块',
-    cells: [[0, 0], [0, 1], [1, 0], [1, 1]],
-  },
-  {
-    id: 'tetromino_t',
-    name: 'T形',
-    cells: [[0, 0], [0, 1], [0, 2], [1, 1]],
-  },
-];
+// --- Fixed 2×2 shape ---
+// All draws use a fixed 2×2 square. No shape variety.
+export const FIXED_SHAPE = {
+  cells: [[0, 0], [0, 1], [1, 0], [1, 1]],
+  coverageCount: 4,
+};
 
-// --- Quality effects (adapted from affixes, excluding 'targeted') ---
-// 'targeted' is removed — its function is replaced by small shapes.
+// --- Quality effects (from affixes, excluding 'targeted') ---
 export const QUALITY_EFFECTS = INITIAL_AFFIXES_CONFIG.filter(a => a.id !== 'targeted');
 
-// --- Cost calculation ---
-// Cost = shape base cost (by coverage count) + quality effect premium
-export const SHAPE_BASE_COSTS = {
-  1: 4, // single cell — maximum name precision
-  2: 3,
-  3: 2,
-  4: 1, // 4 cells — least precision
-};
-
-export const QUALITY_PREMIUMS = {
-  trade_in: 0,
-  volatile: 0,
-  fragmented: 0,
-  hardened: 1,
-  precise: 1,
-  purified: 2,
-};
-
-export function calculateFrameCost(coverageCount, qualityEffectId) {
-  const baseCost = SHAPE_BASE_COSTS[coverageCount] ?? 1;
-  const premium = QUALITY_PREMIUMS[qualityEffectId] ?? 0;
-  return baseCost + premium;
-}
-
-// --- Generation constraints ---
-// These quality effects require coverage >= 2
-export const MIN_COVERAGE_EFFECTS = new Set(['trade_in', 'precise']);
+// --- Cost = affix cost (same as original system) ---
+// With fixed 2×2, cost is purely determined by quality effect.
 
 // --- Map dimensions ---
-// 3×4 grid: 12 items per draw, randomly selected from 20.
-// Regenerated every draw — no closure masks needed.
+// 3×4 grid: 12 random items from 20.
+// Only the 4 cells covered by the 2×2 placement refresh each draw.
 export const MAP_ROWS = 3;
 export const MAP_COLS = 4;
-export const MAP_ITEMS = MAP_ROWS * MAP_COLS; // 12

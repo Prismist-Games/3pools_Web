@@ -395,15 +395,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 />
                                 <ItemMap
                                     itemMap={itemMap}
-                                    selectedFrame={selectedFrameIndex !== null ? availableFrames[selectedFrameIndex] : null}
-
+                                    hasSelectedEffect={selectedFrameIndex !== null}
                                     milestone={milestone}
                                     rarityConfig={config.rarity}
                                     onPlace={handleMapPlace}
                                     onHoverCoverage={(names) => {
                                         state.setHoveredPoolItemNames(names);
                                     }}
-                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || selectedFrameIndex === null}
+                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || selectedFrameIndex === null}
                                 />
 
                                 {/* SELECTION OVERLAY (Precise 2-pick-1) — covers only the right container */}

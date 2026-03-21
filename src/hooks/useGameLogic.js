@@ -10,7 +10,7 @@ import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
-import { generateItemMap, generateFrames, getFrameCoverage } from '../utils/spatialPoolHelpers.js';
+import { generateItemMap, generateFrames, getFrameCoverage, refreshCoveredCells } from '../utils/spatialPoolHelpers.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
     const { t } = useLanguage();
@@ -106,7 +106,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const refreshPools = (tick = false) => {
-        setItemMap(generateItemMap()); // new 12 items each draw
+        // Only refresh quality effects, NOT the map.
+        // Map cells are refreshed separately in handleMapPlace.
         setAvailableFrames(generateFrames());
         setSelectedFrameIndex(null);
         if (tick && currentStageConfig.mechanics.entropy) {
@@ -553,12 +554,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const frame = availableFrames[selectedFrameIndex];
         if (!frame) return;
 
-        const coverage = getFrameCoverage(frame.shape, anchorRow, anchorCol, itemMap);
-        if (!coverage) return; // invalid placement (out of bounds)
+        const coverage = getFrameCoverage(anchorRow, anchorCol, itemMap);
+        if (!coverage) return;
 
         const coveredItems = coverage.map(c => c.item);
 
-        // Construct a virtual pool that the existing handleDraw can process
+        // Construct a virtual pool for the existing draw pipeline
         const virtualPool = {
             name: 'spatial',
             items: coveredItems,
@@ -569,9 +570,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             id: 'spatial',
         };
 
-        // Pass to existing draw pipeline — all skill logic, entropy,
-        // enhancement, trade-in, precise, gold checks are handled automatically
         handleDraw(virtualPool);
+
+        // After draw, refresh only the 4 covered cells (not the whole map)
+        setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol));
     };
 
     const handleDraw = (pool) => {
