@@ -1076,14 +1076,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
 
         if (triggerEvacuation) {
-            setTimeout(() => {
-                setModalContent({
-                    type: 'evacuation_triggered',
-                    title: '撤离触发',
-                    score: score + scoreGain,
-                });
-            }, 800);
+            setIsEvacuationMode(true);
+            showToast(t('撤离已就绪！点击撤离按钮离开'), 'info');
         }
+    };
+
+    const handleTriggerEvacuation = () => {
+        setModalContent({
+            type: 'evacuation_triggered',
+            title: '撤离触发',
+            score: score,
+        });
     };
 
     const handleEvacuationContinue = () => {
@@ -1156,6 +1159,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleSlotClick,
             handleDiscardNew,
             handleFillCell,
+            handleTriggerEvacuation,
             handleEvacuationContinue,
             handleEvacuationExtract,
             handleConfirmRecycle,

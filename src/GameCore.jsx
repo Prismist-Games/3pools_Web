@@ -50,6 +50,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleSlotClick,
         handleDiscardNew,
         handleFillCell,
+        handleTriggerEvacuation,
         handleEvacuationContinue,
         handleEvacuationExtract,
         handleConfirmRecycle,
@@ -365,7 +366,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     <section className="flex-none border-b border-slate-200 relative">
                         <div className="flex flex-row items-start justify-center gap-4 px-4 py-4">
                             {/* Left: Milestone Grid (demand side) */}
-                            <div className="flex-shrink-0">
+                            <div className="flex-shrink-0 flex flex-col items-center gap-2">
                                 <MilestoneGrid
                                     milestone={milestone}
                                     fillableCellIds={fillableCellIds}
@@ -373,6 +374,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     milestoneNumber={milestoneNumber}
                                     hoveredPoolItemNames={hoveredPoolItemNames}
                                 />
+                                {isEvacuationMode && (
+                                    <button
+                                        onClick={handleTriggerEvacuation}
+                                        className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all animate-pulse"
+                                    >
+                                        🚀 {t('撤离')}
+                                    </button>
+                                )}
                             </div>
 
                             {/* Right: Frame Selector + Item Map (supply side) */}
