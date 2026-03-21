@@ -25,7 +25,19 @@
       "Bash(env)",
       "Bash(python:*)",
       "Bash(cp:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(curl -s https://en.wikipedia.org/wiki/The_King_is_Watching)",
+      "Bash(curl -s https://store.steampowered.com/app/2231450/The_King_is_Watching/)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:www.idreamofindie.com)",
+      "WebFetch(domain:aftermath.site)",
+      "WebFetch(domain:gamerant.com)",
+      "WebFetch(domain:store.steampowered.com)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run:*)",
+      "Bash(timeout 8 npx vite --host)",
+      "Bash(npx vite:*)"
     ]
   }
 }

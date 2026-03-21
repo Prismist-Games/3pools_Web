@@ -1,274 +1,239 @@
 /**
- * matrixHelpers.js
- * Utility functions for the 5x5 resource matrix system:
- * shape placement, coverage checking, and matrix generation.
+ * matrixHelpers.js v2
+ * Machine-based matrix system with direction, action cards, full density grid.
  */
 
-import { SHAPE_DEFINITIONS, MATRIX_CONFIG } from '../data/matrixConfig';
+import { SHAPE_DEFINITIONS, MATRIX_CONFIG, ACTION_CARD_CONFIG, ACTION_TYPES } from '../data/matrixConfig';
 
 // ---------------------------------------------------------------------------
-// 1. getShapeCells
+// 1. rotateCells — rotate cell offsets around pivot by direction (0=up,1=right,2=down,3=left)
 // ---------------------------------------------------------------------------
 
-/**
- * Returns the absolute [row, col] positions for a shape placed at (row, col).
- *
- * @param {object} shapeDef   - One entry from SHAPE_DEFINITIONS
- * @param {number} row        - Top-left anchor row on the grid
- * @param {number} col        - Top-left anchor col on the grid
- * @param {string} orientation - 'h' | 'v' (ignored when shapeDef.hasOrientation is false)
- * @returns {Array<[number,number]>}
- */
-export const getShapeCells = (shapeDef, row, col, orientation) => {
-  const key = shapeDef.hasOrientation ? orientation : 'default';
-  const offsets = shapeDef.cells[key] || shapeDef.cells.default || [];
-  return offsets.map(([dr, dc]) => [row + dr, col + dc]);
+export const rotateCells = (cells, pivot, rotation) => {
+  if (rotation === 0) return cells;
+  const [pr, pc] = pivot;
+  return cells.map(([r, c]) => {
+    const dr = r - pr;
+    const dc = c - pc;
+    switch (rotation) {
+      case 1: return [pr + dc, pc - dr];   // 90° CW (facing right)
+      case 2: return [pr - dr, pc - dc];   // 180° (facing down)
+      case 3: return [pr - dc, pc + dr];   // 270° CW (facing left)
+      default: return [r, c];
+    }
+  });
 };
 
 // ---------------------------------------------------------------------------
-// 1b. getShapeCellsAtAnchor
+// 2. getMachineCoverage — get cells covered by machine's shape at position + direction
 // ---------------------------------------------------------------------------
 
-/**
- * Returns shape cells positioned so the shape's pivot aligns with the anchor.
- * The pivot is the cell within the shape that represents the player's position.
- */
-export const getShapeCellsAtAnchor = (shapeDef, anchorRow, anchorCol, orientation) => {
+export const getMachineCoverage = (shapeDef, machineRow, machineCol, direction) => {
   const pivot = shapeDef.pivot || [0, 0];
-  const originRow = anchorRow - pivot[0];
-  const originCol = anchorCol - pivot[1];
-  return getShapeCells(shapeDef, originRow, originCol, orientation);
+  const rotated = rotateCells(shapeDef.cells, pivot, direction);
+  return rotated.map(([r, c]) => [machineRow + r - pivot[0], machineCol + c - pivot[1]]);
 };
 
 // ---------------------------------------------------------------------------
-// 2. isValidPlacement
+// 3. getCoveredResourcePoints — resource points fully covered by shape cells
 // ---------------------------------------------------------------------------
 
-/**
- * Returns true if the shape placement is within bounds AND covers at least
- * one anchor cell.
- *
- * @param {Array<[number,number]>} shapeCells - Absolute cell positions
- * @param {number}                 gridSize   - Size of the square grid
- * @param {Array<{row:number,col:number}>} anchors
- * @returns {boolean}
- */
-export const isValidPlacement = (shapeCells, gridSize, anchors) => {
-  const inBounds = shapeCells.every(
-    ([r, c]) => r >= 0 && r < gridSize && c >= 0 && c < gridSize
-  );
-  if (!inBounds) return false;
-
-  const coversAnchor = anchors.some(anchor =>
-    shapeCells.some(([r, c]) => r === anchor.row && c === anchor.col)
-  );
-  return coversAnchor;
-};
-
-// ---------------------------------------------------------------------------
-// 3. getCoveredResourcePoints
-// ---------------------------------------------------------------------------
-
-/**
- * Returns resource points that are FULLY covered by the shape cells.
- * "Fully covered" means every cell of the resource point appears in shapeCells.
- *
- * @param {Array<[number,number]>} shapeCells
- * @param {Array<{id, cells, item, rarity, size}>} resourcePoints
- * @returns {Array<object>} Subset of resourcePoints that are fully covered
- */
 export const getCoveredResourcePoints = (shapeCells, resourcePoints) => {
-  // Build a Set of "r,c" strings for O(1) lookup
-  const covered = new Set(shapeCells.map(([r, c]) => `${r},${c}`));
-
+  const covered = new Set(
+    shapeCells
+      .filter(([r, c]) => r >= 0 && r < 5 && c >= 0 && c < 5)
+      .map(([r, c]) => `${r},${c}`)
+  );
   return resourcePoints.filter(rp =>
     rp.cells.every(([r, c]) => covered.has(`${r},${c}`))
   );
 };
 
 // ---------------------------------------------------------------------------
-// 4. selectAvailableShapes
+// 4. generateActionCards — draw action cards for one turn
 // ---------------------------------------------------------------------------
 
-/**
- * Randomly picks `shapesPerRound` shapes from SHAPE_DEFINITIONS without
- * replacement.
- *
- * @param {number} shapesPerRound
- * @returns {Array<object>} Subset of SHAPE_DEFINITIONS
- */
-export const selectAvailableShapes = (shapesPerRound = MATRIX_CONFIG.shapesPerRound) => {
-  const pool = [...SHAPE_DEFINITIONS];
-  const count = Math.min(shapesPerRound, pool.length);
-  const result = [];
-  while (result.length < count) {
-    const idx = Math.floor(Math.random() * pool.length);
-    result.push(pool.splice(idx, 1)[0]);
+export const generateActionCards = () => {
+  const { cardsPerTurn, probabilities } = ACTION_CARD_CONFIG;
+  const types = Object.entries(probabilities);
+  const cards = [];
+
+  for (let i = 0; i < cardsPerTurn; i++) {
+    const r = Math.random();
+    let acc = 0;
+    let type = ACTION_TYPES.MOVE;
+    for (const [t, prob] of types) {
+      acc += prob;
+      if (r <= acc) { type = t; break; }
+    }
+    cards.push({
+      id: Math.random().toString(36).substr(2, 9),
+      type,
+      used: false,
+    });
   }
-  return result;
+  return cards;
 };
 
 // ---------------------------------------------------------------------------
-// 5. generateResourceMatrix
+// 5. generateResourceMatrix — full density grid, every cell has a resource
 // ---------------------------------------------------------------------------
 
-/**
- * Generates a complete matrix state: grid, resourcePoints, anchors.
- *
- * @param {Array<{name,icon,poolId,poolName}>} allNormalItems
- * @returns {{ grid: Array<Array>, resourcePoints: Array, anchors: Array }}
- */
 export const generateResourceMatrix = (allNormalItems) => {
-  const { gridSize, singleCellCount, doubleCellCount, tripleCellCount, anchorCount } = MATRIX_CONFIG;
-
-  // --- helpers ---
-  const randomInRange = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+  const { gridSize, doubleCellCount, tripleCellCount } = MATRIX_CONFIG;
   const uid = () => Math.random().toString(36).substr(2, 9);
   const cellKey = (r, c) => `${r},${c}`;
+  const randomInRange = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-  // 5x5 grid initialised to null
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
-
-  // Tracks which cells are already claimed by a resource point
-  const occupiedByResource = new Set();
-
+  const occupiedByMulti = new Set(); // cells claimed by multi-cell resource points
   const resourcePoints = [];
 
-  // --- pick a random item ---
-  const randomItem = () => {
-    const idx = Math.floor(Math.random() * allNormalItems.length);
-    const src = allNormalItems[idx];
-    return { name: src.name, icon: src.icon, poolId: src.poolId, poolName: src.poolName };
-  };
-
-  // --- try to place a multi-cell resource point of `size` cells ---
+  // --- Phase 1: Place multi-cell resource points first ---
   const tryPlaceMultiCell = (size) => {
-    const MAX_RETRIES = 20;
+    const MAX_RETRIES = 30;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      // Pick a random empty starting cell
       const startR = Math.floor(Math.random() * gridSize);
       const startC = Math.floor(Math.random() * gridSize);
-      if (occupiedByResource.has(cellKey(startR, startC))) continue;
+      if (occupiedByMulti.has(cellKey(startR, startC))) continue;
 
-      // Grow the region to `size` cells along H or V direction
       const direction = Math.random() < 0.5 ? 'h' : 'v';
       const cells = [[startR, startC]];
-
       let ok = true;
       for (let step = 1; step < size; step++) {
         const [pr, pc] = cells[cells.length - 1];
         const nr = direction === 'v' ? pr + 1 : pr;
         const nc = direction === 'h' ? pc + 1 : pc;
-        if (nr >= gridSize || nc >= gridSize || occupiedByResource.has(cellKey(nr, nc))) {
-          ok = false;
-          break;
+        if (nr >= gridSize || nc >= gridSize || occupiedByMulti.has(cellKey(nr, nc))) {
+          ok = false; break;
         }
         cells.push([nr, nc]);
       }
-
       if (!ok || cells.length < size) continue;
 
-      // Commit
-      const id = uid();
-      const item = randomItem();
-
-      cells.forEach(([r, c]) => occupiedByResource.add(cellKey(r, c)));
-
-      resourcePoints.push({ id, cells, item, size });
+      cells.forEach(([r, c]) => occupiedByMulti.add(cellKey(r, c)));
+      resourcePoints.push({ id: uid(), cells, size });
       return true;
     }
-    return false; // could not place
+    return false;
   };
 
-  // --- Generate resource points: triple → double → single ---
-
   const tripleCount = randomInRange(tripleCellCount[0], tripleCellCount[1]);
-  for (let i = 0; i < tripleCount; i++) {
-    tryPlaceMultiCell(3);
-  }
+  for (let i = 0; i < tripleCount; i++) tryPlaceMultiCell(3);
 
   const doubleCount = randomInRange(doubleCellCount[0], doubleCellCount[1]);
-  for (let i = 0; i < doubleCount; i++) {
-    tryPlaceMultiCell(2);
-  }
+  for (let i = 0; i < doubleCount; i++) tryPlaceMultiCell(2);
 
-  // Single-cell resource points: pick distinct empty cells
-  const singleTarget = randomInRange(singleCellCount[0], singleCellCount[1]);
-  const emptyCells = [];
+  // --- Phase 2: Fill remaining cells as single-cell resource points ---
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
-      if (!occupiedByResource.has(cellKey(r, c))) emptyCells.push([r, c]);
-    }
-  }
-  // Shuffle
-  emptyCells.sort(() => Math.random() - 0.5);
-  const singleCount = Math.min(singleTarget, emptyCells.length);
-  for (let i = 0; i < singleCount; i++) {
-    const [r, c] = emptyCells[i];
-    const id = uid();
-    const item = randomItem();
-    occupiedByResource.add(cellKey(r, c));
-    resourcePoints.push({ id, cells: [[r, c]], item, size: 1 });
-  }
-
-  // --- Place anchors ---
-  // Anchors only go on empty cells (never on resource cells)
-  const resourceCellKeys = new Set(resourcePoints.flatMap(rp => rp.cells.map(([r, c]) => cellKey(r, c))));
-
-  const anchorCandidates = [];
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      if (!resourceCellKeys.has(cellKey(r, c))) anchorCandidates.push([r, c]);
-    }
-  }
-
-  const manhattanDist = ([r1, c1], [r2, c2]) => Math.abs(r1 - r2) + Math.abs(c1 - c2);
-
-  const anchors = [];
-  const usedAnchorKeys = new Set();
-
-  for (let i = 0; i < anchorCount && anchorCandidates.length > 0; i++) {
-    let bestCell = null;
-    let bestScore = -1;
-
-    for (const cell of anchorCandidates) {
-      if (usedAnchorKeys.has(cellKey(cell[0], cell[1]))) continue;
-
-      // Score = minimum Manhattan distance to any already-placed anchor
-      // (First anchor: any cell scores 0 — pick randomly by tracking a simple pick)
-      const score =
-        anchors.length === 0
-          ? Math.random() // randomise first anchor selection
-          : Math.min(...anchors.map(a => manhattanDist(cell, [a.row, a.col])));
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestCell = cell;
+      if (!occupiedByMulti.has(cellKey(r, c))) {
+        resourcePoints.push({ id: uid(), cells: [[r, c]], size: 1 });
       }
     }
-
-    if (!bestCell) break;
-    usedAnchorKeys.add(cellKey(bestCell[0], bestCell[1]));
-    anchors.push({ row: bestCell[0], col: bestCell[1] });
   }
 
-  // --- Build grid cell map ---
-  // First, resource point cells
-  for (const rp of resourcePoints) {
+  // --- Phase 3: Assign unique items to resource points ---
+  const totalSlots = resourcePoints.length;
+  const uniqueByName = [];
+  const seenNames = new Set();
+  for (const src of allNormalItems) {
+    if (!seenNames.has(src.name)) {
+      seenNames.add(src.name);
+      uniqueByName.push({ name: src.name, icon: src.icon, poolId: src.poolId, poolName: src.poolName });
+    }
+  }
+
+  // Full density: 20-25 resource points for 20 unique items.
+  // Build pool: first round unique, second round allows 2nd copy
+  const pool = [];
+  const round1 = [...uniqueByName];
+  for (let i = round1.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [round1[i], round1[j]] = [round1[j], round1[i]];
+  }
+  pool.push(...round1);
+
+  if (pool.length < totalSlots) {
+    const round2 = [...uniqueByName];
+    for (let i = round2.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [round2[i], round2[j]] = [round2[j], round2[i]];
+    }
+    pool.push(...round2);
+  }
+
+  // Assign items, avoiding grid-adjacent same-name
+  const slotNeighbors = resourcePoints.map((slot, i) => {
+    const myCells = new Set(slot.cells.map(([r, c]) => cellKey(r, c)));
+    const neighbors = [];
+    for (let j = 0; j < resourcePoints.length; j++) {
+      if (i === j) continue;
+      const adjacent = resourcePoints[j].cells.some(([r, c]) =>
+        [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].some(([nr, nc]) => myCells.has(cellKey(nr, nc)))
+      );
+      if (adjacent) neighbors.push(j);
+    }
+    return neighbors;
+  });
+
+  // Process in random order
+  const order = resourcePoints.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+
+  const assigned = new Array(totalSlots).fill(null);
+  const nameCount = {};
+  const usedPool = new Array(pool.length).fill(false);
+
+  for (const i of order) {
+    const bannedNames = new Set(
+      slotNeighbors[i].map(j => assigned[j]?.name).filter(Boolean)
+    );
+    let picked = -1;
+    for (let p = 0; p < pool.length; p++) {
+      if (usedPool[p]) continue;
+      if (bannedNames.has(pool[p].name)) continue;
+      if ((nameCount[pool[p].name] || 0) >= 2) continue;
+      picked = p; break;
+    }
+    if (picked === -1) {
+      for (let p = 0; p < pool.length; p++) {
+        if (usedPool[p]) continue;
+        if ((nameCount[pool[p].name] || 0) >= 2) continue;
+        picked = p; break;
+      }
+    }
+    if (picked === -1) {
+      // Emergency: all used up, pick any
+      const src = uniqueByName[Math.floor(Math.random() * uniqueByName.length)];
+      assigned[i] = src;
+    } else {
+      assigned[i] = pool[picked];
+      usedPool[picked] = true;
+    }
+    nameCount[assigned[i].name] = (nameCount[assigned[i].name] || 0) + 1;
+  }
+
+  const finalResourcePoints = resourcePoints.map((slot, i) => ({
+    ...slot,
+    item: assigned[i],
+  }));
+
+  // --- Build grid ---
+  for (const rp of finalResourcePoints) {
     for (const [r, c] of rp.cells) {
       grid[r][c] = { type: 'resource', resourcePointId: rp.id };
     }
   }
 
-  // Then, anchors (always on empty cells, never overlap resources)
-  for (const anchor of anchors) {
-    grid[anchor.row][anchor.col] = { type: 'anchor' };
-  }
-
-  // Player position: randomly assigned to one of the anchors
-  const playerPosition = anchors.length > 0
-    ? anchors[Math.floor(Math.random() * anchors.length)]
-    : { row: 2, col: 2 };
-
-  return { grid, resourcePoints, anchors, playerPosition };
+  return { grid, resourcePoints: finalResourcePoints };
 };
+
+// ---------------------------------------------------------------------------
+// 6. selectAvailableShapes — for shape selection UI when using "adjust" action
+// ---------------------------------------------------------------------------
+
+export const selectAvailableShapes = () => [...SHAPE_DEFINITIONS];

@@ -9,6 +9,7 @@ import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
 import ResourceMatrix from './components/game/ResourceMatrix';
 import ShapeSelector from './components/game/ShapeSelector';
+import ActionCards from './components/game/ActionCards';
 
 import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
@@ -30,7 +31,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
     const {
         gold, score, currentStageConfig, maxInventorySize,
-        drawCount, matrix, availableShapes, hoveredShape, shapeOrientation, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
+        drawCount, matrix, machinePos, machineDir, activeShape, actionCards, actionsRemaining, isSelectingShape, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredItemName, hoveredSlotIndex,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
@@ -54,10 +55,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleConfirmSubmission,
         toggleSubmitMode,
         toggleRecycleMode,
-        handleMatrixDraw,
-        handleShapeHover,
-        handleShapeLeave,
-        handleToggleOrientation,
+        useActionCard,
+        selectNewShape,
+        endTurn,
         handleSelectionSelect,
         handleSelectionCancel,
         handleConfirmRecycle,
@@ -558,38 +558,41 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
                                     <RefreshCw size={16} /> {t("资源矩阵")}
                                 </h2>
-
-                                <span className="text-xs text-slate-400 hidden md:block">{t("悬浮形状预览，点击形状抽取")}</span>
+                                <span className="text-xs text-slate-400 hidden md:block">
+                                    {t("当前形状")}: {t(activeShape?.name || '短线')}
+                                </span>
                             </div>
 
-                            <div className={`
-                        flex flex-col gap-4 pb-4
-                        transition-opacity duration-300
-                        ${pendingItem || isSubmitMode || isRecycleMode || selectionMode ? 'opacity-100' : 'opacity-100'}
-                    `}>
-                                {/* Shape Selector */}
-                                <div className="mb-4">
-                                    <ShapeSelector
-                                        shapes={availableShapes}
-                                        hoveredShape={hoveredShape}
-                                        orientation={shapeOrientation}
-                                        onDraw={handleMatrixDraw}
-                                        onHoverShape={handleShapeHover}
-                                        onLeaveShape={handleShapeLeave}
-                                        onToggleOrientation={handleToggleOrientation}
-                                        gold={gold}
-                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
-                                    />
-                                </div>
-
+                            <div className="flex flex-col gap-4 pb-4">
                                 {/* Resource Matrix */}
                                 <ResourceMatrix
                                     matrix={matrix}
-                                    hoveredShape={hoveredShape}
-                                    orientation={shapeOrientation}
+                                    machinePos={machinePos}
+                                    machineDir={machineDir}
+                                    activeShape={activeShape}
+                                    orders={orders}
+                                    emergencyOrders={emergencyOrders}
+                                    inventory={inventory}
+                                />
+
+                                {/* Action Cards */}
+                                <ActionCards
+                                    cards={actionCards}
+                                    actionsRemaining={actionsRemaining}
+                                    onUseCard={useActionCard}
+                                    onEndTurn={endTurn}
                                     disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
                                 />
                             </div>
+
+                            {/* Shape selection modal (when using "adjust range" action) */}
+                            {isSelectingShape && (
+                                <ShapeSelector
+                                    activeShapeId={activeShape?.id}
+                                    onSelect={selectNewShape}
+                                    onCancel={() => selectNewShape(activeShape)}
+                                />
+                            )}
 
                         </div>
 
