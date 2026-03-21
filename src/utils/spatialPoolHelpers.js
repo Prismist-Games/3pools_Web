@@ -9,6 +9,7 @@ import {
   MAP_ROWS,
   MAP_COLS,
   MIN_COVERAGE_EFFECTS,
+  CLOSURE_CONFIGS,
   calculateFrameCost,
 } from '../data/spatialConstants.js';
 
@@ -142,20 +143,34 @@ export function generateFrames() {
   return frames;
 }
 
+// --- Closure mask generation ---
+
+/**
+ * Generate a random closure mask (Set of "row,col" strings for closed cells).
+ * Each draw, 8 cells are closed, leaving 12 open.
+ */
+export function generateClosureMask() {
+  const config = CLOSURE_CONFIGS[Math.floor(Math.random() * CLOSURE_CONFIGS.length)];
+  return new Set(config.map(([r, c]) => `${r},${c}`));
+}
+
 // --- Coverage calculation ---
 
 /**
  * Given a shape and an anchor position (row, col), return the grid cells covered.
- * Returns null if any cell would be out of bounds (invalid placement).
+ * Returns null if any cell would be out of bounds or on a closed cell.
  * Otherwise returns array of { row, col, item } objects.
  */
-export function getFrameCoverage(shape, anchorRow, anchorCol, itemMap) {
+export function getFrameCoverage(shape, anchorRow, anchorCol, itemMap, closureMask) {
   const covered = [];
   for (const [dr, dc] of shape.cells) {
     const r = anchorRow + dr;
     const c = anchorCol + dc;
     if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) {
-      return null; // out of bounds — invalid placement
+      return null; // out of bounds
+    }
+    if (closureMask && closureMask.has(`${r},${c}`)) {
+      return null; // on a closed cell
     }
     covered.push({ row: r, col: c, item: itemMap[r][c] });
   }
@@ -163,13 +178,16 @@ export function getFrameCoverage(shape, anchorRow, anchorCol, itemMap) {
 }
 
 /**
- * Check if a placement is valid (all shape cells within grid bounds).
+ * Check if a placement is valid (all shape cells within bounds and on open cells).
  */
-export function isValidPlacement(shape, anchorRow, anchorCol) {
+export function isValidPlacement(shape, anchorRow, anchorCol, closureMask) {
   for (const [dr, dc] of shape.cells) {
     const r = anchorRow + dr;
     const c = anchorCol + dc;
     if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) {
+      return false;
+    }
+    if (closureMask && closureMask.has(`${r},${c}`)) {
       return false;
     }
   }

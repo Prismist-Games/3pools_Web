@@ -9,36 +9,35 @@ import { MAP_ROWS, MAP_COLS } from '../../data/spatialConstants';
  * Props:
  *   itemMap: 2D array [row][col] of { name, icon, poolId, poolName }
  *   selectedFrame: the currently selected frame object (or null)
- *   onPlace: (anchorRow, anchorCol) => void — called when player confirms placement
- *   onHoverCoverage: (itemNames[]) => void — called with covered item names on hover (for milestone highlighting)
- *   disabled: boolean — block interaction
+ *   closureMask: Set of "row,col" strings for closed cells
+ *   onPlace: (anchorRow, anchorCol) => void
+ *   onHoverCoverage: (itemNames[]) => void
+ *   disabled: boolean
  */
-function ItemMap({ itemMap, selectedFrame, onPlace, onHoverCoverage, disabled }) {
+function ItemMap({ itemMap, selectedFrame, closureMask, onPlace, onHoverCoverage, disabled }) {
   const { t } = useLanguage();
   const [hoverAnchor, setHoverAnchor] = useState(null);
 
-  // Compute covered cells based on hover position and selected frame
   const coveredCells = useMemo(() => {
     if (!selectedFrame || !hoverAnchor) return new Set();
     const { row, col } = hoverAnchor;
-    if (!isValidPlacement(selectedFrame.shape, row, col)) return new Set();
+    if (!isValidPlacement(selectedFrame.shape, row, col, closureMask)) return new Set();
     const cells = new Set();
     for (const [dr, dc] of selectedFrame.shape.cells) {
       cells.add(`${row + dr},${col + dc}`);
     }
     return cells;
-  }, [selectedFrame, hoverAnchor]);
+  }, [selectedFrame, hoverAnchor, closureMask]);
 
   const isValidHover = useMemo(() => {
     if (!selectedFrame || !hoverAnchor) return false;
-    return isValidPlacement(selectedFrame.shape, hoverAnchor.row, hoverAnchor.col);
-  }, [selectedFrame, hoverAnchor]);
+    return isValidPlacement(selectedFrame.shape, hoverAnchor.row, hoverAnchor.col, closureMask);
+  }, [selectedFrame, hoverAnchor, closureMask]);
 
   const handleCellHover = (row, col) => {
     if (!selectedFrame || disabled) return;
     setHoverAnchor({ row, col });
-    // Compute covered item names for milestone highlighting
-    if (isValidPlacement(selectedFrame.shape, row, col) && onHoverCoverage) {
+    if (isValidPlacement(selectedFrame.shape, row, col, closureMask) && onHoverCoverage) {
       const names = selectedFrame.shape.cells
         .map(([dr, dc]) => itemMap[row + dr]?.[col + dc]?.name)
         .filter(Boolean);
@@ -53,7 +52,7 @@ function ItemMap({ itemMap, selectedFrame, onPlace, onHoverCoverage, disabled })
 
   const handleCellClick = (row, col) => {
     if (!selectedFrame || disabled) return;
-    if (!isValidPlacement(selectedFrame.shape, row, col)) return;
+    if (!isValidPlacement(selectedFrame.shape, row, col, closureMask)) return;
     onPlace(row, col);
     setHoverAnchor(null);
   };
@@ -73,7 +72,17 @@ function ItemMap({ itemMap, selectedFrame, onPlace, onHoverCoverage, disabled })
         const row = Math.floor(i / MAP_COLS);
         const col = i % MAP_COLS;
         const item = itemMap[row][col];
+        const isClosed = closureMask && closureMask.has(`${row},${col}`);
         const isCovered = coveredCells.has(`${row},${col}`);
+
+        if (isClosed) {
+          return (
+            <div
+              key={`${row}-${col}`}
+              className="w-16 h-16 rounded-md bg-slate-200/60 border border-slate-200/40"
+            />
+          );
+        }
 
         return (
           <div

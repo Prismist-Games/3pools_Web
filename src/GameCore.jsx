@@ -31,7 +31,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     const {
         gold, score, currentStageConfig, maxInventorySize,
         drawCount,
-        itemMap, availableFrames, selectedFrameIndex,
+        itemMap, availableFrames, selectedFrameIndex, closureMask,
         milestone, milestoneNumber, cellMatches, fillableCellIds, relevantPoolIds,
         inventory,
         pendingItem, pendingQueue, selectedSlot,
@@ -361,43 +361,40 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                 <main className="flex-1 flex flex-col overflow-y-auto custom-scrollbar transition-all duration-300">
 
-                    {/* TOP: MILESTONE GRID */}
-                    <section className="flex-none flex flex-col items-center px-4 py-4 bg-slate-50/50 border-b border-slate-200">
-                        <div className="flex flex-col gap-3 w-full max-w-2xl">
-                            <MilestoneGrid
-                                milestone={milestone}
-                                fillableCellIds={fillableCellIds}
-                                onFillCell={handleFillCell}
-                                milestoneNumber={milestoneNumber}
-                                hoveredPoolItemNames={hoveredPoolItemNames}
-                            />
-
-                        </div>
-                    </section>
-
-                    {/* MIDDLE: POOLS (horizontal row) */}
+                    {/* TOP: MILESTONE GRID + SPATIAL POOL (side by side) */}
                     <section className="flex-none border-b border-slate-200 relative">
-                        <div className="flex flex-col items-center gap-3 px-4 py-3">
-                            {/* Frame selector */}
-                            <FrameSelector
-                                frames={availableFrames}
-                                selectedIndex={selectedFrameIndex}
-                                gold={gold}
-                                onSelect={handleFrameSelect}
-                                disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode}
-                            />
+                        <div className="flex flex-row items-start justify-center gap-4 px-4 py-4">
+                            {/* Left: Milestone Grid (demand side) */}
+                            <div className="flex-shrink-0">
+                                <MilestoneGrid
+                                    milestone={milestone}
+                                    fillableCellIds={fillableCellIds}
+                                    onFillCell={handleFillCell}
+                                    milestoneNumber={milestoneNumber}
+                                    hoveredPoolItemNames={hoveredPoolItemNames}
+                                />
+                            </div>
 
-                            {/* Item map */}
-                            <ItemMap
-                                itemMap={itemMap}
-                                selectedFrame={selectedFrameIndex !== null ? availableFrames[selectedFrameIndex] : null}
-                                onPlace={handleMapPlace}
-                                onHoverCoverage={(names) => {
-                                    // Reuse the existing hoveredPoolItemNames mechanism for milestone highlighting
-                                    state.setHoveredPoolItemNames(names);
-                                }}
-                                disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || selectedFrameIndex === null}
-                            />
+                            {/* Right: Frame Selector + Item Map (supply side) */}
+                            <div className="flex-shrink-0 flex flex-col items-center gap-3">
+                                <FrameSelector
+                                    frames={availableFrames}
+                                    selectedIndex={selectedFrameIndex}
+                                    gold={gold}
+                                    onSelect={handleFrameSelect}
+                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode}
+                                />
+                                <ItemMap
+                                    itemMap={itemMap}
+                                    selectedFrame={selectedFrameIndex !== null ? availableFrames[selectedFrameIndex] : null}
+                                    closureMask={closureMask}
+                                    onPlace={handleMapPlace}
+                                    onHoverCoverage={(names) => {
+                                        state.setHoveredPoolItemNames(names);
+                                    }}
+                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || selectedFrameIndex === null}
+                                />
+                            </div>
                         </div>
 
                         {/* SELECTION OVERLAY (Precise 2-pick-1) */}
