@@ -84,33 +84,5 @@ export const MIN_COVERAGE_EFFECTS = new Set(['trade_in', 'precise']);
 export const MAP_ROWS = 5;
 export const MAP_COLS = 4;
 
-// --- Closure configurations ---
-// Each config is an array of [row, col] pairs (8 cells to close).
-// Horizontal: close top 2 or bottom 2 rows (2 configs) — middle closures split the grid
-// Vertical: close left+right edge columns for 4 rows, bridge at top or bottom (2 configs)
-// Total: 4 configs
-export const CLOSURE_CONFIGS = [];
-
-// Horizontal: close top 2 rows or bottom 2 rows only
-for (const startRow of [0, 3]) {
-  const cells = [];
-  for (let r = startRow; r < startRow + 2; r++) {
-    for (let c = 0; c < MAP_COLS; c++) {
-      cells.push([r, c]);
-    }
-  }
-  CLOSURE_CONFIGS.push(cells);
-}
-
-// Vertical: close left edge (col 0) + right edge (col 3) for 4 rows, bridge at top or bottom
-// Leaves a 2-wide center corridor (cols 1-2) + 1 full-width bridge row = 12 open cells
-for (let bridgeRow = 0; bridgeRow <= 4; bridgeRow += 4) {
-  // bridgeRow 0 = bridge at top, bridgeRow 4 = bridge at bottom
-  const cells = [];
-  for (let r = 0; r < MAP_ROWS; r++) {
-    if (r === bridgeRow) continue; // skip the bridge row
-    cells.push([r, 0]);  // close left edge
-    cells.push([r, MAP_COLS - 1]); // close right edge
-  }
-  CLOSURE_CONFIGS.push(cells);
-}
+// Closure mask is now generated randomly in spatialPoolHelpers.js
+// (8 random cells closed per draw, with shape validity check)

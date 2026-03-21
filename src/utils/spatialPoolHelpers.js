@@ -9,7 +9,6 @@ import {
   MAP_ROWS,
   MAP_COLS,
   MIN_COVERAGE_EFFECTS,
-  CLOSURE_CONFIGS,
   calculateFrameCost,
 } from '../data/spatialConstants.js';
 
@@ -151,13 +150,62 @@ export function generateFrames() {
 
 // --- Closure mask generation ---
 
+const CELLS_TO_CLOSE = 8;
+
+/**
+ * Check if a closure mask leaves valid placements for all base shape types.
+ */
+function hasValidPlacements(closedSet) {
+  const variants = getAllShapeVariants();
+  const baseIds = [...new Set(BASE_SHAPES.map(s => s.id))];
+  for (const baseId of baseIds) {
+    const baseVariants = variants.filter(v => v.baseId === baseId);
+    let hasAny = false;
+    for (const v of baseVariants) {
+      if (hasAny) break;
+      for (let r = 0; r < MAP_ROWS && !hasAny; r++) {
+        for (let c = 0; c < MAP_COLS && !hasAny; c++) {
+          if (isValidPlacement(v, r, c, closedSet)) hasAny = true;
+        }
+      }
+    }
+    if (!hasAny) return false;
+  }
+  return true;
+}
+
 /**
  * Generate a random closure mask (Set of "row,col" strings for closed cells).
- * Each draw, 8 cells are closed, leaving 12 open.
+ * Randomly closes 8 of 20 cells (equal probability per cell = 40% closed / 60% open).
+ * Re-rolls if the open area can't fit all shape types.
  */
 export function generateClosureMask() {
-  const config = CLOSURE_CONFIGS[Math.floor(Math.random() * CLOSURE_CONFIGS.length)];
-  return new Set(config.map(([r, c]) => `${r},${c}`));
+  const allCells = [];
+  for (let r = 0; r < MAP_ROWS; r++) {
+    for (let c = 0; c < MAP_COLS; c++) {
+      allCells.push(`${r},${c}`);
+    }
+  }
+
+  for (let attempt = 0; attempt < 100; attempt++) {
+    // Fisher-Yates shuffle
+    const shuffled = [...allCells];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const closed = new Set(shuffled.slice(0, CELLS_TO_CLOSE));
+    if (hasValidPlacements(closed)) return closed;
+  }
+
+  // Fallback: close top 2 rows (guaranteed valid)
+  const fallback = new Set();
+  for (let r = 0; r < 2; r++) {
+    for (let c = 0; c < MAP_COLS; c++) {
+      fallback.add(`${r},${c}`);
+    }
+  }
+  return fallback;
 }
 
 // --- Coverage calculation ---
