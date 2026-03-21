@@ -1179,6 +1179,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleToolItemUse,
             handleCancelToolSelection,
             handleFrameSelect: (index) => setSelectedFrameIndex(index),
+            handleRefreshMap: () => {
+                if (gold < 1) return;
+                setGold(prev => prev - 1);
+                setItemMap(generateItemMap());
+            },
             handleMapPlace,
         },
         helpers: {

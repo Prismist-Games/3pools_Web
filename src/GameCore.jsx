@@ -65,6 +65,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleToolItemUse,
         handleCancelToolSelection,
         handleFrameSelect,
+        handleRefreshMap,
         handleMapPlace,
     } = actions;
 
@@ -393,17 +394,36 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     onSelect={handleFrameSelect}
                                     disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode }
                                 />
-                                <ItemMap
-                                    itemMap={itemMap}
-                                    hasSelectedEffect={selectedFrameIndex !== null}
-                                    milestone={milestone}
-                                    rarityConfig={config.rarity}
-                                    onPlace={handleMapPlace}
-                                    onHoverCoverage={(names) => {
-                                        state.setHoveredPoolItemNames(names);
-                                    }}
-                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || selectedFrameIndex === null}
-                                />
+                                <div className="flex items-start gap-2">
+                                    <ItemMap
+                                        itemMap={itemMap}
+                                        hasSelectedEffect={selectedFrameIndex !== null}
+                                        milestone={milestone}
+                                        rarityConfig={config.rarity}
+                                        onPlace={handleMapPlace}
+                                        onHoverCoverage={(names) => {
+                                            state.setHoveredPoolItemNames(names);
+                                        }}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || selectedFrameIndex === null}
+                                    />
+                                    <button
+                                        onClick={handleRefreshMap}
+                                        disabled={gold < 1 || !!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
+                                        title={t('刷新地图 (1金币)')}
+                                        className={`
+                                            flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all
+                                            ${gold >= 1 && !pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode
+                                                ? 'border-slate-300 bg-white hover:border-amber-400 hover:bg-amber-50 text-slate-500 hover:text-amber-600'
+                                                : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                                            }
+                                        `}
+                                    >
+                                        <RefreshCw size={16} />
+                                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-600">
+                                            <Coins size={10} />1
+                                        </span>
+                                    </button>
+                                </div>
 
                                 {/* SELECTION OVERLAY (Precise 2-pick-1) — covers only the right container */}
                                 {selectionMode && selectionMode.type !== 'trade_in' && (
