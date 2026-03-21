@@ -101,15 +101,15 @@ for (let startRow = 0; startRow <= 3; startRow++) {
   CLOSURE_CONFIGS.push(cells);
 }
 
-// Vertical: close 2 edge columns for 4 consecutive rows
-for (const colPair of [[0, 1], [2, 3]]) {
-  for (let startRow = 0; startRow <= 1; startRow++) {
-    const cells = [];
-    for (let r = startRow; r < startRow + 4; r++) {
-      for (const c of colPair) {
-        cells.push([r, c]);
-      }
-    }
-    CLOSURE_CONFIGS.push(cells);
+// Vertical: close left edge (col 0) + right edge (col 3) for 4 rows, bridge at top or bottom
+// Leaves a 2-wide center corridor (cols 1-2) + 1 full-width bridge row = 12 open cells
+for (let bridgeRow = 0; bridgeRow <= 4; bridgeRow += 4) {
+  // bridgeRow 0 = bridge at top, bridgeRow 4 = bridge at bottom
+  const cells = [];
+  for (let r = 0; r < MAP_ROWS; r++) {
+    if (r === bridgeRow) continue; // skip the bridge row
+    cells.push([r, 0]);  // close left edge
+    cells.push([r, MAP_COLS - 1]); // close right edge
   }
+  CLOSURE_CONFIGS.push(cells);
 }
