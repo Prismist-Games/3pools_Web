@@ -115,17 +115,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             selectedPool.originalId = selectedPool.id;
             selectedPool.id = selectedPool.originalId;
             selectedPool.items = selectedPool.items.slice(0, currentStageConfig.poolSize);
-            if (currentStageConfig.mechanics.affixes) {
-                const availableAffixes = config.affixes.filter(a => !usedAffixIds.has(a.id));
-                const affixPool = availableAffixes.length > 0 ? availableAffixes : config.affixes;
-                const affix = getRandomAffix(affixPool);
-                selectedPool.affixKey = affix.id;
-                selectedPool.affix = affix;
-                selectedPool.cost = affix.cost || 2; // Use affix cost if defined
-                usedAffixIds.add(affix.id);
-            } else {
-                selectedPool.cost = 2;
-            }
+            // Affixes disabled — fixed cost, no affix
+            selectedPool.affixKey = null;
+            selectedPool.affix = null;
+            selectedPool.cost = 2;
             result.push(selectedPool);
             tempPools.splice(selectedIndex, 1);
         }
@@ -223,9 +216,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 .map((item, idx) => ({ item, idx }))
                 .filter(({ item }) =>
                     item &&
-                    item.name === cell.itemName &&
-                    config.rarity.findIndex(r => r.id === item.rarity.id) >=
-                    config.rarity.findIndex(r => r.id === cell.requiredRarity)
+                    item.name === cell.itemName
                 );
             if (matchingItems.length > 0) {
                 matches[cell.id] = matchingItems.map(m => m.idx);
@@ -1071,17 +1062,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         let scoreGain = 0;
         let goldGain = 0;
-        let triggerEvacuation = false;
 
         for (const task of newlyCompleted) {
             const taskScore = task.cellIndices.reduce(
                 (sum, idx) => sum + updatedCells[idx].scoreReward, 0
             );
             scoreGain += Math.ceil(taskScore);
-
-            if (task.cellIndices.some(idx => updatedCells[idx].hasEvacuation)) {
-                triggerEvacuation = true;
-            }
         }
 
         // Remove consumed item from inventory
@@ -1105,15 +1091,19 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             );
         }
 
-        if (triggerEvacuation) {
-            setTimeout(() => {
-                setModalContent({
-                    type: 'evacuation_triggered',
-                    title: '撤离触发',
-                    score: score + scoreGain,
-                });
-            }, 800);
-        }
+    };
+
+    // Check if any completed task covers the evacuation cell
+    const canEvacuate = milestone ? milestone.tasks.some(task =>
+        task.isCompleted && task.cellIndices.some(idx => milestone.cells[idx].hasEvacuation)
+    ) : false;
+
+    const handleEvacuate = () => {
+        setModalContent({
+            type: 'evacuation_triggered',
+            title: '撤离触发',
+            score: score,
+        });
     };
 
     const handleEvacuationContinue = () => {
@@ -1166,7 +1156,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             totalRecycleValue,
             selectedItemNames,
             skillState,
-            toolSelectionMode
+            toolSelectionMode,
+            canEvacuate
         },
         actions: {
             showToast,
@@ -1181,6 +1172,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleSlotClick,
             handleDiscardNew,
             handleFillCell,
+            handleEvacuate,
             handleEvacuationContinue,
             handleEvacuationExtract,
             handleConfirmRecycle,

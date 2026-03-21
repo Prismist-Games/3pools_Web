@@ -38,7 +38,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, totalRecycleValue, selectedItemNames,
-        toolSelectionMode
+        toolSelectionMode, canEvacuate
     } = state;
 
     const {
@@ -48,6 +48,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleSlotClick,
         handleDiscardNew,
         handleFillCell,
+        handleEvacuate,
         handleEvacuationContinue,
         handleEvacuationExtract,
         handleConfirmRecycle,
@@ -368,6 +369,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 onFillCell={handleFillCell}
                                 milestoneNumber={milestoneNumber}
                                 hoveredPoolItemNames={hoveredPoolItemNames}
+                                canEvacuate={canEvacuate}
+                                onEvacuate={handleEvacuate}
                             />
 
                         </div>

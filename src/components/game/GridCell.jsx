@@ -22,7 +22,7 @@ const RARITY_NAMES = {
 
 const GridCellBase = ({ cell, isFillable, isHighlighted, onClick }) => {
   const isFilled = !!cell.filledItem;
-  const rarityStyle = RARITY_STYLES[cell.requiredRarity] || RARITY_STYLES.common;
+  const rarityStyle = RARITY_STYLES.common; // Rarity requirements disabled
   const displayIcon = isFilled ? cell.filledItem.icon : cell.itemIcon;
   const hasReward = cell.scoreReward > 0;
 
@@ -65,10 +65,10 @@ const GridCellBase = ({ cell, isFillable, isHighlighted, onClick }) => {
         {cell.itemName}
       </span>
 
-      {/* Bottom-left: rarity name */}
-      <span className="absolute bottom-1 left-1 text-[9px] font-bold text-slate-400 leading-none">
+      {/* Bottom-left: rarity name (hidden — rarity requirements disabled) */}
+      {/* <span className="absolute bottom-1 left-1 text-[9px] font-bold text-slate-400 leading-none">
         {RARITY_NAMES[cell.requiredRarity]}+
-      </span>
+      </span> */}
 
       {/* Filled checkmark overlay */}
       {isFilled && (

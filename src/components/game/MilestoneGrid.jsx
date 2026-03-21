@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import GridCell from './GridCell';
 import { TASK_COLORS } from '../../data/gridConstants';
 
-const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNumber, hoveredPoolItemNames }) => {
+const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNumber, hoveredPoolItemNames, canEvacuate, onEvacuate }) => {
   if (!milestone) return null;
   const { cells, tasks, gridBounds } = milestone;
 
@@ -157,6 +157,15 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
             </div>
           ))}
         </div>
+
+        {canEvacuate && (
+          <button
+            onClick={onEvacuate}
+            className="mt-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-lg shadow transition-colors active:scale-95"
+          >
+            🚀 撤离
+          </button>
+        )}
       </div>
     </div>
   );
