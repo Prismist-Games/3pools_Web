@@ -546,6 +546,33 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         return config.rarity[0];
     };
 
+    const handleMapPlace = (anchorRow, anchorCol) => {
+        if (selectedFrameIndex === null) return;
+
+        const frame = availableFrames[selectedFrameIndex];
+        if (!frame) return;
+
+        const coverage = getFrameCoverage(frame.shape, anchorRow, anchorCol, itemMap);
+        if (!coverage) return; // invalid placement (out of bounds)
+
+        const coveredItems = coverage.map(c => c.item);
+
+        // Construct a virtual pool that the existing handleDraw can process
+        const virtualPool = {
+            name: 'spatial',
+            items: coveredItems,
+            affixKey: frame.qualityEffect.id,
+            affix: frame.qualityEffect,
+            cost: frame.cost,
+            originalId: 'spatial',
+            id: 'spatial',
+        };
+
+        // Pass to existing draw pipeline — all skill logic, entropy,
+        // enhancement, trade-in, precise, gold checks are handled automatically
+        handleDraw(virtualPool);
+    };
+
     const handleDraw = (pool) => {
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode) return;
 
@@ -584,15 +611,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setSelectionMode({ type: 'precise', pool, items: candidates });
             return;
         }
-        if (pool.affixKey === 'targeted') {
-            setGold(prev => prev - finalCost);
-            // "有的放矢" 应呈现该池子的全部原始物品，不受当前阶段 poolSize 限制
-            const originalPool = config.pools.find(p => p.id === (pool.originalId || pool.id));
-            const allItems = originalPool ? originalPool.items : pool.items;
-            setSelectionMode({ type: 'targeted', pool, items: allItems, cost: finalCost });
-            return;
-        }
-
         setGold(prev => prev - finalCost);
         handleNormalDraw(pool);
     };
@@ -1165,6 +1183,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleToolItemUse,
             handleCancelToolSelection,
             handleFrameSelect: (index) => setSelectedFrameIndex(index),
+            handleMapPlace,
         },
         helpers: {
             hasSkill
