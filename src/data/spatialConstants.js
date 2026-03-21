@@ -86,12 +86,13 @@ export const MAP_COLS = 4;
 
 // --- Closure configurations ---
 // Each config is an array of [row, col] pairs (8 cells to close).
-// Horizontal: close 2 adjacent full rows (4 configs)
-// Vertical: close 2 edge columns for 4 consecutive rows, leaving 1 "bridge" row (4 configs)
+// Horizontal: close top 2 or bottom 2 rows (2 configs) — middle closures split the grid
+// Vertical: close left+right edge columns for 4 rows, bridge at top or bottom (2 configs)
+// Total: 4 configs
 export const CLOSURE_CONFIGS = [];
 
-// Horizontal: close 2 adjacent rows
-for (let startRow = 0; startRow <= 3; startRow++) {
+// Horizontal: close top 2 rows or bottom 2 rows only
+for (const startRow of [0, 3]) {
   const cells = [];
   for (let r = startRow; r < startRow + 2; r++) {
     for (let c = 0; c < MAP_COLS; c++) {
