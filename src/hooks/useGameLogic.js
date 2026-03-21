@@ -1066,6 +1066,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             tasks: updatedTasks,
         });
         setInventory(newInventory);
+        setSelectedSlot(null);
+        setSelectedIndices([]);
         if (scoreGain > 0) setScore(prev => prev + scoreGain);
         if (goldGain > 0) setGold(prev => prev + goldGain);
 
