@@ -63,11 +63,17 @@ export function getAllShapeVariants() {
   for (const base of BASE_SHAPES) {
     const rotations = getUniqueRotations(base.cells);
     for (let ri = 0; ri < rotations.length; ri++) {
+      const raw = rotations[ri];
+      // Re-anchor: make cells[0] the origin [0,0].
+      // This ensures the hovered cell is always ON the shape, not on an
+      // empty corner of the bounding box. Other cells may have negative offsets.
+      const anchor = raw[0];
+      const cells = raw.map(([r, c]) => [r - anchor[0], c - anchor[1]]);
       _allShapeVariants.push({
         baseId: base.id,
         name: base.name,
-        cells: rotations[ri],
-        coverageCount: rotations[ri].length,
+        cells,
+        coverageCount: cells.length,
         rotationIndex: ri,
       });
     }

@@ -7,9 +7,13 @@ import { useLanguage } from '../../contexts/LanguageContext';
  * Shows a small grid with filled cells matching the shape.
  */
 function ShapePreview({ cells }) {
-  const maxR = Math.max(...cells.map(([r]) => r)) + 1;
-  const maxC = Math.max(...cells.map(([, c]) => c)) + 1;
-  const cellSet = new Set(cells.map(([r, c]) => `${r},${c}`));
+  // Normalize for display (cells may have negative offsets after re-anchoring)
+  const minR = Math.min(...cells.map(([r]) => r));
+  const minC = Math.min(...cells.map(([, c]) => c));
+  const normalized = cells.map(([r, c]) => [r - minR, c - minC]);
+  const maxR = Math.max(...normalized.map(([r]) => r)) + 1;
+  const maxC = Math.max(...normalized.map(([, c]) => c)) + 1;
+  const cellSet = new Set(normalized.map(([r, c]) => `${r},${c}`));
 
   return (
     <div
