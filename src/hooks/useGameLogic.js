@@ -10,6 +10,7 @@ import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
+import { generateItemMap, generateFrames, getFrameCoverage } from '../utils/spatialPoolHelpers.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
     const { t } = useLanguage();
@@ -23,7 +24,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const [drawCount, setDrawCount] = useState(0);
 
-    const [activePools, setActivePools] = useState([]);
+    const [itemMap, setItemMap] = useState(() => generateItemMap());
+    const [availableFrames, setAvailableFrames] = useState(() => generateFrames());
+    const [selectedFrameIndex, setSelectedFrameIndex] = useState(null);
+    const activePools = []; // deprecated, kept for compatibility during migration
 
     // Milestone grid system
     const [milestone, setMilestone] = useState(null);
@@ -93,45 +97,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [milestone, allNormalItems]);
 
-    const generateActivePools = () => {
-        const result = [];
-        const usedAffixIds = new Set();
-        let tempPools = [...config.pools.slice(0, currentStageConfig.allowedPoolCount)];
-
-        for (let i = 0; i < 3; i++) {
-            if (tempPools.length === 0) break;
-            const totalWeight = tempPools.reduce((sum, p) => sum + (p.weight || 1), 0);
-            let r = Math.random() * totalWeight;
-            let selectedIndex = -1;
-            for (let j = 0; j < tempPools.length; j++) {
-                r -= (tempPools[j].weight || 1);
-                if (r <= 0) {
-                    selectedIndex = j;
-                    break;
-                }
-            }
-            if (selectedIndex === -1) selectedIndex = tempPools.length - 1;
-            const selectedPool = JSON.parse(JSON.stringify(tempPools[selectedIndex]));
-            selectedPool.originalId = selectedPool.id;
-            selectedPool.id = selectedPool.originalId;
-            selectedPool.items = selectedPool.items.slice(0, currentStageConfig.poolSize);
-            if (currentStageConfig.mechanics.affixes) {
-                const availableAffixes = config.affixes.filter(a => !usedAffixIds.has(a.id));
-                const affixPool = availableAffixes.length > 0 ? availableAffixes : config.affixes;
-                const affix = getRandomAffix(affixPool);
-                selectedPool.affixKey = affix.id;
-                selectedPool.affix = affix;
-                selectedPool.cost = affix.cost || 2; // Use affix cost if defined
-                usedAffixIds.add(affix.id);
-            } else {
-                selectedPool.cost = 2;
-            }
-            result.push(selectedPool);
-            tempPools.splice(selectedIndex, 1);
-        }
-        return result;
-    };
-
     const applyEntropy = (inv) => {
         if (!currentStageConfig.mechanics.entropy) return inv;
         return inv.map(item => {
@@ -141,14 +106,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const refreshPools = (tick = false) => {
-        setActivePools(generateActivePools());
+        setAvailableFrames(generateFrames());
+        setSelectedFrameIndex(null);
         if (tick && currentStageConfig.mechanics.entropy) {
             setInventory(prev => prev.map(item => {
                 if (!item || item.decay === undefined) return item;
                 return { ...item, decay: item.decay - 1 };
             }));
         }
-
     };
 
     useEffect(() => {
@@ -297,7 +262,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         return {
             ...itemTemplate,
             uid: Math.random().toString(36).substr(2, 9),
-            poolName: pool.name,
+            poolName: pool?.name || itemTemplate.poolName,
             rarity: rarity,
             sterile: affixKey === 'hardened',
             decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
@@ -1129,6 +1094,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setSelectedIndices([]);
         setIsSubmitMode(false);
         setIsEvacuationMode(false);
+        setItemMap(generateItemMap());
+        setAvailableFrames(generateFrames());
+        setSelectedFrameIndex(null);
     };
 
     const handleEvacuationExtract = () => {
@@ -1149,6 +1117,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             maxInventorySize,
             drawCount,
             activePools,
+            itemMap,
+            availableFrames,
+            selectedFrameIndex,
             milestone,
             milestoneNumber,
             cellMatches,
@@ -1192,7 +1163,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             refreshPools,
             addInventoryItem,
             handleToolItemUse,
-            handleCancelToolSelection
+            handleCancelToolSelection,
+            handleFrameSelect: (index) => setSelectedFrameIndex(index),
         },
         helpers: {
             hasSkill
