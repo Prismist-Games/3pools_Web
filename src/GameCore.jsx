@@ -388,6 +388,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     itemMap={itemMap}
                                     selectedFrame={selectedFrameIndex !== null ? availableFrames[selectedFrameIndex] : null}
                                     closureMask={closureMask}
+                                    milestone={milestone}
+                                    rarityConfig={config.rarity}
                                     onPlace={handleMapPlace}
                                     onHoverCoverage={(names) => {
                                         state.setHoveredPoolItemNames(names);

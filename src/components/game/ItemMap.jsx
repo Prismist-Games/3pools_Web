@@ -3,20 +3,68 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { isValidPlacement } from '../../utils/spatialPoolHelpers';
 import { MAP_ROWS, MAP_COLS } from '../../data/spatialConstants';
 
+// Rarity background tints for needed-item highlighting (subtle, not full rarity colors)
+const RARITY_BG = {
+  common: 'bg-slate-100 border-slate-300',
+  uncommon: 'bg-green-50 border-green-300',
+  rare: 'bg-blue-50 border-blue-300',
+  epic: 'bg-purple-50 border-purple-300',
+  legendary: 'bg-orange-50 border-orange-300',
+  mythic: 'bg-rose-50 border-rose-300',
+};
+
+const RARITY_LABEL = {
+  common: '普',
+  uncommon: '优',
+  rare: '稀',
+  epic: '史',
+  legendary: '传',
+  mythic: '神',
+};
+
+const RARITY_LABEL_COLOR = {
+  common: 'text-slate-400',
+  uncommon: 'text-green-500',
+  rare: 'text-blue-500',
+  epic: 'text-purple-500',
+  legendary: 'text-orange-500',
+  mythic: 'text-rose-500',
+};
+
 /**
  * ItemMap — renders the 5×4 item grid and handles frame placement interaction.
  *
  * Props:
- *   itemMap: 2D array [row][col] of { name, icon, poolId, poolName }
- *   selectedFrame: the currently selected frame object (or null)
- *   closureMask: Set of "row,col" strings for closed cells
- *   onPlace: (anchorRow, anchorCol) => void
- *   onHoverCoverage: (itemNames[]) => void
- *   disabled: boolean
+ *   itemMap, selectedFrame, closureMask, onPlace, onHoverCoverage, disabled
+ *   milestone: milestone object with cells array (for needed-item highlighting)
+ *   rarityConfig: array of rarity objects from config
  */
-function ItemMap({ itemMap, selectedFrame, closureMask, onPlace, onHoverCoverage, disabled }) {
+function ItemMap({ itemMap, selectedFrame, closureMask, milestone, rarityConfig, onPlace, onHoverCoverage, disabled }) {
   const { t } = useLanguage();
   const [hoverAnchor, setHoverAnchor] = useState(null);
+
+  // Compute needed items from milestone (unfilled cells)
+  // Map: itemName -> highest requiredRarity ID needed
+  const neededItems = useMemo(() => {
+    if (!milestone || !rarityConfig) return new Map();
+    const rarityOrder = rarityConfig.map(r => r.id);
+    const needs = new Map();
+    for (const cell of milestone.cells) {
+      if (cell.filledItem) continue;
+      const existing = needs.get(cell.itemName);
+      if (!existing) {
+        needs.set(cell.itemName, cell.requiredRarity);
+      } else {
+        // Keep the highest required rarity
+        const existingIdx = rarityOrder.indexOf(existing);
+        const newIdx = rarityOrder.indexOf(cell.requiredRarity);
+        if (newIdx > existingIdx) {
+          needs.set(cell.itemName, cell.requiredRarity);
+        }
+      }
+    }
+    return needs;
+  }, [milestone, rarityConfig]);
 
   const coveredCells = useMemo(() => {
     if (!selectedFrame || !hoverAnchor) return new Set();
@@ -74,6 +122,7 @@ function ItemMap({ itemMap, selectedFrame, closureMask, onPlace, onHoverCoverage
         const item = itemMap[row][col];
         const isClosed = closureMask && closureMask.has(`${row},${col}`);
         const isCovered = coveredCells.has(`${row},${col}`);
+        const neededRarity = neededItems.get(item.name);
 
         if (isClosed) {
           return (
@@ -84,16 +133,23 @@ function ItemMap({ itemMap, selectedFrame, closureMask, onPlace, onHoverCoverage
           );
         }
 
+        // Determine background: coverage highlight > needed highlight > default
+        let bgClass;
+        if (isCovered && isValidHover) {
+          bgClass = 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
+        } else if (neededRarity) {
+          bgClass = RARITY_BG[neededRarity] || 'bg-white border-slate-200';
+        } else {
+          bgClass = 'bg-white border-slate-200';
+        }
+
         return (
           <div
             key={`${row}-${col}`}
             className={`
-              flex flex-col items-center justify-center
+              relative flex flex-col items-center justify-center
               w-16 h-16 rounded-md border transition-all cursor-default select-none
-              ${isCovered && isValidHover
-                ? 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105'
-                : 'bg-white border-slate-200'
-              }
+              ${bgClass}
               ${selectedFrame && !disabled ? 'cursor-crosshair' : ''}
             `}
             onMouseEnter={() => handleCellHover(row, col)}
@@ -103,6 +159,11 @@ function ItemMap({ itemMap, selectedFrame, closureMask, onPlace, onHoverCoverage
             <span className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[56px]">
               {t(item.name)}
             </span>
+            {neededRarity && (
+              <span className={`absolute top-0.5 right-1 text-[9px] font-bold ${RARITY_LABEL_COLOR[neededRarity]}`}>
+                {RARITY_LABEL[neededRarity]}+
+              </span>
+            )}
           </div>
         );
       })}
