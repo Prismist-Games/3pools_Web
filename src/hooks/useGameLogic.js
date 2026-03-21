@@ -27,7 +27,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [itemMap, setItemMap] = useState(() => generateItemMap());
     const [availableFrames, setAvailableFrames] = useState(() => generateFrames());
     const [selectedFrameIndex, setSelectedFrameIndex] = useState(null);
-    const activePools = []; // deprecated, kept for compatibility during migration
 
     // Milestone grid system
     const [milestone, setMilestone] = useState(null);
@@ -579,7 +578,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Use pool cost (from affix config)
         let finalCost = pool.cost || 2;
 
-        if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
+        if (hasSkill('vip_discount') && pool.affixKey === 'precise') {
             finalCost = Math.max(0, finalCost - 1);
         }
 
@@ -651,28 +650,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             refreshPools(true);
             setSelectionMode(null);
             if (skillState.nextDrawEnhanced) setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
-        } else if (type === 'targeted') {
-            const newItem = createItem(pool, selectedItem, pool.affixKey);
-            const enhancedItem = applyEnhancement(newItem);
-            setDrawCount(prev => prev + 1);
-            handleIncomingItems(tryDropToolItem([enhancedItem]), decayedInventory);
-            refreshPools(true);
-            setSelectionMode(null);
-            if (skillState.nextDrawEnhanced) setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
         }
     };
 
     const handleSelectionCancel = () => {
-        if (selectionMode?.type === 'targeted') {
-            // 退回金币
-            const refundCost = selectionMode.cost || 2;
-            setGold(prev => prev + refundCost);
-            setSelectionMode(null);
-        } else if (selectionMode?.type === 'trade_in') {
+        if (selectionMode?.type === 'trade_in') {
             // 退回金币
             const pool = selectionMode.pool;
             let refundCost = pool.cost || 2;
-            if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
+            if (hasSkill('vip_discount') && pool.affixKey === 'precise') {
                 refundCost = Math.max(0, refundCost - 1);
             }
             setGold(prev => prev + refundCost);
@@ -681,7 +667,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             // 退回金币
             const pool = selectionMode.pool;
             let refundCost = pool.cost || 2;
-            if (hasSkill('vip_discount') && (pool.affixKey === 'precise' || pool.affixKey === 'targeted')) {
+            if (hasSkill('vip_discount') && pool.affixKey === 'precise') {
                 refundCost = Math.max(0, refundCost - 1);
             }
             setGold(prev => prev + refundCost);
@@ -1134,7 +1120,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             currentStageConfig,
             maxInventorySize,
             drawCount,
-            activePools,
             itemMap,
             availableFrames,
             selectedFrameIndex,

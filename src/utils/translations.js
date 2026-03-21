@@ -143,6 +143,14 @@ export const EN_TRANSLATIONS = {
     "厨具": "Kitchenware",
     "电器": "Electronics",
 
+    // --- Spatial Frame Shapes ---
+    "单格": "Single",
+    "双格": "Domino",
+    "三连": "Line",
+    "L形": "L-Shape",
+    "方块": "Square",
+    "T形": "T-Shape",
+
     // --- Items ---
     "西瓜": "Watermelon", "柠檬": "Lemon", "芒果": "Mango", "苹果": "Apple", "橙子": "Orange",
     "冲剂": "Granules", "滴眼液": "Eye Drops", "注射器": "Syringe", "胶囊": "Capsule", "绷带": "Bandage",

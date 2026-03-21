@@ -7,7 +7,6 @@ import { Toast } from './components/ui/Toast';
 import { SkillSelectionModal } from './components/game/SkillSelectionModal';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
-// import { PoolCard } from './components/game/PoolCard';
 import FrameSelector from './components/game/FrameSelector';
 import ItemMap from './components/game/ItemMap';
 
@@ -31,7 +30,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
     const {
         gold, score, currentStageConfig, maxInventorySize,
-        drawCount, activePools,
+        drawCount,
         itemMap, availableFrames, selectedFrameIndex,
         milestone, milestoneNumber, cellMatches, fillableCellIds, relevantPoolIds,
         inventory,
@@ -60,8 +59,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleSelectionSelect,
         handleSelectionCancel,
         handleSortInventory,
-        handlePoolHover,
-        handlePoolLeave,
         refreshPools,
         addInventoryItem,
         handleToolItemUse,
