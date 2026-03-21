@@ -58,15 +58,17 @@ export const SHAPE_DEFINITIONS = [
 
 export const MATRIX_CONFIG = {
   gridSize: 5,
-  // v2: full density — every cell has a resource, but some are multi-cell
   doubleCellCount: [2, 3],
   tripleCellCount: [0, 1],
+  emptyCellCount: [4, 6], // 4-6 cells left empty (out of 25)
 };
 
 // Action card system
 export const ACTION_TYPES = {
-  MOVE: 'move',
-  TURN: 'turn',
+  MOVE_FORWARD: 'move_forward',
+  MOVE_BACKWARD: 'move_backward',
+  TURN_LEFT: 'turn_left',
+  TURN_RIGHT: 'turn_right',
   ADJUST: 'adjust',
 };
 
@@ -74,22 +76,34 @@ export const ACTION_CARD_CONFIG = {
   cardsPerTurn: 5,
   actionsPerTurn: 3,
   probabilities: {
-    [ACTION_TYPES.MOVE]: 0.5,
-    [ACTION_TYPES.TURN]: 0.3,
-    [ACTION_TYPES.ADJUST]: 0.2,
+    [ACTION_TYPES.MOVE_FORWARD]: 0.225,
+    [ACTION_TYPES.MOVE_BACKWARD]: 0.225,
+    [ACTION_TYPES.TURN_LEFT]: 0.225,
+    [ACTION_TYPES.TURN_RIGHT]: 0.225,
+    [ACTION_TYPES.ADJUST]: 0.1,
   },
 };
 
 export const ACTION_CARD_DEFS = {
-  [ACTION_TYPES.MOVE]: {
+  [ACTION_TYPES.MOVE_FORWARD]: {
     name: '前进',
     desc: '沿朝向移动1格',
     icon: '⬆️',
   },
-  [ACTION_TYPES.TURN]: {
-    name: '转向',
+  [ACTION_TYPES.MOVE_BACKWARD]: {
+    name: '后退',
+    desc: '沿朝向反方向移动1格',
+    icon: '⬇️',
+  },
+  [ACTION_TYPES.TURN_LEFT]: {
+    name: '左转',
+    desc: '逆时针旋转90°',
+    icon: '↺',
+  },
+  [ACTION_TYPES.TURN_RIGHT]: {
+    name: '右转',
     desc: '顺时针旋转90°',
-    icon: '↩️',
+    icon: '↻',
   },
   [ACTION_TYPES.ADJUST]: {
     name: '调整范围',

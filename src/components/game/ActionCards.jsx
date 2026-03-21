@@ -1,17 +1,21 @@
 import React from 'react';
-import { ArrowUp, RotateCw, Crosshair, Play } from 'lucide-react';
+import { ArrowUp, ArrowDown, RotateCcw, RotateCw, Crosshair, Play } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { ACTION_TYPES, ACTION_CARD_DEFS } from '../../data/matrixConfig';
 
 const CARD_ICONS = {
-    [ACTION_TYPES.MOVE]: ArrowUp,
-    [ACTION_TYPES.TURN]: RotateCw,
+    [ACTION_TYPES.MOVE_FORWARD]: ArrowUp,
+    [ACTION_TYPES.MOVE_BACKWARD]: ArrowDown,
+    [ACTION_TYPES.TURN_LEFT]: RotateCcw,
+    [ACTION_TYPES.TURN_RIGHT]: RotateCw,
     [ACTION_TYPES.ADJUST]: Crosshair,
 };
 
 const CARD_COLORS = {
-    [ACTION_TYPES.MOVE]: 'border-blue-300 bg-blue-50 hover:border-blue-400 hover:bg-blue-100',
-    [ACTION_TYPES.TURN]: 'border-amber-300 bg-amber-50 hover:border-amber-400 hover:bg-amber-100',
+    [ACTION_TYPES.MOVE_FORWARD]: 'border-blue-300 bg-blue-50 hover:border-blue-400 hover:bg-blue-100',
+    [ACTION_TYPES.MOVE_BACKWARD]: 'border-cyan-300 bg-cyan-50 hover:border-cyan-400 hover:bg-cyan-100',
+    [ACTION_TYPES.TURN_LEFT]: 'border-amber-300 bg-amber-50 hover:border-amber-400 hover:bg-amber-100',
+    [ACTION_TYPES.TURN_RIGHT]: 'border-orange-300 bg-orange-50 hover:border-orange-400 hover:bg-orange-100',
     [ACTION_TYPES.ADJUST]: 'border-purple-300 bg-purple-50 hover:border-purple-400 hover:bg-purple-100',
 };
 
@@ -20,11 +24,11 @@ const ActionCards = ({ cards, actionsRemaining, onUseCard, onEndTurn, disabled }
 
     return (
         <div className="flex flex-col items-center gap-3">
-            {/* Cards row */}
             <div className="flex items-center justify-center gap-2">
                 {cards.map(card => {
                     const def = ACTION_CARD_DEFS[card.type];
-                    const Icon = CARD_ICONS[card.type];
+                    if (!def) return null;
+                    const Icon = CARD_ICONS[card.type] || Crosshair;
                     const isUsable = !card.used && actionsRemaining > 0 && !disabled;
 
                     return (
@@ -53,7 +57,6 @@ const ActionCards = ({ cards, actionsRemaining, onUseCard, onEndTurn, disabled }
                 })}
             </div>
 
-            {/* Actions remaining + end turn */}
             <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-slate-500">
                     {t("剩余行动")}: {actionsRemaining}
@@ -71,7 +74,7 @@ const ActionCards = ({ cards, actionsRemaining, onUseCard, onEndTurn, disabled }
                     `}
                 >
                     <Play size={16} />
-                    {t("结束回合")}
+                    {t("结束回合")} <span className="text-white/60 text-xs ml-1">-1🪙</span>
                 </button>
             </div>
         </div>

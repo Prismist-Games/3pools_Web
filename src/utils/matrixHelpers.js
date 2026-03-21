@@ -4,6 +4,7 @@
  */
 
 import { SHAPE_DEFINITIONS, MATRIX_CONFIG, ACTION_CARD_CONFIG, ACTION_TYPES } from '../data/matrixConfig';
+import { rollRarity } from './helpers';
 
 // ---------------------------------------------------------------------------
 // 1. rotateCells — rotate cell offsets around pivot by direction (0=up,1=right,2=down,3=left)
@@ -61,7 +62,7 @@ export const generateActionCards = () => {
   for (let i = 0; i < cardsPerTurn; i++) {
     const r = Math.random();
     let acc = 0;
-    let type = ACTION_TYPES.MOVE;
+    let type = ACTION_TYPES.MOVE_FORWARD;
     for (const [t, prob] of types) {
       acc += prob;
       if (r <= acc) { type = t; break; }
@@ -79,7 +80,7 @@ export const generateActionCards = () => {
 // 5. generateResourceMatrix — full density grid, every cell has a resource
 // ---------------------------------------------------------------------------
 
-export const generateResourceMatrix = (allNormalItems) => {
+export const generateResourceMatrix = (allNormalItems, config, currentStageConfig) => {
   const { gridSize, doubleCellCount, tripleCellCount } = MATRIX_CONFIG;
   const uid = () => Math.random().toString(36).substr(2, 9);
   const cellKey = (r, c) => `${r},${c}`;
@@ -124,12 +125,28 @@ export const generateResourceMatrix = (allNormalItems) => {
   const doubleCount = randomInRange(doubleCellCount[0], doubleCellCount[1]);
   for (let i = 0; i < doubleCount; i++) tryPlaceMultiCell(2);
 
-  // --- Phase 2: Fill remaining cells as single-cell resource points ---
+  // --- Phase 2: Fill remaining cells, leaving some empty ---
+  const remainingCells = [];
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
-      if (!occupiedByMulti.has(cellKey(r, c))) {
-        resourcePoints.push({ id: uid(), cells: [[r, c]], size: 1 });
-      }
+      if (!occupiedByMulti.has(cellKey(r, c))) remainingCells.push([r, c]);
+    }
+  }
+  // Shuffle and reserve some as empty
+  for (let i = remainingCells.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [remainingCells[i], remainingCells[j]] = [remainingCells[j], remainingCells[i]];
+  }
+  const emptyTarget = randomInRange(
+    (MATRIX_CONFIG.emptyCellCount || [0,0])[0],
+    (MATRIX_CONFIG.emptyCellCount || [0,0])[1]
+  );
+  const emptyCount = Math.min(emptyTarget, remainingCells.length);
+  const emptyCells = new Set(remainingCells.slice(0, emptyCount).map(([r, c]) => cellKey(r, c)));
+
+  for (const [r, c] of remainingCells) {
+    if (!emptyCells.has(cellKey(r, c))) {
+      resourcePoints.push({ id: uid(), cells: [[r, c]], size: 1 });
     }
   }
 
@@ -220,6 +237,7 @@ export const generateResourceMatrix = (allNormalItems) => {
   const finalResourcePoints = resourcePoints.map((slot, i) => ({
     ...slot,
     item: assigned[i],
+    rarity: rollRarity(config, null, 0, () => false, {}, currentStageConfig),
   }));
 
   // --- Build grid ---
@@ -229,7 +247,21 @@ export const generateResourceMatrix = (allNormalItems) => {
     }
   }
 
-  return { grid, resourcePoints: finalResourcePoints };
+  // --- Place exit tile on a random empty cell ---
+  const emptyForExit = [];
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      if (!grid[r][c]) emptyForExit.push([r, c]);
+    }
+  }
+  let exitPos = null;
+  if (emptyForExit.length > 0) {
+    const [er, ec] = emptyForExit[Math.floor(Math.random() * emptyForExit.length)];
+    grid[er][ec] = { type: 'exit' };
+    exitPos = { row: er, col: ec };
+  }
+
+  return { grid, resourcePoints: finalResourcePoints, exitPos };
 };
 
 // ---------------------------------------------------------------------------

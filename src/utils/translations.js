@@ -328,5 +328,19 @@ export const EN_TRANSLATIONS = {
     "机器 + 前方2格": "Machine + 2 forward",
     "机器 + 前+右+前右 (2×2)": "Machine + front+right (2×2)",
     "机器 + 前方3格": "Machine + 3 forward",
-    "机器 + 前后左右各1格": "Machine + all 4 directions"
+    "机器 + 前后左右各1格": "Machine + all 4 directions",
+    "左转": "Turn Left",
+    "右转": "Turn Right",
+    "后退": "Backward",
+    "沿朝向反方向移动1格": "Move 1 step backward",
+    "逆时针旋转90°": "Rotate 90° counter-clockwise",
+    "顺时针旋转90°": "Rotate 90° clockwise",
+    "无法后退：已到达边缘": "Cannot move backward: at edge",
+    "朝向": "Facing",
+    "出口": "Exit",
+    "到达出口：地图已刷新！": "Reached exit: map refreshed!",
+    "金币耗尽": "Gold depleted",
+    "机器无法继续运行！": "Machine cannot continue operating!",
+    "运营消耗": "Operating cost",
+    "剩余": "remaining"
 };

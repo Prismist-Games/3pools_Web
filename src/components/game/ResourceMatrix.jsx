@@ -39,18 +39,40 @@ const ResourceMatrix = ({ matrix, machinePos, machineDir, activeShape, orders = 
     }, [matrix, activeShape, machinePos, machineDir]);
 
     // Needed items
-    const neededItemNames = useMemo(() => {
-        const allOrders = [...orders.filter(Boolean), ...emergencyOrders.filter(Boolean)];
-        const needed = new Set();
-        for (const order of allOrders) {
+    // Map item name → { rarity, isEmergency } for unsatisfied order needs
+    const neededItemMap = useMemo(() => {
+        const map = {}; // name → { rarity, isEmergency }
+        // Normal orders
+        for (const order of orders.filter(Boolean)) {
             for (const req of order.requirements) {
                 const satisfied = inventory.some(item =>
                     item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
                 );
-                if (!satisfied) needed.add(req.name);
+                if (!satisfied) {
+                    const existing = map[req.name];
+                    if (!existing || req.requiredRarity.bonus > existing.rarity.bonus) {
+                        map[req.name] = { rarity: req.requiredRarity, isEmergency: existing?.isEmergency || false };
+                    }
+                }
             }
         }
-        return needed;
+        // Emergency orders (override isEmergency flag)
+        for (const order of emergencyOrders.filter(Boolean)) {
+            for (const req of order.requirements) {
+                const satisfied = inventory.some(item =>
+                    item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
+                );
+                if (!satisfied) {
+                    const existing = map[req.name];
+                    if (!existing || req.requiredRarity.bonus > existing.rarity.bonus) {
+                        map[req.name] = { rarity: req.requiredRarity, isEmergency: true };
+                    } else if (existing) {
+                        existing.isEmergency = true;
+                    }
+                }
+            }
+        }
+        return map;
     }, [orders, emergencyOrders, inventory]);
 
     if (!matrix) {
@@ -67,18 +89,19 @@ const ResourceMatrix = ({ matrix, machinePos, machineDir, activeShape, orders = 
             const cellData = matrix.grid[r][c];
             const isMachine = cellKey === machineKey;
             const isResourceCell = cellData?.type === 'resource';
+            const isExitCell = cellData?.type === 'exit';
             const isMultiCellPart = multiCellSet.has(cellKey);
             const isCovered = coverage?.cells?.has(cellKey) ?? false;
 
             const rpId = cellData?.resourcePointId ?? null;
             const rp = rpId ? resourcePointMap[rpId] : null;
             const isLeadCell = rp ? (rp.cells[0][0] === r && rp.cells[0][1] === c) : false;
-            const isNeeded = rp && neededItemNames.has(rp.item.name);
+            const neededInfo = rp ? neededItemMap[rp.item.name] : null;
             const rpCovered = rp && coverage?.rpIds?.has(rp.id);
 
             let cls = [
                 'relative',
-                'w-16 h-16 md:w-20 md:h-20',
+                'w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16',
                 'rounded-lg border-2',
                 'flex items-center justify-center',
                 'transition-all duration-150 select-none',
@@ -86,10 +109,10 @@ const ResourceMatrix = ({ matrix, machinePos, machineDir, activeShape, orders = 
 
             if (isMultiCellPart) {
                 cls.push('bg-transparent border-transparent');
-            } else if (isResourceCell && isNeeded) {
-                cls.push('bg-white border-dashed border-green-500');
-            } else if (isResourceCell) {
-                cls.push('bg-white border-slate-200');
+            } else if (isExitCell) {
+                cls.push('bg-yellow-100 border-yellow-500');
+            } else if (isResourceCell && rp) {
+                cls.push(rp.rarity.color);
             } else {
                 cls.push('bg-slate-100 border-slate-200');
             }
@@ -100,30 +123,42 @@ const ResourceMatrix = ({ matrix, machinePos, machineDir, activeShape, orders = 
 
             gridCells.push(
                 <div key={cellKey} className={cls.join(' ')}>
-                    {/* Machine */}
+                    {/* Machine indicator — small corner badge, doesn't cover item */}
                     {isMachine && (
-                        <div className="absolute inset-0 flex items-center justify-center z-20">
-                            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-500 text-white flex items-center justify-center text-xl md:text-2xl font-black shadow-lg border-2 border-blue-300">
-                                {DIRECTION_ARROWS[machineDir]}
-                            </div>
+                        <div className="absolute top-0 left-0 z-20 w-5 h-5 md:w-6 md:h-6 rounded-br-lg bg-blue-500 text-white flex items-center justify-center text-[10px] md:text-xs font-black shadow border-r border-b border-blue-300">
+                            {DIRECTION_ARROWS[machineDir]}
+                        </div>
+                    )}
+
+                    {/* Exit tile */}
+                    {isExitCell && (
+                        <div className="flex flex-col items-center justify-center w-full h-full">
+                            <span className="text-lg md:text-xl">🚪</span>
+                            <span className="text-[7px] md:text-[8px] font-black text-yellow-700 leading-none">{t("出口")}</span>
                         </div>
                     )}
 
                     {/* Single-cell resource */}
                     {isResourceCell && rp && !isMultiCellPart && (
                         <div className="flex flex-col items-center justify-center w-full h-full gap-0.5 px-1">
-                            <span className="text-2xl md:text-3xl leading-none filter drop-shadow-sm">{rp.item.icon}</span>
+                            <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">{rp.item.icon}</span>
                             {isLeadCell && (
                                 <span className="text-[9px] md:text-[10px] font-bold leading-none truncate max-w-full text-center text-slate-600">
                                     {t(rp.item.name)}
                                 </span>
+                            )}
+                            {neededInfo && (
+                                <div className="absolute -top-1 -right-1 flex items-center gap-px z-[2]">
+                                    {neededInfo.isEmergency && <span className="text-[9px] drop-shadow">🚚</span>}
+                                    <div className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow ${neededInfo.rarity.dotColor}`} />
+                                </div>
                             )}
                         </div>
                     )}
 
                     {/* Coverage overlay */}
                     {isCovered && !isMultiCellPart && (
-                        <div className="absolute inset-0 bg-blue-200/30 rounded-lg z-10" />
+                        <div className="absolute inset-0 bg-blue-300/40 rounded-lg z-10" />
                     )}
                 </div>
             );
@@ -139,7 +174,7 @@ const ResourceMatrix = ({ matrix, machinePos, machineDir, activeShape, orders = 
             const minR = Math.min(...rows), maxR = Math.max(...rows);
             const minC = Math.min(...cols), maxC = Math.max(...cols);
             const rowSpan = maxR - minR + 1, colSpan = maxC - minC + 1;
-            const isNeededMulti = neededItemNames.has(rp.item.name);
+            const neededInfoMulti = neededItemMap[rp.item.name];
             const rpCovered = coverage?.rpIds?.has(rp.id);
 
             const style = {
@@ -154,11 +189,17 @@ const ResourceMatrix = ({ matrix, machinePos, machineDir, activeShape, orders = 
             return (
                 <div
                     key={rp.id}
-                    className={`rounded-lg border-2 bg-white flex ${
-                        isNeededMulti ? 'border-dashed border-green-500' : 'border-slate-200'
-                    } ${rpCovered ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+                    className={`rounded-lg border-2 flex ${rp.rarity.color} ${
+                        rpCovered ? 'ring-2 ring-blue-400 ring-offset-1' : ''
+                    }`}
                     style={style}
                 >
+                    {neededInfoMulti && (
+                        <div className="absolute -top-1 -right-1 flex items-center gap-px z-[6]">
+                            {neededInfoMulti.isEmergency && <span className="text-[9px] drop-shadow">🚚</span>}
+                            <div className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow ${neededInfoMulti.rarity.dotColor}`} />
+                        </div>
+                    )}
                     {rp.cells.map(([cr, cc], idx) => (
                         <div
                             key={`${cr},${cc}`}
@@ -171,7 +212,7 @@ const ResourceMatrix = ({ matrix, machinePos, machineDir, activeShape, orders = 
                                 height: 'var(--cell)',
                             }}
                         >
-                            <span className="text-2xl md:text-3xl leading-none filter drop-shadow-sm">{rp.item.icon}</span>
+                            <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">{rp.item.icon}</span>
                             {idx === 0 && (
                                 <span className="text-[9px] md:text-[10px] font-bold leading-none truncate max-w-full text-center text-slate-600">
                                     {t(rp.item.name)}
@@ -179,7 +220,7 @@ const ResourceMatrix = ({ matrix, machinePos, machineDir, activeShape, orders = 
                             )}
                         </div>
                     ))}
-                    {rpCovered && <div className="absolute inset-0 bg-blue-200/30 rounded-lg z-10" />}
+                    {rpCovered && <div className="absolute inset-0 bg-blue-300/40 rounded-lg z-10" />}
                 </div>
             );
         });
@@ -187,10 +228,11 @@ const ResourceMatrix = ({ matrix, machinePos, machineDir, activeShape, orders = 
     return (
         <div className="flex flex-col items-center gap-3">
             <style>{`
-                .matrix-grid { --cell: 4rem; --gap: 0.5rem; }
-                @media (min-width: 768px) { .matrix-grid { --cell: 5rem; } }
+                .matrix-grid { --cell: 3rem; --gap: 0.375rem; }
+                @media (min-width: 768px) { .matrix-grid { --cell: 3.5rem; } }
+                @media (min-width: 1024px) { .matrix-grid { --cell: 4rem; } }
             `}</style>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-inner">
+            <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 shadow-inner">
                 <div className="matrix-grid grid grid-cols-5 relative" style={{ gap: 'var(--gap)' }}>
                     {gridCells}
                     {multiCellOverlays}

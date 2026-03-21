@@ -9,6 +9,7 @@ import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
 import ResourceMatrix from './components/game/ResourceMatrix';
 import ShapeSelector from './components/game/ShapeSelector';
+import ActiveShapeDisplay from './components/game/ActiveShapeDisplay';
 import ActionCards from './components/game/ActionCards';
 
 import { OrderCard } from './components/game/OrderCard';
@@ -31,7 +32,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
     const {
         gold, score, currentStageConfig, maxInventorySize,
-        drawCount, matrix, machinePos, machineDir, activeShape, actionCards, actionsRemaining, isSelectingShape, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
+        drawCount, matrix, machinePos, machineDir, activeShape, actionCards, actionsRemaining, isSelectingShape, goldFlash, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredItemName, hoveredSlotIndex,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
@@ -57,6 +58,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         toggleRecycleMode,
         useActionCard,
         selectNewShape,
+        cancelAdjust,
         endTurn,
         handleSelectionSelect,
         handleSelectionCancel,
@@ -292,11 +294,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         {/* Secondary Stats Group (Gold & Difficulty) - Enlarged */}
                         <div className="flex items-center gap-8 pr-6 border-r border-slate-800">
                             {/* Gold Display */}
-                            <div className="flex flex-col gap-1 items-end">
+                            <div className={`flex flex-col gap-1 items-end transition-all duration-300 ${goldFlash ? 'scale-110' : ''}`}>
                                 <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-yellow-100">{t("持有金币")}</span>
-                                <div className="flex items-center gap-2.5 text-yellow-400">
-                                    <Coins size={20} className="drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" />
-                                    <span className="text-3xl font-black font-mono tracking-tighter leading-none">{gold}</span>
+                                <div className={`flex items-center gap-2.5 ${gold <= 5 ? 'text-red-400' : 'text-yellow-400'}`}>
+                                    <Coins size={20} className={`${gold <= 5 ? 'drop-shadow-[0_0_8px_rgba(248,113,113,0.6)] animate-pulse' : 'drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]'}`} />
+                                    <span className={`text-3xl font-black font-mono tracking-tighter leading-none ${goldFlash ? 'text-red-300' : ''}`}>{gold}</span>
                                 </div>
                             </div>
 
@@ -553,17 +555,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     {/* RIGHT COLUMN: POOLS */}
                     <section className="flex-1 flex flex-col h-full overflow-hidden relative">
                         {/* POOLS SCROLLABLE AREA */}
-                        <div className="flex-1 overflow-y-auto p-4 lg:p-8 relative custom-scrollbar">
-                            <div className="flex justify-between items-center mb-4 gap-4">
-                                <h2 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1">
-                                    <RefreshCw size={16} /> {t("资源矩阵")}
-                                </h2>
-                                <span className="text-xs text-slate-400 hidden md:block">
-                                    {t("当前形状")}: {t(activeShape?.name || '短线')}
-                                </span>
-                            </div>
-
-                            <div className="flex flex-col gap-4 pb-4">
+                        <div className="flex-1 flex flex-col p-3 lg:p-4 relative overflow-hidden">
+                            <div className="flex flex-col gap-2 flex-1 justify-center">
                                 {/* Resource Matrix */}
                                 <ResourceMatrix
                                     matrix={matrix}
@@ -576,13 +569,15 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 />
 
                                 {/* Action Cards */}
-                                <ActionCards
-                                    cards={actionCards}
-                                    actionsRemaining={actionsRemaining}
-                                    onUseCard={useActionCard}
-                                    onEndTurn={endTurn}
-                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
-                                />
+                                <div className="flex items-center justify-center gap-3">
+                                    <ActionCards
+                                        cards={actionCards}
+                                        actionsRemaining={actionsRemaining}
+                                        onUseCard={useActionCard}
+                                        onEndTurn={endTurn}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
+                                    />
+                                </div>
                             </div>
 
                             {/* Shape selection modal (when using "adjust range" action) */}
@@ -590,7 +585,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <ShapeSelector
                                     activeShapeId={activeShape?.id}
                                     onSelect={selectNewShape}
-                                    onCancel={() => selectNewShape(activeShape)}
+                                    onCancel={cancelAdjust}
                                 />
                             )}
 
@@ -783,8 +778,12 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     })}
                                 </div>
 
-                                {/* Action Buttons (Moved to prevent overlap) */}
+                                {/* Action Buttons */}
                                 <div className={`flex flex-col gap-2 shrink-0 justify-end pb-2 w-40 min-h-[88px] ${pendingItem ? 'hidden' : ''}`}>
+                                    {/* Current shape display */}
+                                    {!isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode && (
+                                        <ActiveShapeDisplay shape={activeShape} direction={machineDir} />
+                                    )}
                                     {!isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode && (
                                         <>
                                             <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">

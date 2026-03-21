@@ -32,11 +32,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // Machine state
     const [machinePos, setMachinePos] = useState({ row: 2, col: 2 });
     const [machineDir, setMachineDir] = useState(0); // 0=up, 1=right, 2=down, 3=left
-    const [activeShape, setActiveShape] = useState(SHAPE_DEFINITIONS[0]);
+    const [activeShape, setActiveShape] = useState(() => SHAPE_DEFINITIONS[Math.floor(Math.random() * SHAPE_DEFINITIONS.length)]);
     // Action card system
     const [actionCards, setActionCards] = useState([]);
     const [actionsRemaining, setActionsRemaining] = useState(0);
-    const [isSelectingShape, setIsSelectingShape] = useState(false); // adjust range mode
+    const [isSelectingShape, setIsSelectingShape] = useState(false);
+    const [pendingAdjustCardId, setPendingAdjustCardId] = useState(null);
     const [orders, setOrders] = useState([]);
     const [emergencyOrders, setEmergencyOrders] = useState([]);
 
@@ -139,11 +140,36 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const refreshMatrix = () => {
-        const newMatrix = generateResourceMatrix(allNormalItems);
+        const newMatrix = generateResourceMatrix(allNormalItems, config, currentStageConfig);
         setMatrix(newMatrix);
     };
 
+    const [goldFlash, setGoldFlash] = useState(false);
+
     const startNewTurn = () => {
+        // Deduct 1 gold per turn (machine running cost)
+        setGold(prev => {
+            const newGold = prev - 1;
+            if (newGold <= 0) {
+                setModalContent({
+                    type: 'game_over',
+                    title: t("游戏结束"),
+                    item: { icon: '💀', name: t("金币耗尽") },
+                    message: t("机器无法继续运行！"),
+                });
+                return 0;
+            }
+            if (newGold <= 5) {
+                showToast(`${t("运营消耗")} -1 🪙  (${t("剩余")} ${newGold})`, "warning");
+            } else {
+                showToast(`${t("运营消耗")} -1 🪙`, "info");
+            }
+            return newGold;
+        });
+        // Trigger gold flash animation
+        setGoldFlash(true);
+        setTimeout(() => setGoldFlash(false), 600);
+
         setActionCards(generateActionCards());
         setActionsRemaining(ACTION_CARD_CONFIG.actionsPerTurn);
         setIsSelectingShape(false);
@@ -151,10 +177,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     useEffect(() => {
         refreshMatrix();
+        setGold(config.global?.initialGold || 30);
         setMachinePos({ row: 2, col: 2 });
         setMachineDir(0);
-        setActiveShape(SHAPE_DEFINITIONS[0]);
-        startNewTurn();
+        setActiveShape(SHAPE_DEFINITIONS[Math.floor(Math.random() * SHAPE_DEFINITIONS.length)]);
+        // First turn: deal cards without deducting gold
+        setActionCards(generateActionCards());
+        setActionsRemaining(ACTION_CARD_CONFIG.actionsPerTurn);
+        setIsSelectingShape(false);
     }, [config]);
 
     const triggerSkillSelection = () => {
@@ -658,29 +688,30 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     // --- Action card handlers ---
     const useActionCard = (cardId) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates) return;
-        if (actionsRemaining <= 0 || isSelectingShape) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates || modalContent) return;
+        if (actionsRemaining <= 0 || isSelectingShape || gold <= 0) return;
 
         const card = actionCards.find(c => c.id === cardId && !c.used);
         if (!card) return;
 
-        if (card.type === ACTION_TYPES.MOVE) {
+        if (card.type === ACTION_TYPES.MOVE_FORWARD || card.type === ACTION_TYPES.MOVE_BACKWARD) {
+            const forward = card.type === ACTION_TYPES.MOVE_FORWARD;
             const [dr, dc] = DIRECTION_DELTA[machineDir];
-            const newRow = machinePos.row + dr;
-            const newCol = machinePos.col + dc;
+            const newRow = machinePos.row + (forward ? dr : -dr);
+            const newCol = machinePos.col + (forward ? dc : -dc);
             if (newRow < 0 || newRow >= 5 || newCol < 0 || newCol >= 5) {
-                showToast(t("无法前进：已到达边缘"), "error");
+                showToast(t(forward ? "无法前进：已到达边缘" : "无法后退：已到达边缘"), "error");
                 return;
             }
             setMachinePos({ row: newRow, col: newCol });
-        } else if (card.type === ACTION_TYPES.TURN) {
-            setMachineDir(prev => (prev + 1) % 4);
+        } else if (card.type === ACTION_TYPES.TURN_LEFT) {
+            setMachineDir(prev => (prev + 3) % 4); // counter-clockwise
+        } else if (card.type === ACTION_TYPES.TURN_RIGHT) {
+            setMachineDir(prev => (prev + 1) % 4); // clockwise
         } else if (card.type === ACTION_TYPES.ADJUST) {
             setIsSelectingShape(true);
-            // Mark card as used now; shape selection will complete the action
-            setActionCards(prev => prev.map(c => c.id === cardId ? { ...c, used: true } : c));
-            setActionsRemaining(prev => prev - 1);
-            return; // Don't mark used again below
+            setPendingAdjustCardId(cardId);
+            return; // Don't consume yet — wait for selection or cancel
         }
 
         setActionCards(prev => prev.map(c => c.id === cardId ? { ...c, used: true } : c));
@@ -690,12 +721,34 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const selectNewShape = (shapeDef) => {
         setActiveShape(shapeDef);
         setIsSelectingShape(false);
+        // Consume the adjust card now
+        if (pendingAdjustCardId) {
+            setActionCards(prev => prev.map(c => c.id === pendingAdjustCardId ? { ...c, used: true } : c));
+            setActionsRemaining(prev => prev - 1);
+            setPendingAdjustCardId(null);
+        }
     };
+
+    const cancelAdjust = () => {
+        setIsSelectingShape(false);
+        setPendingAdjustCardId(null);
+        // Card is NOT consumed
+    };
+
 
     // Auto-scan: called when player ends turn (0 actions remaining or manual end)
     const endTurn = () => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates) return;
-        if (!matrix) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates || modalContent) return;
+        if (!matrix || gold <= 0) return;
+
+        // Check exit tile first (before scan)
+        const isOnExit = matrix.exitPos && machinePos.row === matrix.exitPos.row && machinePos.col === matrix.exitPos.col;
+        if (isOnExit) {
+            setMatrix(generateResourceMatrix(allNormalItems, config, currentStageConfig));
+            showToast(t("到达出口：地图已刷新！"), "success");
+            startNewTurn();
+            return;
+        }
 
         // Scan with current machine state
         const shapeCells = getMachineCoverage(activeShape, machinePos.row, machinePos.col, machineDir);
@@ -712,8 +765,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Random pick 1
         const selectedPoint = coveredPoints[Math.floor(Math.random() * coveredPoints.length)];
 
-        // Roll rarity at draw time
-        let rarity = rollRarity(config, null, gold, hasSkill, skillState, currentStageConfig);
+        // Use pre-rolled rarity from the resource point
+        let rarity = selectedPoint.rarity;
         if (skillState.nextDrawEnhanced) {
             const nextRarity = getNextRarity(rarity.id, config);
             if (nextRarity) rarity = nextRarity;
@@ -731,7 +784,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         if (skillState.nextDrawExtraItem && coveredPoints.length > 0) {
             const extraPoint = coveredPoints[Math.floor(Math.random() * coveredPoints.length)];
-            let extraRarity = rollRarity(config, null, gold, hasSkill, skillState, currentStageConfig);
+            let extraRarity = extraPoint.rarity;
             if (skillState.nextDrawEnhanced) {
                 const next = getNextRarity(extraRarity.id, config);
                 if (next) extraRarity = next;
@@ -770,7 +823,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setSkillState(newSkillState);
 
         const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
-        handleIncomingItems(tryDropToolItem(itemsToProcess), decayedInventory);
+        handleIncomingItems(itemsToProcess, decayedInventory);
 
         // Start next turn
         startNewTurn();
@@ -1956,7 +2009,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             currentStageConfig,
             maxInventorySize,
             drawCount,
-            matrix, machinePos, machineDir, activeShape, actionCards, actionsRemaining, isSelectingShape,
+            matrix, machinePos, machineDir, activeShape, actionCards, actionsRemaining, isSelectingShape, goldFlash,
             orders,
             orderRefreshCount,
             REFRESH_MAX,
@@ -1988,6 +2041,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleSkillReplace,
             useActionCard,
             selectNewShape,
+            cancelAdjust,
             endTurn,
             handleCloseModal,
             handleSelectionSelect,
