@@ -376,7 +376,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             </div>
 
                             {/* Right: Frame Selector + Item Map (supply side) */}
-                            <div className="flex-shrink-0 flex flex-col items-center gap-3">
+                            <div className="flex-shrink-0 flex flex-col items-center gap-3 relative">
                                 <FrameSelector
                                     frames={availableFrames}
                                     selectedIndex={selectedFrameIndex}
@@ -396,45 +396,45 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     }}
                                     disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || selectedFrameIndex === null}
                                 />
+
+                                {/* SELECTION OVERLAY (Precise 2-pick-1) — covers only the right container */}
+                                {selectionMode && selectionMode.type !== 'trade_in' && (
+                                    <div className="absolute inset-0 bg-white z-40 flex flex-col items-center justify-center p-4 rounded-lg animate-in fade-in cursor-default">
+                                        {selectionMode.type === 'precise' && (
+                                            <h3 className="text-lg font-black mb-4 text-slate-800 text-center">
+                                                {t("精准：二选一 (不可取消)")}
+                                            </h3>
+                                        )}
+
+                                        <div className="flex gap-4 w-full justify-center items-stretch">
+                                            {selectionMode.items.map((item, idx) => {
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => handleSelectionSelect(item)}
+                                                        onMouseEnter={() => state.setHoveredItemName(item.name)}
+                                                        onMouseLeave={() => state.setHoveredItemName(null)}
+                                                        className={`
+                                                            relative transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group
+                                                            flex flex-col items-center justify-center gap-3
+                                                            flex-1 aspect-[4/5] rounded-3xl border-[4px] ${item.rarity.color}
+                                                        `}
+                                                    >
+                                                        <div className="text-5xl filter drop-shadow-sm transition-transform group-hover:scale-110">{item.icon}</div>
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <span className="font-black text-lg">{t(item.name)}</span>
+                                                            {item.rarity && (
+                                                                <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">{t(item.rarity.name)}</span>
+                                                            )}
+                                                        </div>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
-
-                        {/* SELECTION OVERLAY (Precise 2-pick-1) */}
-                        {selectionMode && selectionMode.type !== 'trade_in' && (
-                            <div className="absolute inset-0 bg-white z-40 flex flex-col items-center justify-center p-4 animate-in fade-in cursor-default">
-                                {selectionMode.type === 'precise' && (
-                                    <h3 className="text-2xl font-black mb-8 text-slate-800 text-center">
-                                        {t("精准：二选一 (不可取消)")}
-                                    </h3>
-                                )}
-
-                                <div className="flex gap-6 w-full max-w-xl justify-center items-stretch">
-                                    {selectionMode.items.map((item, idx) => {
-                                        return (
-                                            <button
-                                                key={idx}
-                                                onClick={() => handleSelectionSelect(item)}
-                                                onMouseEnter={() => state.setHoveredItemName(item.name)}
-                                                onMouseLeave={() => state.setHoveredItemName(null)}
-                                                className={`
-                                                    relative transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group
-                                                    flex flex-col items-center justify-center gap-3
-                                                    flex-1 aspect-[4/5] rounded-3xl border-[4px] ${item.rarity.color}
-                                                `}
-                                            >
-                                                <div className="text-6xl filter drop-shadow-sm transition-transform group-hover:scale-110">{item.icon}</div>
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <span className="font-black text-xl">{t(item.name)}</span>
-                                                    {item.rarity && (
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">{t(item.rarity.name)}</span>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )}
                     </section>
 
                     {/* BOTTOM: INVENTORY */}
