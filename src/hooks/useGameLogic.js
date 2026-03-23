@@ -585,21 +585,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const drawnIndex = Math.floor(Math.random() * coverage.length);
         const drawnCell = coverage[drawnIndex];
 
-        // Set animation state — UI will use this for cell-specific animations
-        setDrawAnimInfo({
-            drawnKey: `${drawnCell.row},${drawnCell.col}`,
-            coveredKeys,
-            phase: 'fly', // phase 1: drawn item flies, others fade
-        });
-
-        // Phase 1: fly + exit animation (500ms)
-        setTimeout(() => {
-            // Execute draw with pre-selected item guaranteed
+        const makePool = () => {
             const poolItems = affixKey === 'fragmented'
-                ? coverage.map(c => c.item)  // fragmented picks 3 from all covered
-                : [drawnCell.item];            // others: guaranteed pre-selected item
-
-            const virtualPool = {
+                ? coverage.map(c => c.item)
+                : [drawnCell.item];
+            return {
                 name: 'spatial',
                 items: poolItems,
                 affixKey,
@@ -608,17 +598,35 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 originalId: 'spatial',
                 id: 'spatial',
             };
-            handleDraw(virtualPool);
+        };
 
-            // Phase 2: cells refresh with new items
-            setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
-            setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol));
+        // Phase 1: highlight the drawn item (300ms)
+        setDrawAnimInfo({
+            drawnKey: `${drawnCell.row},${drawnCell.col}`,
+            coveredKeys,
+            phase: 'highlight',
+        });
 
-            // Phase 3: clear animation
+        setTimeout(() => {
+            // Phase 2: drawn item flies to inventory (500ms)
+            setDrawAnimInfo(prev => prev ? { ...prev, phase: 'fly' } : null);
+
             setTimeout(() => {
-                setDrawAnimInfo(null);
-            }, 350);
-        }, 500);
+                // Phase 3: execute draw + other 3 cells fade out (400ms)
+                handleDraw(makePool());
+                setDrawAnimInfo(prev => prev ? { ...prev, phase: 'exit' } : null);
+
+                setTimeout(() => {
+                    // Phase 4: refresh cells, new items enter (350ms)
+                    setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
+                    setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol));
+
+                    setTimeout(() => {
+                        setDrawAnimInfo(null);
+                    }, 350);
+                }, 400);
+            }, 500);
+        }, 300);
     };
 
     const handleDraw = (pool) => {

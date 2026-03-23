@@ -23,26 +23,23 @@ const RARITY_LABEL_COLOR = {
   epic: 'text-purple-500', legendary: 'text-orange-500', mythic: 'text-rose-500',
 };
 
-const FLY_DURATION = 500;
-
 /**
- * FlyingItem — portal-rendered item icon that flies from source cell to inventory.
+ * FlyingItem — portal element that flies from source cell to inventory area.
  */
 function FlyingItem({ icon, startRect }) {
   const [style, setStyle] = useState({
     position: 'fixed',
     left: startRect.left + startRect.width / 2,
     top: startRect.top + startRect.height / 2,
-    transform: 'translate(-50%, -50%) scale(1)',
+    transform: 'translate(-50%, -50%) scale(1.3)',
     opacity: 1,
     fontSize: '1.5rem',
     zIndex: 9999,
     pointerEvents: 'none',
-    transition: `all ${FLY_DURATION}ms cubic-bezier(0.2, 0.8, 0.2, 1)`,
+    transition: 'all 500ms cubic-bezier(0.2, 0.8, 0.2, 1)',
   });
 
   useEffect(() => {
-    // Target: center-bottom of viewport (approximate inventory position)
     const targetX = window.innerWidth / 2;
     const targetY = window.innerHeight - 80;
     requestAnimationFrame(() => {
@@ -50,8 +47,8 @@ function FlyingItem({ icon, startRect }) {
         ...prev,
         left: targetX,
         top: targetY,
-        transform: 'translate(-50%, -50%) scale(0.5)',
-        opacity: 0,
+        transform: 'translate(-50%, -50%) scale(0.6)',
+        opacity: 0.3,
       }));
     });
   }, []);
@@ -62,15 +59,22 @@ function FlyingItem({ icon, startRect }) {
   );
 }
 
+/**
+ * drawAnimInfo phases:
+ *   'highlight' — drawn cell glows, others unchanged
+ *   'fly'       — drawn cell icon hidden (portal flies), others unchanged
+ *   'exit'      — draw executes, other 3 cells fade out
+ *   'enter'     — 4 new items scale in
+ */
 function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled }) {
   const { t } = useLanguage();
   const [hoverAnchor, setHoverAnchor] = useState(null);
-  const [flyingItem, setFlyingItem] = useState(null); // { icon, startRect }
+  const [flyingItem, setFlyingItem] = useState(null);
   const cellRefs = useRef({});
 
   const isAnimating = !!drawAnimInfo;
 
-  // When drawAnimInfo enters 'fly' phase, launch the flying item
+  // Launch flying item when entering 'fly' phase
   useEffect(() => {
     if (drawAnimInfo?.phase === 'fly' && drawAnimInfo.drawnKey) {
       const el = cellRefs.current[drawAnimInfo.drawnKey];
@@ -80,8 +84,7 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
         const item = itemMap[r]?.[c];
         if (item) {
           setFlyingItem({ icon: item.icon, startRect: rect });
-          // Clear after animation
-          setTimeout(() => setFlyingItem(null), FLY_DURATION);
+          setTimeout(() => setFlyingItem(null), 500);
         }
       }
     }
@@ -146,6 +149,10 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
 
   if (!itemMap) return null;
 
+  const phase = drawAnimInfo?.phase;
+  const drawnKey = drawAnimInfo?.drawnKey;
+  const coveredKeysAnim = drawAnimInfo?.coveredKeys;
+
   return (
     <>
       {flyingItem && <FlyingItem icon={flyingItem.icon} startRect={flyingItem.startRect} />}
@@ -165,31 +172,43 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
           const isCovered = coveredCells.has(cellKey);
           const neededRarity = neededItems.get(item.name);
 
-          const isDrawnCell = drawAnimInfo?.phase === 'fly' && drawAnimInfo.drawnKey === cellKey;
-          const isExitCell = drawAnimInfo?.phase === 'fly' && !isDrawnCell && drawAnimInfo.coveredKeys.has(cellKey);
-          const isEnterCell = drawAnimInfo?.phase === 'enter' && drawAnimInfo.coveredKeys.has(cellKey);
+          const isDrawn = drawnKey === cellKey;
+          const isCoveredAnim = coveredKeysAnim?.has(cellKey);
+          const isOther = isCoveredAnim && !isDrawn;
 
-          let bgClass;
-          if (isDrawnCell) {
-            bgClass = 'bg-amber-100 border-amber-400';
-          } else if (isExitCell) {
+          // Per-phase cell states
+          let bgClass = '';
+          let iconClass = '';
+          let textVisible = true;
+
+          if (phase === 'highlight' && isDrawn) {
+            // Phase 1: drawn cell glows big
+            bgClass = 'bg-amber-100 border-amber-400 ring-2 ring-amber-400 scale-110 shadow-lg shadow-amber-200/60';
+          } else if (phase === 'fly' && isDrawn) {
+            // Phase 2: drawn cell icon hidden (portal handles it), cell stays amber
+            bgClass = 'bg-amber-50 border-amber-300';
+            iconClass = 'opacity-0';
+            textVisible = false;
+          } else if (phase === 'exit' && isDrawn) {
+            // Phase 3: drawn cell fades
             bgClass = 'bg-slate-200 border-slate-300';
+            iconClass = 'opacity-0';
+            textVisible = false;
+          } else if (phase === 'exit' && isOther) {
+            // Phase 3: other 3 cells shrink and fade
+            bgClass = 'bg-slate-200 border-slate-300';
+            iconClass = 'scale-50 opacity-0';
+            textVisible = false;
+          } else if (phase === 'enter' && isCoveredAnim) {
+            // Phase 4: new items scale in
+            bgClass = 'bg-white border-slate-200';
+            iconClass = 'animate-[scaleIn_0.3s_ease-out]';
           } else if (isCovered && isValidHover) {
             bgClass = 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
           } else if (neededRarity) {
             bgClass = RARITY_BG[neededRarity] || 'bg-white border-slate-200';
           } else {
             bgClass = 'bg-white border-slate-200';
-          }
-
-          // In-cell icon animation (drawn cell hides since portal handles the fly)
-          let iconAnim = '';
-          if (isDrawnCell) {
-            iconAnim = 'opacity-0';
-          } else if (isExitCell) {
-            iconAnim = 'scale-50 opacity-0';
-          } else if (isEnterCell) {
-            iconAnim = 'animate-[scaleIn_0.3s_ease-out]';
           }
 
           return (
@@ -206,15 +225,15 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
               onMouseEnter={() => handleCellHover(row, col)}
               onClick={() => handleCellClick(row, col)}
             >
-              <span className={`text-xl leading-none transition-all duration-300 ${iconAnim}`}>
+              <span className={`text-xl leading-none transition-all duration-300 ${iconClass}`}>
                 {item.icon}
               </span>
               <span className={`text-[10px] text-slate-500 mt-0.5 truncate max-w-[56px] transition-all duration-300 ${
-                isDrawnCell || isExitCell ? 'opacity-0' : ''
+                textVisible ? '' : 'opacity-0'
               }`}>
                 {t(item.name)}
               </span>
-              {neededRarity && !isDrawnCell && !isExitCell && (
+              {neededRarity && textVisible && (
                 <span className={`absolute top-0.5 right-1 text-[9px] font-bold ${RARITY_LABEL_COLOR[neededRarity]}`}>
                   {RARITY_LABEL[neededRarity]}+
                 </span>
