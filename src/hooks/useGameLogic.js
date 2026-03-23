@@ -572,8 +572,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         handleDraw(virtualPool);
 
-        // After draw, refresh only the 4 covered cells (not the whole map)
-        setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol));
+        // Delay cell refresh so the player can see the draw result first
+        setTimeout(() => {
+            setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol));
+        }, 600);
     };
 
     const handleDraw = (pool) => {

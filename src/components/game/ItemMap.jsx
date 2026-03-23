@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { isValidPlacement } from '../../utils/spatialPoolHelpers';
 import { FIXED_SHAPE, MAP_ROWS, MAP_COLS } from '../../data/spatialConstants';
@@ -22,20 +22,13 @@ const RARITY_LABEL_COLOR = {
   epic: 'text-purple-500', legendary: 'text-orange-500', mythic: 'text-rose-500',
 };
 
-/**
- * ItemMap — 5×4 item grid with fixed 2×2 placement.
- *
- * Props:
- *   itemMap: 2D array [row][col]
- *   hasSelectedEffect: boolean — whether a quality effect is selected
- *   milestone, rarityConfig: for needed-item highlighting
- *   onPlace: (anchorRow, anchorCol) => void
- *   onHoverCoverage: (itemNames[]) => void
- *   disabled: boolean
- */
+// Animation duration constants (ms)
+const DRAW_ANIM_DELAY = 350; // pulse before draw executes
+
 function ItemMap({ itemMap, hasSelectedEffect, milestone, rarityConfig, onPlace, onHoverCoverage, disabled }) {
   const { t } = useLanguage();
   const [hoverAnchor, setHoverAnchor] = useState(null);
+  const [drawingCells, setDrawingCells] = useState(null); // Set of "r,c" keys being animated
 
   const neededItems = useMemo(() => {
     if (!milestone || !rarityConfig) return new Map();
@@ -56,7 +49,7 @@ function ItemMap({ itemMap, hasSelectedEffect, milestone, rarityConfig, onPlace,
   }, [milestone, rarityConfig]);
 
   const coveredCells = useMemo(() => {
-    if (!hasSelectedEffect || !hoverAnchor) return new Set();
+    if (!hasSelectedEffect || !hoverAnchor || drawingCells) return new Set();
     const { row, col } = hoverAnchor;
     if (!isValidPlacement(row, col)) return new Set();
     const cells = new Set();
@@ -64,15 +57,15 @@ function ItemMap({ itemMap, hasSelectedEffect, milestone, rarityConfig, onPlace,
       cells.add(`${row + dr},${col + dc}`);
     }
     return cells;
-  }, [hasSelectedEffect, hoverAnchor]);
+  }, [hasSelectedEffect, hoverAnchor, drawingCells]);
 
   const isValidHover = useMemo(() => {
-    if (!hasSelectedEffect || !hoverAnchor) return false;
+    if (!hasSelectedEffect || !hoverAnchor || drawingCells) return false;
     return isValidPlacement(hoverAnchor.row, hoverAnchor.col);
-  }, [hasSelectedEffect, hoverAnchor]);
+  }, [hasSelectedEffect, hoverAnchor, drawingCells]);
 
-  const handleCellHover = (row, col) => {
-    if (!hasSelectedEffect || disabled) return;
+  const handleCellHover = useCallback((row, col) => {
+    if (!hasSelectedEffect || disabled || drawingCells) return;
     setHoverAnchor({ row, col });
     if (isValidPlacement(row, col) && onHoverCoverage) {
       const names = FIXED_SHAPE.cells
@@ -80,19 +73,31 @@ function ItemMap({ itemMap, hasSelectedEffect, milestone, rarityConfig, onPlace,
         .filter(Boolean);
       onHoverCoverage(names);
     }
-  };
+  }, [hasSelectedEffect, disabled, drawingCells, itemMap, onHoverCoverage]);
 
-  const handleMouseLeave = () => {
-    setHoverAnchor(null);
+  const handleMouseLeave = useCallback(() => {
+    if (!drawingCells) setHoverAnchor(null);
     if (onHoverCoverage) onHoverCoverage([]);
-  };
+  }, [drawingCells, onHoverCoverage]);
 
-  const handleCellClick = (row, col) => {
-    if (!hasSelectedEffect || disabled) return;
+  const handleCellClick = useCallback((row, col) => {
+    if (!hasSelectedEffect || disabled || drawingCells) return;
     if (!isValidPlacement(row, col)) return;
-    onPlace(row, col);
+
+    // Mark the covered cells as "drawing" for animation
+    const cells = new Set();
+    for (const [dr, dc] of FIXED_SHAPE.cells) {
+      cells.add(`${row + dr},${col + dc}`);
+    }
+    setDrawingCells(cells);
     setHoverAnchor(null);
-  };
+
+    // After animation, execute the actual draw
+    setTimeout(() => {
+      onPlace(row, col);
+      setDrawingCells(null);
+    }, DRAW_ANIM_DELAY);
+  }, [hasSelectedEffect, disabled, drawingCells, onPlace]);
 
   if (!itemMap) return null;
 
@@ -110,10 +115,14 @@ function ItemMap({ itemMap, hasSelectedEffect, milestone, rarityConfig, onPlace,
         const col = i % MAP_COLS;
         const item = itemMap[row][col];
         const isCovered = coveredCells.has(`${row},${col}`);
+        const isDrawing = drawingCells && drawingCells.has(`${row},${col}`);
         const neededRarity = neededItems.get(item.name);
 
         let bgClass;
-        if (isCovered && isValidHover) {
+        if (isDrawing) {
+          // Drawing animation: bright glow + scale up
+          bgClass = 'bg-amber-100 border-amber-400 ring-2 ring-amber-300 scale-110 shadow-lg shadow-amber-200/50';
+        } else if (isCovered && isValidHover) {
           bgClass = 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
         } else if (neededRarity) {
           bgClass = RARITY_BG[neededRarity] || 'bg-white border-slate-200';
@@ -126,18 +135,25 @@ function ItemMap({ itemMap, hasSelectedEffect, milestone, rarityConfig, onPlace,
             key={`${row}-${col}`}
             className={`
               relative flex flex-col items-center justify-center
-              w-16 h-16 rounded-md border transition-all cursor-default select-none
+              w-16 h-16 rounded-md border select-none
+              transition-all duration-200
               ${bgClass}
-              ${hasSelectedEffect && !disabled ? 'cursor-crosshair' : ''}
+              ${hasSelectedEffect && !disabled && !drawingCells ? 'cursor-crosshair' : 'cursor-default'}
             `}
             onMouseEnter={() => handleCellHover(row, col)}
             onClick={() => handleCellClick(row, col)}
           >
-            <span className="text-xl leading-none">{item.icon}</span>
-            <span className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[56px]">
+            <span className={`text-xl leading-none transition-all duration-300 ${
+              isDrawing ? '-translate-y-3 scale-125 opacity-0' : ''
+            }`}>
+              {item.icon}
+            </span>
+            <span className={`text-[10px] text-slate-500 mt-0.5 truncate max-w-[56px] transition-opacity duration-200 ${
+              isDrawing ? 'opacity-0' : ''
+            }`}>
               {t(item.name)}
             </span>
-            {neededRarity && (
+            {neededRarity && !isDrawing && (
               <span className={`absolute top-0.5 right-1 text-[9px] font-bold ${RARITY_LABEL_COLOR[neededRarity]}`}>
                 {RARITY_LABEL[neededRarity]}+
               </span>
