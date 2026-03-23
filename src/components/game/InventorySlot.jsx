@@ -133,6 +133,7 @@ export const InventorySlot = ({
                 aria-disabled={isDisabled}
                 className={`
                     relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 select-none overflow-visible
+                    ${item ? 'animate-[fadeIn_0.3s_ease-out]' : ''}
                     ${item
                         ? isToolItem
                             ? toolItemStyle

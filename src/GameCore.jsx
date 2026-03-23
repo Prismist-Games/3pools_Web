@@ -619,7 +619,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                         return (
                                             <InventorySlot
-                                                key={idx}
+                                                key={item ? `${idx}-${item.uid}` : idx}
                                                 index={idx}
                                                 item={item}
                                                 isSelected={isSelected}
