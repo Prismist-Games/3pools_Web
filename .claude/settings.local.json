@@ -37,7 +37,9 @@
       "Bash(git commit:*)",
       "Bash(npm run:*)",
       "Bash(timeout 8 npx vite --host)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(curl -s \"https://store.steampowered.com/search/?term=Sol+Cesto\")",
+      "Bash(npx eslint:*)"
     ]
   }
 }

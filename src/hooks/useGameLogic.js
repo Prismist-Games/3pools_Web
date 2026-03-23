@@ -6,8 +6,8 @@ import {
     getRandomItems,
     rollRarity
 } from '../utils/helpers';
-import { generateResourceMatrix, generateActionCards, getMachineCoverage, getCoveredResourcePoints, selectAvailableShapes } from '../utils/matrixHelpers';
-import { SHAPE_DEFINITIONS, ACTION_TYPES, ACTION_CARD_CONFIG, DIRECTION_DELTA } from '../data/matrixConfig';
+import { generateItemMatrix, applyGravity } from '../utils/matrixHelpers';
+import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -29,15 +29,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [drawCount, setDrawCount] = useState(0);
 
     const [matrix, setMatrix] = useState(null);
-    // Machine state
-    const [machinePos, setMachinePos] = useState({ row: 2, col: 2 });
-    const [machineDir, setMachineDir] = useState(0); // 0=up, 1=right, 2=down, 3=left
-    const [activeShape, setActiveShape] = useState(() => SHAPE_DEFINITIONS[Math.floor(Math.random() * SHAPE_DEFINITIONS.length)]);
-    // Action card system
-    const [actionCards, setActionCards] = useState([]);
-    const [actionsRemaining, setActionsRemaining] = useState(0);
-    const [isSelectingShape, setIsSelectingShape] = useState(false);
-    const [pendingAdjustCardId, setPendingAdjustCardId] = useState(null);
+    // Gravity animation event: { col, removedRow, tick }
+    const [gravityEvent, setGravityEvent] = useState(null);
+    // Last drawn item for fly animation: { row, col, item, rarity, tick }
+    const [lastDraw, setLastDraw] = useState(null);
     const [orders, setOrders] = useState([]);
     const [emergencyOrders, setEmergencyOrders] = useState([]);
 
@@ -140,51 +135,37 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const refreshMatrix = () => {
-        const newMatrix = generateResourceMatrix(allNormalItems, config, currentStageConfig);
+        const newMatrix = generateItemMatrix(allNormalItems, config, currentStageConfig);
         setMatrix(newMatrix);
     };
 
     const [goldFlash, setGoldFlash] = useState(false);
 
-    const startNewTurn = () => {
-        // Deduct 1 gold per turn (machine running cost)
+    // Deduct gold and check game over
+    const deductGold = (amount = 1) => {
         setGold(prev => {
-            const newGold = prev - 1;
+            const newGold = prev - amount;
             if (newGold <= 0) {
                 setModalContent({
                     type: 'game_over',
                     title: t("游戏结束"),
                     item: { icon: '💀', name: t("金币耗尽") },
-                    message: t("机器无法继续运行！"),
+                    message: t("无法继续操作！"),
                 });
                 return 0;
             }
             if (newGold <= 5) {
-                showToast(`${t("运营消耗")} -1 🪙  (${t("剩余")} ${newGold})`, "warning");
-            } else {
-                showToast(`${t("运营消耗")} -1 🪙`, "info");
+                showToast(`-${amount} 🪙  (${t("剩余")} ${newGold})`, "warning");
             }
             return newGold;
         });
-        // Trigger gold flash animation
         setGoldFlash(true);
         setTimeout(() => setGoldFlash(false), 600);
-
-        setActionCards(generateActionCards());
-        setActionsRemaining(ACTION_CARD_CONFIG.actionsPerTurn);
-        setIsSelectingShape(false);
     };
 
     useEffect(() => {
         refreshMatrix();
         setGold(config.global?.initialGold || 30);
-        setMachinePos({ row: 2, col: 2 });
-        setMachineDir(0);
-        setActiveShape(SHAPE_DEFINITIONS[Math.floor(Math.random() * SHAPE_DEFINITIONS.length)]);
-        // First turn: deal cards without deducting gold
-        setActionCards(generateActionCards());
-        setActionsRemaining(ACTION_CARD_CONFIG.actionsPerTurn);
-        setIsSelectingShape(false);
     }, [config]);
 
     const triggerSkillSelection = () => {
@@ -686,147 +667,121 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setInventory(currentInventory);
     };
 
-    // --- Action card handlers ---
-    const useActionCard = (cardId) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates || modalContent) return;
-        if (actionsRemaining <= 0 || isSelectingShape || gold <= 0) return;
+    // --- Row/Column selection: core draw action (two-phase: fly then gravity) ---
+    const [isDrawing, setIsDrawing] = useState(false);
+    const drawTimerRef = { current: null };
 
-        const card = actionCards.find(c => c.id === cardId && !c.used);
-        if (!card) return;
-
-        if (card.type === ACTION_TYPES.MOVE_FORWARD || card.type === ACTION_TYPES.MOVE_BACKWARD) {
-            const forward = card.type === ACTION_TYPES.MOVE_FORWARD;
-            const [dr, dc] = DIRECTION_DELTA[machineDir];
-            const newRow = machinePos.row + (forward ? dr : -dr);
-            const newCol = machinePos.col + (forward ? dc : -dc);
-            if (newRow < 0 || newRow >= 5 || newCol < 0 || newCol >= 5) {
-                showToast(t(forward ? "无法前进：已到达边缘" : "无法后退：已到达边缘"), "error");
-                return;
-            }
-            setMachinePos({ row: newRow, col: newCol });
-        } else if (card.type === ACTION_TYPES.TURN_LEFT) {
-            setMachineDir(prev => (prev + 3) % 4); // counter-clockwise
-        } else if (card.type === ACTION_TYPES.TURN_RIGHT) {
-            setMachineDir(prev => (prev + 1) % 4); // clockwise
-        } else if (card.type === ACTION_TYPES.ADJUST) {
-            setIsSelectingShape(true);
-            setPendingAdjustCardId(cardId);
-            return; // Don't consume yet — wait for selection or cancel
-        }
-
-        setActionCards(prev => prev.map(c => c.id === cardId ? { ...c, used: true } : c));
-        setActionsRemaining(prev => prev - 1);
-    };
-
-    const selectNewShape = (shapeDef) => {
-        setActiveShape(shapeDef);
-        setIsSelectingShape(false);
-        // Consume the adjust card now
-        if (pendingAdjustCardId) {
-            setActionCards(prev => prev.map(c => c.id === pendingAdjustCardId ? { ...c, used: true } : c));
-            setActionsRemaining(prev => prev - 1);
-            setPendingAdjustCardId(null);
-        }
-    };
-
-    const cancelAdjust = () => {
-        setIsSelectingShape(false);
-        setPendingAdjustCardId(null);
-        // Card is NOT consumed
-    };
-
-
-    // Auto-scan: called when player ends turn (0 actions remaining or manual end)
-    const endTurn = () => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates || modalContent) return;
+    const selectRowOrColumn = (type, index) => {
+        // Guard: block during pending states or ongoing draw animation
+        if (isDrawing || pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates || modalContent) return;
         if (!matrix || gold <= 0) return;
 
-        // Check exit tile first (before scan)
-        const isOnExit = matrix.exitPos && machinePos.row === matrix.exitPos.row && machinePos.col === matrix.exitPos.col;
-        if (isOnExit) {
-            setMatrix(generateResourceMatrix(allNormalItems, config, currentStageConfig));
-            showToast(t("到达出口：地图已刷新！"), "success");
-            startNewTurn();
-            return;
+        // Collect cells from the selected row or column
+        const gridSize = MATRIX_CONFIG.gridSize;
+        const cells = [];
+        if (type === 'row') {
+            for (let c = 0; c < gridSize; c++) cells.push({ cell: matrix[index][c], row: index, col: c });
+        } else {
+            for (let r = 0; r < gridSize; r++) cells.push({ cell: matrix[r][index], row: r, col: index });
         }
-
-        // Scan with current machine state
-        const shapeCells = getMachineCoverage(activeShape, machinePos.row, machinePos.col, machineDir);
-        const coveredPoints = getCoveredResourcePoints(shapeCells, matrix.resourcePoints);
-
-        if (coveredPoints.length === 0) {
-            showToast(t("扫描完成：没有覆盖到资源点"), "info");
-            startNewTurn();
-            return;
-        }
-
-        setDrawCount(prev => prev + 1);
 
         // Random pick 1
-        const selectedPoint = coveredPoints[Math.floor(Math.random() * coveredPoints.length)];
+        const picked = cells[Math.floor(Math.random() * cells.length)];
+        const selectedCell = picked.cell;
 
-        // Use pre-rolled rarity from the resource point
-        let rarity = selectedPoint.rarity;
+        // Use pre-rolled rarity from the cell
+        let rarity = selectedCell.rarity;
         if (skillState.nextDrawEnhanced) {
             const nextRarity = getNextRarity(rarity.id, config);
             if (nextRarity) rarity = nextRarity;
         }
 
         let newItem = {
-            ...selectedPoint.item,
+            ...selectedCell.item,
             uid: Math.random().toString(36).substr(2, 9),
             rarity,
-            poolName: selectedPoint.item.poolName,
+            poolName: selectedCell.item.poolName,
             decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
         };
 
         let itemsToProcess = [newItem];
 
-        if (skillState.nextDrawExtraItem && coveredPoints.length > 0) {
-            const extraPoint = coveredPoints[Math.floor(Math.random() * coveredPoints.length)];
-            let extraRarity = extraPoint.rarity;
+        // Extra item from skill (自动补货)
+        let extraPicked = null;
+        if (skillState.nextDrawExtraItem && cells.length > 1) {
+            const remaining = cells.filter(c => c !== picked);
+            extraPicked = remaining[Math.floor(Math.random() * remaining.length)];
+            let extraRarity = extraPicked.cell.rarity;
             if (skillState.nextDrawEnhanced) {
                 const next = getNextRarity(extraRarity.id, config);
                 if (next) extraRarity = next;
             }
             itemsToProcess.push({
-                ...extraPoint.item,
+                ...extraPicked.cell.item,
                 uid: Math.random().toString(36).substr(2, 9),
                 rarity: extraRarity,
-                poolName: extraPoint.item.poolName,
+                poolName: extraPicked.cell.item.poolName,
                 decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
             });
         }
 
-        const newSkillState = { ...skillState };
-        newSkillState.nextDrawExtraItem = false;
-        newSkillState.nextDrawGuaranteedRare = false;
-        newSkillState.nextDrawEnhanced = false;
+        // === Phase 1: fly animation starts immediately ===
+        setIsDrawing(true);
+        setLastDraw({ row: picked.row, col: picked.col, item: selectedCell.item, rarity, tick: Date.now() });
 
-        if (itemsToProcess.every(item => item.rarity.id === 'common')) {
-            newSkillState.consecutiveCommons += 1;
-        } else {
-            newSkillState.consecutiveCommons = 0;
-        }
+        // === Phase 2: after fly, apply gravity + process items ===
+        // Capture current values for the closure
+        const capturedMatrix = matrix;
+        const capturedInventory = [...inventory];
+        const capturedSkillState = { ...skillState };
 
-        if (hasSkill('consolation_prize') && newSkillState.consecutiveCommons >= 5) {
-            newSkillState.nextDrawGuaranteedRare = true;
-            newSkillState.consecutiveCommons = 0;
-            showToast(t("【安慰奖】触发：下一次必定稀有！"), "info");
-        }
+        drawTimerRef.current = setTimeout(() => {
+            // Apply gravity
+            if (extraPicked) {
+                let updatedMatrix = applyGravity(capturedMatrix, extraPicked.row, extraPicked.col, allNormalItems, config, currentStageConfig);
+                const finalMatrix = applyGravity(updatedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
+                setMatrix(finalMatrix);
+                setGravityEvent({ col: picked.col, removedRow: picked.row, col2: extraPicked.col, removedRow2: extraPicked.row, tick: Date.now() });
+            } else {
+                const newMatrix = applyGravity(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
+                setMatrix(newMatrix);
+                setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
+            }
 
-        if (hasSkill('negotiator') && itemsToProcess.some(item => item.rarity.bonus >= 0.5)) {
-            setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + 1));
-            showToast(t("【谈判专家】触发：订单刷新次数+1"));
-        }
+            setDrawCount(prev => prev + 1);
 
-        setSkillState(newSkillState);
+            // Update skill state
+            const newSkillState = { ...capturedSkillState };
+            newSkillState.nextDrawExtraItem = false;
+            newSkillState.nextDrawGuaranteedRare = false;
+            newSkillState.nextDrawEnhanced = false;
 
-        const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
-        handleIncomingItems(itemsToProcess, decayedInventory);
+            if (itemsToProcess.every(item => item.rarity.id === 'common')) {
+                newSkillState.consecutiveCommons += 1;
+            } else {
+                newSkillState.consecutiveCommons = 0;
+            }
 
-        // Start next turn
-        startNewTurn();
+            if (hasSkill('consolation_prize') && newSkillState.consecutiveCommons >= 5) {
+                newSkillState.nextDrawGuaranteedRare = true;
+                newSkillState.consecutiveCommons = 0;
+                showToast(t("【安慰奖】触发：下一次必定稀有！"), "info");
+            }
+
+            if (hasSkill('negotiator') && itemsToProcess.some(item => item.rarity.bonus >= 0.5)) {
+                setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + 1));
+                showToast(t("【谈判专家】触发：订单刷新次数+1"));
+            }
+
+            setSkillState(newSkillState);
+
+            deductGold(1);
+
+            const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(capturedInventory) : [...capturedInventory];
+            handleIncomingItems(itemsToProcess, decayedInventory);
+
+            setIsDrawing(false);
+        }, 450); // fly animation duration
     };
 
     // 尝试提附工具物品：按概率判断是否在物品列表末尾添加一个工具物品
@@ -926,7 +881,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleIncomingItems([modalContent.actualItem], decayedInventory);
         }
         setDrawCount(prev => prev + 1);
-        refreshMatrix();
         setModalContent(null);
     };
 
@@ -2009,7 +1963,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             currentStageConfig,
             maxInventorySize,
             drawCount,
-            matrix, machinePos, machineDir, activeShape, actionCards, actionsRemaining, isSelectingShape, goldFlash,
+            matrix, gravityEvent, lastDraw, isDrawing, goldFlash,
             orders,
             orderRefreshCount,
             REFRESH_MAX,
@@ -2039,10 +1993,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             triggerSkillSelection,
             handleSkillSelect,
             handleSkillReplace,
-            useActionCard,
-            selectNewShape,
-            cancelAdjust,
-            endTurn,
+            selectRowOrColumn,
             handleCloseModal,
             handleSelectionSelect,
             handleSelectionCancel,

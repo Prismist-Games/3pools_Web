@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Truck, Trash2, Package, RefreshCw, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Timer } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
@@ -8,9 +8,6 @@ import { SkillSelectionModal } from './components/game/SkillSelectionModal';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
 import ResourceMatrix from './components/game/ResourceMatrix';
-import ShapeSelector from './components/game/ShapeSelector';
-import ActiveShapeDisplay from './components/game/ActiveShapeDisplay';
-import ActionCards from './components/game/ActionCards';
 
 import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
@@ -18,6 +15,11 @@ import { SKILL_DEFINITIONS } from './data/constants';
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
     const [isSkillsCollapsed, setIsSkillsCollapsed] = useState(true);
+
+    // Refs for fly animation
+    const matrixRef = useRef(null);
+    const inventoryRef = useRef(null);
+    const [flyingItem, setFlyingItem] = useState(null);
 
     // Initialize Logic Hook
     const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialScore);
@@ -32,7 +34,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
     const {
         gold, score, currentStageConfig, maxInventorySize,
-        drawCount, matrix, machinePos, machineDir, activeShape, actionCards, actionsRemaining, isSelectingShape, goldFlash, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
+        drawCount, matrix, gravityEvent, lastDraw, isDrawing, goldFlash, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredItemName, hoveredSlotIndex,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
@@ -56,10 +58,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleConfirmSubmission,
         toggleSubmitMode,
         toggleRecycleMode,
-        useActionCard,
-        selectNewShape,
-        cancelAdjust,
-        endTurn,
+        selectRowOrColumn,
         handleSelectionSelect,
         handleSelectionCancel,
         handleConfirmRecycle,
@@ -77,6 +76,41 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     } = actions;
 
     const { hasSkill } = helpers;
+
+    // Fly animation: starts immediately from the picked cell, gravity follows after
+    const lastDrawTickRef = useRef(null);
+    useEffect(() => {
+        if (!lastDraw || lastDraw.tick === lastDrawTickRef.current) return;
+        lastDrawTickRef.current = lastDraw.tick;
+
+        const matrixEl = matrixRef.current;
+        const invEl = inventoryRef.current;
+        if (!matrixEl || !invEl) return;
+
+        const gridSize = 4;
+        const childIndex = (gridSize + 1)
+            + lastDraw.row * (gridSize + 1)
+            + 1
+            + lastDraw.col;
+        const cellEl = matrixEl.children[childIndex];
+        if (!cellEl) return;
+
+        const cellRect = cellEl.getBoundingClientRect();
+        const invRect = invEl.getBoundingClientRect();
+
+        setFlyingItem({
+            item: lastDraw.item,
+            rarity: lastDraw.rarity,
+            startX: cellRect.left + cellRect.width / 2,
+            startY: cellRect.top + cellRect.height / 2,
+            endX: invRect.left + invRect.width / 2,
+            endY: invRect.top + 20,
+            tick: lastDraw.tick,
+        });
+
+        const clearTimer = setTimeout(() => setFlyingItem(null), 550);
+        return () => clearTimeout(clearTimer);
+    }, [lastDraw]);
 
     // Helper to render modals
     const renderModal = () => {
@@ -261,6 +295,41 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => actions.hideToast()} />}
 
             {renderModal()}
+
+            {/* Flying item animation */}
+            {flyingItem && (
+                <div
+                    key={flyingItem.tick}
+                    className="fixed pointer-events-none z-[300]"
+                    style={{
+                        left: flyingItem.startX,
+                        top: flyingItem.startY,
+                        transform: 'translate(-50%, -50%)',
+                        animation: 'fly-to-inventory 0.5s cubic-bezier(0.2, 0, 0.2, 1) forwards',
+                        '--fly-dx': `${flyingItem.endX - flyingItem.startX}px`,
+                        '--fly-dy': `${flyingItem.endY - flyingItem.startY}px`,
+                    }}
+                >
+                    <div className={`flex flex-col items-center justify-center w-16 h-16 rounded-xl border-3 shadow-2xl ${
+                        flyingItem.rarity.id === 'common' ? 'bg-slate-100 border-slate-400' :
+                        flyingItem.rarity.id === 'uncommon' ? 'bg-green-100 border-green-500' :
+                        flyingItem.rarity.id === 'rare' ? 'bg-blue-100 border-blue-500' :
+                        flyingItem.rarity.id === 'epic' ? 'bg-purple-100 border-purple-500' :
+                        flyingItem.rarity.id === 'legendary' ? 'bg-orange-100 border-orange-500' :
+                        'bg-red-100 border-red-500'
+                    }`}>
+                        <span className="text-2xl">{flyingItem.item.icon}</span>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                @keyframes fly-to-inventory {
+                    0% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+                    20% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+                    100% { transform: translate(calc(-50% + var(--fly-dx)), calc(-50% + var(--fly-dy))) scale(0.6); opacity: 0.3; }
+                }
+            `}</style>
 
             <div className="w-full max-w-7xl mx-auto h-full flex flex-col shadow-2xl bg-white border-x border-slate-200 relative">
 
@@ -557,37 +626,20 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         {/* POOLS SCROLLABLE AREA */}
                         <div className="flex-1 flex flex-col p-3 lg:p-4 relative overflow-hidden">
                             <div className="flex flex-col gap-2 flex-1 justify-center">
-                                {/* Resource Matrix */}
+                                {/* Item Matrix with Row/Column Selection */}
                                 <ResourceMatrix
+                                    ref={matrixRef}
                                     matrix={matrix}
-                                    machinePos={machinePos}
-                                    machineDir={machineDir}
-                                    activeShape={activeShape}
+                                    gravityEvent={gravityEvent}
+                                    pickingCell={isDrawing && lastDraw ? { row: lastDraw.row, col: lastDraw.col } : null}
+                                    onSelectRow={(rowIdx) => selectRowOrColumn('row', rowIdx)}
+                                    onSelectCol={(colIdx) => selectRowOrColumn('col', colIdx)}
+                                    disabled={isDrawing || !!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates || gold <= 0}
                                     orders={orders}
                                     emergencyOrders={emergencyOrders}
                                     inventory={inventory}
                                 />
-
-                                {/* Action Cards */}
-                                <div className="flex items-center justify-center gap-3">
-                                    <ActionCards
-                                        cards={actionCards}
-                                        actionsRemaining={actionsRemaining}
-                                        onUseCard={useActionCard}
-                                        onEndTurn={endTurn}
-                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
-                                    />
-                                </div>
                             </div>
-
-                            {/* Shape selection modal (when using "adjust range" action) */}
-                            {isSelectingShape && (
-                                <ShapeSelector
-                                    activeShapeId={activeShape?.id}
-                                    onSelect={selectNewShape}
-                                    onCancel={cancelAdjust}
-                                />
-                            )}
 
                         </div>
 
@@ -702,7 +754,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             <div className="flex flex-col lg:flex-row gap-4 justify-center items-center lg:items-end relative max-w-3xl mx-auto">
 
                                 {/* Main Inventory */}
-                                <div className="flex flex-wrap gap-2 justify-center max-w-full">
+                                <div ref={inventoryRef} className="flex flex-wrap gap-2 justify-center max-w-full">
                                     {Array.from({ length: maxInventorySize }).map((_, idx) => {
                                         const item = inventory[idx];
                                         const isSelected = selectedSlot === idx || selectedIndices.includes(idx) || (toolSelectionMode?.toolIndex === idx);
@@ -780,10 +832,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                 {/* Action Buttons */}
                                 <div className={`flex flex-col gap-2 shrink-0 justify-end pb-2 w-40 min-h-[88px] ${pendingItem ? 'hidden' : ''}`}>
-                                    {/* Current shape display */}
-                                    {!isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode && (
-                                        <ActiveShapeDisplay shape={activeShape} direction={machineDir} />
-                                    )}
                                     {!isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode && (
                                         <>
                                             <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">

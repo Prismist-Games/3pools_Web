@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-We are a 3-person indie game dev team building a PC game for Steam. The game — "三池物语" (3 Pools Tales) — is a light-medium strategy game built around the core idea of "strategic choice before a lottery among 3 pools," capturing strategic fun amid uncertainty in a way that's accessible to a broad audience.
+We are a 3-person indie game dev team building a PC game for Steam. The game — "三池物语" — is a light-medium strategy game capturing strategic fun amid uncertainty in a way that's accessible to a broad audience.
 
 This repo is separate from the main Godot project. It serves as a Web prototype for rapid gameplay validation and design iteration, following a "try fast, iterate fast" approach.
 
@@ -49,18 +49,23 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "三池物语", deployed t
 ### Development Rules
 
 - **Single source of truth**: All game state lives in `useGameLogic` hook (`src/hooks/useGameLogic.js`). Components receive state via props from `GameCore.jsx`. Do not put game logic in components.
-- **Config-driven**: Game balance, items, affixes, skills — all defined in `src/data/constants.js`. Edit config values, not logic.
+- **Config-driven**: Game balance, items, skills — all defined in `src/data/constants.js`. Edit config values, not logic.
 - **i18n**: Chinese is the source language. Wrap all UI strings with `t()` from `useLanguage()`. Add English translations to `src/utils/translations.js`. Never hardcode English in components.
 
 ### Game Concepts
 
-- **Pools**: 3 active draw pools at a time, each with a random affix and gold cost. Drawing spends gold to add items to inventory.
+- **Item Matrix**: 5×5 grid of items. Player selects a row or column, randomly receives 1 item from it. Item is removed, gravity drops items down, top refills randomly (match-3 style). This is the new core draw mechanic (replacing the old pool/affix system), pending prototype validation.
 - **Inventory**: Fixed-size grid (10 slots default). Items can be merged if same name + same rarity → upgrades to next rarity.
-- **Orders**: 3 active regular orders + 2 emergency orders. Submit inventory items to fulfill requirements and earn score.
-- **Stages** (`INITIAL_STAGE_CONFIG`): 4 stages with escalating mechanics (volatility, specialization, entropy/decay). Currently `useGameLogic` always uses `stages[0]` — stage progression is managed externally.
-- **Skills**: Passive bonuses selected 3-from-3 at stage transitions. Defined in `SKILL_DEFINITIONS`. Skill effects are implemented as event hooks inside `useGameLogic` (`draw_requested`, `draw_finished`, order completion, recycle events).
+- **Orders**: 3 active regular orders + 2 evacuation orders. Submit inventory items to fulfill requirements and earn score.
+- **Stages** (`INITIAL_STAGE_CONFIG`): 4 stages with escalating mechanics. Currently `useGameLogic` always uses `stages[0]` — stage progression not active.
+- **Skills**: Passive bonuses defined in `SKILL_DEFINITIONS`. Not active in current version.
 - **Tool Items**: Special items (`tool_reforge`, `tool_transmute`, `tool_enhance`) that drop randomly on draws and are activated via right-click in inventory.
-- **Emergency Orders**: Time-limited orders with a health/difficulty system (`EMERGENCY_ORDER_CONFIG`).
+- **Evacuation Orders**: Orders with escalating difficulty. No time limit — must complete before gold runs out.
+
+### Workflow Rules
+
+- **Design discussions → doc sync**: When a conversation produces design decisions, rule changes, or new conclusions about any game system, proactively ask the user whether to update the relevant design documents (`game_rules.md`, `gameplay_progress.md`, etc.) before moving on.
+- **Implementation → read docs first**: When the user asks to implement or modify a gameplay feature, always read the relevant design documents first to understand the current design intent, status, and constraints — then proceed.
 
 ### Lessons Learned
 
