@@ -7,7 +7,6 @@ import { Toast } from './components/ui/Toast';
 import { SkillSelectionModal } from './components/game/SkillSelectionModal';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { InventorySlot } from './components/game/InventorySlot';
-import FrameSelector from './components/game/FrameSelector';
 import ItemMap from './components/game/ItemMap';
 
 import MilestoneGrid from './components/game/MilestoneGrid';
@@ -31,7 +30,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     const {
         gold, score, currentStageConfig, maxInventorySize,
         drawCount,
-        itemMap, availableFrames, selectedFrameIndex, drawAnimInfo,
+        itemMap, drawAnimInfo,
         milestone, milestoneNumber, cellMatches, fillableCellIds, relevantPoolIds,
         inventory,
         pendingItem, pendingQueue, selectedSlot,
@@ -64,7 +63,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         addInventoryItem,
         handleToolItemUse,
         handleCancelToolSelection,
-        handleFrameSelect,
         handleRefreshMap,
         handleMapPlace,
     } = actions;
@@ -385,19 +383,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 )}
                             </div>
 
-                            {/* Right: Frame Selector + Item Map (supply side) */}
+                            {/* Right: Item Map (supply side) */}
                             <div className="flex-shrink-0 flex flex-col items-center gap-3 relative">
-                                <FrameSelector
-                                    frames={availableFrames}
-                                    selectedIndex={selectedFrameIndex}
-                                    gold={gold}
-                                    onSelect={handleFrameSelect}
-                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode }
-                                />
                                 <div className="flex items-start gap-2">
                                     <ItemMap
                                         itemMap={itemMap}
-                                        hasSelectedEffect={selectedFrameIndex !== null}
                                         drawAnimInfo={drawAnimInfo}
                                         milestone={milestone}
                                         rarityConfig={config.rarity}
@@ -405,7 +395,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         onHoverCoverage={(names) => {
                                             state.setHoveredPoolItemNames(names);
                                         }}
-                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || selectedFrameIndex === null}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
                                     />
                                     <button
                                         onClick={handleRefreshMap}
