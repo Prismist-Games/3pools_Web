@@ -548,8 +548,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         return config.rarity[0];
     };
 
+    // Animation state for the draw sequence, exposed to UI
+    const [drawAnimInfo, setDrawAnimInfo] = useState(null);
+
     const handleMapPlace = (anchorRow, anchorCol) => {
-        if (selectedFrameIndex === null) return;
+        if (selectedFrameIndex === null || drawAnimInfo) return;
 
         const frame = availableFrames[selectedFrameIndex];
         if (!frame) return;
@@ -557,25 +560,65 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const coverage = getFrameCoverage(anchorRow, anchorCol, itemMap);
         if (!coverage) return;
 
-        const coveredItems = coverage.map(c => c.item);
+        const affixKey = frame.qualityEffect.id;
+        const coveredKeys = new Set(coverage.map(c => `${c.row},${c.col}`));
 
-        // Construct a virtual pool for the existing draw pipeline
-        const virtualPool = {
-            name: 'spatial',
-            items: coveredItems,
-            affixKey: frame.qualityEffect.id,
-            affix: frame.qualityEffect,
-            cost: frame.cost,
-            originalId: 'spatial',
-            id: 'spatial',
-        };
+        // For interactive effects (precise/trade_in), execute immediately — no pre-animation
+        if (affixKey === 'trade_in' || affixKey === 'precise') {
+            const virtualPool = {
+                name: 'spatial',
+                items: coverage.map(c => c.item),
+                affixKey,
+                affix: frame.qualityEffect,
+                cost: frame.cost,
+                originalId: 'spatial',
+                id: 'spatial',
+            };
+            handleDraw(virtualPool);
+            setTimeout(() => {
+                setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol));
+            }, 600);
+            return;
+        }
 
-        handleDraw(virtualPool);
+        // For passive effects: pre-select the drawn item, then animate
+        const drawnIndex = Math.floor(Math.random() * coverage.length);
+        const drawnCell = coverage[drawnIndex];
 
-        // Delay cell refresh so the player can see the draw result first
+        // Set animation state — UI will use this for cell-specific animations
+        setDrawAnimInfo({
+            drawnKey: `${drawnCell.row},${drawnCell.col}`,
+            coveredKeys,
+            phase: 'fly', // phase 1: drawn item flies, others fade
+        });
+
+        // Phase 1: fly + exit animation (500ms)
         setTimeout(() => {
+            // Execute draw with pre-selected item guaranteed
+            const poolItems = affixKey === 'fragmented'
+                ? coverage.map(c => c.item)  // fragmented picks 3 from all covered
+                : [drawnCell.item];            // others: guaranteed pre-selected item
+
+            const virtualPool = {
+                name: 'spatial',
+                items: poolItems,
+                affixKey,
+                affix: frame.qualityEffect,
+                cost: frame.cost,
+                originalId: 'spatial',
+                id: 'spatial',
+            };
+            handleDraw(virtualPool);
+
+            // Phase 2: cells refresh with new items
+            setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
             setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol));
-        }, 600);
+
+            // Phase 3: clear animation
+            setTimeout(() => {
+                setDrawAnimInfo(null);
+            }, 350);
+        }, 500);
     };
 
     const handleDraw = (pool) => {
@@ -1135,6 +1178,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             itemMap,
             availableFrames,
             selectedFrameIndex,
+            drawAnimInfo,
             milestone,
             milestoneNumber,
             cellMatches,

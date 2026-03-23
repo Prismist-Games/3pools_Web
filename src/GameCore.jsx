@@ -31,7 +31,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     const {
         gold, score, currentStageConfig, maxInventorySize,
         drawCount,
-        itemMap, availableFrames, selectedFrameIndex,
+        itemMap, availableFrames, selectedFrameIndex, drawAnimInfo,
         milestone, milestoneNumber, cellMatches, fillableCellIds, relevantPoolIds,
         inventory,
         pendingItem, pendingQueue, selectedSlot,
@@ -398,6 +398,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     <ItemMap
                                         itemMap={itemMap}
                                         hasSelectedEffect={selectedFrameIndex !== null}
+                                        drawAnimInfo={drawAnimInfo}
                                         milestone={milestone}
                                         rarityConfig={config.rarity}
                                         onPlace={handleMapPlace}
