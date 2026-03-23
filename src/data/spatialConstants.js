@@ -31,3 +31,7 @@ export const QUALITY_EFFECTS = INITIAL_AFFIXES_CONFIG.filter(a => a.id !== 'targ
 // Only the 4 cells covered by the 2×2 placement refresh each draw.
 export const MAP_ROWS = 3;
 export const MAP_COLS = 4;
+
+// --- Effect cells ---
+// Number of effect slots placed on the map.
+export const EFFECT_SLOT_COUNT = 3;
