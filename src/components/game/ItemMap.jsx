@@ -66,7 +66,7 @@ function FlyingItem({ icon, startRect }) {
  *   'exit'      — draw executes, other 3 cells fade out
  *   'enter'     — 4 new items scale in
  */
-function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled }) {
+function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, orders, emergencyOrders, onPlace, onHoverCoverage, disabled }) {
   const { t } = useLanguage();
   const [hoverAnchor, setHoverAnchor] = useState(null);
   const [flyingItem, setFlyingItem] = useState(null);
@@ -90,23 +90,28 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
     }
   }, [drawAnimInfo?.phase, drawAnimInfo?.drawnKey]);
 
+  // Compute needed items from all order requirements
+  // Map: itemName -> highest requiredRarity.id needed
   const neededItems = useMemo(() => {
-    if (!milestone || !rarityConfig) return new Map();
-    const rarityOrder = rarityConfig.map(r => r.id);
     const needs = new Map();
-    for (const cell of milestone.cells) {
-      if (cell.filledItem) continue;
-      const existing = needs.get(cell.itemName);
-      if (!existing) {
-        needs.set(cell.itemName, cell.requiredRarity);
-      } else {
-        const existingIdx = rarityOrder.indexOf(existing);
-        const newIdx = rarityOrder.indexOf(cell.requiredRarity);
-        if (newIdx > existingIdx) needs.set(cell.itemName, cell.requiredRarity);
+    const allOrders = [...(orders || []), ...(emergencyOrders || [])];
+    for (const order of allOrders) {
+      if (!order?.requirements) continue;
+      for (const req of order.requirements) {
+        const existing = needs.get(req.name);
+        if (!existing) {
+          needs.set(req.name, req.requiredRarity.id);
+        } else {
+          // Keep the highest required rarity (compare by bonus value)
+          const existingRarity = allOrders.flatMap(o => o?.requirements || []).find(r => r.requiredRarity.id === existing)?.requiredRarity;
+          if (existingRarity && req.requiredRarity.bonus > existingRarity.bonus) {
+            needs.set(req.name, req.requiredRarity.id);
+          }
+        }
       }
     }
     return needs;
-  }, [milestone, rarityConfig]);
+  }, [orders, emergencyOrders]);
 
   const coveredCells = useMemo(() => {
     if (!hasSelectedEffect || !hoverAnchor || isAnimating) return new Set();

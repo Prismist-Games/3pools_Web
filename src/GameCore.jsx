@@ -568,8 +568,12 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         itemMap={itemMap}
                                         hasSelectedEffect={selectedFrameIndex !== null}
                                         drawAnimInfo={drawAnimInfo}
+                                        orders={orders}
+                                        emergencyOrders={emergencyOrders}
                                         onPlace={handleMapPlace}
-                                        onHoverCoverage={(names) => {}}
+                                        onHoverCoverage={(names) => {
+                                            state.setHoveredPoolItemNames(names);
+                                        }}
                                         disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || selectedFrameIndex === null}
                                     />
                                     <button
