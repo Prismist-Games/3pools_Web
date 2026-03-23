@@ -10,7 +10,8 @@ import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
-import { generateItemMap, generateFrames, getFrameCoverage, refreshCoveredCells } from '../utils/spatialPoolHelpers.js';
+import { generateItemMap, getFrameCoverage, refreshCoveredCells, refreshAllEffects } from '../utils/spatialPoolHelpers.js';
+import { DEFAULT_DRAW } from '../data/spatialConstants.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
     const { t } = useLanguage();
@@ -25,8 +26,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [drawCount, setDrawCount] = useState(0);
 
     const [itemMap, setItemMap] = useState(() => generateItemMap());
-    const [availableFrames, setAvailableFrames] = useState(() => generateFrames());
-    const [selectedFrameIndex, setSelectedFrameIndex] = useState(null);
 
     // Milestone grid system
     const [milestone, setMilestone] = useState(null);
@@ -106,10 +105,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const refreshPools = (tick = false) => {
-        // Only refresh quality effects, NOT the map.
-        // Map cells are refreshed separately in handleMapPlace.
-        setAvailableFrames(generateFrames());
-        setSelectedFrameIndex(null);
+        // Refresh effect cell contents on the map (positions unchanged)
+        setItemMap(prev => refreshAllEffects(prev));
         if (tick && currentStageConfig.mechanics.entropy) {
             setInventory(prev => prev.map(item => {
                 if (!item || item.decay === undefined) return item;
@@ -552,49 +549,63 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [drawAnimInfo, setDrawAnimInfo] = useState(null);
 
     const handleMapPlace = (anchorRow, anchorCol) => {
-        if (selectedFrameIndex === null || drawAnimInfo) return;
-
-        const frame = availableFrames[selectedFrameIndex];
-        if (!frame) return;
+        if (drawAnimInfo) return;
 
         const coverage = getFrameCoverage(anchorRow, anchorCol, itemMap);
         if (!coverage) return;
 
-        const affixKey = frame.qualityEffect.id;
+        // Separate items from effects in coverage
+        const itemCells = coverage.filter(c => !c.item.isEffect);
+        const effectCell = coverage.find(c => c.item.isEffect);
+
+        // Determine effect config (null = default draw, no special effect)
+        const affixConfig = effectCell ? effectCell.item.effect : null;
+        const affixKey = affixConfig ? affixConfig.id : null;
+        const cost = affixConfig ? affixConfig.cost : DEFAULT_DRAW.cost;
+
+        // NOTE: Gold check and vip_discount are handled by handleDraw().
+        // We do NOT duplicate that logic here.
+
         const coveredKeys = new Set(coverage.map(c => `${c.row},${c.col}`));
 
-        // For interactive effects (precise/trade_in), execute immediately — no pre-animation
+        // Build virtual pool from item cells only
+        const poolItems = itemCells.map(c => c.item);
+
+        // For interactive effects (precise/trade_in), execute immediately
         if (affixKey === 'trade_in' || affixKey === 'precise') {
             const virtualPool = {
                 name: 'spatial',
-                items: coverage.map(c => c.item),
+                items: poolItems,
                 affixKey,
-                affix: frame.qualityEffect,
-                cost: frame.cost,
+                affix: affixConfig,
+                cost,
                 originalId: 'spatial',
                 id: 'spatial',
             };
             handleDraw(virtualPool);
             setTimeout(() => {
-                setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol));
+                setItemMap(prev => {
+                    const refreshed = refreshCoveredCells(prev, anchorRow, anchorCol);
+                    return refreshAllEffects(refreshed);
+                });
             }, 600);
             return;
         }
 
-        // For passive effects: pre-select the drawn item, then animate
-        const drawnIndex = Math.floor(Math.random() * coverage.length);
-        const drawnCell = coverage[drawnIndex];
+        // For passive effects (or no effect): pick random item from item cells
+        if (itemCells.length === 0) return;
+
+        const drawnIndex = Math.floor(Math.random() * itemCells.length);
+        const drawnCell = itemCells[drawnIndex];
 
         const makePool = () => {
-            const poolItems = affixKey === 'fragmented'
-                ? coverage.map(c => c.item)
-                : [drawnCell.item];
+            const items = affixKey === 'fragmented' ? poolItems : [drawnCell.item];
             return {
                 name: 'spatial',
-                items: poolItems,
+                items,
                 affixKey,
-                affix: frame.qualityEffect,
-                cost: frame.cost,
+                affix: affixConfig,
+                cost,
                 originalId: 'spatial',
                 id: 'spatial',
             };
@@ -612,14 +623,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setDrawAnimInfo(prev => prev ? { ...prev, phase: 'fly' } : null);
 
             setTimeout(() => {
-                // Phase 3: execute draw + other 3 cells fade out (400ms)
+                // Phase 3: execute draw + other cells fade out (400ms)
                 handleDraw(makePool());
                 setDrawAnimInfo(prev => prev ? { ...prev, phase: 'exit' } : null);
 
                 setTimeout(() => {
                     // Phase 4: refresh cells, new items enter (350ms)
                     setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
-                    setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol));
+                    setItemMap(prev => {
+                        const refreshed = refreshCoveredCells(prev, anchorRow, anchorCol);
+                        return refreshAllEffects(refreshed);
+                    });
 
                     setTimeout(() => {
                         setDrawAnimInfo(null);
@@ -1162,8 +1176,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setIsEvacuationMode(false);
         setEvacuationReady(false);
         setItemMap(generateItemMap());
-        setAvailableFrames(generateFrames());
-        setSelectedFrameIndex(null);
     };
 
     const handleEvacuationExtract = () => {
@@ -1184,8 +1196,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             maxInventorySize,
             drawCount,
             itemMap,
-            availableFrames,
-            selectedFrameIndex,
             drawAnimInfo,
             milestone,
             milestoneNumber,
@@ -1232,7 +1242,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             addInventoryItem,
             handleToolItemUse,
             handleCancelToolSelection,
-            handleFrameSelect: (index) => setSelectedFrameIndex(index),
             handleRefreshMap: () => {
                 if (gold < 1) return;
                 setGold(prev => prev - 1);

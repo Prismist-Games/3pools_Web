@@ -35,3 +35,6 @@ export const MAP_COLS = 4;
 // --- Effect cells ---
 // Number of effect slots placed on the map.
 export const EFFECT_SLOT_COUNT = 3;
+
+/** Default draw config when no effect cell is in the 2×2 frame */
+export const DEFAULT_DRAW = { id: null, cost: 1 };

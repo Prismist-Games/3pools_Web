@@ -127,29 +127,6 @@ export function refreshAllEffects(itemMap) {
   return newMap;
 }
 
-// --- Frame generation ---
-
-/**
- * Generate 3 quality effects (no shape variety — always 2×2).
- * Each frame: { qualityEffect, cost }
- */
-export function generateFrames() {
-  const frames = [];
-  const usedIds = new Set();
-
-  for (let i = 0; i < 3; i++) {
-    const available = QUALITY_EFFECTS.filter(e => !usedIds.has(e.id));
-    const effect = available[Math.floor(Math.random() * available.length)];
-    usedIds.add(effect.id);
-    frames.push({
-      qualityEffect: effect,
-      cost: effect.cost,
-    });
-  }
-
-  return frames;
-}
-
 // --- Coverage calculation (fixed 2×2) ---
 
 /**
