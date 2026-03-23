@@ -38,7 +38,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, totalRecycleValue, selectedItemNames,
-        toolSelectionMode, canEvacuate
+        toolSelectionMode, canEvacuate, revealedCellIds
     } = state;
 
     const {
@@ -366,6 +366,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             <MilestoneGrid
                                 milestone={milestone}
                                 fillableCellIds={fillableCellIds}
+                                revealedCellIds={revealedCellIds}
                                 onFillCell={handleFillCell}
                                 milestoneNumber={milestoneNumber}
                                 hoveredPoolItemNames={hoveredPoolItemNames}
@@ -386,7 +387,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 {activePools.map((pool) => {
                                     const relevantRequirements = milestone
                                         ? milestone.cells
-                                            .filter(c => !c.filledItem && pool.items.some(pi => pi.name === c.itemName))
+                                            .filter(c => !c.filledItem && revealedCellIds.has(c.id) && pool.items.some(pi => pi.name === c.itemName))
                                             .map(c => ({ name: c.itemName, requiredRarity: { bonus: 0 } }))
                                         : [];
 
@@ -586,7 +587,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                         // Badge Logic: Check if item is needed by unfilled milestone cells
                                         const neededCells = item && milestone
-                                            ? milestone.cells.filter(c => !c.filledItem && c.itemName === item.name)
+                                            ? milestone.cells.filter(c => !c.filledItem && revealedCellIds.has(c.id) && c.itemName === item.name)
                                             : [];
                                         const isNeeded = neededCells.length > 0;
                                         const isMaxSatisfied = isNeeded && neededCells.some(c => {
@@ -694,7 +695,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                         {(() => {
                                                             // Pending Item Badge Logic
                                                             const pendingNeededCells = milestone
-                                                                ? milestone.cells.filter(c => !c.filledItem && c.itemName === pendingItem.name)
+                                                                ? milestone.cells.filter(c => !c.filledItem && revealedCellIds.has(c.id) && c.itemName === pendingItem.name)
                                                                 : [];
                                                             const isNeeded = pendingNeededCells.length > 0;
                                                             const isMaxSatisfied = isNeeded && pendingNeededCells.some(c => {
@@ -731,7 +732,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 {pendingQueue.map((qItem, idx) => {
                                                     // Queue Item Badge Logic
                                                     const qNeededCells = milestone
-                                                        ? milestone.cells.filter(c => !c.filledItem && c.itemName === qItem.name)
+                                                        ? milestone.cells.filter(c => !c.filledItem && revealedCellIds.has(c.id) && c.itemName === qItem.name)
                                                         : [];
                                                     const isNeeded = qNeededCells.length > 0;
                                                     const isMaxSatisfied = isNeeded && qNeededCells.some(c => {

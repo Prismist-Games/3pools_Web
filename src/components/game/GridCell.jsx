@@ -20,14 +20,25 @@ const RARITY_NAMES = {
   mythic: '神话',
 };
 
-const GridCellBase = ({ cell, isFillable, isHighlighted, onClick }) => {
+const GridCellBase = ({ cell, isFillable, isHighlighted, isRevealed = true, hideItemInfo = false, onClick }) => {
+  // Fog of war: hidden cell
+  if (!isRevealed) {
+    return (
+      <div className="relative w-24 h-24 rounded-lg flex items-center justify-center
+        border-2 bg-slate-100 border-slate-300 border-dashed cursor-default select-none overflow-hidden z-10">
+        <span className="text-3xl font-bold text-slate-300">?</span>
+      </div>
+    );
+  }
+
   const isFilled = !!cell.filledItem;
   const rarityStyle = RARITY_STYLES.common; // Rarity requirements disabled
-  const displayIcon = isFilled ? cell.filledItem.icon : cell.itemIcon;
   const hasReward = cell.scoreReward > 0;
+  // hideItemInfo is passed as prop (e.g. evacuation cell before neighbors are filled)
+  const displayIcon = isFilled ? cell.filledItem.icon : (hideItemInfo ? '🚀' : cell.itemIcon);
 
   const handleClick = () => {
-    if (!isFilled && isFillable && onClick) {
+    if (isFillable && onClick) {
       onClick(cell.id);
     }
   };
@@ -40,14 +51,16 @@ const GridCellBase = ({ cell, isFillable, isHighlighted, onClick }) => {
         transition-all duration-200 select-none overflow-hidden z-10
         border-2 ${rarityStyle}
         ${isFillable && !isFilled ? 'cursor-pointer ring-2 ring-green-400 shadow-[0_0_12px_rgba(34,197,94,0.5)]' : ''}
-        ${isHighlighted && !isFilled ? 'ring-2 ring-sky-400 scale-105 shadow-lg shadow-sky-200/50' : ''}
+        ${isFillable && isFilled ? 'cursor-pointer ring-2 ring-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.4)]' : ''}
+        ${isHighlighted ? 'ring-2 ring-sky-400 scale-105 shadow-lg shadow-sky-200/50' : ''}
         ${!isFillable && !isHighlighted && !isFilled ? 'cursor-default' : ''}
-        ${isFilled ? 'bg-green-50 border-green-300' : ''}
+        ${isFilled && !isFillable ? 'bg-green-50 border-green-300' : ''}
+        ${isFilled && isFillable ? 'bg-green-50 border-green-300' : ''}
       `}
     >
       {/* Top-left: rewards */}
       <div className="absolute top-1 left-1 flex flex-col gap-0.5">
-        {cell.hasEvacuation && (
+        {cell.hasEvacuation && !hideItemInfo && (
           <span className="text-xs leading-none">🚀</span>
         )}
         {hasReward && (
@@ -58,12 +71,14 @@ const GridCellBase = ({ cell, isFillable, isHighlighted, onClick }) => {
       </div>
 
       {/* Center: item icon + name */}
-      <span className={`text-3xl leading-none ${isFilled ? '' : isHighlighted ? 'opacity-80' : 'grayscale opacity-40'}`}>
+      <span className={`text-3xl leading-none ${isFilled ? '' : hideItemInfo ? '' : isHighlighted ? 'opacity-80' : 'grayscale opacity-40'}`}>
         {displayIcon}
       </span>
-      <span className="text-xs font-medium leading-tight truncate max-w-full px-1 mt-1 text-slate-500">
-        {cell.itemName}
-      </span>
+      {!hideItemInfo && (
+        <span className="text-xs font-medium leading-tight truncate max-w-full px-1 mt-1 text-slate-500">
+          {cell.itemName}
+        </span>
+      )}
 
       {/* Bottom-left: rarity name (hidden — rarity requirements disabled) */}
       {/* <span className="absolute bottom-1 left-1 text-[9px] font-bold text-slate-400 leading-none">

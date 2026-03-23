@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import GridCell from './GridCell';
 import { TASK_COLORS } from '../../data/gridConstants';
 
-const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNumber, hoveredPoolItemNames, canEvacuate, onEvacuate }) => {
+const MilestoneGridBase = ({ milestone, fillableCellIds, revealedCellIds, onFillCell, milestoneNumber, hoveredPoolItemNames, canEvacuate, onEvacuate }) => {
   if (!milestone) return null;
   const { cells, tasks, gridBounds } = milestone;
 
@@ -21,32 +21,38 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
   }, [cells]);
 
   // Compute task connection lines (straight-line tasks → colored lines through cell centers)
-  const taskLines = useMemo(() => {
-    return tasks.map((task, taskIndex) => {
+  // Break task lines into cell-to-cell segments; only show if at least one endpoint is revealed
+  const taskSegments = useMemo(() => {
+    const segments = [];
+    tasks.forEach((task, taskIndex) => {
       const taskCells = task.cellIndices.map(idx => cells[idx]);
       const color = TASK_COLORS[taskIndex % TASK_COLORS.length];
       const isHorizontal = taskCells.length <= 1 || taskCells.every(c => c.row === taskCells[0].row);
 
-      let gridRowStart, gridRowEnd, gridColStart, gridColEnd;
-      if (isHorizontal) {
-        const row = taskCells[0].row - minRow + 1;
-        const cols = taskCells.map(c => c.col - minCol + 1).sort((a, b) => a - b);
-        gridRowStart = row;
-        gridRowEnd = row + 1;
-        gridColStart = cols[0];
-        gridColEnd = cols[cols.length - 1] + 1;
-      } else {
-        const col = taskCells[0].col - minCol + 1;
-        const rows = taskCells.map(c => c.row - minRow + 1).sort((a, b) => a - b);
-        gridRowStart = rows[0];
-        gridRowEnd = rows[rows.length - 1] + 1;
-        gridColStart = col;
-        gridColEnd = col + 1;
+      if (taskCells.length <= 1) {
+        if (revealedCellIds.has(taskCells[0].id)) {
+          const c = taskCells[0];
+          segments.push({ key: `${taskIndex}-dot`, color, isDot: true, gridRow: c.row - minRow + 1, gridCol: c.col - minCol + 1, isCompleted: task.isCompleted });
+        }
+        return;
       }
 
-      return { taskIndex, color, isHorizontal, gridRowStart, gridRowEnd, gridColStart, gridColEnd, isCompleted: task.isCompleted, cellCount: taskCells.length };
+      const sorted = [...taskCells].sort((a, b) => isHorizontal ? a.col - b.col : a.row - b.row);
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const a = sorted[i], b = sorted[i + 1];
+        if (!revealedCellIds.has(a.id) && !revealedCellIds.has(b.id)) continue;
+        const rS = a.row - minRow + 1, cS = a.col - minCol + 1;
+        const rE = b.row - minRow + 2, cE = b.col - minCol + 2;
+        segments.push({
+          key: `${taskIndex}-${i}`, color, isDot: false, isHorizontal,
+          gridRowStart: rS, gridRowEnd: isHorizontal ? rS + 1 : rE,
+          gridColStart: cS, gridColEnd: isHorizontal ? cE : cS + 1,
+          isCompleted: task.isCompleted,
+        });
+      }
     });
-  }, [tasks, cells, minRow, minCol]);
+    return segments;
+  }, [tasks, cells, minRow, minCol, revealedCellIds]);
 
   const completedTasks = tasks.filter(t => t.isCompleted).length;
   const totalTasks = tasks.length;
@@ -62,34 +68,23 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
           gap: '16px',
         }}
       >
-        {/* Task connection lines — colored lines through cell centers */}
-        {taskLines.map(({ taskIndex, color, isHorizontal, gridRowStart, gridRowEnd, gridColStart, gridColEnd, isCompleted, cellCount }) => (
-          <div
-            key={`task-line-${taskIndex}`}
-            className={`pointer-events-none flex items-center justify-center ${isCompleted ? 'opacity-25' : ''}`}
-            style={{
-              gridRow: `${gridRowStart} / ${gridRowEnd}`,
-              gridColumn: `${gridColStart} / ${gridColEnd}`,
-              zIndex: 1,
-            }}
-          >
-            {cellCount <= 1 ? (
-              <div
-                className="rounded-full"
-                style={{ width: 10, height: 10, backgroundColor: color }}
-              />
-            ) : (
-              <div
-                className="rounded-full"
-                style={{
-                  width: isHorizontal ? '100%' : 5,
-                  height: isHorizontal ? 5 : '100%',
-                  backgroundColor: color,
-                }}
-              />
-            )}
-          </div>
-        ))}
+        {/* Task connection line segments — only between adjacent cells where at least one is revealed */}
+        {taskSegments.map((seg) => {
+          if (seg.isDot) {
+            return (
+              <div key={seg.key} className={`pointer-events-none flex items-center justify-center ${seg.isCompleted ? 'opacity-25' : ''}`}
+                style={{ gridRow: seg.gridRow, gridColumn: seg.gridCol, zIndex: 1 }}>
+                <div className="rounded-full" style={{ width: 10, height: 10, backgroundColor: seg.color }} />
+              </div>
+            );
+          }
+          return (
+            <div key={seg.key} className={`pointer-events-none flex items-center justify-center ${seg.isCompleted ? 'opacity-25' : ''}`}
+              style={{ gridRow: `${seg.gridRowStart} / ${seg.gridRowEnd}`, gridColumn: `${seg.gridColStart} / ${seg.gridColEnd}`, zIndex: 1 }}>
+              <div className="rounded-full" style={{ width: seg.isHorizontal ? '100%' : 5, height: seg.isHorizontal ? 5 : '100%', backgroundColor: seg.color }} />
+            </div>
+          );
+        })}
 
         {/* Cells — explicitly positioned to avoid auto-flow conflicts with overlays */}
         {Array.from({ length: gridBounds.rows }).map((_, rowIdx) =>
@@ -105,13 +100,30 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
             };
 
             if (!entry) {
-              return <div key={`empty-${rowIdx}-${colIdx}`} className="w-24 h-24" style={gridStyle} />;
+              // Empty grid position: show "?" to hide grid shape
+              return (
+                <div key={`empty-${rowIdx}-${colIdx}`} className="w-24 h-24 rounded-lg flex items-center justify-center border-2 bg-slate-100 border-slate-300 border-dashed" style={gridStyle}>
+                  <span className="text-3xl font-bold text-slate-300">?</span>
+                </div>
+              );
             }
 
             const { cell } = entry;
-            const isFillable = fillableCellIds.includes(String(cell.id));
+            const isRevealed = revealedCellIds.has(cell.id);
+            const isFillable = isRevealed && fillableCellIds.includes(String(cell.id));
 
-            const isHighlightedByPool = !cell.filledItem &&
+            // Evacuation cell: hide item info until a neighbor cell is filled
+            let hideItemInfo = false;
+            if (cell.hasEvacuation && !cell.filledItem) {
+              const hasFilledNeighbor = cells.some(c =>
+                c.filledItem &&
+                ((Math.abs(c.row - cell.row) === 1 && c.col === cell.col) ||
+                 (Math.abs(c.col - cell.col) === 1 && c.row === cell.row))
+              );
+              hideItemInfo = !hasFilledNeighbor;
+            }
+
+            const isHighlightedByPool = isRevealed && !hideItemInfo &&
               hoveredPoolItemNames && hoveredPoolItemNames.length > 0 &&
               hoveredPoolItemNames.includes(cell.itemName);
 
@@ -121,6 +133,8 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
                   cell={cell}
                   isFillable={isFillable}
                   isHighlighted={isHighlightedByPool}
+                  isRevealed={isRevealed}
+                  hideItemInfo={hideItemInfo}
                   onClick={onFillCell}
                 />
               </div>
@@ -138,24 +152,6 @@ const MilestoneGridBase = ({ milestone, fillableCellIds, onFillCell, milestoneNu
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full w-fit ${completedTasks === totalTasks ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'}`}>
             任务 {completedTasks}/{totalTasks}
           </span>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          {tasks.map((task, taskIndex) => (
-            <div
-              key={task.id}
-              className={`flex items-center gap-1.5 text-xs font-bold ${task.isCompleted ? 'line-through opacity-40' : 'text-slate-600'}`}
-            >
-              <div
-                className="w-3 h-3 rounded-sm shrink-0"
-                style={{
-                  backgroundColor: TASK_COLORS[taskIndex % TASK_COLORS.length] + '30',
-                  border: `2px solid ${TASK_COLORS[taskIndex % TASK_COLORS.length]}`,
-                }}
-              />
-              <span>{task.cellIndices.length}格</span>
-            </div>
-          ))}
         </div>
 
         {canEvacuate && (

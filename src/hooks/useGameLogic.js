@@ -9,7 +9,7 @@ import {
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
-import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
+import { TASK_GOLD_REWARD, GRID_CONFIG } from '../data/gridConstants.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
     const { t } = useLanguage();
@@ -28,6 +28,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // Milestone grid system
     const [milestone, setMilestone] = useState(null);
     const [milestoneNumber, setMilestoneNumber] = useState(1);
+    const [revealedCellIds, setRevealedCellIds] = useState(new Set());
 
     const [inventory, setInventory] = useState([]);
 
@@ -90,6 +91,22 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 milestoneNumber
             );
             setMilestone(newMilestone);
+
+            // Fog of war: always reveal evacuation cell + N random non-evacuation cells
+            const initialIds = new Set();
+            // Always reveal evacuation cell (position visible, item hidden)
+            newMilestone.cells.forEach(c => { if (c.hasEvacuation) initialIds.add(c.id); });
+            // Reveal N random non-evacuation cells
+            const nonEvacIndices = newMilestone.cells
+                .map((c, i) => i)
+                .filter(i => !newMilestone.cells[i].hasEvacuation);
+            for (let i = nonEvacIndices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [nonEvacIndices[i], nonEvacIndices[j]] = [nonEvacIndices[j], nonEvacIndices[i]];
+            }
+            const count = Math.min(GRID_CONFIG.initialRevealCount, nonEvacIndices.length);
+            nonEvacIndices.slice(0, count).forEach(i => initialIds.add(newMilestone.cells[i].id));
+            setRevealedCellIds(initialIds);
         }
     }, [milestone, allNormalItems]);
 
@@ -206,12 +223,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         showToast(`${t("替换技能：")}${t(newSkill.name)}`);
     };
 
-    // Cell matching: for each unfilled cell, find inventory items that can fill it
+    // Cell matching: for each revealed cell (filled or not), find inventory items that match
     const cellMatches = useMemo(() => {
         if (!milestone) return {};
         const matches = {};
         milestone.cells.forEach((cell) => {
-            if (cell.filledItem) return;
+            if (!revealedCellIds.has(cell.id)) return;
             const matchingItems = inventory
                 .map((item, idx) => ({ item, idx }))
                 .filter(({ item }) =>
@@ -223,19 +240,19 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }
         });
         return matches;
-    }, [milestone, inventory, config.rarity]);
+    }, [milestone, inventory, revealedCellIds]);
 
     const fillableCellIds = useMemo(() => Object.keys(cellMatches), [cellMatches]);
 
-    // Which pools have items needed by unfilled cells (for pool highlighting)
+    // Which pools have items needed by unfilled revealed cells (for pool highlighting)
     const relevantPoolIds = useMemo(() => {
         if (!milestone) return new Set();
         return new Set(
             milestone.cells
-                .filter(c => !c.filledItem)
+                .filter(c => !c.filledItem && revealedCellIds.has(c.id))
                 .map(c => c.poolId)
         );
-    }, [milestone]);
+    }, [milestone, revealedCellIds]);
 
     const totalRecycleValue = useMemo(() => {
         if (!isRecycleMode || selectedIndices.length === 0) return 0;
@@ -1034,7 +1051,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         const cellIndex = milestone.cells.findIndex(c => c.id === cellId);
         const cell = milestone.cells[cellIndex];
-        if (!cell || cell.filledItem) return;
+        if (!cell) return;
 
         const matchingIndices = cellMatches[cellId];
         if (!matchingIndices || matchingIndices.length === 0) return;
@@ -1043,7 +1060,19 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const invIdx = matchingIndices[0];
         const item = inventory[invIdx];
 
-        // Fill the cell
+        // Remove consumed item from inventory
+        const newInventory = [...inventory];
+        newInventory[invIdx] = null;
+        setInventory(newInventory);
+
+        // Re-submit to already filled cell: consume item, +1 score
+        if (cell.filledItem) {
+            setScore(prev => prev + 1);
+            showToast(`+1 ${t('积分')}`, 'epic');
+            return;
+        }
+
+        // First fill
         const updatedCells = milestone.cells.map((c, i) =>
             i === cellIndex ? { ...c, filledItem: item } : c
         );
@@ -1061,8 +1090,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         );
 
         let scoreGain = 0;
-        let goldGain = 0;
-
         for (const task of newlyCompleted) {
             const taskScore = task.cellIndices.reduce(
                 (sum, idx) => sum + updatedCells[idx].scoreReward, 0
@@ -1070,23 +1097,36 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             scoreGain += Math.ceil(taskScore);
         }
 
-        // Remove consumed item from inventory
-        const newInventory = [...inventory];
-        newInventory[invIdx] = null;
-
         // Apply state updates
         setMilestone({
             ...milestone,
             cells: updatedCells,
             tasks: updatedTasks,
         });
-        setInventory(newInventory);
+
+        // Fog of war: reveal only directly adjacent cells on shared tasks
+        const filledCell = milestone.cells[cellIndex];
+        setRevealedCellIds(prev => {
+            const next = new Set(prev);
+            next.add(cellId);
+            for (const task of milestone.tasks) {
+                if (!task.cellIndices.includes(cellIndex)) continue;
+                for (const idx of task.cellIndices) {
+                    const c = milestone.cells[idx];
+                    const dr = Math.abs(c.row - filledCell.row);
+                    const dc = Math.abs(c.col - filledCell.col);
+                    if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+                        next.add(c.id);
+                    }
+                }
+            }
+            return next;
+        });
         if (scoreGain > 0) setScore(prev => prev + scoreGain);
-        if (goldGain > 0) setGold(prev => prev + goldGain);
 
         if (newlyCompleted.length > 0) {
             showToast(
-                `${t('任务完成')}! +${scoreGain} ${t('积分')} +${goldGain} ${t('金币')}`,
+                `${t('任务完成')}! +${scoreGain} ${t('积分')}`,
                 'epic'
             );
         }
@@ -1110,6 +1150,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setGold(config.global?.initialGold || currentStageConfig.initialGold);
         setMilestoneNumber(prev => prev + 1);
         setMilestone(null); // triggers re-generation via useEffect
+        setRevealedCellIds(new Set());
         setModalContent(null);
         // Clear inventory for new milestone
         setInventory([]);
@@ -1157,7 +1198,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             selectedItemNames,
             skillState,
             toolSelectionMode,
-            canEvacuate
+            canEvacuate,
+            revealedCellIds
         },
         actions: {
             showToast,

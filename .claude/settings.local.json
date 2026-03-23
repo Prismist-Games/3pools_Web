@@ -33,7 +33,12 @@
       "Bash(git add:*)",
       "Bash(npm run:*)",
       "Bash(npx vite:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npx puppeteer:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/3pools_Web/)",
+      "Bash(node:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

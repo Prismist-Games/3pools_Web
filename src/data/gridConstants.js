@@ -6,6 +6,7 @@ export const GRID_CONFIG = {
   taskCount: { min: 3, max: 5 },
   taskSize: { min: 2, max: 4 },
   evacuationCellCount: 1,
+  initialRevealCount: 2,
 };
 
 export const CELL_SCORE_WEIGHTS = {
