@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { Coins } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { isValidPlacement } from '../../utils/spatialPoolHelpers';
 import { FIXED_SHAPE, MAP_ROWS, MAP_COLS } from '../../data/spatialConstants';
@@ -66,7 +67,7 @@ function FlyingItem({ icon, startRect }) {
  *   'exit'      — draw executes, other 3 cells fade out
  *   'enter'     — 4 new items scale in
  */
-function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled }) {
+function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled }) {
   const { t } = useLanguage();
   const [hoverAnchor, setHoverAnchor] = useState(null);
   const [flyingItem, setFlyingItem] = useState(null);
@@ -81,9 +82,9 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
       if (el) {
         const rect = el.getBoundingClientRect();
         const [r, c] = drawAnimInfo.drawnKey.split(',').map(Number);
-        const item = itemMap[r]?.[c];
-        if (item) {
-          setFlyingItem({ icon: item.icon, startRect: rect });
+        const cell = itemMap[r]?.[c];
+        if (cell && !cell.isEffect) {
+          setFlyingItem({ icon: cell.icon, startRect: rect });
           setTimeout(() => setFlyingItem(null), 500);
         }
       }
@@ -109,7 +110,7 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
   }, [milestone, rarityConfig]);
 
   const coveredCells = useMemo(() => {
-    if (!hasSelectedEffect || !hoverAnchor || isAnimating) return new Set();
+    if (!hoverAnchor || isAnimating) return new Set();
     const { row, col } = hoverAnchor;
     if (!isValidPlacement(row, col)) return new Set();
     const cells = new Set();
@@ -117,23 +118,26 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
       cells.add(`${row + dr},${col + dc}`);
     }
     return cells;
-  }, [hasSelectedEffect, hoverAnchor, isAnimating]);
+  }, [hoverAnchor, isAnimating]);
 
   const isValidHover = useMemo(() => {
-    if (!hasSelectedEffect || !hoverAnchor || isAnimating) return false;
+    if (!hoverAnchor || isAnimating) return false;
     return isValidPlacement(hoverAnchor.row, hoverAnchor.col);
-  }, [hasSelectedEffect, hoverAnchor, isAnimating]);
+  }, [hoverAnchor, isAnimating]);
 
   const handleCellHover = useCallback((row, col) => {
-    if (!hasSelectedEffect || disabled || isAnimating) return;
+    if (disabled || isAnimating) return;
     setHoverAnchor({ row, col });
     if (isValidPlacement(row, col) && onHoverCoverage) {
       const names = FIXED_SHAPE.cells
-        .map(([dr, dc]) => itemMap[row + dr]?.[col + dc]?.name)
+        .map(([dr, dc]) => {
+          const cell = itemMap[row + dr]?.[col + dc];
+          return cell && !cell.isEffect ? cell.name : null;
+        })
         .filter(Boolean);
       onHoverCoverage(names);
     }
-  }, [hasSelectedEffect, disabled, isAnimating, itemMap, onHoverCoverage]);
+  }, [disabled, isAnimating, itemMap, onHoverCoverage]);
 
   const handleMouseLeave = useCallback(() => {
     if (!isAnimating) setHoverAnchor(null);
@@ -141,11 +145,11 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
   }, [isAnimating, onHoverCoverage]);
 
   const handleCellClick = useCallback((row, col) => {
-    if (!hasSelectedEffect || disabled || isAnimating) return;
+    if (disabled || isAnimating) return;
     if (!isValidPlacement(row, col)) return;
     onPlace(row, col);
     setHoverAnchor(null);
-  }, [hasSelectedEffect, disabled, isAnimating, onPlace]);
+  }, [disabled, isAnimating, onPlace]);
 
   if (!itemMap) return null;
 
@@ -168,9 +172,12 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
           const row = Math.floor(i / MAP_COLS);
           const col = i % MAP_COLS;
           const item = itemMap[row][col];
+          const isEffectCell = item.isEffect;
           const cellKey = `${row},${col}`;
           const isCovered = coveredCells.has(cellKey);
-          const neededRarity = neededItems.get(item.name);
+
+          // For effect cells, no rarity highlighting from orders
+          const neededRarity = isEffectCell ? null : neededItems.get(item.name);
 
           const isDrawn = drawnKey === cellKey;
           const isCoveredAnim = coveredKeysAnim?.has(cellKey);
@@ -205,6 +212,8 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
             iconClass = 'animate-[scaleIn_0.3s_ease-out]';
           } else if (isCovered && isValidHover) {
             bgClass = 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
+          } else if (isEffectCell) {
+            bgClass = 'bg-teal-50 border-teal-300 border-dashed';
           } else if (neededRarity) {
             bgClass = RARITY_BG[neededRarity] || 'bg-white border-slate-200';
           } else {
@@ -220,23 +229,38 @@ function ItemMap({ itemMap, hasSelectedEffect, drawAnimInfo, milestone, rarityCo
                 w-16 h-16 rounded-md border select-none
                 transition-all duration-300
                 ${bgClass}
-                ${hasSelectedEffect && !disabled && !isAnimating ? 'cursor-crosshair' : 'cursor-default'}
+                ${!disabled && !isAnimating ? 'cursor-crosshair' : 'cursor-default'}
               `}
               onMouseEnter={() => handleCellHover(row, col)}
               onClick={() => handleCellClick(row, col)}
             >
-              <span className={`text-xl leading-none transition-all duration-300 ${iconClass}`}>
-                {item.icon}
-              </span>
-              <span className={`text-[10px] text-slate-500 mt-0.5 truncate max-w-[56px] transition-all duration-300 ${
-                textVisible ? '' : 'opacity-0'
-              }`}>
-                {t(item.name)}
-              </span>
-              {neededRarity && textVisible && (
-                <span className={`absolute top-0.5 right-1 text-[9px] font-bold ${RARITY_LABEL_COLOR[neededRarity]}`}>
-                  {RARITY_LABEL[neededRarity]}+
-                </span>
+              {isEffectCell ? (
+                <>
+                  <span className={`text-xs font-bold leading-tight text-center transition-all duration-300 ${iconClass}`}>
+                    {t(item.effect.name)}
+                  </span>
+                  <span className={`flex items-center gap-0.5 text-[10px] font-bold text-amber-600 mt-0.5 transition-all duration-300 ${
+                    textVisible ? '' : 'opacity-0'
+                  }`}>
+                    <Coins size={10} />{item.effect.cost}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className={`text-xl leading-none transition-all duration-300 ${iconClass}`}>
+                    {item.icon}
+                  </span>
+                  <span className={`text-[10px] text-slate-500 mt-0.5 truncate max-w-[56px] transition-all duration-300 ${
+                    textVisible ? '' : 'opacity-0'
+                  }`}>
+                    {t(item.name)}
+                  </span>
+                  {neededRarity && textVisible && (
+                    <span className={`absolute top-0.5 right-1 text-[9px] font-bold ${RARITY_LABEL_COLOR[neededRarity]}`}>
+                      {RARITY_LABEL[neededRarity]}+
+                    </span>
+                  )}
+                </>
               )}
             </div>
           );
