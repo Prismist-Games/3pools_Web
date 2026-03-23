@@ -573,6 +573,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         onPlace={handleMapPlace}
                                         onHoverCoverage={(names) => {
                                             state.setHoveredPoolItemNames(names);
+                                            state.setHoveredPoolId(names.length > 0 ? 'spatial' : null);
                                         }}
                                         disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || selectedFrameIndex === null}
                                     />
