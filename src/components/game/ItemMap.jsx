@@ -161,7 +161,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
     <>
       {flyingItem && <FlyingItem icon={flyingItem.icon} startRect={flyingItem.startRect} />}
       <div
-        className="inline-grid gap-1 p-2 bg-slate-100 rounded-lg border border-slate-200"
+        className="relative inline-grid gap-1 p-2 bg-slate-100 rounded-lg border border-slate-200"
         style={{
           gridTemplateRows: `repeat(${MAP_ROWS}, 1fr)`,
           gridTemplateColumns: `repeat(${MAP_COLS}, 1fr)`,
@@ -188,7 +188,12 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           let iconClass = '';
           let textVisible = true;
 
-          if (phase === 'highlight' && isDrawn) {
+          if (isEffectCell && (phase === 'exit' || phase === 'enter') && isCoveredAnim) {
+            // Effect cell stays visible and stable during animation
+            bgClass = 'bg-teal-50 border-teal-300 border-dashed';
+            iconClass = '';
+            textVisible = true;
+          } else if (phase === 'highlight' && isDrawn) {
             // Phase 1: drawn cell glows big
             bgClass = 'bg-amber-100 border-amber-400 ring-2 ring-amber-400 scale-110 shadow-lg shadow-amber-200/60';
           } else if (phase === 'fly' && isDrawn) {
@@ -211,7 +216,9 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
             bgClass = 'bg-white border-slate-200';
             iconClass = 'animate-[scaleIn_0.3s_ease-out]';
           } else if (isCovered && isValidHover) {
-            bgClass = 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
+            bgClass = isEffectCell
+              ? 'bg-teal-100 border-teal-400 ring-2 ring-teal-300 scale-105'
+              : 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
           } else if (isEffectCell) {
             bgClass = 'bg-teal-50 border-teal-300 border-dashed';
           } else if (neededRarity) {
@@ -266,6 +273,17 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           );
         })}
       </div>
+      {isValidHover && hoverAnchor && (
+        <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 text-xs font-bold text-amber-600 bg-white border border-amber-300 rounded px-1.5 py-0.5 shadow-sm pointer-events-none z-10">
+          <Coins size={12} />
+          {(() => {
+            const effectInFrame = FIXED_SHAPE.cells
+              .map(([dr, dc]) => itemMap[hoverAnchor.row + dr]?.[hoverAnchor.col + dc])
+              .find(cell => cell?.isEffect);
+            return effectInFrame ? effectInFrame.effect.cost : 1;
+          })()}
+        </div>
+      )}
     </>
   );
 }
