@@ -6,7 +6,7 @@ import {
     getRandomItems,
     rollRarity
 } from '../utils/helpers';
-import { generateItemMatrix, applyGravity } from '../utils/matrixHelpers';
+import { generateItemMatrix, applyGravity, applyBombExplosion } from '../utils/matrixHelpers';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -33,6 +33,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [gravityEvent, setGravityEvent] = useState(null);
     // Last drawn item for fly animation: { row, col, item, rarity, tick }
     const [lastDraw, setLastDraw] = useState(null);
+    // Cells being destroyed by bomb explosion: [{row, col}, ...]
+    const [explodingCells, setExplodingCells] = useState(null);
     const [orders, setOrders] = useState([]);
     const [emergencyOrders, setEmergencyOrders] = useState([]);
 
@@ -674,7 +676,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const selectRowOrColumn = (type, index) => {
         // Guard: block during pending states or ongoing draw animation
         if (isDrawing || pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates || modalContent) return;
-        if (!matrix || gold <= 0) return;
+        if (!matrix) return;
 
         // Collect cells from the selected row or column
         const gridSize = MATRIX_CONFIG.gridSize;
@@ -688,100 +690,146 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Random pick 1
         const picked = cells[Math.floor(Math.random() * cells.length)];
         const selectedCell = picked.cell;
-
-        // Use pre-rolled rarity from the cell
-        let rarity = selectedCell.rarity;
-        if (skillState.nextDrawEnhanced) {
-            const nextRarity = getNextRarity(rarity.id, config);
-            if (nextRarity) rarity = nextRarity;
-        }
-
-        let newItem = {
-            ...selectedCell.item,
-            uid: Math.random().toString(36).substr(2, 9),
-            rarity,
-            poolName: selectedCell.item.poolName,
-            decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
-        };
-
-        let itemsToProcess = [newItem];
-
-        // Extra item from skill (自动补货)
-        let extraPicked = null;
-        if (skillState.nextDrawExtraItem && cells.length > 1) {
-            const remaining = cells.filter(c => c !== picked);
-            extraPicked = remaining[Math.floor(Math.random() * remaining.length)];
-            let extraRarity = extraPicked.cell.rarity;
-            if (skillState.nextDrawEnhanced) {
-                const next = getNextRarity(extraRarity.id, config);
-                if (next) extraRarity = next;
-            }
-            itemsToProcess.push({
-                ...extraPicked.cell.item,
-                uid: Math.random().toString(36).substr(2, 9),
-                rarity: extraRarity,
-                poolName: extraPicked.cell.item.poolName,
-                decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
-            });
-        }
+        const cellType = selectedCell.type || 'normal';
 
         // === Phase 1: fly animation starts immediately ===
         setIsDrawing(true);
-        setLastDraw({ row: picked.row, col: picked.col, item: selectedCell.item, rarity, tick: Date.now() });
+        setLastDraw({ row: picked.row, col: picked.col, item: selectedCell.item, rarity: selectedCell.rarity, cellType, tick: Date.now() });
 
-        // === Phase 2: after fly, apply gravity + process items ===
-        // Capture current values for the closure
         const capturedMatrix = matrix;
         const capturedInventory = [...inventory];
         const capturedSkillState = { ...skillState };
 
         drawTimerRef.current = setTimeout(() => {
-            // Apply gravity
-            if (extraPicked) {
-                let updatedMatrix = applyGravity(capturedMatrix, extraPicked.row, extraPicked.col, allNormalItems, config, currentStageConfig);
-                const finalMatrix = applyGravity(updatedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
-                setMatrix(finalMatrix);
-                setGravityEvent({ col: picked.col, removedRow: picked.row, col2: extraPicked.col, removedRow2: extraPicked.row, tick: Date.now() });
-            } else {
-                const newMatrix = applyGravity(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
-                setMatrix(newMatrix);
+            // First: gravity for the picked cell itself
+            let afterPickMatrix = applyGravity(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
+
+            if (cellType === 'gold_penalty') {
+                // --- Gold penalty cell: deduct gold, no item ---
+                setMatrix(afterPickMatrix);
                 setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
+                deductGold(selectedCell.goldCost);
+                showToast(`${t("金币陷阱")} -${selectedCell.goldCost} 🪙`, "warning");
+
+            } else if (cellType === 'bomb') {
+                // --- Bomb cell: explode then gravity ---
+                showToast(t("💣 炸弹爆炸！"), "info");
+
+                // Compute neighbors on the original matrix (bomb cell still present)
+                const neighbors = [];
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const nr = picked.row + dr;
+                        const nc = picked.col + dc;
+                        if (nr >= 0 && nr < MATRIX_CONFIG.gridSize && nc >= 0 && nc < MATRIX_CONFIG.gridSize) {
+                            neighbors.push({ row: nr, col: nc });
+                        }
+                    }
+                }
+
+                // Phase 2a: show neighbors exploding (bomb cell already hidden via pickingCell)
+                setExplodingCells(neighbors);
+
+                // Phase 2b (after explode animation): apply all removals + gravity at once
+                setTimeout(() => {
+                    const { matrix: explodedMatrix } = applyBombExplosion(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
+                    setMatrix(explodedMatrix);
+                    setExplodingCells(null);
+                    // Compute per-column info: how many removed and the lowest (max) row
+                    const allRemoved = [{ row: picked.row, col: picked.col }, ...neighbors];
+                    const colInfo = {};
+                    for (const cell of allRemoved) {
+                        if (!colInfo[cell.col]) colInfo[cell.col] = { count: 0, lowestRow: 0 };
+                        colInfo[cell.col].count++;
+                        colInfo[cell.col].lowestRow = Math.max(colInfo[cell.col].lowestRow, cell.row);
+                    }
+                    setGravityEvent({ bombExplosion: true, colInfo, tick: Date.now() });
+                }, 350);
+
+                setDrawCount(prev => prev + 1);
+                setTimeout(() => setIsDrawing(false), 700);
+                return;
+
+            } else {
+                // --- Normal item cell ---
+                let rarity = selectedCell.rarity;
+                if (capturedSkillState.nextDrawEnhanced) {
+                    const nextRarity = getNextRarity(rarity.id, config);
+                    if (nextRarity) rarity = nextRarity;
+                }
+
+                let newItem = {
+                    ...selectedCell.item,
+                    uid: Math.random().toString(36).substr(2, 9),
+                    rarity,
+                    poolName: selectedCell.item.poolName,
+                    decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
+                };
+
+                let itemsToProcess = [newItem];
+
+                // Extra item from skill (自动补货)
+                let extraPicked = null;
+                if (capturedSkillState.nextDrawExtraItem && cells.length > 1) {
+                    const remaining = cells.filter(c => c !== picked);
+                    extraPicked = remaining[Math.floor(Math.random() * remaining.length)];
+                    let extraRarity = extraPicked.cell.rarity;
+                    if (capturedSkillState.nextDrawEnhanced) {
+                        const next = getNextRarity(extraRarity.id, config);
+                        if (next) extraRarity = next;
+                    }
+                    itemsToProcess.push({
+                        ...extraPicked.cell.item,
+                        uid: Math.random().toString(36).substr(2, 9),
+                        rarity: extraRarity,
+                        poolName: extraPicked.cell.item.poolName,
+                        decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
+                    });
+                }
+
+                // Apply gravity
+                if (extraPicked) {
+                    const finalMatrix = applyGravity(afterPickMatrix, extraPicked.row, extraPicked.col, allNormalItems, config, currentStageConfig);
+                    setMatrix(finalMatrix);
+                    setGravityEvent({ col: picked.col, removedRow: picked.row, col2: extraPicked.col, removedRow2: extraPicked.row, tick: Date.now() });
+                } else {
+                    setMatrix(afterPickMatrix);
+                    setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
+                }
+
+                // Update skill state
+                const newSkillState = { ...capturedSkillState };
+                newSkillState.nextDrawExtraItem = false;
+                newSkillState.nextDrawGuaranteedRare = false;
+                newSkillState.nextDrawEnhanced = false;
+
+                if (itemsToProcess.every(item => item.rarity.id === 'common')) {
+                    newSkillState.consecutiveCommons += 1;
+                } else {
+                    newSkillState.consecutiveCommons = 0;
+                }
+
+                if (hasSkill('consolation_prize') && newSkillState.consecutiveCommons >= 5) {
+                    newSkillState.nextDrawGuaranteedRare = true;
+                    newSkillState.consecutiveCommons = 0;
+                    showToast(t("【安慰奖】触发：下一次必定稀有！"), "info");
+                }
+
+                if (hasSkill('negotiator') && itemsToProcess.some(item => item.rarity.bonus >= 0.5)) {
+                    setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + 1));
+                    showToast(t("【谈判专家】触发：订单刷新次数+1"));
+                }
+
+                setSkillState(newSkillState);
+
+                const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(capturedInventory) : [...capturedInventory];
+                handleIncomingItems(itemsToProcess, decayedInventory);
             }
 
             setDrawCount(prev => prev + 1);
-
-            // Update skill state
-            const newSkillState = { ...capturedSkillState };
-            newSkillState.nextDrawExtraItem = false;
-            newSkillState.nextDrawGuaranteedRare = false;
-            newSkillState.nextDrawEnhanced = false;
-
-            if (itemsToProcess.every(item => item.rarity.id === 'common')) {
-                newSkillState.consecutiveCommons += 1;
-            } else {
-                newSkillState.consecutiveCommons = 0;
-            }
-
-            if (hasSkill('consolation_prize') && newSkillState.consecutiveCommons >= 5) {
-                newSkillState.nextDrawGuaranteedRare = true;
-                newSkillState.consecutiveCommons = 0;
-                showToast(t("【安慰奖】触发：下一次必定稀有！"), "info");
-            }
-
-            if (hasSkill('negotiator') && itemsToProcess.some(item => item.rarity.bonus >= 0.5)) {
-                setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + 1));
-                showToast(t("【谈判专家】触发：订单刷新次数+1"));
-            }
-
-            setSkillState(newSkillState);
-
-            deductGold(1);
-
-            const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(capturedInventory) : [...capturedInventory];
-            handleIncomingItems(itemsToProcess, decayedInventory);
-
             setIsDrawing(false);
-        }, 450); // fly animation duration
+        }, 450);
     };
 
     // 尝试提附工具物品：按概率判断是否在物品列表末尾添加一个工具物品
@@ -1963,7 +2011,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             currentStageConfig,
             maxInventorySize,
             drawCount,
-            matrix, gravityEvent, lastDraw, isDrawing, goldFlash,
+            matrix, gravityEvent, lastDraw, isDrawing, explodingCells, goldFlash,
             orders,
             orderRefreshCount,
             REFRESH_MAX,

@@ -54,12 +54,12 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "三池物语", deployed t
 
 ### Game Concepts
 
-- **Item Matrix**: 5×5 grid of items. Player selects a row or column, randomly receives 1 item from it. Item is removed, gravity drops items down, top refills randomly (match-3 style). This is the new core draw mechanic (replacing the old pool/affix system), pending prototype validation.
+- **Item Matrix**: 4×4 grid of cells. Player selects a row or column, randomly draws 1 cell. Normal items go to inventory; gold traps (🪙, ~4/board) deduct 1-3 gold; bombs (💣, ~1.5/board) destroy surrounding 8 cells. Gravity drops items down, top refills randomly. Draws are free — gold is lost via traps. This is the new core draw mechanic (replacing the old pool/affix system), in prototype validation.
 - **Inventory**: Fixed-size grid (10 slots default). Items can be merged if same name + same rarity → upgrades to next rarity.
 - **Orders**: 3 active regular orders + 2 evacuation orders. Submit inventory items to fulfill requirements and earn score.
 - **Stages** (`INITIAL_STAGE_CONFIG`): 4 stages with escalating mechanics. Currently `useGameLogic` always uses `stages[0]` — stage progression not active.
 - **Skills**: Passive bonuses defined in `SKILL_DEFINITIONS`. Not active in current version.
-- **Tool Items**: Special items (`tool_reforge`, `tool_transmute`, `tool_enhance`) that drop randomly on draws and are activated via right-click in inventory.
+- **Tool Items**: Special items (`tool_reforge`, `tool_transmute`, `tool_enhance`) activated via right-click in inventory. Currently not dropping from draws.
 - **Evacuation Orders**: Orders with escalating difficulty. No time limit — must complete before gold runs out.
 
 ### Workflow Rules

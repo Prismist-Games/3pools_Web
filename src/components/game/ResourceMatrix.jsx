@@ -12,7 +12,12 @@ const RARITY_BG = {
     mythic: 'bg-red-50 border-red-400',
 };
 
-const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, onSelectRow, onSelectCol, disabled, orders = [], emergencyOrders = [], inventory = [] }, ref) => {
+const SPECIAL_BG = {
+    gold_penalty: 'bg-amber-50 border-amber-400',
+    bomb: 'bg-red-50 border-red-400',
+};
+
+const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, orders = [], emergencyOrders = [], inventory = [] }, ref) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -29,17 +34,28 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, on
         const dropping = new Set();
         const tops = new Set();
 
-        const { col, removedRow } = gravityEvent;
-        for (let r = 0; r <= removedRow; r++) {
-            dropping.add(`${r},${col}`);
-        }
-        tops.add(`0,${col}`);
-
-        if (gravityEvent.col2 !== undefined) {
-            for (let r = 0; r <= gravityEvent.removedRow2; r++) {
-                dropping.add(`${r},${gravityEvent.col2}`);
+        if (gravityEvent.bombExplosion) {
+            // Bomb explosion: all cells from row 0 to lowestRow use uniform drop animation.
+            // No opacity-based fade-in — prevents flicker when React remounts shifted cells.
+            for (const [colStr, info] of Object.entries(gravityEvent.colInfo)) {
+                const col = parseInt(colStr);
+                for (let r = 0; r <= info.lowestRow; r++) {
+                    dropping.add(`${r},${col}`);
+                }
             }
-            tops.add(`0,${gravityEvent.col2}`);
+        } else {
+            const { col, removedRow } = gravityEvent;
+            for (let r = 0; r <= removedRow; r++) {
+                dropping.add(`${r},${col}`);
+            }
+            tops.add(`0,${col}`);
+
+            if (gravityEvent.col2 !== undefined) {
+                for (let r = 0; r <= gravityEvent.removedRow2; r++) {
+                    dropping.add(`${r},${gravityEvent.col2}`);
+                }
+                tops.add(`0,${gravityEvent.col2}`);
+            }
         }
 
         setAnimatingCells(dropping);
@@ -129,6 +145,13 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, on
                 }
                 .anim-drop { animation: gravity-drop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
                 .anim-new-top { animation: fade-in-top 0.3s ease-out forwards; }
+
+                @keyframes explode-out {
+                    0% { transform: scale(1); opacity: 1; }
+                    50% { transform: scale(1.15); opacity: 0.6; }
+                    100% { transform: scale(0.3); opacity: 0; }
+                }
+                .anim-explode-content { animation: explode-out 0.3s ease-in forwards; }
             `}</style>
 
             <div className="matrix-unified" ref={ref}>
@@ -184,9 +207,13 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, on
                         {row.map((cell, c) => {
                             const cellKey = `${r},${c}`;
                             const isPicking = pickingCell && pickingCell.row === r && pickingCell.col === c;
+                            const isExploding = explodingCells && explodingCells.some(ec => ec.row === r && ec.col === c);
                             const isHighlighted = (hoveredRow === r || hoveredCol === c) && !disabled;
-                            const rarityClass = RARITY_BG[cell.rarity.id] || RARITY_BG.common;
-                            const neededInfo = neededItemMap[cell.item.name];
+                            const cellType = cell.type || 'normal';
+                            const bgClass = cellType !== 'normal'
+                                ? (SPECIAL_BG[cellType] || RARITY_BG.common)
+                                : (RARITY_BG[cell.rarity.id] || RARITY_BG.common);
+                            const neededInfo = cellType === 'normal' ? neededItemMap[cell.item.name] : null;
                             const isDropping = animatingCells.has(cellKey) && !newTopCells.has(cellKey);
                             const isNewTop = newTopCells.has(cellKey);
 
@@ -196,7 +223,7 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, on
                                     className={`
                                         relative flex flex-col items-center justify-center
                                         rounded-lg border-2 select-none
-                                        ${isPicking ? 'bg-slate-200 border-slate-300' : rarityClass}
+                                        ${(isPicking || isExploding) ? 'bg-slate-200 border-slate-300' : bgClass}
                                         ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
                                         ${isDropping ? 'anim-drop' : ''}
                                         ${isNewTop ? 'anim-new-top' : ''}
@@ -204,18 +231,24 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, on
                                     `}
                                 >
                                     {!isPicking && (
-                                        <>
+                                        <div className={`flex flex-col items-center justify-center ${isExploding ? 'anim-explode-content' : ''}`}>
                                             <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
                                                 {cell.item.icon}
                                             </span>
-                                            <span className="text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center text-slate-600 mt-0.5 px-0.5">
-                                                {t(cell.item.name)}
-                                            </span>
-                                        </>
+                                            {cellType === 'gold_penalty' ? (
+                                                <span className="text-[9px] font-black text-amber-600 leading-none mt-0.5">
+                                                    -{cell.goldCost} 🪙
+                                                </span>
+                                            ) : (
+                                                <span className="text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center text-slate-600 mt-0.5 px-0.5">
+                                                    {t(cell.item.name)}
+                                                </span>
+                                            )}
+                                        </div>
                                     )}
 
                                     {/* Order needed indicator */}
-                                    {!isPicking && neededInfo && (
+                                    {!isPicking && !isExploding && neededInfo && (
                                         <div className="absolute -top-1 -right-1 flex items-center gap-px z-[2]">
                                             {neededInfo.isEmergency && <span className="text-[9px] drop-shadow">🚚</span>}
                                             <div className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow ${neededInfo.rarity.dotColor}`} />

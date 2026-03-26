@@ -34,7 +34,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
     const {
         gold, score, currentStageConfig, maxInventorySize,
-        drawCount, matrix, gravityEvent, lastDraw, isDrawing, goldFlash, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
+        drawCount, matrix, gravityEvent, lastDraw, isDrawing, explodingCells, goldFlash, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredItemName, hoveredSlotIndex,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
@@ -82,6 +82,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     useEffect(() => {
         if (!lastDraw || lastDraw.tick === lastDrawTickRef.current) return;
         lastDrawTickRef.current = lastDraw.tick;
+
+        // Special cells don't fly to inventory
+        if (lastDraw.cellType && lastDraw.cellType !== 'normal') return;
 
         const matrixEl = matrixRef.current;
         const invEl = inventoryRef.current;
@@ -632,9 +635,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     matrix={matrix}
                                     gravityEvent={gravityEvent}
                                     pickingCell={isDrawing && lastDraw ? { row: lastDraw.row, col: lastDraw.col } : null}
+                                    explodingCells={explodingCells}
                                     onSelectRow={(rowIdx) => selectRowOrColumn('row', rowIdx)}
                                     onSelectCol={(colIdx) => selectRowOrColumn('col', colIdx)}
-                                    disabled={isDrawing || !!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates || gold <= 0}
+                                    disabled={isDrawing || !!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
                                     orders={orders}
                                     emergencyOrders={emergencyOrders}
                                     inventory={inventory}
