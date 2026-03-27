@@ -73,7 +73,15 @@ export const EN_TRANSLATIONS = {
 
     // --- New Game Core UI ---
     "当前积分": "Current Score",
-    "持有金币": "Gold Held",
+    "厄运标记": "Bad Luck",
+    "厄运": "Doom",
+    "厄运标记已满！强制撤离！": "Bad luck tokens full! Forced evacuation!",
+    "厄运降临！你未能及时撤离...": "Doom has fallen! You failed to evacuate in time...",
+    "强制撤离": "Forced Evacuation",
+    "丢弃模式: 选择要丢弃的道具": "Discard Mode: Select Items to Discard",
+    "确认丢弃": "Confirm Discard",
+    "丢弃": "Discard",
+    "刷新地图": "Refresh Map",
     "离开关卡难度": "Stage Difficulty",
     "折叠面板": "Collapse",
     "展开面板": "Expand",
@@ -211,7 +219,7 @@ export const EN_TRANSLATIONS = {
 
     // --- App Setup / Alerts ---
     "重新开始游戏？": "Restart Game?",
-    "确定要重新开始游戏吗？当前进度（金币、背包、技能）将丢失。": "Are you sure you want to restart? All progress (gold, inventory, skills) will be lost.",
+    "确定要重新开始游戏吗？当前进度（背包、技能）将丢失。": "Are you sure you want to restart? All progress (inventory, skills) will be lost.",
     "恢复默认配置？": "Restore Defaults?",
     "确定要将所有配置参数恢复为默认值吗？此操作不可撤销。": "Are you sure you want to restore all defaults? This action cannot be undone.",
     "主线任务奖励": "Mainline Quest Reward",

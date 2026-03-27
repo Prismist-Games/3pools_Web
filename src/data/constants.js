@@ -14,7 +14,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "initialGold": 20,
+        // Gold system removed — draws are free, BAD LUCK TOKEN is the pacing mechanic
         "orderCountRange": [
             2,
             4
@@ -65,7 +65,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "initialGold": 30,
+        // Gold system removed
         "orderCountRange": [
             2,
             4
@@ -112,7 +112,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "initialGold": 40,
+        // Gold system removed
         "orderCountRange": [
             2,
             4
@@ -159,7 +159,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "initialGold": 50,
+        // Gold system removed
         "entropyDecayValue": 25,
         "orderCountRange": [
             2,
@@ -587,7 +587,7 @@ export const INITIAL_GAME_CONFIG = {
     ],
     global: {
         "refreshCost": 5,
-        "initialGold": 30,
+        // Gold system removed
         "initialRefreshCount": 4,
         "maxRefreshCount": 4
     }

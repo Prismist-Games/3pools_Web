@@ -17,8 +17,6 @@ export const CELL_SCORE_WEIGHTS = {
   mythic: 32,
 };
 
-export const TASK_GOLD_REWARD = 3;
-
 export const CELL_RARITY_WEIGHTS = {
   common: 0.40,
   uncommon: 0.35,

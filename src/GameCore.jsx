@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronUp, ChevronDown, Check, Truck, Trash2, RefreshCw, Star, Hand, Repeat, AlertCircle, Zap, ListOrdered } from 'lucide-react';
+import { Settings, RotateCcw, X, Skull, Flag, Power, ChevronUp, ChevronDown, Check, Truck, Trash2, RefreshCw, Star, Hand, Repeat, AlertCircle, Zap, ListOrdered } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
@@ -11,6 +11,7 @@ import ItemMap from './components/game/ItemMap';
 
 import MilestoneGrid from './components/game/MilestoneGrid';
 import { SKILL_DEFINITIONS } from './data/constants';
+import { BAD_LUCK_TOKEN_MAX } from './data/spatialConstants';
 
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -28,7 +29,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     }, [debugAddItem, actions]);
 
     const {
-        gold, score, currentStageConfig, maxInventorySize,
+        badLuckTokens, score, currentStageConfig, maxInventorySize,
         drawCount,
         itemMap, drawAnimInfo,
         milestone, milestoneNumber, cellMatches, fillableCellIds, relevantPoolIds,
@@ -38,7 +39,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         isSubmitMode, isRecycleMode, isEvacuationMode, evacuationReady, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
-        toast, totalRecycleValue, selectedItemNames,
+        toast, selectedItemNames,
         toolSelectionMode
     } = state;
 
@@ -159,12 +160,17 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     </button>
                                 </>
                             ) : modalContent.type === 'evacuation_triggered' ? (
-                                // Evacuation Triggered by completing a task with evacuation cell
+                                // Evacuation Triggered (normal or forced by bad luck tokens)
                                 <>
-                                    <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center text-5xl shadow-inner mb-2">
-                                        🚀
+                                    <div className={`w-24 h-24 ${modalContent.forced ? 'bg-red-100' : 'bg-orange-100'} rounded-full flex items-center justify-center text-5xl shadow-inner mb-2`}>
+                                        {modalContent.forced ? '💀' : '🚀'}
                                     </div>
                                     <div className="flex flex-col gap-2">
+                                        {modalContent.forced && (
+                                            <p className="text-red-500 font-bold text-sm">
+                                                {t("厄运标记已满！强制撤离！")}
+                                            </p>
+                                        )}
                                         <p className="text-slate-500 font-medium text-lg">
                                             {t("当前积分")}: <span className="font-bold text-blue-600 font-mono text-xl">{modalContent.score}</span>
                                         </p>
@@ -310,14 +316,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     </div>
 
                     <div className="flex items-center gap-6">
-                        {/* Secondary Stats Group (Gold & Difficulty) - Enlarged */}
+                        {/* Secondary Stats Group (Tokens & Milestone) */}
                         <div className="flex items-center gap-8 pr-6 border-r border-slate-800">
-                            {/* Gold Display */}
+                            {/* Bad Luck Token Counter */}
                             <div className="flex flex-col gap-1 items-end">
-                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-yellow-100">{t("持有金币")}</span>
-                                <div className="flex items-center gap-2.5 text-yellow-400">
-                                    <Coins size={20} className="drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" />
-                                    <span className="text-3xl font-black font-mono tracking-tighter leading-none">{gold}</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-red-200">{t("厄运标记")}</span>
+                                <div className={`flex items-center gap-2.5 ${badLuckTokens >= BAD_LUCK_TOKEN_MAX - 1 ? 'text-red-400 animate-pulse' : 'text-red-400/60'}`}>
+                                    <Skull size={20} className={`drop-shadow-[0_0_8px_rgba(248,113,113,0.4)] ${badLuckTokens >= BAD_LUCK_TOKEN_MAX - 1 ? 'animate-bounce' : ''}`} />
+                                    <span className="text-3xl font-black font-mono tracking-tighter leading-none">{badLuckTokens}/{BAD_LUCK_TOKEN_MAX}</span>
                                 </div>
                             </div>
 
@@ -399,20 +405,17 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     />
                                     <button
                                         onClick={handleRefreshMap}
-                                        disabled={gold < 1 || !!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
-                                        title={t('刷新地图 (1金币)')}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
+                                        title={t('刷新地图')}
                                         className={`
                                             flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all
-                                            ${gold >= 1 && !pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode
+                                            ${!pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode
                                                 ? 'border-slate-300 bg-white hover:border-amber-400 hover:bg-amber-50 text-slate-500 hover:text-amber-600'
                                                 : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
                                             }
                                         `}
                                     >
                                         <RefreshCw size={16} />
-                                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-600">
-                                            <Coins size={10} />1
-                                        </span>
                                     </button>
                                 </div>
 
@@ -538,7 +541,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 )}
                                 {isRecycleMode && (
                                     <span className="text-xs font-bold text-amber-600 animate-pulse flex items-center gap-1">
-                                        <Trash2 size={14} /> {t("回收模式: 选择道具换取金币")}
+                                        <Trash2 size={14} /> {t("丢弃模式: 选择要丢弃的道具")}
                                     </span>
                                 )}
                                 {selectionMode?.type === 'trade_in' && (
@@ -642,14 +645,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <div className={`flex flex-col gap-2 shrink-0 justify-end pb-2 w-40 min-h-[88px] ${pendingItem ? 'hidden' : ''}`}>
                                     {!isRecycleMode && !pendingItem && !selectionMode && (
                                         <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">
-                                            <Trash2 size={18} /> {t("回收")}
+                                            <Trash2 size={18} /> {t("丢弃")}
                                         </button>
                                     )}
 
                                     {isRecycleMode && (
                                         <div className="flex flex-col gap-2">
                                             <button onClick={handleConfirmRecycle} disabled={selectedIndices.length === 0} className={`w-full flex items-center justify-center gap-2 font-bold py-3 px-6 rounded-xl shadow-md ${selectedIndices.length > 0 ? 'bg-amber-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                                <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}🪙)
+                                                <Trash2 size={16} /> {t("确认丢弃")} ({selectedIndices.length})
                                             </button>
                                             <button onClick={toggleRecycleMode} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
                                         </div>
@@ -719,7 +722,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                         className="w-full flex items-center justify-center gap-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-xs font-bold py-1.5 px-2 rounded-lg transition-colors shadow-sm"
                                                     >
                                                         <X size={12} />
-                                                        {pendingItem.rarity.recycleValue > 0 ? `${t("回收")} +${pendingItem.rarity.recycleValue}` : t("丢弃")}
+                                                        {t("丢弃")}
                                                     </button>
                                                 </div>
 

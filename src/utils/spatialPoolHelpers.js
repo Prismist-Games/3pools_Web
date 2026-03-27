@@ -8,6 +8,9 @@ import {
   MAP_ROWS,
   MAP_COLS,
   EFFECT_SLOT_COUNT,
+  BAD_LUCK_TOKEN,
+  BAD_LUCK_TOKEN_INITIAL_COUNT,
+  BAD_LUCK_TOKEN_REFRESH_CHANCE,
 } from '../data/spatialConstants.js';
 
 // --- Effect cell helpers ---
@@ -68,14 +71,33 @@ export function generateItemMap() {
   const effects = pickRandomEffects(effectPositions.length);
   const effectSet = new Set(effectPositions.map(([r, c]) => `${r},${c}`));
 
-  // 2. Shuffle items for non-effect cells
+  // 2. Collect non-effect cell positions
+  const itemPositions = [];
+  for (let r = 0; r < MAP_ROWS; r++) {
+    for (let c = 0; c < MAP_COLS; c++) {
+      if (!effectSet.has(`${r},${c}`)) {
+        itemPositions.push([r, c]);
+      }
+    }
+  }
+
+  // 3. Randomly designate some item cells as BAD LUCK TOKEN
+  const shuffledPositions = [...itemPositions];
+  for (let i = shuffledPositions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledPositions[i], shuffledPositions[j]] = [shuffledPositions[j], shuffledPositions[i]];
+  }
+  const tokenCount = Math.min(BAD_LUCK_TOKEN_INITIAL_COUNT, itemPositions.length);
+  const tokenSet = new Set(shuffledPositions.slice(0, tokenCount).map(([r, c]) => `${r},${c}`));
+
+  // 4. Shuffle normal items
   const shuffled = [...ALL_ITEMS];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  // 3. Build grid
+  // 5. Build grid
   const grid = [];
   let itemIdx = 0;
   let effectIdx = 0;
@@ -84,6 +106,8 @@ export function generateItemMap() {
     for (let c = 0; c < MAP_COLS; c++) {
       if (effectSet.has(`${r},${c}`)) {
         row.push({ isEffect: true, effect: effects[effectIdx++] });
+      } else if (tokenSet.has(`${r},${c}`)) {
+        row.push({ ...BAD_LUCK_TOKEN });
       } else {
         row.push(shuffled[itemIdx++ % shuffled.length]);
       }
@@ -104,7 +128,11 @@ export function refreshCoveredCells(itemMap, anchorRow, anchorCol) {
     const c = anchorCol + dc;
     if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) continue;
     if (newMap[r][c].isEffect) continue; // Skip effect cells
-    newMap[r][c] = ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];
+    if (Math.random() < BAD_LUCK_TOKEN_REFRESH_CHANCE) {
+      newMap[r][c] = { ...BAD_LUCK_TOKEN };
+    } else {
+      newMap[r][c] = ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];
+    }
   }
   return newMap;
 }

@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Coins } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { isValidPlacement } from '../../utils/spatialPoolHelpers';
 import { FIXED_SHAPE, MAP_ROWS, MAP_COLS } from '../../data/spatialConstants';
@@ -83,7 +82,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
         const rect = el.getBoundingClientRect();
         const [r, c] = drawAnimInfo.drawnKey.split(',').map(Number);
         const cell = itemMap[r]?.[c];
-        if (cell && !cell.isEffect) {
+        if (cell && !cell.isEffect && !cell.isBadLuck) {
           setFlyingItem({ icon: cell.icon, startRect: rect });
           setTimeout(() => setFlyingItem(null), 500);
         }
@@ -132,7 +131,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
       const names = FIXED_SHAPE.cells
         .map(([dr, dc]) => {
           const cell = itemMap[row + dr]?.[col + dc];
-          return cell && !cell.isEffect ? cell.name : null;
+          return cell && !cell.isEffect && !cell.isBadLuck ? cell.name : null;
         })
         .filter(Boolean);
       onHoverCoverage(names);
@@ -173,11 +172,12 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           const col = i % MAP_COLS;
           const item = itemMap[row][col];
           const isEffectCell = item.isEffect;
+          const isBadLuckCell = item.isBadLuck;
           const cellKey = `${row},${col}`;
           const isCovered = coveredCells.has(cellKey);
 
-          // For effect cells, no rarity highlighting from orders
-          const neededRarity = isEffectCell ? null : neededItems.get(item.name);
+          // For effect/token cells, no rarity highlighting from orders
+          const neededRarity = (isEffectCell || isBadLuckCell) ? null : neededItems.get(item.name);
 
           const isDrawn = drawnKey === cellKey;
           const isCoveredAnim = coveredKeysAnim?.has(cellKey);
@@ -218,9 +218,13 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           } else if (isCovered && isValidHover) {
             bgClass = isEffectCell
               ? 'bg-teal-100 border-teal-400 ring-2 ring-teal-300 scale-105'
+              : isBadLuckCell
+              ? 'bg-red-200 border-red-500 ring-2 ring-red-400 scale-105'
               : 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
           } else if (isEffectCell) {
             bgClass = 'bg-teal-50 border-teal-300 border-dashed';
+          } else if (isBadLuckCell) {
+            bgClass = 'bg-red-50 border-red-300 border-dashed';
           } else if (neededRarity) {
             bgClass = RARITY_BG[neededRarity] || 'bg-white border-slate-200';
           } else {
@@ -246,10 +250,16 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
                   <span className={`text-xs font-bold leading-tight text-center transition-all duration-300 ${iconClass}`}>
                     {t(item.effect.name)}
                   </span>
-                  <span className={`flex items-center gap-0.5 text-[10px] font-bold text-amber-600 mt-0.5 transition-all duration-300 ${
+                </>
+              ) : isBadLuckCell ? (
+                <>
+                  <span className={`text-2xl leading-none transition-all duration-300 ${iconClass}`}>
+                    {item.icon}
+                  </span>
+                  <span className={`text-[9px] font-bold text-red-500 mt-0.5 transition-all duration-300 ${
                     textVisible ? '' : 'opacity-0'
                   }`}>
-                    <Coins size={10} />{item.effect.cost}
+                    {t('厄运')}
                   </span>
                 </>
               ) : (
@@ -273,17 +283,16 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           );
         })}
       </div>
-      {isValidHover && hoverAnchor && (
-        <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 text-xs font-bold text-amber-600 bg-white border border-amber-300 rounded px-1.5 py-0.5 shadow-sm pointer-events-none z-10">
-          <Coins size={12} />
-          {(() => {
-            const effectInFrame = FIXED_SHAPE.cells
-              .map(([dr, dc]) => itemMap[hoverAnchor.row + dr]?.[hoverAnchor.col + dc])
-              .find(cell => cell?.isEffect);
-            return effectInFrame ? effectInFrame.effect.cost : 1;
-          })()}
-        </div>
-      )}
+      {isValidHover && hoverAnchor && (() => {
+        const tokensInFrame = FIXED_SHAPE.cells
+          .filter(([dr, dc]) => itemMap[hoverAnchor.row + dr]?.[hoverAnchor.col + dc]?.isBadLuck)
+          .length;
+        return tokensInFrame > 0 ? (
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 border border-red-300 rounded px-1.5 py-0.5 shadow-sm pointer-events-none z-10">
+            💀 ×{tokensInFrame}
+          </div>
+        ) : null;
+      })()}
     </>
   );
 }

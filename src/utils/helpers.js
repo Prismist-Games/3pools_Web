@@ -263,7 +263,7 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
 // generateMainlineOrder removed - mainline orders are replaced by progress system
 
 
-export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = () => false, skillState = {}, currentStageConfig) => {
+export const rollRarity = (config, affixKey = null, hasSkill = () => false, skillState = {}, currentStageConfig) => {
     const { rarity: rarityConfig, affixes } = config;
     const stageWeights = currentStageConfig.rarityWeights;
 
@@ -302,7 +302,7 @@ export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = 
     let totalWeight = 0;
     allowedRarityIds.forEach(rid => {
         let w = finalWeights[rid];
-        if (rid === 'legendary' && hasSkill('lucky_7') && (currentGold % 10 === 7)) {
+        if (rid === 'legendary' && hasSkill('lucky_7')) {
             w *= 2;
         }
         totalWeight += w;
@@ -330,7 +330,7 @@ export const rollRarity = (config, affixKey = null, currentGold = 0, hasSkill = 
 
     for (const rid of allowedRarityIds) {
         let w = finalWeights[rid];
-        if (rid === 'legendary' && hasSkill('lucky_7') && (currentGold % 10 === 7)) {
+        if (rid === 'legendary' && hasSkill('lucky_7')) {
             w *= 2;
         }
 

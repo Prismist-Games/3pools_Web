@@ -9,9 +9,8 @@ import {
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
-import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
 import { generateItemMap, getFrameCoverage, refreshCoveredCells, refreshAllEffects } from '../utils/spatialPoolHelpers.js';
-import { DEFAULT_DRAW } from '../data/spatialConstants.js';
+import { BAD_LUCK_TOKEN_MAX } from '../data/spatialConstants.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
     const { t } = useLanguage();
@@ -20,8 +19,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const currentStageConfig = config.stages[0]; // Always use stage 0 (no stage progression)
     const maxInventorySize = currentStageConfig.inventorySize;
 
-    // Gold System
-    const [gold, setGold] = useState(config.global?.initialGold || 30);
+    // Bad Luck Token counter (resets each milestone)
+    const [badLuckTokens, setBadLuckTokens] = useState(0);
 
     const [drawCount, setDrawCount] = useState(0);
 
@@ -210,14 +209,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         );
     }, [milestone]);
 
-    const totalRecycleValue = useMemo(() => {
-        if (!isRecycleMode || selectedIndices.length === 0) return 0;
-        return selectedIndices.reduce((sum, idx) => {
-            const item = inventory[idx];
-            return sum + (item ? item.rarity.recycleValue : 0);
-        }, 0);
-    }, [isRecycleMode, selectedIndices, inventory]);
-
     const selectedItemNames = useMemo(() => {
         if (!isSubmitMode && !isEvacuationMode) return [];
         return selectedIndices.map(idx => inventory[idx]?.name).filter(Boolean);
@@ -257,7 +248,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     }, [pendingItem, pendingQueue, inventory, maxInventorySize, currentStageConfig]);
 
     const createItem = (pool, itemTemplate, affixKey = null) => {
-        const rarity = rollRarity(config, affixKey, gold, hasSkill, skillState, currentStageConfig);
+        const rarity = rollRarity(config, affixKey, hasSkill, skillState, currentStageConfig);
         return {
             ...itemTemplate,
             uid: Math.random().toString(36).substr(2, 9),
@@ -554,31 +545,77 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const coverage = getFrameCoverage(anchorRow, anchorCol, itemMap);
         if (!coverage) return;
 
-        // Separate items from effects in coverage
-        const itemCells = coverage.filter(c => !c.item.isEffect);
+        // Separate items and effects in coverage (tokens are treated as drawable cells)
+        const drawableCells = coverage.filter(c => !c.item.isEffect);
         const effectCell = coverage.find(c => c.item.isEffect);
+
+        if (drawableCells.length === 0) return;
 
         // Determine effect config (null = default draw, no special effect)
         const affixConfig = effectCell ? effectCell.item.effect : null;
         const affixKey = affixConfig ? affixConfig.id : null;
-        const cost = affixConfig ? affixConfig.cost : DEFAULT_DRAW.cost;
-
-        // NOTE: Gold check and vip_discount are handled by handleDraw().
-        // We do NOT duplicate that logic here.
 
         const coveredKeys = new Set(coverage.map(c => `${c.row},${c.col}`));
 
-        // Build virtual pool from item cells only
+        // --- Draw ONE random cell from all drawable cells (including tokens) ---
+        const drawnIndex = Math.floor(Math.random() * drawableCells.length);
+        const drawnCell = drawableCells[drawnIndex];
+
+        // If drawn cell is a BAD LUCK TOKEN: increment counter, no item drawn
+        if (drawnCell.item.isBadLuck) {
+            const newTokenCount = badLuckTokens + 1;
+            setBadLuckTokens(newTokenCount);
+            showToast(`💀 BAD LUCK TOKEN! (${newTokenCount}/${BAD_LUCK_TOKEN_MAX})`, 'error');
+
+            // Animate: highlight skull, then refresh
+            setDrawAnimInfo({ drawnKey: `${drawnCell.row},${drawnCell.col}`, coveredKeys, phase: 'highlight' });
+            setTimeout(() => {
+                setDrawAnimInfo(prev => prev ? { ...prev, phase: 'exit' } : null);
+                setTimeout(() => {
+                    setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
+                    setItemMap(prev => {
+                        const refreshed = refreshCoveredCells(prev, anchorRow, anchorCol);
+                        return refreshAllEffects(refreshed);
+                    });
+
+                    // Check forced evacuation AFTER animation
+                    if (newTokenCount >= BAD_LUCK_TOKEN_MAX) {
+                        setTimeout(() => {
+                            if (evacuationReady) {
+                                setModalContent({
+                                    type: 'evacuation_triggered',
+                                    title: t('强制撤离'),
+                                    score: score,
+                                    forced: true,
+                                });
+                            } else {
+                                setModalContent({
+                                    type: 'game_over',
+                                    title: t('游戏结束'),
+                                    message: t('厄运降临！你未能及时撤离...'),
+                                    item: { icon: '💀' },
+                                });
+                            }
+                        }, 400);
+                    }
+
+                    setTimeout(() => setDrawAnimInfo(null), 350);
+                }, 400);
+            }, 500);
+            return;
+        }
+
+        // --- Normal item drawn: build pool from non-token cells ---
+        const itemCells = drawableCells.filter(c => !c.item.isBadLuck);
         const poolItems = itemCells.map(c => c.item);
 
         // For interactive effects (precise/trade_in), execute immediately
         if (affixKey === 'trade_in' || affixKey === 'precise') {
             const virtualPool = {
                 name: 'spatial',
-                items: poolItems,
+                items: poolItems.length > 0 ? poolItems : [drawnCell.item],
                 affixKey,
                 affix: affixConfig,
-                cost,
                 originalId: 'spatial',
                 id: 'spatial',
             };
@@ -592,20 +629,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
-        // For passive effects (or no effect): pick random item from item cells
-        if (itemCells.length === 0) return;
-
-        const drawnIndex = Math.floor(Math.random() * itemCells.length);
-        const drawnCell = itemCells[drawnIndex];
-
         const makePool = () => {
-            const items = affixKey === 'fragmented' ? poolItems : [drawnCell.item];
+            const items = affixKey === 'fragmented' ? (poolItems.length > 0 ? poolItems : [drawnCell.item]) : [drawnCell.item];
             return {
                 name: 'spatial',
                 items,
                 affixKey,
                 affix: affixConfig,
-                cost,
                 originalId: 'spatial',
                 id: 'spatial',
             };
@@ -646,27 +676,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const handleDraw = (pool) => {
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0) return;
 
-        // Use pool cost (from affix config)
-        let finalCost = pool.cost || 2;
-
-        if (hasSkill('vip_discount') && pool.affixKey === 'precise') {
-            finalCost = Math.max(0, finalCost - 1);
-        }
-
-        // Check gold affordability
-        if (gold < finalCost) {
-            showToast(t("金币不足！"), "error");
-            return;
-        }
-
         if (pool.affixKey === 'trade_in') {
-            setGold(prev => prev - finalCost);
             setSelectionMode({ type: 'trade_in', pool });
             return;
         }
         if (pool.affixKey === 'precise') {
-            setGold(prev => prev - finalCost);
-
             const candidates = [];
             let itemIndices = pool.items.map((_, i) => i);
 
@@ -681,7 +695,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setSelectionMode({ type: 'precise', pool, items: candidates });
             return;
         }
-        setGold(prev => prev - finalCost);
         handleNormalDraw(pool);
     };
 
@@ -725,27 +738,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleSelectionCancel = () => {
-        if (selectionMode?.type === 'trade_in') {
-            // 退回金币
-            const pool = selectionMode.pool;
-            let refundCost = pool.cost || 2;
-            if (hasSkill('vip_discount') && pool.affixKey === 'precise') {
-                refundCost = Math.max(0, refundCost - 1);
-            }
-            setGold(prev => prev + refundCost);
-            setSelectionMode(null);
-        } else if (selectionMode?.type === 'precise') {
-            // 退回金币
-            const pool = selectionMode.pool;
-            let refundCost = pool.cost || 2;
-            if (hasSkill('vip_discount') && pool.affixKey === 'precise') {
-                refundCost = Math.max(0, refundCost - 1);
-            }
-            setGold(prev => prev + refundCost);
-            setSelectionMode(null);
-        } else {
-            setSelectionMode(null);
-        }
+        setSelectionMode(null);
     }
 
     const handleSlotClick = (index) => {
@@ -899,10 +892,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 }
 
                 const targetName = targetItem.name;
-                const clearedItems = inventory.filter(i => i && i.name === targetName);
                 const newInventory = inventory.filter(i => i && i.name !== targetName);
-                const recycleValue = clearedItems.reduce((acc, i) => acc + (i.rarity.recycleValue || 0), 0);
-                if (recycleValue > 0) setGold(prev => prev + recycleValue);
 
                 const itemToAdd = { ...pendingItem };
                 delete itemToAdd.isOverload;
@@ -922,9 +912,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 setPendingItem(null);
                 return;
             }
-
-            const recycleGain = targetItem.rarity.recycleValue;
-            if (recycleGain > 0) setGold(prev => prev + recycleGain);
 
             const newInventory = [...inventory];
             newInventory[index] = pendingItem;
@@ -980,33 +967,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleDiscardNew = () => {
-        const recycleGain = pendingItem.rarity.recycleValue;
-        if (recycleGain > 0) setGold(prev => prev + recycleGain);
-
-        // Discarding does NOT consume durability (only draws do)
-        // setInventory(prev => applyEntropy(prev));
-
         setPendingItem(null);
         setSelectedSlot(null);
     };
 
     const handleConfirmRecycle = () => {
         if (selectedIndices.length === 0) return;
-
-        let baseValue = totalRecycleValue;
-        let extraGold = 0;
-
-        if (hasSkill('alchemy')) {
-            selectedIndices.forEach(idx => {
-                const item = inventory[idx];
-                if (item && item.rarity.bonus >= 0.2) {
-                    if (Math.random() < 0.25) extraGold += 5;
-                }
-            });
-            if (extraGold > 0) showToast(`${t("【炼金术】触发：获得")} ${extraGold} ${t("金币")}!`, 'info');
-        }
-
-        setGold(prev => prev + baseValue + extraGold);
 
         const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
         setInventory(newInventory);
@@ -1110,7 +1076,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         );
 
         let scoreGain = 0;
-        let goldGain = 0;
         let triggerEvacuation = false;
 
         for (const task of newlyCompleted) {
@@ -1138,11 +1103,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setSelectedSlot(null);
         setSelectedIndices([]);
         if (scoreGain > 0) setScore(prev => prev + scoreGain);
-        if (goldGain > 0) setGold(prev => prev + goldGain);
 
         if (newlyCompleted.length > 0) {
             showToast(
-                `${t('任务完成')}! +${scoreGain} ${t('积分')} +${goldGain} ${t('金币')}`,
+                `${t('任务完成')}! +${scoreGain} ${t('积分')}`,
                 'epic'
             );
         }
@@ -1162,7 +1126,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleEvacuationContinue = () => {
-        setGold(config.global?.initialGold || currentStageConfig.initialGold);
+        setBadLuckTokens(0);
         setMilestoneNumber(prev => prev + 1);
         setMilestone(null); // triggers re-generation via useEffect
         setModalContent(null);
@@ -1190,7 +1154,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     return {
         state: {
-            gold,
+            badLuckTokens,
             score,
             currentStageConfig,
             maxInventorySize,
@@ -1211,7 +1175,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             modalContent, selectionMode,
             skills, skillSelectionCandidates,
             toast,
-            totalRecycleValue,
             selectedItemNames,
             skillState,
             toolSelectionMode
@@ -1243,8 +1206,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleToolItemUse,
             handleCancelToolSelection,
             handleRefreshMap: () => {
-                if (gold < 1) return;
-                setGold(prev => prev - 1);
                 setItemMap(generateItemMap());
             },
             handleMapPlace,

@@ -164,7 +164,7 @@ export default function App() {
             {resetConfirmOpen && (
                 <ConfirmDialog
                     title={t("重新开始游戏？")}
-                    message={t("确定要重新开始游戏吗？当前进度（金币、背包、技能）将丢失。")}
+                    message={t("确定要重新开始游戏吗？当前进度（背包、技能）将丢失。")}
                     onConfirm={handleHardReset}
                     onCancel={() => setResetConfirmOpen(false)}
                 />
