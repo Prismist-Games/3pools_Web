@@ -422,20 +422,18 @@ export function assignItemsToCells(cells, tasks, allItems, rarities) {
       poolName: item.poolName,
       requiredRarity,
       scoreReward,
-      hasEvacuation: false,
       filledItem: null,
     };
   });
 }
 
 /**
- * Orchestrator: generate a complete milestone with cells, tasks,
- * evacuation marker, and grid bounds.
+ * Orchestrator: generate a complete milestone with cells, tasks, and grid bounds.
  *
  * @param {{name: string, icon: string, poolId: string, poolName: string}[]} allItems
  * @param {{id: string}[]} rarities
  * @param {number} [difficulty=1] - Unused for now, reserved for future scaling
- * @returns {{cells: Object[], tasks: Object[], gridBounds: {rows: number, cols: number}, evacuationIndices: number[], isComplete: boolean}}
+ * @returns {{cells: Object[], tasks: Object[], gridBounds: {rows: number, cols: number}, isComplete: boolean}}
  */
 export function generateMilestone(allItems, rarities, difficulty = 1) {
   const { canvasSize, cellCount, taskCount, taskSize } = GRID_CONFIG;

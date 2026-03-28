@@ -83,7 +83,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [initialSkills]);
 
-    // Initialize milestone when null (game start or after evacuation)
+    // Initialize milestone when null (game start or after milestone completion)
     useEffect(() => {
         if (!milestone && allNormalItems.length > 0) {
             const newMilestone = generateMilestone(
@@ -1081,6 +1081,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         } else {
             setIsSubmitMode(true);
             setIsRecycleMode(false);
+            setIsDiceSubmitMode(false);
             setSelectedSlot(null);
         }
     };
@@ -1093,7 +1094,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         } else {
             setIsRecycleMode(true);
             setIsSubmitMode(false);
-            setIsEvacuationMode(false);
+            setIsDiceSubmitMode(false);
             setSelectedSlot(null);
         }
     };
@@ -1135,7 +1136,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleSortInventory = () => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || isDiceSubmitMode || selectionMode) return;
 
         setInventory(prev => {
             const validItems = prev.filter(i => i !== null);
@@ -1248,15 +1249,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     };
 
-    const handleEvacuationContinue = () => {
-        setGold(config.global?.initialGold || currentStageConfig.initialGold);
-        setModalContent(null);
-        setSelectedSlot(null);
-        setSelectedIndices([]);
-        setIsSubmitMode(false);
-    };
-
-
     return {
         state: {
             gold,
@@ -1302,7 +1294,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleSlotClick,
             handleDiscardNew,
             handleFillCell,
-            handleEvacuationContinue,
+
             handleConfirmRecycle,
             toggleSubmitMode,
             toggleRecycleMode,
