@@ -10,7 +10,7 @@ import { InventorySlot } from './components/game/InventorySlot';
 import ItemMap from './components/game/ItemMap';
 
 import MilestoneGrid from './components/game/MilestoneGrid';
-import { SKILL_DEFINITIONS, FATE_DICE_CONFIG } from './data/constants';
+import { SKILL_DEFINITIONS } from './data/constants';
 
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -36,7 +36,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, selectedIndices,
-        isDiceSubmitMode, fateDiceIndices, selectedDiceSum, canEvacuate, totalDiceValue,
+        isDiceSubmitMode, fateDiceIndices, selectedDiceSum, canEvacuate, totalDiceValue, evacuationThreshold, evacuationDifficulty,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, totalRecycleValue, selectedItemNames,
@@ -256,8 +256,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-indigo-200">{t("撤离点数")}</span>
                                 <div className="flex items-center gap-2 text-indigo-400">
                                     <span className="text-lg drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]">🎲</span>
-                                    <span className={`text-3xl font-black font-mono tracking-tighter leading-none ${totalDiceValue >= FATE_DICE_CONFIG.evacuationThreshold ? 'text-green-400' : ''}`}>
-                                        {totalDiceValue}<span className="text-lg opacity-50">/{FATE_DICE_CONFIG.evacuationThreshold}</span>
+                                    <span className={`text-3xl font-black font-mono tracking-tighter leading-none ${totalDiceValue >= evacuationThreshold ? 'text-green-400' : ''}`}>
+                                        {totalDiceValue}<span className="text-lg opacity-50">/{evacuationThreshold}</span>
                                     </span>
                                 </div>
                             </div>
@@ -476,7 +476,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 )}
                                 {isDiceSubmitMode && (
                                     <span className="text-xs font-bold text-indigo-600 animate-pulse flex items-center gap-1">
-                                        🎲 {t("撤离模式: 选择命运骰子")} ({selectedDiceSum}/{FATE_DICE_CONFIG.evacuationThreshold})
+                                        🎲 {t("撤离模式: 选择命运骰子")} ({selectedDiceSum}/{evacuationThreshold})
                                     </span>
                                 )}
 
@@ -586,7 +586,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     {isDiceSubmitMode && (
                                         <div className="flex flex-col gap-2">
                                             <div className="text-center text-sm font-bold text-indigo-700 bg-indigo-50 rounded-lg py-2 px-3 border border-indigo-200">
-                                                🎲 {selectedDiceSum} / {FATE_DICE_CONFIG.evacuationThreshold}
+                                                🎲 {selectedDiceSum} / {evacuationThreshold}
                                             </div>
                                             <button
                                                 onClick={handleConfirmDiceEvacuation}

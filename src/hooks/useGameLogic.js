@@ -31,6 +31,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [milestone, setMilestone] = useState(null);
     const [milestoneNumber, setMilestoneNumber] = useState(1);
 
+    // Evacuation difficulty — increases each evacuation
+    const [evacuationDifficulty, setEvacuationDifficulty] = useState(
+        config.emergency?.difficulty?.initial || 1
+    );
+
     const [inventory, setInventory] = useState([]);
 
     const [pendingItem, setPendingItem] = useState(null);
@@ -244,7 +249,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }, 0);
     }, [isDiceSubmitMode, selectedIndices, inventory]);
 
-    const canEvacuate = isDiceSubmitMode && selectedDiceSum >= FATE_DICE_CONFIG.evacuationThreshold;
+    // Evacuation threshold based on current difficulty
+    const evacuationThreshold = useMemo(() => {
+        const thresholds = config.emergency?.difficultyThresholds;
+        if (thresholds && thresholds[evacuationDifficulty] !== undefined) {
+            return thresholds[evacuationDifficulty];
+        }
+        return FATE_DICE_CONFIG.evacuationThreshold; // fallback
+    }, [config.emergency?.difficultyThresholds, evacuationDifficulty]);
+
+    const canEvacuate = isDiceSubmitMode && selectedDiceSum >= evacuationThreshold;
 
     useEffect(() => {
         if (!pendingItem && pendingQueue.length > 0) {
@@ -1133,6 +1147,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Reset gold
         setGold(config.global?.initialGold || currentStageConfig.initialGold);
 
+        // Increase evacuation difficulty
+        const diffConfig = config.emergency?.difficulty;
+        const maxDiff = diffConfig?.maxDifficulty || 10;
+        const increase = diffConfig?.increaseOnNewOrder ?? 1;
+        setEvacuationDifficulty(prev => Math.min(maxDiff, prev + increase));
+
         // Clean up mode state
         setIsDiceSubmitMode(false);
         setSelectedIndices([]);
@@ -1278,6 +1298,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             isDiceSubmitMode,
             fateDiceIndices,
             totalDiceValue,
+            evacuationThreshold,
+            evacuationDifficulty,
             selectedDiceSum,
             canEvacuate,
             modalContent, selectionMode,

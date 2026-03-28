@@ -544,16 +544,22 @@ export const EMERGENCY_ORDER_CONFIG = {
         10: { common: 0.05, uncommon: 0.1, rare: 0.35, epic: 0.3, legendary: 0.2 }
     },
 
-    // 难度等级配置：难度 -> 精确品质需求（可选，如配置则优先使用）
-    // 数组中每项表示需要的品质和数量，会随机打乱后生成订单
-    // 示例: 1: [{ rarity: 'common', count: 1 }, { rarity: 'uncommon', count: 1 }] 
-    // 表示难度1固定需要1个普通+1个优秀品质的物品
-    difficultyRequirements: {
-        // 默认为空，使用随机模式
-        // 示例配置：
-        // 1: [{ rarity: 'common', count: 2 }],
-        // 5: [{ rarity: 'rare', count: 2 }, { rarity: 'epic', count: 1 }],
-        // 10: [{ rarity: 'epic', count: 2 }, { rarity: 'legendary', count: 2 }]
+    // 难度等级配置：难度 -> 精确品质需求（旧系统，已弃用）
+    difficultyRequirements: {},
+
+    // 难度等级配置：难度 -> 命运骰子撤离所需点数
+    // 每次撤离后难度提升，下次撤离需要更多点数
+    difficultyThresholds: {
+        1: 4,
+        2: 5,
+        3: 6,
+        4: 7,
+        5: 8,
+        6: 10,
+        7: 12,
+        8: 14,
+        9: 17,
+        10: 20
     }
 };
 
