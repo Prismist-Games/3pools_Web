@@ -6,7 +6,7 @@ import {
     getRandomAffix,
     getRandomItems
 } from '../utils/helpers';
-import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
+import { SKILL_DEFINITIONS, TOOL_ITEMS, FATE_DICE_CONFIG } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
@@ -269,6 +269,19 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     };
 
+    const createFateDice = () => {
+        const value = Math.floor(Math.random() * FATE_DICE_CONFIG.maxValue) + FATE_DICE_CONFIG.minValue;
+        const DICE_ICONS = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+        return {
+            name: FATE_DICE_CONFIG.name,
+            icon: DICE_ICONS[value - 1],
+            uid: Math.random().toString(36).substr(2, 9),
+            isFateDice: true,
+            diceValue: value,
+            rarity: config.rarity.find(r => r.id === 'common') || config.rarity[0],
+            sterile: true,
+        };
+    };
 
     const handleIncomingItems = (newItems, overrideInventory = null) => {
         let currentInventory = overrideInventory ? [...overrideInventory] : [...inventory];
@@ -554,8 +567,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const coverage = getFrameCoverage(anchorRow, anchorCol, itemMap);
         if (!coverage) return;
 
-        // Separate items from effects in coverage
-        const itemCells = coverage.filter(c => !c.item.isEffect);
+        // Separate items from effects and fate dice in coverage
+        const itemCells = coverage.filter(c => !c.item.isEffect && !c.item.isFateDice);
+        const fateDiceCells = coverage.filter(c => c.item.isFateDice);
         const effectCell = coverage.find(c => c.item.isEffect);
 
         // Determine effect config (null = default draw, no special effect)
@@ -592,13 +606,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
-        // For passive effects (or no effect): pick random item from item cells
-        if (itemCells.length === 0) return;
+        // Combine item cells and fate dice cells for random draw
+        const drawableCells = [...itemCells, ...fateDiceCells];
+        if (drawableCells.length === 0) return;
 
-        const drawnIndex = Math.floor(Math.random() * itemCells.length);
-        const drawnCell = itemCells[drawnIndex];
+        const drawnIndex = Math.floor(Math.random() * drawableCells.length);
+        const drawnCell = drawableCells[drawnIndex];
+        const drawnIsFateDice = !!drawnCell.item.isFateDice;
 
         const makePool = () => {
+            if (drawnIsFateDice) return null; // fate dice bypasses pool system
             const items = affixKey === 'fragmented' ? poolItems : [drawnCell.item];
             return {
                 name: 'spatial',
@@ -624,7 +641,21 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             setTimeout(() => {
                 // Phase 3: execute draw + other cells fade out (400ms)
-                handleDraw(makePool());
+                if (drawnIsFateDice) {
+                    // Fate dice: deduct cost, create dice, add to inventory
+                    const finalCost = affixConfig ? affixConfig.cost : DEFAULT_DRAW.cost;
+                    if (gold < finalCost) {
+                        showToast(t("金币不足！"), "error");
+                        setDrawAnimInfo(null);
+                        return;
+                    }
+                    setGold(prev => prev - finalCost);
+                    const dice = createFateDice();
+                    handleIncomingItems([dice]);
+                    showToast(`${t("获得命运骰子")}: ${dice.icon} (${dice.diceValue}${t("点")})`, 'info');
+                } else {
+                    handleDraw(makePool());
+                }
                 setDrawAnimInfo(prev => prev ? { ...prev, phase: 'exit' } : null);
 
                 setTimeout(() => {
