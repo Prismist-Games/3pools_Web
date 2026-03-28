@@ -580,10 +580,6 @@ export const INITIAL_GAME_CONFIG = {
     progress: SCORE_PROGRESS_CONFIG,
     emergency: EMERGENCY_ORDER_CONFIG,
     toolItems: TOOL_ITEM_CONFIG,
-    fateDice: {
-        evacuationThreshold: FATE_DICE_CONFIG.evacuationThreshold,
-        spawnChance: FATE_DICE_CONFIG.spawnChance,
-    },
     enabledSkillIds: [
         "poverty_relief",
         "lucky_7",

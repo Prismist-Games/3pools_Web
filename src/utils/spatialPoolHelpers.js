@@ -63,8 +63,7 @@ export function pickRandomEffects(count) {
  * Effect cells have { isEffect: true, effect: ... }.
  * Called on game start and on evacuation.
  */
-export function generateItemMap(spawnChance) {
-  const diceChance = spawnChance ?? FATE_DICE_CONFIG.spawnChance;
+export function generateItemMap() {
   // 1. Generate effect slot positions with spacing constraint
   const effectPositions = generateEffectPositions();
   const effects = pickRandomEffects(effectPositions.length);
@@ -86,7 +85,7 @@ export function generateItemMap(spawnChance) {
     for (let c = 0; c < MAP_COLS; c++) {
       if (effectSet.has(`${r},${c}`)) {
         row.push({ isEffect: true, effect: effects[effectIdx++] });
-      } else if (Math.random() < diceChance) {
+      } else if (Math.random() < FATE_DICE_CONFIG.spawnChance) {
         row.push({ isFateDice: true, icon: FATE_DICE_CONFIG.icon, name: FATE_DICE_CONFIG.name });
       } else {
         row.push(shuffled[itemIdx++ % shuffled.length]);
@@ -101,15 +100,14 @@ export function generateItemMap(spawnChance) {
  * Refresh item cells covered by a 2×2 placement.
  * Effect cells are skipped (handled by refreshAllEffects).
  */
-export function refreshCoveredCells(itemMap, anchorRow, anchorCol, spawnChance) {
-  const diceChance = spawnChance ?? FATE_DICE_CONFIG.spawnChance;
+export function refreshCoveredCells(itemMap, anchorRow, anchorCol) {
   const newMap = itemMap.map(row => [...row]);
   for (const [dr, dc] of FIXED_SHAPE.cells) {
     const r = anchorRow + dr;
     const c = anchorCol + dc;
     if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) continue;
     if (newMap[r][c].isEffect) continue; // Skip effect cells
-    if (Math.random() < diceChance) {
+    if (Math.random() < FATE_DICE_CONFIG.spawnChance) {
       newMap[r][c] = { isFateDice: true, icon: FATE_DICE_CONFIG.icon, name: FATE_DICE_CONFIG.name };
     } else {
       newMap[r][c] = ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];

@@ -25,8 +25,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const [drawCount, setDrawCount] = useState(0);
 
-    const diceSpawnChance = config.fateDice?.spawnChance ?? undefined;
-    const [itemMap, setItemMap] = useState(() => generateItemMap(diceSpawnChance));
+    const [itemMap, setItemMap] = useState(() => generateItemMap());
 
     // Milestone grid system
     const [milestone, setMilestone] = useState(null);
@@ -245,8 +244,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }, 0);
     }, [isDiceSubmitMode, selectedIndices, inventory]);
 
-    const evacuationThreshold = config.fateDice?.evacuationThreshold ?? FATE_DICE_CONFIG.evacuationThreshold;
-    const canEvacuate = isDiceSubmitMode && selectedDiceSum >= evacuationThreshold;
+    const canEvacuate = isDiceSubmitMode && selectedDiceSum >= FATE_DICE_CONFIG.evacuationThreshold;
 
     useEffect(() => {
         if (!pendingItem && pendingQueue.length > 0) {
@@ -625,7 +623,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleDraw(virtualPool);
             setTimeout(() => {
                 setItemMap(prev => {
-                    const refreshed = refreshCoveredCells(prev, anchorRow, anchorCol, diceSpawnChance);
+                    const refreshed = refreshCoveredCells(prev, anchorRow, anchorCol);
                     return refreshAllEffects(refreshed);
                 });
             }, 600);
@@ -688,7 +686,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     // Phase 4: refresh cells, new items enter (350ms)
                     setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
                     setItemMap(prev => {
-                        const refreshed = refreshCoveredCells(prev, anchorRow, anchorCol, diceSpawnChance);
+                        const refreshed = refreshCoveredCells(prev, anchorRow, anchorCol);
                         return refreshAllEffects(refreshed);
                     });
 
@@ -1280,7 +1278,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             isDiceSubmitMode,
             fateDiceIndices,
             totalDiceValue,
-            evacuationThreshold,
             selectedDiceSum,
             canEvacuate,
             modalContent, selectionMode,
@@ -1320,7 +1317,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleRefreshMap: () => {
                 if (gold < 1) return;
                 setGold(prev => prev - 1);
-                setItemMap(generateItemMap(diceSpawnChance));
+                setItemMap(generateItemMap());
             },
             handleMapPlace,
         },
