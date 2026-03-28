@@ -69,7 +69,19 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
         return () => clearTimeout(timer);
     }, [gravityEvent]);
 
-    // Needed items from orders (unsatisfied)
+    // All item names that appear in any active order's requirements
+    const orderItemNames = useMemo(() => {
+        const names = new Set();
+        for (const order of orders.filter(Boolean)) {
+            for (const req of order.requirements) names.add(req.name);
+        }
+        for (const order of emergencyOrders.filter(Boolean)) {
+            for (const req of order.requirements) names.add(req.name);
+        }
+        return names;
+    }, [orders, emergencyOrders]);
+
+    // Needed items from orders (unsatisfied) — for dot indicator
     const neededItemMap = useMemo(() => {
         const map = {};
         for (const order of orders.filter(Boolean)) {
@@ -210,10 +222,13 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                             const isExploding = explodingCells && explodingCells.some(ec => ec.row === r && ec.col === c);
                             const isHighlighted = (hoveredRow === r || hoveredCol === c) && !disabled;
                             const cellType = cell.type || 'normal';
-                            const bgClass = cellType !== 'normal'
-                                ? (SPECIAL_BG[cellType] || RARITY_BG.common)
-                                : (RARITY_BG[cell.rarity.id] || RARITY_BG.common);
-                            const neededInfo = cellType === 'normal' ? neededItemMap[cell.item.name] : null;
+                            const isBlank = cellType === 'normal' && !orderItemNames.has(cell.item.name);
+                            const bgClass = isBlank
+                                ? 'bg-slate-50 border-slate-200'
+                                : cellType !== 'normal'
+                                    ? (SPECIAL_BG[cellType] || RARITY_BG.common)
+                                    : (RARITY_BG[cell.rarity.id] || RARITY_BG.common);
+                            const neededInfo = cellType === 'normal' && !isBlank ? neededItemMap[cell.item.name] : null;
                             const isDropping = animatingCells.has(cellKey) && !newTopCells.has(cellKey);
                             const isNewTop = newTopCells.has(cellKey);
 
@@ -230,7 +245,7 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                                         ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
                                     `}
                                 >
-                                    {!isPicking && (
+                                    {!isPicking && !isBlank && (
                                         <div className={`flex flex-col items-center justify-center ${isExploding ? 'anim-explode-content' : ''}`}>
                                             <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
                                                 {cell.item.icon}

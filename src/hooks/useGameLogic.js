@@ -690,7 +690,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Random pick 1
         const picked = cells[Math.floor(Math.random() * cells.length)];
         const selectedCell = picked.cell;
-        const cellType = selectedCell.type || 'normal';
+        const rawCellType = selectedCell.type || 'normal';
+
+        // Blank check: normal items not needed by any active order show as blank
+        const orderNames = new Set();
+        for (const o of orders.filter(Boolean)) for (const req of o.requirements) orderNames.add(req.name);
+        for (const o of emergencyOrders.filter(Boolean)) for (const req of o.requirements) orderNames.add(req.name);
+        const cellType = (rawCellType === 'normal' && !orderNames.has(selectedCell.item.name)) ? 'blank' : rawCellType;
 
         // === Phase 1: fly animation starts immediately ===
         setIsDrawing(true);
@@ -704,7 +710,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             // First: gravity for the picked cell itself
             let afterPickMatrix = applyGravity(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
 
-            if (cellType === 'gold_penalty') {
+            if (cellType === 'blank') {
+                // --- Blank cell: not needed by orders, just gravity, no item ---
+                setMatrix(afterPickMatrix);
+                setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
+
+            } else if (cellType === 'gold_penalty') {
                 // --- Gold penalty cell: deduct gold, no item ---
                 setMatrix(afterPickMatrix);
                 setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
