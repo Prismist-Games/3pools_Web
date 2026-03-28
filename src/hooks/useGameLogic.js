@@ -230,6 +230,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             .map(({ idx }) => idx);
     }, [inventory]);
 
+    const totalDiceValue = useMemo(() => {
+        return inventory.reduce((sum, item) => {
+            return sum + (item?.isFateDice ? item.diceValue : 0);
+        }, 0);
+    }, [inventory]);
+
     const selectedDiceSum = useMemo(() => {
         if (!isDiceSubmitMode || selectedIndices.length === 0) return 0;
         return selectedIndices.reduce((sum, idx) => {
@@ -1271,6 +1277,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             isSubmitMode, isRecycleMode, selectedIndices,
             isDiceSubmitMode,
             fateDiceIndices,
+            totalDiceValue,
             selectedDiceSum,
             canEvacuate,
             modalContent, selectionMode,

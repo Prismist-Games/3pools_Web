@@ -36,7 +36,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, selectedIndices,
-        isDiceSubmitMode, fateDiceIndices, selectedDiceSum, canEvacuate,
+        isDiceSubmitMode, fateDiceIndices, selectedDiceSum, canEvacuate, totalDiceValue,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, totalRecycleValue, selectedItemNames,
@@ -250,6 +250,17 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     </div>
                                 </div>
                             )}
+
+                            {/* Evacuation Dice Threshold */}
+                            <div className="flex flex-col gap-1 items-end">
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-indigo-200">{t("撤离点数")}</span>
+                                <div className="flex items-center gap-2 text-indigo-400">
+                                    <span className="text-lg drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]">🎲</span>
+                                    <span className={`text-3xl font-black font-mono tracking-tighter leading-none ${totalDiceValue >= FATE_DICE_CONFIG.evacuationThreshold ? 'text-green-400' : ''}`}>
+                                        {totalDiceValue}<span className="text-lg opacity-50">/{FATE_DICE_CONFIG.evacuationThreshold}</span>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Stage Info (Compact) */}
