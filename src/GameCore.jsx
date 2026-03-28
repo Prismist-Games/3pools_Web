@@ -10,7 +10,7 @@ import { InventorySlot } from './components/game/InventorySlot';
 import ItemMap from './components/game/ItemMap';
 
 import MilestoneGrid from './components/game/MilestoneGrid';
-import { SKILL_DEFINITIONS } from './data/constants';
+import { SKILL_DEFINITIONS, FATE_DICE_CONFIG } from './data/constants';
 
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -36,6 +36,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, isEvacuationMode, evacuationReady, selectedIndices,
+        isDiceSubmitMode, fateDiceIndices, selectedDiceSum, canEvacuate,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, totalRecycleValue, selectedItemNames,
@@ -65,6 +66,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleCancelToolSelection,
         handleRefreshMap,
         handleMapPlace,
+        toggleDiceSubmitMode,
+        handleConfirmDiceEvacuation,
     } = actions;
 
     const { hasSkill } = helpers;
@@ -373,14 +376,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     milestoneNumber={milestoneNumber}
                                     hoveredPoolItemNames={hoveredPoolItemNames}
                                 />
-                                {evacuationReady && (
-                                    <button
-                                        onClick={handleTriggerEvacuation}
-                                        className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all animate-pulse"
-                                    >
-                                        🚀 {t('撤离')}
-                                    </button>
-                                )}
                             </div>
 
                             {/* Right: Item Map (supply side) */}
@@ -395,7 +390,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         onHoverCoverage={(names) => {
                                             state.setHoveredPoolItemNames(names);
                                         }}
-                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || isDiceSubmitMode || !!selectionMode}
                                     />
                                     <button
                                         onClick={handleRefreshMap}
@@ -462,6 +457,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         ${pendingItem ? 'bg-red-50/95' : ''}
                         ${isRecycleMode ? 'bg-amber-50/95' : ''}
                         ${selectionMode?.type === 'trade_in' ? 'bg-purple-50/95' : ''}
+                        ${isDiceSubmitMode ? 'bg-indigo-50/95' : ''}
                     `}>
 
                             {/* Skill Bar Area */}
@@ -551,6 +547,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <Zap size={14} /> {t("请点击选择一个目标物品")}
                                     </span>
                                 )}
+                                {isDiceSubmitMode && (
+                                    <span className="text-xs font-bold text-indigo-600 animate-pulse flex items-center gap-1">
+                                        🎲 {t("撤离模式: 选择命运骰子")} ({selectedDiceSum}/{FATE_DICE_CONFIG.evacuationThreshold})
+                                    </span>
+                                )}
 
 
 
@@ -614,7 +615,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 item={item}
                                                 isSelected={isSelected}
                                                 isTarget={!!sourceItem && !isSourceSelf}
-                                                isSubmitMode={false}
+                                                isSubmitMode={isDiceSubmitMode}
                                                 isRecycleMode={isRecycleMode}
                                                 isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
                                                 isReference={selectionMode?.type === 'trade_in' || !!toolSelectionMode}
@@ -644,6 +645,40 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">
                                             <Trash2 size={18} /> {t("回收")}
                                         </button>
+                                    )}
+
+                                    {!isDiceSubmitMode && !isRecycleMode && !pendingItem && !selectionMode && !toolSelectionMode && fateDiceIndices.length > 0 && (
+                                        <button
+                                            onClick={toggleDiceSubmitMode}
+                                            className="w-full flex items-center justify-center gap-2 bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-indigo-200 transition-transform active:scale-95"
+                                        >
+                                            🎲 {t("撤离")}
+                                        </button>
+                                    )}
+
+                                    {isDiceSubmitMode && (
+                                        <div className="flex flex-col gap-2">
+                                            <div className="text-center text-sm font-bold text-indigo-700 bg-indigo-50 rounded-lg py-2 px-3 border border-indigo-200">
+                                                🎲 {selectedDiceSum} / {FATE_DICE_CONFIG.evacuationThreshold}
+                                            </div>
+                                            <button
+                                                onClick={handleConfirmDiceEvacuation}
+                                                disabled={!canEvacuate}
+                                                className={`w-full flex items-center justify-center gap-2 font-bold py-3 px-6 rounded-xl shadow-md ${
+                                                    canEvacuate
+                                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                                        : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                                                }`}
+                                            >
+                                                🚀 {t("确认撤离")}
+                                            </button>
+                                            <button
+                                                onClick={toggleDiceSubmitMode}
+                                                className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50"
+                                            >
+                                                {t("取消")}
+                                            </button>
+                                        </div>
                                     )}
 
                                     {isRecycleMode && (
