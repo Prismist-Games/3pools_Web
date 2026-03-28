@@ -8,6 +8,7 @@ import {
   MAP_ROWS,
   MAP_COLS,
   EFFECT_SLOT_COUNT,
+  FATE_DICE_CONFIG,
 } from '../data/spatialConstants.js';
 
 // --- Effect cell helpers ---
@@ -84,6 +85,8 @@ export function generateItemMap() {
     for (let c = 0; c < MAP_COLS; c++) {
       if (effectSet.has(`${r},${c}`)) {
         row.push({ isEffect: true, effect: effects[effectIdx++] });
+      } else if (Math.random() < FATE_DICE_CONFIG.spawnChance) {
+        row.push({ isFateDice: true, icon: FATE_DICE_CONFIG.icon, name: FATE_DICE_CONFIG.name });
       } else {
         row.push(shuffled[itemIdx++ % shuffled.length]);
       }
@@ -104,7 +107,11 @@ export function refreshCoveredCells(itemMap, anchorRow, anchorCol) {
     const c = anchorCol + dc;
     if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) continue;
     if (newMap[r][c].isEffect) continue; // Skip effect cells
-    newMap[r][c] = ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];
+    if (Math.random() < FATE_DICE_CONFIG.spawnChance) {
+      newMap[r][c] = { isFateDice: true, icon: FATE_DICE_CONFIG.icon, name: FATE_DICE_CONFIG.name };
+    } else {
+      newMap[r][c] = ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];
+    }
   }
   return newMap;
 }

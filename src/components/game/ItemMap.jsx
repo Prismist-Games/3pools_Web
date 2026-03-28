@@ -218,9 +218,13 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           } else if (isCovered && isValidHover) {
             bgClass = isEffectCell
               ? 'bg-teal-100 border-teal-400 ring-2 ring-teal-300 scale-105'
-              : 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
+              : item.isFateDice
+                ? 'bg-indigo-200 border-indigo-400 ring-2 ring-indigo-300 scale-105'
+                : 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
           } else if (isEffectCell) {
             bgClass = 'bg-teal-50 border-teal-300 border-dashed';
+          } else if (item.isFateDice) {
+            bgClass = 'bg-gradient-to-br from-indigo-100 to-violet-100 border-indigo-300';
           } else if (neededRarity) {
             bgClass = RARITY_BG[neededRarity] || 'bg-white border-slate-200';
           } else {
@@ -252,6 +256,12 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
                     <Coins size={10} />{item.effect.cost}
                   </span>
                 </>
+              ) : item.isFateDice ? (
+                <div className="flex flex-col items-center justify-center w-full h-full">
+                  <span className={`text-xl lg:text-2xl filter drop-shadow-sm transition-all duration-300 ${iconClass}`}>
+                    {item.icon}
+                  </span>
+                </div>
               ) : (
                 <>
                   <span className={`text-xl leading-none transition-all duration-300 ${iconClass}`}>
