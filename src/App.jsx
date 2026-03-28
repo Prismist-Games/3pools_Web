@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Settings, Download, Upload, RotateCcw, X, Flag, Package, Zap, Timer } from 'lucide-react';
+import { Settings, Download, Upload, RotateCcw, X, Flag, Package, Zap } from 'lucide-react';
 import GameCore from './GameCore';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { INITIAL_GAME_CONFIG, SKILL_DEFINITIONS } from './data/constants';
@@ -250,185 +250,53 @@ export default function App() {
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-emerald-500 pl-3">核心均衡配置 (Balance)</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-4">
-                                        {/* Emergency Order Config */}
+                                        {/* Fate Dice Evacuation Config */}
                                         <div className="mt-4 pt-4 border-t border-slate-200">
-                                            <h5><Timer size={14} /> {t("离开关卡需求配置")}</h5>
+                                            <h5 className="text-sm font-bold text-indigo-700 flex items-center gap-1 mb-3">🎲 {t("撤离配置（命运骰子）")}</h5>
 
-                                            {/* Difficulty System */}
-                                            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                                                <label className="text-xs font-bold text-red-700 block mb-2">🔥 难度系统</label>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div>
-                                                        <label className="text-[8px] text-red-600 block mb-1">初始难度</label>
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            max="10"
-                                                            className="w-full p-1 border rounded font-mono text-sm"
-                                                            value={config.emergency?.difficulty?.initial || 1}
-                                                            onChange={(e) => setConfig({
-                                                                ...config,
-                                                                emergency: {
-                                                                    ...config.emergency,
-                                                                    difficulty: { ...(config.emergency?.difficulty || {}), initial: parseInt(e.target.value) || 1 }
-                                                                }
-                                                            })}
-                                                        />
+                                            <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg space-y-3">
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-indigo-700 block mb-1">{t("撤离所需点数")}</label>
+                                                    <div className="text-[9px] text-slate-500 mb-2">
+                                                        {t("玩家需要提交总点数 ≥ 此值的命运骰子才能撤离（重置金币）")}
                                                     </div>
-                                                    <div>
-                                                        <label className="text-[8px] text-red-600 block mb-1">最大难度</label>
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            max="20"
-                                                            className="w-full p-1 border rounded font-mono text-sm"
-                                                            value={config.emergency?.difficulty?.maxDifficulty || 10}
-                                                            onChange={(e) => setConfig({
-                                                                ...config,
-                                                                emergency: {
-                                                                    ...config.emergency,
-                                                                    difficulty: { ...(config.emergency?.difficulty || {}), maxDifficulty: parseInt(e.target.value) || 10 }
-                                                                }
-                                                            })}
-                                                        />
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        max="36"
+                                                        className="w-full p-2 border rounded font-mono text-sm"
+                                                        value={config.fateDice?.evacuationThreshold ?? 7}
+                                                        onChange={(e) => setConfig({
+                                                            ...config,
+                                                            fateDice: {
+                                                                ...config.fateDice,
+                                                                evacuationThreshold: Math.max(1, parseInt(e.target.value) || 7)
+                                                            }
+                                                        })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-indigo-700 block mb-1">{t("骰子出现概率")}</label>
+                                                    <div className="text-[9px] text-slate-500 mb-2">
+                                                        {t("地图上每个物品格子刷新为命运骰子的概率 (0-1)")}
                                                     </div>
-                                                    <div>
-                                                        <label className="text-[8px] text-red-600 block mb-1">离开关卡难度提升+</label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            className="w-full p-1 border rounded font-mono text-sm"
-                                                            value={config.emergency?.difficulty?.increaseOnNewOrder !== undefined ? config.emergency.difficulty.increaseOnNewOrder : 1}
-                                                            onChange={(e) => {
-                                                                const val = parseInt(e.target.value);
-                                                                setConfig({
-                                                                    ...config,
-                                                                    emergency: {
-                                                                        ...config.emergency,
-                                                                        difficulty: {
-                                                                            ...(config.emergency?.difficulty || {}),
-                                                                            increaseOnNewOrder: isNaN(val) ? 1 : val
-                                                                        }
-                                                                    }
-                                                                });
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[8px] text-green-600 block mb-1">完成积分订单难度-</label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            className="w-full p-1 border rounded font-mono text-sm bg-green-50"
-                                                            value={config.emergency?.difficulty?.decreaseOnScoreOrder !== undefined ? config.emergency.difficulty.decreaseOnScoreOrder : 1}
-                                                            onChange={(e) => {
-                                                                const val = parseInt(e.target.value);
-                                                                setConfig({
-                                                                    ...config,
-                                                                    emergency: {
-                                                                        ...config.emergency,
-                                                                        difficulty: {
-                                                                            ...(config.emergency?.difficulty || {}),
-                                                                            decreaseOnScoreOrder: isNaN(val) ? 1 : val
-                                                                        }
-                                                                    }
-                                                                });
-                                                            }}
-                                                        />
-                                                    </div>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="1"
+                                                        step="0.05"
+                                                        className="w-full p-2 border rounded font-mono text-sm"
+                                                        value={config.fateDice?.spawnChance ?? 0.15}
+                                                        onChange={(e) => setConfig({
+                                                            ...config,
+                                                            fateDice: {
+                                                                ...config.fateDice,
+                                                                spawnChance: Math.max(0, Math.min(1, parseFloat(e.target.value) || 0.15))
+                                                            }
+                                                        })}
+                                                    />
                                                 </div>
                                             </div>
-
-                                            {/* Note about difficulty */}
-                                            <div className="text-[9px] text-slate-400 bg-slate-50 p-2 rounded border border-slate-100 mb-3">
-                                                💡 提示：难度等级的详细配置（每个难度的需求数量和品质）在 <code className="bg-white px-1 rounded">constants.js</code> 中的 <code className="bg-white px-1 rounded">difficultyReqCountWeights</code> 和 <code className="bg-white px-1 rounded">difficultyRarityWeights</code> 里配置
-                                            </div>
-
-                                            {/* Fallback configs - collapsed by default */}
-                                            <details className="mb-3 border border-slate-200 rounded-lg overflow-hidden">
-                                                <summary className="text-[10px] font-bold text-slate-500 uppercase p-2 bg-slate-50 cursor-pointer hover:bg-slate-100 select-none">
-                                                    ⚙️ 高级：Fallback配置（仅当难度未配置时使用）
-                                                </summary>
-                                                <div className="p-3 space-y-3 bg-white">
-                                                    {/* Requirement Count Range (fallback) */}
-                                                    <div>
-                                                        <label className="text-[10px] font-bold text-slate-600 block mb-1">基础需求数量范围</label>
-                                                        <div className="text-[9px] text-slate-400 mb-2">
-                                                            当某个难度等级未在下方配置时，使用此范围随机生成
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <div>
-                                                                <label className="text-[8px] text-slate-400 block">最小</label>
-                                                                <input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    max="4"
-                                                                    className="w-full p-2 border rounded font-mono text-sm"
-                                                                    value={config.emergency?.reqCountMin || 1}
-                                                                    onChange={(e) => setConfig({
-                                                                        ...config,
-                                                                        emergency: {
-                                                                            ...config.emergency,
-                                                                            reqCountMin: Math.max(1, Math.min(4, parseInt(e.target.value) || 1))
-                                                                        }
-                                                                    })}
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[8px] text-slate-400 block">最大</label>
-                                                                <input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    max="4"
-                                                                    className="w-full p-2 border rounded font-mono text-sm"
-                                                                    value={config.emergency?.reqCountMax || 4}
-                                                                    onChange={(e) => setConfig({
-                                                                        ...config,
-                                                                        emergency: {
-                                                                            ...config.emergency,
-                                                                            reqCountMax: Math.max(1, Math.min(4, parseInt(e.target.value) || 4))
-                                                                        }
-                                                                    })}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Base Rarity Weights (fallback) */}
-                                                    <div className="pt-3 border-t">
-                                                        <label className="text-[10px] font-bold text-slate-600 block mb-1">基础品质概率</label>
-                                                        <div className="text-[9px] text-slate-400 mb-2">
-                                                            当某个难度等级未在下方配置时，使用此品质分布
-                                                        </div>
-                                                        <div className="grid grid-cols-3 gap-2">
-                                                            {['common', 'uncommon', 'rare', 'epic', 'legendary'].map(rKey => (
-                                                                <div key={rKey} className="flex flex-col gap-0.5">
-                                                                    <span className="text-[8px] font-black uppercase opacity-60 text-center">{rKey}</span>
-                                                                    <input
-                                                                        type="number"
-                                                                        step="0.05"
-                                                                        className="p-1 border rounded font-mono text-xs text-center"
-                                                                        value={config.emergency?.baseRarityWeights?.[rKey] || 0}
-                                                                        onChange={(e) => {
-                                                                            const newWeights = {
-                                                                                ...(config.emergency?.baseRarityWeights || {}),
-                                                                                [rKey]: parseFloat(e.target.value) || 0
-                                                                            };
-                                                                            setConfig({
-                                                                                ...config,
-                                                                                emergency: {
-                                                                                    ...config.emergency,
-                                                                                    baseRarityWeights: newWeights
-                                                                                }
-                                                                            });
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </details>
                                         </div>
 
                                     </div>
@@ -488,8 +356,8 @@ export default function App() {
                                 </div>
                             </section>
 
-                            {/* Emergency Order Difficulty Levels Config */}
-                            <section className="bg-gradient-to-br from-orange-50 to-red-50 p-5 rounded-xl border-2 border-orange-200">
+                            {/* Legacy Emergency Order Difficulty Levels Config — removed, replaced by fate dice */}
+                            {false && <section className="bg-gradient-to-br from-orange-50 to-red-50 p-5 rounded-xl border-2 border-orange-200">
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-orange-500 pl-3 flex items-center gap-2">
                                     🎚️ 离开关卡难度等级配置 (1-{config.emergency?.difficulty?.maxDifficulty || 10})
                                 </h4>
@@ -698,7 +566,7 @@ export default function App() {
                                         </details>
                                     );
                                 })}
-                            </section>
+                            </section>}
 
                             {/* 3. 概率权重配置 */}
                             <section>

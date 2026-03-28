@@ -299,4 +299,9 @@ export const EN_TRANSLATIONS = {
     "里程碑完成！进入下一个里程碑": "Milestone complete! Moving to next",
     "撤离": "Evacuate",
     "撤离点数": "Dice Points",
+    "撤离配置（命运骰子）": "Evacuation Config (Fate Dice)",
+    "撤离所需点数": "Required Dice Points",
+    "玩家需要提交总点数 ≥ 此值的命运骰子才能撤离（重置金币）": "Player must submit fate dice with total points ≥ this value to evacuate (reset gold)",
+    "骰子出现概率": "Dice Spawn Rate",
+    "地图上每个物品格子刷新为命运骰子的概率 (0-1)": "Probability of each item cell being a fate dice (0-1)",
 };
