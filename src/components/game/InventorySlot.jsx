@@ -102,7 +102,8 @@ export const InventorySlot = ({
     const isMultiSelectMode = isSubmitMode || isRecycleMode;
     const isTradeInMode = isSelectionMode;
     const isToolItem = item?.isToolItem;
-    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem)) || isPendingSlot;
+    const isFateDice = item?.isFateDice;
+    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem || item.isFateDice)) || isPendingSlot;
 
     const handleContextMenu = (e) => {
         e.preventDefault();
@@ -114,6 +115,9 @@ export const InventorySlot = ({
     // 工具物品独特样式：金色渐变边框 + 发光
     const toolItemStyle = isToolItem
         ? 'border-amber-400 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 ring-1 ring-amber-200/50 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
+        : '';
+    const fateDiceStyle = isFateDice
+        ? 'border-indigo-400 bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 ring-1 ring-indigo-200/50 shadow-[0_0_12px_rgba(99,102,241,0.3)]'
         : '';
 
     return (
@@ -135,9 +139,11 @@ export const InventorySlot = ({
                     relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 select-none overflow-visible
                     ${item ? 'animate-[fadeIn_0.3s_ease-out]' : ''}
                     ${item
-                        ? isToolItem
-                            ? toolItemStyle
-                            : `${item.rarity?.color || 'bg-slate-100 border-slate-300'} ${item.rarity?.shadow || ''} shadow-sm`
+                        ? isFateDice
+                            ? fateDiceStyle
+                            : isToolItem
+                                ? toolItemStyle
+                                : `${item.rarity?.color || 'bg-slate-100 border-slate-300'} ${item.rarity?.shadow || ''} shadow-sm`
                         : 'bg-slate-50 border-dashed border-slate-200'
                     }
                     ${!isMultiSelectMode && !isTradeInMode && isSelected ? '-translate-y-4 scale-110 z-10 shadow-xl ring-2 ring-blue-400' : ''}
@@ -178,6 +184,14 @@ export const InventorySlot = ({
                             <div className="absolute top-0 left-0 p-0.5 rounded-br-lg z-10">
                                 <div className="bg-amber-500 text-white rounded-md px-1 py-0.5 text-[8px] font-black uppercase tracking-wider shadow-sm">
                                     {t("工具")}
+                                </div>
+                            </div>
+                        )}
+
+                        {isFateDice && (
+                            <div className="absolute top-0 right-0 p-0.5 rounded-bl-lg z-10">
+                                <div className="bg-indigo-600 text-white rounded-md px-1.5 py-0.5 text-[10px] font-black shadow-sm">
+                                    {item.diceValue}
                                 </div>
                             </div>
                         )}
