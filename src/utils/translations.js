@@ -286,5 +286,15 @@ export const EN_TRANSLATIONS = {
     "同奖池中没有其他物品！": "No other items in the same pool!",
     "星辉祝福已激活：下次抽取品质+1": "Starlight Blessing active: Next draw rarity +1",
     "当前状态下无法使用工具物品": "Cannot use tool items in current state",
-    "工具道具无法用于以旧换新！": "Tool items cannot be used for trade-in!"
+    "工具道具无法用于以旧换新！": "Tool items cannot be used for trade-in!",
+
+    // --- Fate Dice ---
+    "命运骰子": "Fate Dice",
+    "获得命运骰子": "Obtained Fate Dice",
+    "点": "pts",
+    "背包中没有命运骰子！": "No fate dice in inventory!",
+    "撤离模式: 选择命运骰子": "Evacuation: Select Fate Dice",
+    "确认撤离": "Confirm Evacuation",
+    "撤离成功！金币已重置": "Evacuation successful! Gold reset",
+    "里程碑完成！进入下一个里程碑": "Milestone complete! Moving to next",
 };

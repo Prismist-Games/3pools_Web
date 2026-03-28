@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronUp, ChevronDown, Check, Truck, Trash2, RefreshCw, Star, Hand, Repeat, AlertCircle, Zap, ListOrdered } from 'lucide-react';
+import { Settings, X, Coins, Flag, Power, ChevronUp, ChevronDown, Check, Trash2, RefreshCw, Star, Hand, Repeat, AlertCircle, Zap, ListOrdered } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
@@ -35,7 +35,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
-        isSubmitMode, isRecycleMode, isEvacuationMode, evacuationReady, selectedIndices,
+        isSubmitMode, isRecycleMode, selectedIndices,
         isDiceSubmitMode, fateDiceIndices, selectedDiceSum, canEvacuate,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
@@ -50,9 +50,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleSlotClick,
         handleDiscardNew,
         handleFillCell,
-        handleTriggerEvacuation,
-        handleEvacuationContinue,
-        handleEvacuationExtract,
         handleConfirmRecycle,
         toggleSubmitMode,
         toggleRecycleMode,
@@ -160,87 +157,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     >
                                         {t("重新开始")}
                                     </button>
-                                </>
-                            ) : modalContent.type === 'evacuation_triggered' ? (
-                                // Evacuation Triggered by completing a task with evacuation cell
-                                <>
-                                    <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center text-5xl shadow-inner mb-2">
-                                        🚀
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <p className="text-slate-500 font-medium text-lg">
-                                            {t("当前积分")}: <span className="font-bold text-blue-600 font-mono text-xl">{modalContent.score}</span>
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col w-full gap-3 mt-4">
-                                        <button
-                                            onClick={handleEvacuationContinue}
-                                            className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
-                                        >
-                                            <RotateCcw size={20} />
-                                            {t("继续下一个里程碑")}
-                                        </button>
-                                        <button
-                                            onClick={handleEvacuationExtract}
-                                            className="w-full bg-white border-2 border-slate-200 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <Flag size={20} />
-                                            {t("提取积分离开")}
-                                        </button>
-                                    </div>
-                                </>
-                            ) : modalContent.type === 'evacuation_success' ? (
-                                // Evacuation Success Modal
-                                <>
-                                    <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center text-5xl shadow-inner mb-2">
-                                        <Truck size={40} className="text-orange-500" />
-                                    </div>
-
-                                    <div className="flex flex-col gap-2">
-                                        {/* Title is already rendered by parent container if strict structure, 
-                                            but parent container renders h3 title from modalContent.title. 
-                                            Let's just use what's here or rely on parent? 
-                                            Parent renders: <h3 ...>{modalContent.title}</h3> at line 95.
-                                            Let's rely on that if we set title, or override. 
-                                            Wait, line 95 is: <h3 className="text-2xl font-black text-slate-800">{modalContent.title}</h3>
-                                            The `evacuation_success` logic I set: setModalContent({ type: 'evacuation_success', score })
-                                            I did NOT set title. I should probably set title in useGameLogic or just ignore 
-                                            lines 95 if I can't control it easily. 
-                                            Actually, line 95 is executed BEFORE these checks. 
-                                            So I should ensure modalContent has a title or provide empty string and render my own.
-                                            
-                                            Let's check useGameLogic again.
-                                            setModalContent({ type: 'evacuation_success', score: score });
-                                            Title is undefined.
-                                            So <h3> will be empty.
-                                            I'll add the title manually here.
-                                         */}
-                                        <h3 className="text-3xl font-black text-slate-800">{t("离开此关卡成功！")}</h3>
-                                        <p className="text-slate-500 font-medium text-lg">
-                                            {t("当前积分")}: <span className="font-bold text-blue-600 font-mono text-xl">{modalContent.score}</span>
-                                        </p>
-                                        <p className="text-slate-400 text-sm">
-                                            {t("你可以选择继续挑战以获得更高分数，或者现在带着战利品离开。")}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex flex-col w-full gap-3 mt-4">
-                                        <button
-                                            onClick={handleEvacuationContinue}
-                                            className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
-                                        >
-                                            <RotateCcw size={20} />
-                                            {t("继续挑战 (难度提升)")}
-                                        </button>
-
-                                        <button
-                                            onClick={handleEvacuationExtract}
-                                            className="w-full bg-white border-2 border-slate-200 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <Flag size={20} />
-                                            {t("提取分数 (结束游戏)")}
-                                        </button>
-                                    </div>
                                 </>
                             ) : (
                                 // Standard Item Modal

@@ -44,8 +44,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [hoveredPoolItemNames, setHoveredPoolItemNames] = useState([]);
 
     const [isSubmitMode, setIsSubmitMode] = useState(false);
-    const [isEvacuationMode, setIsEvacuationMode] = useState(false);
-    const [evacuationReady, setEvacuationReady] = useState(false);
     const [isRecycleMode, setIsRecycleMode] = useState(false);
     const [selectedIndices, setSelectedIndices] = useState([]);
     const [isDiceSubmitMode, setIsDiceSubmitMode] = useState(false);
@@ -220,9 +218,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     }, [isRecycleMode, selectedIndices, inventory]);
 
     const selectedItemNames = useMemo(() => {
-        if (!isSubmitMode && !isEvacuationMode) return [];
+        if (!isSubmitMode) return [];
         return selectedIndices.map(idx => inventory[idx]?.name).filter(Boolean);
-    }, [isSubmitMode, isEvacuationMode, selectedIndices, inventory]);
+    }, [isSubmitMode, selectedIndices, inventory]);
 
     // Fate dice in inventory
     const fateDiceIndices = useMemo(() => {
@@ -1250,31 +1248,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     };
 
-    const handleTriggerEvacuation = () => {
-        setModalContent({
-            type: 'evacuation_triggered',
-            title: '撤离触发',
-            score: score,
-        });
-    };
-
     const handleEvacuationContinue = () => {
         setGold(config.global?.initialGold || currentStageConfig.initialGold);
         setModalContent(null);
         setSelectedSlot(null);
         setSelectedIndices([]);
         setIsSubmitMode(false);
-        setIsEvacuationMode(false);
-        setEvacuationReady(false);
-    };
-
-    const handleEvacuationExtract = () => {
-        setModalContent({
-            type: 'victory',
-            score: score,
-            title: t('提取成功'),
-            message: t('你带着战利品成功离开了！')
-        });
     };
 
 
@@ -1297,7 +1276,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             selectedSlot,
             hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
             setHoveredPoolId, setHoveredItemName, setHoveredSlotIndex, setHoveredPoolItemNames,
-            isSubmitMode, isRecycleMode, isEvacuationMode, evacuationReady, selectedIndices,
+            isSubmitMode, isRecycleMode, selectedIndices,
             isDiceSubmitMode,
             fateDiceIndices,
             selectedDiceSum,
@@ -1323,9 +1302,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleSlotClick,
             handleDiscardNew,
             handleFillCell,
-            handleTriggerEvacuation,
             handleEvacuationContinue,
-            handleEvacuationExtract,
             handleConfirmRecycle,
             toggleSubmitMode,
             toggleRecycleMode,
