@@ -1,7 +1,7 @@
 // src/data/spatialConstants.js
 // Spatial pool system constants.
 
-import { INITIAL_POOLS_DATA, INITIAL_AFFIXES_CONFIG } from './constants.js';
+import { INITIAL_POOLS_DATA, INITIAL_AFFIXES_CONFIG, FATE_DICE_CONFIG } from './constants.js';
 
 // --- Flat item list (all 20 items) ---
 export const ALL_ITEMS = INITIAL_POOLS_DATA.flatMap(pool =>
@@ -38,3 +38,6 @@ export const EFFECT_SLOT_COUNT = 3;
 
 /** Default draw config when no effect cell is in the 2×2 frame */
 export const DEFAULT_DRAW = { id: null, cost: 1 };
+
+// --- Fate dice config re-export for spatial system ---
+export { FATE_DICE_CONFIG };

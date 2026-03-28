@@ -260,6 +260,16 @@ export const TOOL_ITEM_CONFIG = {
     },
 };
 
+// --- 命运骰子配置 ---
+export const FATE_DICE_CONFIG = {
+    spawnChance: 0.15,          // 每个物品格子刷新为命运骰子的概率
+    icon: '🎲',
+    name: '命运骰子',
+    minValue: 1,
+    maxValue: 6,
+    evacuationThreshold: 7,    // 撤离所需的点数总和
+};
+
 export const INITIAL_AFFIXES_CONFIG = [
     {
         "id": "trade_in",
