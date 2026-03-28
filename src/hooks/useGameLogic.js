@@ -48,6 +48,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [evacuationReady, setEvacuationReady] = useState(false);
     const [isRecycleMode, setIsRecycleMode] = useState(false);
     const [selectedIndices, setSelectedIndices] = useState([]);
+    const [isDiceSubmitMode, setIsDiceSubmitMode] = useState(false);
 
     const [modalContent, setModalContent] = useState(null);
     const [selectionMode, setSelectionMode] = useState(null);
@@ -222,6 +223,24 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!isSubmitMode && !isEvacuationMode) return [];
         return selectedIndices.map(idx => inventory[idx]?.name).filter(Boolean);
     }, [isSubmitMode, isEvacuationMode, selectedIndices, inventory]);
+
+    // Fate dice in inventory
+    const fateDiceIndices = useMemo(() => {
+        return inventory
+            .map((item, idx) => ({ item, idx }))
+            .filter(({ item }) => item && item.isFateDice)
+            .map(({ idx }) => idx);
+    }, [inventory]);
+
+    const selectedDiceSum = useMemo(() => {
+        if (!isDiceSubmitMode || selectedIndices.length === 0) return 0;
+        return selectedIndices.reduce((sum, idx) => {
+            const item = inventory[idx];
+            return sum + (item?.isFateDice ? item.diceValue : 0);
+        }, 0);
+    }, [isDiceSubmitMode, selectedIndices, inventory]);
+
+    const canEvacuate = isDiceSubmitMode && selectedDiceSum >= FATE_DICE_CONFIG.evacuationThreshold;
 
     useEffect(() => {
         if (!pendingItem && pendingQueue.length > 0) {
@@ -563,6 +582,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const handleMapPlace = (anchorRow, anchorCol) => {
         if (drawAnimInfo) return;
+        if (isDiceSubmitMode) return;
 
         const coverage = getFrameCoverage(anchorRow, anchorCol, itemMap);
         if (!coverage) return;
@@ -675,7 +695,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleDraw = (pool) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || isDiceSubmitMode || selectionMode || pendingQueue.length > 0) return;
 
         // Use pool cost (from affix config)
         let finalCost = pool.cost || 2;
@@ -781,6 +801,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const handleSlotClick = (index) => {
         const clickedItem = inventory[index];
+
+        // Dice submit mode: toggle selection of fate dice items only
+        if (isDiceSubmitMode) {
+            const item = inventory[index];
+            if (!item || !item.isFateDice) return;
+            setSelectedIndices(prev =>
+                prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+            );
+            return;
+        }
 
         // 工具选择模式：点击背包物品作为工具目标
         if (toolSelectionMode) {
@@ -1070,6 +1100,42 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     };
 
+    const toggleDiceSubmitMode = () => {
+        if (isDiceSubmitMode) {
+            setIsDiceSubmitMode(false);
+            setSelectedIndices([]);
+        } else {
+            if (fateDiceIndices.length === 0) {
+                showToast(t("背包中没有命运骰子！"), 'error');
+                return;
+            }
+            setIsDiceSubmitMode(true);
+            setSelectedSlot(null);
+            setSelectedIndices([]);
+            setIsRecycleMode(false);
+            setIsSubmitMode(false);
+        }
+    };
+
+    const handleConfirmDiceEvacuation = () => {
+        if (!canEvacuate) return;
+
+        // Remove submitted dice from inventory
+        const submittedSet = new Set(selectedIndices);
+        const newInventory = inventory.filter((_, idx) => !submittedSet.has(idx));
+        setInventory(newInventory);
+
+        // Reset gold
+        setGold(config.global?.initialGold || currentStageConfig.initialGold);
+
+        // Clean up mode state
+        setIsDiceSubmitMode(false);
+        setSelectedIndices([]);
+        setSelectedSlot(null);
+
+        showToast(t('撤离成功！金币已重置'), 'epic');
+    };
+
     const handleSortInventory = () => {
         if (pendingItem || isSubmitMode || isRecycleMode || selectionMode) return;
 
@@ -1142,17 +1208,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         let scoreGain = 0;
         let goldGain = 0;
-        let triggerEvacuation = false;
 
         for (const task of newlyCompleted) {
             const taskScore = task.cellIndices.reduce(
                 (sum, idx) => sum + updatedCells[idx].scoreReward, 0
             );
             scoreGain += Math.ceil(taskScore);
-
-            if (task.cellIndices.some(idx => updatedCells[idx].hasEvacuation)) {
-                triggerEvacuation = true;
-            }
         }
 
         // Remove consumed item from inventory
@@ -1178,9 +1239,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             );
         }
 
-        if (triggerEvacuation) {
-            setEvacuationReady(true);
-            showToast(t('撤离已就绪！点击撤离按钮离开'), 'info');
+        // Check if ALL tasks are now completed → refresh milestone
+        const allTasksComplete = updatedTasks.every(task => task.isCompleted);
+        if (allTasksComplete) {
+            showToast(t('里程碑完成！进入下一个里程碑'), 'epic');
+            setTimeout(() => {
+                setMilestoneNumber(prev => prev + 1);
+                setMilestone(null); // triggers re-generation via useEffect
+            }, 800);
         }
     };
 
@@ -1194,19 +1260,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const handleEvacuationContinue = () => {
         setGold(config.global?.initialGold || currentStageConfig.initialGold);
-        setMilestoneNumber(prev => prev + 1);
-        setMilestone(null); // triggers re-generation via useEffect
         setModalContent(null);
-        // Clear inventory for new milestone
-        setInventory([]);
-        setPendingItem(null);
-        setPendingQueue([]);
         setSelectedSlot(null);
         setSelectedIndices([]);
         setIsSubmitMode(false);
         setIsEvacuationMode(false);
         setEvacuationReady(false);
-        setItemMap(generateItemMap());
     };
 
     const handleEvacuationExtract = () => {
@@ -1239,6 +1298,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
             setHoveredPoolId, setHoveredItemName, setHoveredSlotIndex, setHoveredPoolItemNames,
             isSubmitMode, isRecycleMode, isEvacuationMode, evacuationReady, selectedIndices,
+            isDiceSubmitMode,
+            fateDiceIndices,
+            selectedDiceSum,
+            canEvacuate,
             modalContent, selectionMode,
             skills, skillSelectionCandidates,
             toast,
@@ -1266,6 +1329,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleConfirmRecycle,
             toggleSubmitMode,
             toggleRecycleMode,
+            toggleDiceSubmitMode,
+            handleConfirmDiceEvacuation,
             handleSortInventory,
             handlePoolHover,
             handlePoolLeave,
