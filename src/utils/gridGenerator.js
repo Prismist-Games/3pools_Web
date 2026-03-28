@@ -438,7 +438,7 @@ export function assignItemsToCells(cells, tasks, allItems, rarities) {
  * @returns {{cells: Object[], tasks: Object[], gridBounds: {rows: number, cols: number}, evacuationIndices: number[], isComplete: boolean}}
  */
 export function generateMilestone(allItems, rarities, difficulty = 1) {
-  const { canvasSize, cellCount, taskCount, taskSize, evacuationCellCount } = GRID_CONFIG;
+  const { canvasSize, cellCount, taskCount, taskSize } = GRID_CONFIG;
 
   // Determine random counts within configured ranges
   const targetCellCount = cellCount.min + Math.floor(Math.random() * (cellCount.max - cellCount.min + 1));
@@ -478,42 +478,6 @@ export function generateMilestone(allItems, rarities, difficulty = 1) {
     }
   }
 
-  // Step 4: Place evacuation marker(s) — only on cells belonging to ≥2 tasks
-  const taskMembership = new Array(cells.length).fill(0);
-  for (const task of tasks) {
-    for (const idx of task.cellIndices) {
-      taskMembership[idx]++;
-    }
-  }
-
-  const wellConnected = cells
-    .map((_, i) => i)
-    .filter(i => taskMembership[i] >= 2);
-
-  // Shuffle candidates
-  for (let i = wellConnected.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [wellConnected[i], wellConnected[j]] = [wellConnected[j], wellConnected[i]];
-  }
-
-  // Fallback to all cells if no well-connected candidates
-  const evacuationIndices = [];
-  const candidates = wellConnected.length > 0 ? wellConnected : cells.map((_, i) => i);
-  const rarityOrder = rarities.map(r => r.id);
-  const rareIdx = rarityOrder.indexOf('rare');
-  const numEvac = Math.min(evacuationCellCount, candidates.length);
-  for (let i = 0; i < numEvac; i++) {
-    const evacIdx = candidates[i];
-    cells[evacIdx].hasEvacuation = true;
-    // Ensure evacuation cell requires at least rare rarity, and gives no score
-    const cellRarityIdx = rarityOrder.indexOf(cells[evacIdx].requiredRarity);
-    if (cellRarityIdx < rareIdx) {
-      cells[evacIdx].requiredRarity = 'rare';
-    }
-    cells[evacIdx].scoreReward = 0;
-    evacuationIndices.push(evacIdx);
-  }
-
   // Step 5: Compute grid bounds (bounding box of actual cells)
   let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity;
   for (const cell of cells) {
@@ -532,7 +496,6 @@ export function generateMilestone(allItems, rarities, difficulty = 1) {
     cells,
     tasks,
     gridBounds,
-    evacuationIndices,
     isComplete: false,
   };
 }

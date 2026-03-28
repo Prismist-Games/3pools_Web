@@ -47,9 +47,6 @@ const GridCellBase = ({ cell, isFillable, isHighlighted, onClick }) => {
     >
       {/* Top-left: rewards */}
       <div className="absolute top-1 left-1 flex flex-col gap-0.5">
-        {cell.hasEvacuation && (
-          <span className="text-xs leading-none">🚀</span>
-        )}
         {hasReward && (
           <span className="text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1 rounded leading-tight">
             +{Math.round(cell.scoreReward)}分
