@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Settings, Download, Upload, RotateCcw, X, Flag, Package, Zap, Timer } from 'lucide-react';
 import GameCore from './GameCore';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
-import { INITIAL_GAME_CONFIG, SKILL_DEFINITIONS } from './data/constants';
+import { INITIAL_GAME_CONFIG, SKILL_DEFINITIONS, FATE_DICE_CONFIG } from './data/constants';
 import ErrorBoundary from './components/ErrorBoundary';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
@@ -123,6 +123,8 @@ export default function App() {
 
                     return next;
                 });
+                // Auto-restart game with new config
+                setGameId(prev => prev + 1);
             } catch (err) {
                 console.error(err);
             }
@@ -250,6 +252,26 @@ export default function App() {
                                 <h4 className="text-lg font-bold mb-4 border-l-4 border-emerald-500 pl-3">核心均衡配置 (Balance)</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-4">
+                                        {/* Fate Dice Spawn Chance */}
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-600 block mb-1">🎲 命运骰子出现概率</label>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="50"
+                                                    step="1"
+                                                    className="flex-1"
+                                                    value={Math.round(FATE_DICE_CONFIG.spawnChance * 100)}
+                                                    onChange={(e) => {
+                                                        FATE_DICE_CONFIG.spawnChance = parseInt(e.target.value) / 100;
+                                                        setConfig(prev => ({ ...prev })); // force re-render
+                                                    }}
+                                                />
+                                                <span className="text-sm font-mono font-bold w-12 text-right">{Math.round(FATE_DICE_CONFIG.spawnChance * 100)}%</span>
+                                            </div>
+                                        </div>
+
                                         {/* Emergency Order Config */}
                                         <div className="mt-4 pt-4 border-t border-slate-200">
                                             <h5><Timer size={14} /> {t("离开关卡需求配置")}</h5>
