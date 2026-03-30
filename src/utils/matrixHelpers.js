@@ -1,7 +1,7 @@
 /**
  * matrixHelpers.js v3
  * 4×4 item matrix with row/column selection, gravity, random refill,
- * and special cells (gold penalty, bomb).
+ * and special cells (doom danger, bomb).
  */
 
 import { MATRIX_CONFIG } from '../data/matrixConfig';
@@ -36,18 +36,17 @@ const generateNormalCell = (allNormalItems, config, currentStageConfig) => {
 
 export const generateRandomCell = (allNormalItems, config, currentStageConfig) => {
   const roll = Math.random();
-  // ~15% gold penalty, ~8% bomb for refill cells (lower than initial board)
-  if (roll < 0.15) {
-    const { minCost, maxCost, icon, name } = specialCells.goldPenalty;
+  // ~10% doom danger, ~8% bomb for refill cells
+  if (roll < 0.10) {
+    const { icon, name } = specialCells.doomDanger;
     return {
-      type: 'gold_penalty',
-      goldCost: randInt(minCost, maxCost),
+      type: 'doom_danger',
       item: { name, icon },
       rarity: { id: 'common', bonus: 0 },
       uid: Math.random().toString(36).substr(2, 9),
     };
   }
-  if (roll < 0.23) {
+  if (roll < 0.18) {
     return {
       type: 'bomb',
       item: { name: specialCells.bomb.name, icon: specialCells.bomb.icon },
@@ -66,13 +65,12 @@ export const generateItemMatrix = (allNormalItems, config, currentStageConfig) =
   const totalCells = gridSize * gridSize;
 
   // Decide counts
-  const goldCount = randInt(specialCells.goldPenalty.min, specialCells.goldPenalty.max);
+  const doomCount = randInt(specialCells.doomDanger.min, specialCells.doomDanger.max);
   const bombCount = randInt(specialCells.bomb.min, specialCells.bomb.max);
-  const specialTotal = goldCount + bombCount;
 
   // Build a flat array of cell types, then shuffle to assign positions
   const cellTypes = [];
-  for (let i = 0; i < goldCount; i++) cellTypes.push('gold_penalty');
+  for (let i = 0; i < doomCount; i++) cellTypes.push('doom_danger');
   for (let i = 0; i < bombCount; i++) cellTypes.push('bomb');
   while (cellTypes.length < totalCells) cellTypes.push('normal');
 
@@ -89,11 +87,10 @@ export const generateItemMatrix = (allNormalItems, config, currentStageConfig) =
     const row = [];
     for (let c = 0; c < gridSize; c++) {
       const type = cellTypes[idx++];
-      if (type === 'gold_penalty') {
-        const { minCost, maxCost, icon, name } = specialCells.goldPenalty;
+      if (type === 'doom_danger') {
+        const { icon, name } = specialCells.doomDanger;
         row.push({
-          type: 'gold_penalty',
-          goldCost: randInt(minCost, maxCost),
+          type: 'doom_danger',
           item: { name, icon },
           rarity: { id: 'common', bonus: 0 },
           uid: Math.random().toString(36).substr(2, 9),

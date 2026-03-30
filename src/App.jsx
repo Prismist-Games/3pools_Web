@@ -164,7 +164,7 @@ export default function App() {
             {resetConfirmOpen && (
                 <ConfirmDialog
                     title={t("重新开始游戏？")}
-                    message={t("确定要重新开始游戏吗？当前进度（金币、背包、技能）将丢失。")}
+                    message={t("确定要重新开始游戏吗？当前进度（背包、技能）将丢失。")}
                     onConfirm={handleHardReset}
                     onCancel={() => setResetConfirmOpen(false)}
                 />
@@ -833,15 +833,6 @@ export default function App() {
                                             type="number"
                                             value={config.global.refreshCost}
                                             onChange={(e) => setConfig({ ...config, global: { ...config.global, refreshCost: parseInt(e.target.value) || 0 } })}
-                                            className="border rounded px-3 py-2 font-mono"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-slate-500">初始金币</label>
-                                        <input
-                                            type="number"
-                                            value={config.global.initialGold || 30}
-                                            onChange={(e) => setConfig({ ...config, global: { ...config.global, initialGold: parseInt(e.target.value) || 30 } })}
                                             className="border rounded px-3 py-2 font-mono"
                                         />
                                     </div>

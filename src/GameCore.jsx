@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Settings, RotateCcw, X, Coins, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Truck, Trash2, Package, RefreshCw, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered, Timer } from 'lucide-react';
+import React, { useEffect, useState, useRef, useCallback, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Settings, RotateCcw, X, Flag, Power, ChevronsUp, ChevronUp, ChevronDown, Check, Trash2, Package, RefreshCw, Star, Hand, Layers, Repeat, Send, AlertCircle, Zap, ListOrdered } from 'lucide-react';
 
 import { useGameLogic } from './hooks/useGameLogic';
 import { useLanguage } from './contexts/LanguageContext';
@@ -11,6 +12,73 @@ import ResourceMatrix from './components/game/ResourceMatrix';
 
 import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
+
+// --- Doom Grid Tooltip (Portal, same style as ToolItemTooltip) ---
+const DoomGridTooltip = ({ isDanger, anchorRef, visible }) => {
+    const { t } = useLanguage();
+    const [pos, setPos] = useState(null);
+    useLayoutEffect(() => {
+        if (!visible || !anchorRef.current) { setPos(null); return; }
+        const rect = anchorRef.current.getBoundingClientRect();
+        setPos({ top: rect.top + window.scrollY - 8, left: rect.left + window.scrollX + rect.width / 2 });
+    }, [visible, anchorRef]);
+    if (!visible || !pos) return null;
+    return createPortal(
+        <div style={{ position: 'absolute', top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)', zIndex: 99999, pointerEvents: 'none' }}
+            className="animate-in fade-in zoom-in-95 duration-150">
+            <div className={`bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border ${isDanger ? 'border-red-400/30' : 'border-slate-600'} min-w-[140px] max-w-[200px]`}>
+                <div className="flex items-center gap-2 mb-1 border-b border-slate-700 pb-1">
+                    <span className="text-lg">{isDanger ? '☠️' : '·'}</span>
+                    <span className={`font-black text-sm ${isDanger ? 'text-red-300' : 'text-slate-400'}`}>{isDanger ? t("危险") : t("空格")}</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                    {isDanger ? t("厄运结算命中时 -1 生命值") : t("厄运结算命中时无效果")}
+                </p>
+            </div>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-slate-900" />
+            </div>
+        </div>,
+        document.body
+    );
+};
+
+const DoomGridCell = ({ cell, children }) => {
+    const ref = useRef(null);
+    const [show, setShow] = useState(false);
+    return children(ref, show, setShow);
+};
+
+// --- Header stat tooltip (Portal, same dark style) ---
+const HeaderTooltip = ({ text, children }) => {
+    const ref = useRef(null);
+    const [show, setShow] = useState(false);
+    const [pos, setPos] = useState(null);
+
+    useLayoutEffect(() => {
+        if (!show || !ref.current) { setPos(null); return; }
+        const rect = ref.current.getBoundingClientRect();
+        setPos({ top: rect.bottom + window.scrollY + 8, left: rect.left + window.scrollX + rect.width / 2 });
+    }, [show]);
+
+    return (
+        <div ref={ref} onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+            {children}
+            {show && pos && createPortal(
+                <div style={{ position: 'absolute', top: pos.top, left: pos.left, transform: 'translateX(-50%)', zIndex: 99999, pointerEvents: 'none' }}
+                    className="animate-in fade-in zoom-in-95 duration-150">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-0">
+                        <div className="w-0 h-0 border-x-[6px] border-x-transparent border-b-[6px] border-b-slate-900" />
+                    </div>
+                    <div className="bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border border-slate-700 max-w-[220px]">
+                        <p className="text-[11px] text-slate-300 leading-relaxed">{text}</p>
+                    </div>
+                </div>,
+                document.body
+            )}
+        </div>
+    );
+};
 
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -33,11 +101,12 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     }, [debugAddItem, actions]);
 
     const {
-        gold, score, currentStageConfig, maxInventorySize,
-        drawCount, matrix, gravityEvent, lastDraw, isDrawing, explodingCells, goldFlash, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
+        hp, doomGrid, doomLevel, doomHitCount, isDoomResolving, doomResolutionState,
+        score, currentStageConfig, maxInventorySize,
+        drawCount, matrix, gravityEvent, lastDraw, isDrawing, explodingCells, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredItemName, hoveredSlotIndex,
-        isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
+        isSubmitMode, isRecycleMode, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
@@ -64,18 +133,28 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleConfirmRecycle,
         handleSortInventory,
         handleEvacuate,
-        toggleEvacuationMode,
-        handleConfirmEvacuation,
-        handleEvacuationContinue,
-        handleEvacuationExtract,
         debugGetOrderItems,
         handleToolItemUse,
         handleUnassignFromOrder,
         handleOrderSlotClick,
-        handleCancelToolSelection
+        handleCancelToolSelection,
+        tickDoomResolution,
+        completeDoomResolution,
     } = actions;
 
     const { hasSkill } = helpers;
+
+    // Doom resolution spinning animation
+    useEffect(() => {
+        if (!doomResolutionState || doomResolutionState.phase !== 'spinning') return;
+        // Speed: starts fast (80ms), slows to 200ms near end
+        const progress = doomResolutionState.tick / doomResolutionState.totalTicks;
+        const interval = 80 + progress * 160; // 80ms → 240ms
+        const timer = setTimeout(() => {
+            tickDoomResolution();
+        }, interval);
+        return () => clearTimeout(timer);
+    }, [doomResolutionState]);
 
     // Fly animation: starts immediately from the picked cell, gravity follows after
     const lastDrawTickRef = useRef(null);
@@ -204,59 +283,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         {t("重新开始")}
                                     </button>
                                 </>
-                            ) : modalContent.type === 'evacuation_success' ? (
-                                // Evacuation Success Modal
-                                <>
-                                    <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center text-5xl shadow-inner mb-2">
-                                        <Truck size={40} className="text-orange-500" />
-                                    </div>
-
-                                    <div className="flex flex-col gap-2">
-                                        {/* Title is already rendered by parent container if strict structure, 
-                                            but parent container renders h3 title from modalContent.title. 
-                                            Let's just use what's here or rely on parent? 
-                                            Parent renders: <h3 ...>{modalContent.title}</h3> at line 95.
-                                            Let's rely on that if we set title, or override. 
-                                            Wait, line 95 is: <h3 className="text-2xl font-black text-slate-800">{modalContent.title}</h3>
-                                            The `evacuation_success` logic I set: setModalContent({ type: 'evacuation_success', score })
-                                            I did NOT set title. I should probably set title in useGameLogic or just ignore 
-                                            lines 95 if I can't control it easily. 
-                                            Actually, line 95 is executed BEFORE these checks. 
-                                            So I should ensure modalContent has a title or provide empty string and render my own.
-                                            
-                                            Let's check useGameLogic again.
-                                            setModalContent({ type: 'evacuation_success', score: score });
-                                            Title is undefined.
-                                            So <h3> will be empty.
-                                            I'll add the title manually here.
-                                         */}
-                                        <h3 className="text-3xl font-black text-slate-800">{t("离开此关卡成功！")}</h3>
-                                        <p className="text-slate-500 font-medium text-lg">
-                                            {t("当前积分")}: <span className="font-bold text-blue-600 font-mono text-xl">{modalContent.score}</span>
-                                        </p>
-                                        <p className="text-slate-400 text-sm">
-                                            {t("你可以选择继续挑战以获得更高分数，或者现在带着战利品离开。")}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex flex-col w-full gap-3 mt-4">
-                                        <button
-                                            onClick={handleEvacuationContinue}
-                                            className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
-                                        >
-                                            <RotateCcw size={20} />
-                                            {t("继续挑战 (难度提升)")}
-                                        </button>
-
-                                        <button
-                                            onClick={handleEvacuationExtract}
-                                            className="w-full bg-white border-2 border-slate-200 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <Flag size={20} />
-                                            {t("提取分数 (结束游戏)")}
-                                        </button>
-                                    </div>
-                                </>
                             ) : (
                                 // Standard Item Modal
                                 <>
@@ -363,27 +389,33 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     </div>
 
                     <div className="flex items-center gap-6">
-                        {/* Secondary Stats Group (Gold & Difficulty) - Enlarged */}
+                        {/* HP & Doom Display */}
                         <div className="flex items-center gap-8 pr-6 border-r border-slate-800">
-                            {/* Gold Display */}
-                            <div className={`flex flex-col gap-1 items-end transition-all duration-300 ${goldFlash ? 'scale-110' : ''}`}>
-                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-yellow-100">{t("持有金币")}</span>
-                                <div className={`flex items-center gap-2.5 ${gold <= 5 ? 'text-red-400' : 'text-yellow-400'}`}>
-                                    <Coins size={20} className={`${gold <= 5 ? 'drop-shadow-[0_0_8px_rgba(248,113,113,0.6)] animate-pulse' : 'drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]'}`} />
-                                    <span className={`text-3xl font-black font-mono tracking-tighter leading-none ${goldFlash ? 'text-red-300' : ''}`}>{gold}</span>
-                                </div>
-                            </div>
-
-                            {/* Difficulty Display */}
-                            {emergencyOrders.length > 0 && (
-                                <div className="flex flex-col gap-1 items-end">
-                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-orange-100">{t("离开关卡难度")}</span>
-                                    <div className="flex items-center gap-2 text-orange-400">
-                                        <ChevronsUp size={20} className="drop-shadow-[0_0_8px_rgba(251,146,60,0.4)]" />
-                                        <span className="text-3xl font-black font-mono tracking-tighter leading-none">LV.{emergencyDifficulty}</span>
+                            {/* HP Display */}
+                            <HeaderTooltip text={t("生命值归零时游戏结束，失去一半物品")}>
+                                <div className="flex flex-col gap-1 items-end cursor-default">
+                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-red-200">{t("生命值")}</span>
+                                    <div className="flex items-center gap-1.5">
+                                        {Array.from({ length: config.doom?.initialHP || 3 }).map((_, i) => (
+                                            <span key={i} className={`text-xl transition-all duration-300 ${i < hp ? 'drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]' : 'opacity-30'}`}>
+                                                {i < hp ? '❤️' : '🖤'}
+                                            </span>
+                                        ))}
                                     </div>
                                 </div>
-                            )}
+                            </HeaderTooltip>
+
+                            {/* Doom Level Display */}
+                            <HeaderTooltip text={t("每次厄运结算抽取的格子数，厄运触发出现时升级")}>
+                                <div className="flex flex-col gap-1 items-end cursor-default">
+                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-violet-200">{t("厄运等级")}</span>
+                                    <div className="flex items-center gap-2 text-violet-400">
+                                        <ChevronsUp size={20} className="drop-shadow-[0_0_8px_rgba(139,92,246,0.4)]" />
+                                        <span className="text-3xl font-black font-mono tracking-tighter leading-none">LV.{doomLevel}</span>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-red-400">{t("触发")} {(config.doom?.hitsPerLevelUp || 3) - doomHitCount} {t("次后升级")}</span>
+                                </div>
+                            </HeaderTooltip>
                         </div>
 
                         {/* Stage Info (Compact) */}
@@ -422,95 +454,17 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                             <div className="flex flex-col gap-3">
 
-                                {/* Emergency Orders */}
-                                {state.emergencyOrders && state.emergencyOrders.length > 0 && (
-                                    <div className="mb-2 relative flex flex-col gap-2 p-3 bg-orange-50/50 rounded-2xl border-2 border-orange-200 shadow-sm">
-                                        <div className="flex items-center justify-between gap-4 mb-3 flex-nowrap border-b border-orange-200/50 pb-2">
-                                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                <div className="bg-red-600 text-white p-1.5 rounded-lg shadow-lg shrink-0">
-                                                    <Timer size={14} className="animate-pulse" />
-                                                </div>
-                                                <div className="flex flex-col min-w-0">
-                                                    <h3 className="text-sm font-black text-slate-800 leading-none truncate uppercase tracking-tight">
-                                                        {t("离开关卡需求")}
-                                                    </h3>
-                                                    <span className="text-[10px] text-slate-500 font-bold leading-none mt-1 opacity-80">
-                                                        {t("(完成任意其一)")}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                {/* 离开此关卡按钮 - 嵌入在需求区域 (放大版) */}
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleEvacuate(); }}
-                                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!orderCandidates}
-                                                    className={`
-                                                        flex items-center justify-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-black transition-all duration-200 text-[10px] sm:text-sm shadow-lg border-2 whitespace-nowrap
-                                                        ${isEvacuationMode
-                                                            ? 'bg-orange-600 text-white ring-4 ring-orange-300 border-orange-400 animate-pulse scale-105'
-                                                            : (pendingItem || isSubmitMode || isRecycleMode || selectionMode || orderCandidates
-                                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200'
-                                                                : 'bg-orange-500 text-white hover:bg-orange-600 border-orange-600 hover:scale-110 active:scale-95')
-                                                        }
-                                                    `}
-                                                >
-                                                    {isEvacuationMode ? <Check size={14} className="sm:size-[18px]" /> : <Truck size={14} className="sm:size-[18px]" />}
-                                                    <span>{isEvacuationMode ? t("选择中...") : t("离开关卡")}</span>
-                                                </button>
-
-                                                {/* 放弃按钮 - 嵌入在需求区域 (放大版) */}
-                                                {!isEvacuationMode && !isSubmitMode && !isRecycleMode && !selectionMode && !orderCandidates && (
-                                                    <button
-                                                        onClick={onReset}
-                                                        className="flex items-center justify-center gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl font-black transition-all duration-200 text-[10px] sm:text-xs shadow-md bg-red-50 text-red-600 border-2 border-red-200 hover:bg-red-500 hover:text-white hover:border-red-600 hover:scale-105 active:scale-95 whitespace-nowrap"
-                                                    >
-                                                        <AlertCircle size={14} className="sm:size-[16px]" />
-                                                        <span>{t("放弃")}</span>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col gap-2">
-                                            {state.emergencyOrders.map((order, idx) => (
-                                                <OrderCard
-                                                    key={order.id}
-                                                    order={order}
-                                                    index={998 + idx}
-                                                    isScoreOrder={false}
-                                                    isEmergency={true}
-                                                    isSubmitMode={isSubmitMode}
-                                                    canSatisfy={satisfiableOrders.find(r => r.index === 998 + idx)}
-                                                    potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === 998 + idx)}
-                                                    // Pass click handler to allow auto-selection
-                                                    onClick={handleOrderClick}
-                                                    currentStageConfig={currentStageConfig}
-                                                    config={config}
-                                                    inventory={inventory}
-                                                    selectedIndices={selectedIndices}
-                                                    hasSkill={hasSkill}
-                                                    hoveredPoolId={null}
-                                                    hoveredItemName={hoveredItemName}
-                                                    hoveredPoolItemNames={[]}
-                                                    selectedItemNames={selectedItemNames}
-
-                                                    isBeingReplaced={false}
-                                                    onDebugGetItems={debugMode ? debugGetOrderItems : null}
-                                                    orderSlotAssignments={orderSlotAssignments}
-                                                    phantomMarks={phantomMarks}
-                                                    onUnassign={handleUnassignFromOrder}
-                                                    onSlotClick={handleOrderSlotClick}
-                                                    pendingItem={pendingItem}
-                                                    selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
-                                                    toolSelectionMode={toolSelectionMode}
-                                                    isRecycleMode={isRecycleMode}
-                                                    selectionMode={selectionMode}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                                {/* Evacuate Button */}
+                                <div className="mb-2 flex items-center gap-2">
+                                    <button
+                                        onClick={handleEvacuate}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!orderCandidates || !!modalContent || isDoomResolving}
+                                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-black transition-all duration-200 text-sm shadow-lg border-2 bg-emerald-500 text-white hover:bg-emerald-600 border-emerald-600 hover:scale-105 active:scale-95 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200"
+                                    >
+                                        <Flag size={18} />
+                                        <span>{t("撤离")}</span>
+                                    </button>
+                                </div>
 
                                 {/* Normal Orders (no mainline) */}
                                 {orders.map((order, idx) => (
@@ -520,8 +474,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         index={idx}
                                         isScoreOrder={true}
                                         isSubmitMode={isSubmitMode}
-                                        isEvacuationMode={isEvacuationMode}
-                                        canSatisfy={satisfiableOrders.find(r => r.index === idx)}
+                                                                                canSatisfy={satisfiableOrders.find(r => r.index === idx)}
                                         potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === idx)} // Pass preview
                                         onClick={handleOrderClick}
                                         onRefresh={handleRefreshSingleOrder}
@@ -597,8 +550,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                             index={-1}
                                                             isScoreOrder={true}
                                                             isSubmitMode={false}
-                                                            isEvacuationMode={false}
-                                                            canSatisfy={null}
+                                                                                                                        canSatisfy={null}
                                                             potentialSatisfy={null}
                                                             onClick={() => handleSelectOrderCandidate(idx)}
                                                             onRefresh={() => { }}
@@ -628,7 +580,79 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     <section className="flex-1 flex flex-col h-full overflow-hidden relative">
                         {/* POOLS SCROLLABLE AREA */}
                         <div className="flex-1 flex flex-col p-3 lg:p-4 relative overflow-hidden">
-                            <div className="flex flex-col gap-2 flex-1 justify-center">
+                            <div className="flex flex-col gap-3 flex-1 justify-center">
+                                {/* Doom Grid Display */}
+                                <div className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${isDoomResolving ? 'scale-110' : ''}`}>
+                                    {/* Doom resolution banner */}
+                                    {isDoomResolving && (
+                                        <div className="flex items-center gap-2 px-4 py-1.5 bg-violet-600 text-white rounded-full font-black text-sm animate-pulse shadow-lg shadow-violet-300">
+                                            <span>⚡ {t("厄运结算")} LV.{doomLevel}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                                        {doomGrid.map((cell, i) => {
+                                            const cursorCount = doomResolutionState
+                                                ? doomResolutionState.spinningPositions.filter(p => p === i).length
+                                                : 0;
+                                            const isSettled = doomResolutionState?.phase === 'settled';
+                                            const isSpinning = doomResolutionState?.phase === 'spinning';
+                                            const isDanger = cell.type === 'danger';
+                                            return (
+                                                <DoomGridCell key={i} cell={cell}>
+                                                    {(cellRef, showTip, setShowTip) => (
+                                                        <div
+                                                            ref={cellRef}
+                                                            onMouseEnter={() => setShowTip(true)}
+                                                            onMouseLeave={() => setShowTip(false)}
+                                                            className={`relative w-9 h-9 rounded-lg border-2 flex flex-col items-center justify-center transition-all ${
+                                                                isSpinning ? 'duration-75' : 'duration-300'
+                                                            } ${
+                                                                cursorCount > 0
+                                                                    ? isSettled
+                                                                        ? isDanger
+                                                                            ? 'ring-3 ring-red-400 scale-125 z-10 bg-red-200 border-red-500'
+                                                                            : 'ring-3 ring-green-400 scale-125 z-10 bg-green-200 border-green-500'
+                                                                        : 'ring-2 ring-yellow-400 scale-110 z-10'
+                                                                    : ''
+                                                            } ${
+                                                                isDanger
+                                                                    ? 'bg-red-50 border-red-400'
+                                                                    : 'bg-slate-50 border-slate-200'
+                                                            }`}
+                                                        >
+                                                            <span className="text-sm leading-none">{isDanger ? '☠️' : ''}</span>
+                                                            {isDanger && <span className="text-[7px] font-black text-red-500 leading-none">{t("危险")}</span>}
+                                                            {cursorCount > 0 && (
+                                                                <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-yellow-400 rounded-full text-[8px] font-black text-yellow-900 flex items-center justify-center shadow border border-yellow-500">
+                                                                    {cursorCount > 1 ? cursorCount : '▼'}
+                                                                </div>
+                                                            )}
+                                                            <DoomGridTooltip isDanger={isDanger} anchorRef={cellRef} visible={showTip && !isDoomResolving} />
+                                                        </div>
+                                                    )}
+                                                </DoomGridCell>
+                                            );
+                                        })}
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{t("厄运网格")}</span>
+                                    {/* Settled: show results and confirm button */}
+                                    {doomResolutionState?.phase === 'settled' && (
+                                        <div className="flex flex-col items-center gap-2 mt-1">
+                                            <div className="flex gap-1.5">
+                                                {doomResolutionState.finalSelections.map((sel, i) => (
+                                                    <span key={i} className={`text-lg ${sel.type === 'danger' ? 'animate-bounce' : ''}`}>
+                                                        {sel.type === 'danger' ? '💀' : '✅'}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            <button onClick={completeDoomResolution}
+                                                className="px-5 py-1.5 bg-slate-700 text-white rounded-lg font-bold text-sm hover:bg-slate-800 active:scale-95 transition-all shadow">
+                                                {t("确认")}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Item Matrix with Row/Column Selection */}
                                 <ResourceMatrix
                                     ref={matrixRef}
@@ -638,9 +662,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     explodingCells={explodingCells}
                                     onSelectRow={(rowIdx) => selectRowOrColumn('row', rowIdx)}
                                     onSelectCol={(colIdx) => selectRowOrColumn('col', colIdx)}
-                                    disabled={isDrawing || !!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
+                                    disabled={isDrawing || !!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!orderCandidates || isDoomResolving}
                                     orders={orders}
-                                    emergencyOrders={emergencyOrders}
                                     inventory={inventory}
                                 />
                             </div>
@@ -713,7 +736,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             <div className="flex justify-between items-center mb-2 px-2 max-w-3xl mx-auto">
                                 <div className="flex items-center gap-3">
                                     <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("背包栏位")} ({inventory.length}/{maxInventorySize})</h2>
-                                    {!pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && !isEvacuationMode && (
+                                    {!pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleSortInventory(); }}
                                             className="flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm text-slate-600 text-xs font-bold py-1.5 px-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95"
@@ -723,7 +746,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         </button>
                                     )}
                                 </div>
-                                {selectedSlot !== null && !pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && !isEvacuationMode && (
+                                {selectedSlot !== null && !pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && (
                                     <span className="text-xs font-bold text-blue-500 animate-pulse bg-blue-50 px-2 py-1 rounded flex items-center gap-2">
                                         <Hand size={14} /> {t("整理模式")}
                                     </span>
@@ -779,8 +802,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         // Badge Logic: Scans all orders (including emergency order)
                                         const activeReqs = [
                                             ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                            ...emergencyOrders.flatMap(o => o.requirements)
-                                        ];
+                                                                                    ];
                                         const matchedReqs = item ? activeReqs.filter(r => r.name === item.name) : [];
                                         const isNeeded = matchedReqs.length > 0;
                                         const isMaxSatisfied = isNeeded && matchedReqs.some(r => item.rarity.bonus >= r.requiredRarity.bonus);
@@ -810,7 +832,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 item={item}
                                                 isSelected={isSelected}
                                                 isTarget={!!sourceItem && !isSourceSelf}
-                                                isSubmitMode={isSubmitMode || isEvacuationMode}
+                                                isSubmitMode={isSubmitMode}
                                                 isRecycleMode={isRecycleMode}
                                                 isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
                                                 isReference={selectionMode?.type === 'trade_in' || !!toolSelectionMode}
@@ -836,7 +858,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                 {/* Action Buttons */}
                                 <div className={`flex flex-col gap-2 shrink-0 justify-end pb-2 w-40 min-h-[88px] ${pendingItem ? 'hidden' : ''}`}>
-                                    {!isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode && (
+                                    {!isSubmitMode && !isRecycleMode && !pendingItem && !selectionMode && (
                                         <>
                                             <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">
                                                 <Trash2 size={18} /> {t("回收")}
@@ -862,15 +884,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}🪙)
                                             </button>
                                             <button onClick={toggleRecycleMode} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
-                                        </div>
-                                    )}
-
-                                    {isEvacuationMode && (
-                                        <div className="flex flex-col gap-2">
-                                            <button onClick={handleConfirmEvacuation} disabled={satisfiableOrders.filter(o => o.index >= 998).length === 0} className={`w-full flex items-center justify-center gap-2 font-bold py-3 px-6 rounded-xl shadow-md ${satisfiableOrders.filter(o => o.index >= 998).length > 0 ? 'bg-orange-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                                <Truck size={16} /> {t("确认离开此关卡")}
-                                            </button>
-                                            <button onClick={() => toggleEvacuationMode()} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
                                         </div>
                                     )}
 
@@ -909,8 +922,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                             // Pending Item Badge Logic
                                                             const activeReqs = [
                                                                 ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                                                ...emergencyOrders.flatMap(o => o.requirements)
-                                                            ];
+                                                                                                                            ];
                                                             const matchedReqs = activeReqs.filter(r => r.name === pendingItem.name);
                                                             const isNeeded = matchedReqs.length > 0;
                                                             const isMaxSatisfied = isNeeded && matchedReqs.some(r => pendingItem.rarity.bonus >= r.requiredRarity.bonus);
@@ -945,8 +957,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     // Queue Item Badge Logic
                                                     const activeReqs = [
                                                         ...orders.filter(Boolean).flatMap(o => o.requirements),
-                                                        ...emergencyOrders.flatMap(o => o.requirements)
-                                                    ];
+                                                                                                            ];
                                                     const matchedReqs = activeReqs.filter(r => r.name === qItem.name);
                                                     const isNeeded = matchedReqs.length > 0;
                                                     const isMaxSatisfied = isNeeded && matchedReqs.some(r => qItem.rarity.bonus >= r.requiredRarity.bonus);

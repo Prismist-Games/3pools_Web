@@ -8,13 +8,12 @@ export const MATRIX_CONFIG = {
 
   // Special cell counts per board (min/max, uniform random)
   specialCells: {
-    goldPenalty: {
-      min: 3,
-      max: 5,           // ~4 average
-      minCost: 1,
-      maxCost: 3,
-      icon: '🪙',
-      name: '金币陷阱',
+    doomDanger: {
+      min: 1,
+      max: 2,           // ~1.5 average, ~10% of 16 cells
+      icon: '☠️',
+      name: '危险',
+      desc: '抽到时加入厄运网格，增加一个危险格子',
     },
     bomb: {
       min: 1,

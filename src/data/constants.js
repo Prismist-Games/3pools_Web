@@ -14,7 +14,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "initialGold": 20,
+        // "initialGold": 20, // removed: gold system replaced by doom/HP
         "orderCountRange": [
             2,
             4
@@ -65,7 +65,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "initialGold": 30,
+        // "initialGold": 30, // removed: gold system replaced by doom/HP
         "orderCountRange": [
             2,
             4
@@ -112,7 +112,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "initialGold": 40,
+        // "initialGold": 40, // removed: gold system replaced by doom/HP
         "orderCountRange": [
             2,
             4
@@ -159,7 +159,7 @@ export const INITIAL_STAGE_CONFIG = [
         "orderSlots": 3,
         "poolSize": 4,
         "allowedPoolCount": 5,
-        "initialGold": 50,
+        // "initialGold": 50, // removed: gold system replaced by doom/HP
         "entropyDecayValue": 25,
         "orderCountRange": [
             2,
@@ -561,6 +561,18 @@ export const SCORE_PROGRESS_CONFIG = {
     }
 };
 
+// --- 厄运系统配置 ---
+export const DOOM_CONFIG = {
+    gridSize: 10,              // 厄运网格格子数
+    initialDangerCount: 1,     // 初始"危险"格子数
+    initialHP: 3,              // 初始生命值
+    initialDoomLevel: 1,       // 初始厄运等级
+    hitsPerLevelUp: 5,         // 每累计触发N次，等级+1
+    triggerChance: 0.20,       // 每次刷新触发厄运结算的概率
+    triggerCooldownDraws: 1,   // 触发后冷却的抽取次数
+    initialProtectionDraws: 1, // 游戏开始时的保护抽取次数
+};
+
 export const INITIAL_GAME_CONFIG = {
     affixes: INITIAL_AFFIXES_CONFIG,
     rarity: INITIAL_RARITY_CONFIG,
@@ -569,11 +581,9 @@ export const INITIAL_GAME_CONFIG = {
     progress: SCORE_PROGRESS_CONFIG,
     emergency: EMERGENCY_ORDER_CONFIG,
     toolItems: TOOL_ITEM_CONFIG,
+    doom: DOOM_CONFIG,
     enabledSkillIds: [
-        "poverty_relief",
-        "lucky_7",
-        "alchemy",
-        "vip_discount",
+        // Gold-dependent skills disabled: poverty_relief, lucky_7, alchemy, vip_discount, big_order_expert, hard_order_expert
         "negotiator",
         "consolation_prize",
         "cut_corners",
@@ -581,12 +591,9 @@ export const INITIAL_GAME_CONFIG = {
         "ocd",
         "auto_restock",
         "turn_fortune",
-        "big_order_expert",
-        "hard_order_expert"
     ],
     global: {
         "refreshCost": 5,
-        "initialGold": 30,
         "initialRefreshCount": 3,
         "maxRefreshCount": 3
     }

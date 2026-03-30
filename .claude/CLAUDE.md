@@ -54,13 +54,14 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "三池物语", deployed t
 
 ### Game Concepts
 
-- **Item Matrix**: 4×4 grid of cells. Player selects a row or column, randomly draws 1 cell. Normal items go to inventory; gold traps (🪙, ~4/board) deduct 1-3 gold; bombs (💣, ~1.5/board) destroy surrounding 8 cells. Gravity drops items down, top refills randomly. Draws are free — gold is lost via traps. This is the new core draw mechanic (replacing the old pool/affix system), in prototype validation.
+- **Item Matrix**: 4×4 grid of cells. Player selects a row or column, randomly draws 1 cell. Normal items go to inventory; doom items (Danger) go to the Doom Grid. Gravity drops items down, top refills randomly. During refresh, there's a 10% chance of a Doom Trigger which immediately triggers a doom resolution. This is the core draw mechanic, in prototype validation.
+- **Doom System**: A separate 10-cell grid (Doom Grid). Starts with 1 Danger + 9 empty. When doom resolves, a cursor lands on cells (count = doom level); hitting Danger = -1 HP. Player has 3 HP; at 0 = game over (lose half inventory). Doom level starts at 1, increases by 1 every 3 hits. Two escalation paths: more Danger cells in doom grid (from drawing doom items) OR higher doom level (from accumulated hits).
+- **Evacuation**: Player can leave at any time with full inventory. Core tension is push-your-luck: stay for more loot vs. rising doom threat.
 - **Inventory**: Fixed-size grid (10 slots default). Items can be merged if same name + same rarity → upgrades to next rarity.
-- **Orders**: 3 active regular orders + 2 evacuation orders. Submit inventory items to fulfill requirements and earn score.
+- **Orders**: Currently 3 active regular orders in code. Design direction: moving all orders to meta-game (outside the session). Items drawn in-session are brought out for use outside.
 - **Stages** (`INITIAL_STAGE_CONFIG`): 4 stages with escalating mechanics. Currently `useGameLogic` always uses `stages[0]` — stage progression not active.
 - **Skills**: Passive bonuses defined in `SKILL_DEFINITIONS`. Not active in current version.
 - **Tool Items**: Special items (`tool_reforge`, `tool_transmute`, `tool_enhance`) activated via right-click in inventory. Currently not dropping from draws.
-- **Evacuation Orders**: Orders with escalating difficulty. No time limit — must complete before gold runs out.
 
 ### Workflow Rules
 

@@ -1,5 +1,51 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
+
+// --- Doom Tooltip (Portal) ---
+const DOOM_TOOLTIP_INFO = {
+    doom_danger: { color: 'border-red-400/30', nameColor: 'text-red-300' },
+};
+
+const DoomTooltip = ({ cell, anchorRef, visible }) => {
+    const { t } = useLanguage();
+    const [pos, setPos] = useState(null);
+
+    useLayoutEffect(() => {
+        if (!visible || !anchorRef.current) { setPos(null); return; }
+        const rect = anchorRef.current.getBoundingClientRect();
+        setPos({ top: rect.top + window.scrollY - 8, left: rect.left + window.scrollX + rect.width / 2 });
+    }, [visible, anchorRef]);
+
+    if (!visible || !cell || !pos) return null;
+    const info = DOOM_TOOLTIP_INFO[cell.type] || DOOM_TOOLTIP_INFO.doom_danger;
+
+    return createPortal(
+        <div style={{ position: 'absolute', top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)', zIndex: 99999, pointerEvents: 'none' }}
+            className="animate-in fade-in zoom-in-95 duration-150">
+            <div className={`bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border ${info.color} min-w-[160px] max-w-[220px]`}>
+                <div className="flex items-center gap-2 mb-1 border-b border-slate-700 pb-1">
+                    <span className="text-lg">{cell.item.icon}</span>
+                    <span className={`font-black text-sm ${info.nameColor}`}>{t(cell.item.name)}</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                    {cell.type === 'doom_danger' ? t("抽到时加入厄运网格，增加一个危险格子") : ''}
+                </p>
+            </div>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-slate-900" />
+            </div>
+        </div>,
+        document.body
+    );
+};
+
+// Wrapper to provide ref + tooltip state per cell (hooks can't be called in map)
+const DoomCellWrapper = ({ cell, isDoom, children }) => {
+    const ref = useRef(null);
+    const [show, setShow] = useState(false);
+    return children(ref, show, setShow);
+};
 
 const GRID_SIZE = 4;
 
@@ -13,11 +59,11 @@ const RARITY_BG = {
 };
 
 const SPECIAL_BG = {
-    gold_penalty: 'bg-amber-50 border-amber-400',
+    doom_danger: 'bg-red-50 border-red-400',
     bomb: 'bg-red-50 border-red-400',
 };
 
-const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, orders = [], emergencyOrders = [], inventory = [] }, ref) => {
+const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, orders = [], inventory = [] }, ref) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -80,28 +126,13 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                 if (!satisfied) {
                     const existing = map[req.name];
                     if (!existing || req.requiredRarity.bonus > existing.rarity.bonus) {
-                        map[req.name] = { rarity: req.requiredRarity, isEmergency: existing?.isEmergency || false };
-                    }
-                }
-            }
-        }
-        for (const order of emergencyOrders.filter(Boolean)) {
-            for (const req of order.requirements) {
-                const satisfied = inventory.some(item =>
-                    item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
-                );
-                if (!satisfied) {
-                    const existing = map[req.name];
-                    if (!existing || req.requiredRarity.bonus > existing.rarity.bonus) {
-                        map[req.name] = { rarity: req.requiredRarity, isEmergency: true };
-                    } else if (existing) {
-                        existing.isEmergency = true;
+                        map[req.name] = { rarity: req.requiredRarity };
                     }
                 }
             }
         }
         return map;
-    }, [orders, emergencyOrders, inventory]);
+    }, [orders, inventory]);
 
     if (!matrix) {
         return <div className="flex items-center justify-center py-12 text-slate-400 text-sm">{t("生成矩阵中...")}</div>;
@@ -217,44 +248,55 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                             const isDropping = animatingCells.has(cellKey) && !newTopCells.has(cellKey);
                             const isNewTop = newTopCells.has(cellKey);
 
+                            const isDoomType = cellType === 'doom_danger';
+                            const hasDoomMark = !!cell.doomMarked;
+                            const showTooltip = isDoomType;
                             return (
-                                <div
-                                    key={`${r}-${c}-${cell.uid}`}
-                                    className={`
-                                        relative flex flex-col items-center justify-center
-                                        rounded-lg border-2 select-none
-                                        ${(isPicking || isExploding) ? 'bg-slate-200 border-slate-300' : bgClass}
-                                        ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
-                                        ${isDropping ? 'anim-drop' : ''}
-                                        ${isNewTop ? 'anim-new-top' : ''}
-                                        ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
-                                    `}
-                                >
-                                    {!isPicking && (
-                                        <div className={`flex flex-col items-center justify-center ${isExploding ? 'anim-explode-content' : ''}`}>
-                                            <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
-                                                {cell.item.icon}
-                                            </span>
-                                            {cellType === 'gold_penalty' ? (
-                                                <span className="text-[9px] font-black text-amber-600 leading-none mt-0.5">
-                                                    -{cell.goldCost} 🪙
-                                                </span>
-                                            ) : (
-                                                <span className="text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center text-slate-600 mt-0.5 px-0.5">
-                                                    {t(cell.item.name)}
-                                                </span>
+                                <DoomCellWrapper key={`${r}-${c}-${cell.uid}`} cell={cell} isDoom={showTooltip}>
+                                    {(cellRef, showTip, setShowTip) => (
+                                        <div
+                                            ref={cellRef}
+                                            onMouseEnter={() => showTooltip && setShowTip(true)}
+                                            onMouseLeave={() => setShowTip(false)}
+                                            className={`
+                                                relative flex flex-col items-center justify-center
+                                                rounded-lg border-2 select-none
+                                                ${(isPicking || isExploding) ? 'bg-slate-200 border-slate-300' : bgClass}
+                                                ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
+                                                ${hasDoomMark && !isPicking ? 'ring-2 ring-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''}
+                                                ${isDropping ? 'anim-drop' : ''}
+                                                ${isNewTop ? 'anim-new-top' : ''}
+                                                ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
+                                            `}
+                                        >
+                                            {/* Doom mark badge */}
+                                            {hasDoomMark && !isPicking && (
+                                                <div className="absolute -top-1.5 -left-1.5 z-[3] text-sm">⚡</div>
                                             )}
-                                        </div>
-                                    )}
+                                            {!isPicking && (
+                                                <div className={`flex flex-col items-center justify-center ${isExploding ? 'anim-explode-content' : ''}`}>
+                                                    <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
+                                                        {cell.item.icon}
+                                                    </span>
+                                                    <span className={`text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center mt-0.5 px-0.5 ${
+                                                        isDoomType ? 'text-red-600 font-black' : 'text-slate-600'
+                                                    }`}>
+                                                        {t(cell.item.name)}
+                                                    </span>
+                                                </div>
+                                            )}
 
-                                    {/* Order needed indicator */}
-                                    {!isPicking && !isExploding && neededInfo && (
-                                        <div className="absolute -top-1 -right-1 flex items-center gap-px z-[2]">
-                                            {neededInfo.isEmergency && <span className="text-[9px] drop-shadow">🚚</span>}
-                                            <div className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow ${neededInfo.rarity.dotColor}`} />
+                                            {/* Order needed indicator */}
+                                            {!isPicking && !isExploding && neededInfo && (
+                                                <div className="absolute -top-1 -right-1 flex items-center gap-px z-[2]">
+                                                    <div className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow ${neededInfo.rarity.dotColor}`} />
+                                                </div>
+                                            )}
+
+                                            <DoomTooltip cell={cell} anchorRef={cellRef} visible={showTip} />
                                         </div>
                                     )}
-                                </div>
+                                </DoomCellWrapper>
                             );
                         })}
                     </React.Fragment>
