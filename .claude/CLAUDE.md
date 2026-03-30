@@ -54,8 +54,8 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "三池物语", deployed t
 
 ### Game Concepts
 
-- **Item Matrix**: 4×4 grid of cells. Player selects a row or column, randomly draws 1 cell. Normal items go to inventory; doom items (Danger) go to the Doom Grid. Gravity drops items down, top refills randomly. During refresh, there's a 10% chance of a Doom Trigger which immediately triggers a doom resolution. This is the core draw mechanic, in prototype validation.
-- **Doom System**: A separate 10-cell grid (Doom Grid). Starts with 1 Danger + 9 empty. When doom resolves, a cursor lands on cells (count = doom level); hitting Danger = -1 HP. Player has 3 HP; at 0 = game over (lose half inventory). Doom level starts at 1, increases by 1 every 3 hits. Two escalation paths: more Danger cells in doom grid (from drawing doom items) OR higher doom level (from accumulated hits).
+- **Item Matrix**: 4×4 grid of cells. Every cell is an item; some items carry **doom marks** (visible). Player selects a row or column, randomly draws 1 cell → gets the item; if it has a doom mark, the mark also enters the Doom Grid. Gravity drops items down, top refills randomly. During refresh, 10% chance of Doom Trigger (immediate doom resolution). Player can spend 1 Rare+ item from inventory to fully refresh the grid.
+- **Doom System**: A separate 10-cell grid (Doom Grid). Starts with 1 Danger + 9 empty. When doom resolves, a cursor lands on cells (count = doom level); hitting Danger = -1 HP. Player has 3 HP; at 0 = game over (lose half inventory). Doom level starts at 1, increases by 1 every 3 hits. Doom marks are attached to normal items (not separate cells) — every draw gets you an item, but marked items have a doom cost.
 - **Evacuation**: Player can leave at any time with full inventory. Core tension is push-your-luck: stay for more loot vs. rising doom threat.
 - **Inventory**: Fixed-size grid (10 slots default). Items can be merged if same name + same rarity → upgrades to next rarity.
 - **Orders**: Currently 3 active regular orders in code. Design direction: moving all orders to meta-game (outside the session). Items drawn in-session are brought out for use outside.

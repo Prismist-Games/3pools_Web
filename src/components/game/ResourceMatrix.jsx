@@ -4,7 +4,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 
 // --- Doom Tooltip (Portal) ---
 const DOOM_TOOLTIP_INFO = {
-    doom_danger: { color: 'border-red-400/30', nameColor: 'text-red-300' },
+    danger: { color: 'border-red-400/30', nameColor: 'text-red-300' },
 };
 
 const DoomTooltip = ({ cell, anchorRef, visible }) => {
@@ -18,18 +18,18 @@ const DoomTooltip = ({ cell, anchorRef, visible }) => {
     }, [visible, anchorRef]);
 
     if (!visible || !cell || !pos) return null;
-    const info = DOOM_TOOLTIP_INFO[cell.type] || DOOM_TOOLTIP_INFO.doom_danger;
+    const info = DOOM_TOOLTIP_INFO[cell.doomMark] || DOOM_TOOLTIP_INFO.danger;
 
     return createPortal(
         <div style={{ position: 'absolute', top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)', zIndex: 99999, pointerEvents: 'none' }}
             className="animate-in fade-in zoom-in-95 duration-150">
             <div className={`bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border ${info.color} min-w-[160px] max-w-[220px]`}>
                 <div className="flex items-center gap-2 mb-1 border-b border-slate-700 pb-1">
-                    <span className="text-lg">{cell.item.icon}</span>
-                    <span className={`font-black text-sm ${info.nameColor}`}>{t(cell.item.name)}</span>
+                    <span className="text-lg">☠️</span>
+                    <span className={`font-black text-sm ${info.nameColor}`}>{t("厄运标记：危险")}</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                    {cell.type === 'doom_danger' ? t("抽到时加入厄运网格，增加一个危险格子") : ''}
+                    {t("抽到时获得物品，同时标记加入厄运网格")}
                 </p>
             </div>
             <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
@@ -59,7 +59,6 @@ const RARITY_BG = {
 };
 
 const SPECIAL_BG = {
-    doom_danger: 'bg-red-50 border-red-400',
     bomb: 'bg-red-50 border-red-400',
 };
 
@@ -241,16 +240,16 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                             const isExploding = explodingCells && explodingCells.some(ec => ec.row === r && ec.col === c);
                             const isHighlighted = (hoveredRow === r || hoveredCol === c) && !disabled;
                             const cellType = cell.type || 'normal';
-                            const bgClass = cellType !== 'normal'
-                                ? (SPECIAL_BG[cellType] || RARITY_BG.common)
+                            const bgClass = cellType === 'bomb'
+                                ? (SPECIAL_BG.bomb)
                                 : (RARITY_BG[cell.rarity.id] || RARITY_BG.common);
                             const neededInfo = cellType === 'normal' ? neededItemMap[cell.item.name] : null;
                             const isDropping = animatingCells.has(cellKey) && !newTopCells.has(cellKey);
                             const isNewTop = newTopCells.has(cellKey);
 
-                            const isDoomType = cellType === 'doom_danger';
-                            const hasDoomMark = !!cell.doomMarked;
-                            const showTooltip = isDoomType;
+                            const hasDoomMark = !!cell.doomMark;
+                            const hasDoomTriggerMark = !!cell.doomMarked;
+                            const showTooltip = hasDoomMark;
                             return (
                                 <DoomCellWrapper key={`${r}-${c}-${cell.uid}`} cell={cell} isDoom={showTooltip}>
                                     {(cellRef, showTip, setShowTip) => (
@@ -263,14 +262,19 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                                                 rounded-lg border-2 select-none
                                                 ${(isPicking || isExploding) ? 'bg-slate-200 border-slate-300' : bgClass}
                                                 ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
-                                                ${hasDoomMark && !isPicking ? 'ring-2 ring-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''}
+                                                ${hasDoomMark && !isPicking ? 'ring-2 ring-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' : ''}
+                                                ${hasDoomTriggerMark && !isPicking ? 'ring-2 ring-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''}
                                                 ${isDropping ? 'anim-drop' : ''}
                                                 ${isNewTop ? 'anim-new-top' : ''}
                                                 ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
                                             `}
                                         >
-                                            {/* Doom mark badge */}
+                                            {/* Doom mark indicator */}
                                             {hasDoomMark && !isPicking && (
+                                                <div className="absolute -top-2 -left-2 z-[3] w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[8px] border border-red-700 shadow">☠️</div>
+                                            )}
+                                            {/* Doom trigger indicator */}
+                                            {hasDoomTriggerMark && !isPicking && (
                                                 <div className="absolute -top-1.5 -left-1.5 z-[3] text-sm">⚡</div>
                                             )}
                                             {!isPicking && (
@@ -278,9 +282,7 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                                                     <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
                                                         {cell.item.icon}
                                                     </span>
-                                                    <span className={`text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center mt-0.5 px-0.5 ${
-                                                        isDoomType ? 'text-red-600 font-black' : 'text-slate-600'
-                                                    }`}>
+                                                    <span className={`text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center mt-0.5 px-0.5 text-slate-600`}>
                                                         {t(cell.item.name)}
                                                     </span>
                                                 </div>

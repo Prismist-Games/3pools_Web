@@ -44,7 +44,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [gravityEvent, setGravityEvent] = useState(null);
     // Last drawn item for fly animation: { row, col, item, rarity, tick }
     const [lastDraw, setLastDraw] = useState(null);
-    // Cells being destroyed by bomb explosion: [{row, col}, ...]
     const [explodingCells, setExplodingCells] = useState(null);
     const [orders, setOrders] = useState([]);
 
@@ -132,6 +131,39 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     useEffect(() => {
         refreshMatrix();
     }, [config]);
+
+    // Grid Refresh: consume 1 Rare+ item to fully refresh the matrix
+    const handleGridRefresh = (inventoryIndex) => {
+        if (isDrawing || pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || orderCandidates || modalContent || isDoomResolving) return;
+        const item = inventory[inventoryIndex];
+        if (!item || item.rarity.bonus < 0.25) { // Rare bonus = 0.25
+            showToast(t("需要稀有及以上品质的物品"), "error");
+            return;
+        }
+        // Consume item
+        const newInventory = [...inventory];
+        newInventory.splice(inventoryIndex, 1);
+        setInventory(newInventory);
+        // Refresh matrix
+        refreshMatrix();
+        showToast(`${t("消耗")} ${t(item.name)} ${t("刷新了物品网格")}`, "info");
+        // Check doom trigger (counts as a refresh event)
+        const shouldTrigger = shouldSpawnDoomTrigger(drawCount + 1);
+        if (shouldTrigger) {
+            markDoomTriggerSpawned(drawCount + 1);
+            incrementDoomTriggerCount();
+            // Mark a random cell with doom trigger
+            const triggerCol = Math.floor(Math.random() * MATRIX_CONFIG.gridSize);
+            setTimeout(() => {
+                setMatrix(prev => {
+                    const m = prev.map(r => [...r]);
+                    m[0][triggerCol] = { ...m[0][triggerCol], doomMarked: true };
+                    return m;
+                });
+                setTimeout(() => triggerDoomResolution({ row: 0, col: triggerCol }), 600);
+            }, 500);
+        }
+    };
 
     const triggerSkillSelection = () => {
         const availableSkills = SKILL_DEFINITIONS.filter(s => {
@@ -752,43 +784,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             // First: gravity for the picked cell itself
             let afterPickMatrix = applyGravity(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
 
-            if (cellType === 'doom_danger') {
-                // --- Doom danger cell: add danger to doom grid ---
-                setDoomGrid(prev => {
-                    const newGrid = [...prev];
-                    const emptyIndex = newGrid.findIndex(cell => cell.type === 'empty');
-                    if (emptyIndex !== -1) {
-                        newGrid[emptyIndex] = { type: 'danger' };
-                    }
-                    return newGrid;
-                });
-                showToast(t("厄运物品！厄运网格增加了一个危险格子"), "warning");
-
-                // Check doom trigger — mark new top cell before setting matrix (single render)
-                const shouldTrigger = shouldSpawnDoomTrigger(drawCount + 1);
-                if (shouldTrigger) {
-                    const m = afterPickMatrix.map(r => [...r]);
-                    m[0][picked.col] = { ...m[0][picked.col], doomMarked: true };
-                    setMatrix(m);
-                    markDoomTriggerSpawned(drawCount + 1);
-                    incrementDoomTriggerCount();
-                } else {
-                    setMatrix(afterPickMatrix);
-                }
-                setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
-
-                if (shouldTrigger) {
-                    setLastDraw(null); // Clear pickingCell so gravity-filled cells are visible
-                    setDrawCount(prev => prev + 1);
-                    setTimeout(() => triggerDoomResolution({ row: 0, col: picked.col }), 600);
-                    return;
-                }
-
-            } else if (cellType === 'bomb') {
+            if (cellType === 'bomb') {
                 // --- Bomb cell: explode then gravity ---
                 showToast(t("💣 炸弹爆炸！"), "info");
-
-                // Compute neighbors on the original matrix (bomb cell still present)
                 const neighbors = [];
                 for (let dr = -1; dr <= 1; dr++) {
                     for (let dc = -1; dc <= 1; dc++) {
@@ -800,16 +798,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                         }
                     }
                 }
-
-                // Phase 2a: show neighbors exploding (bomb cell already hidden via pickingCell)
                 setExplodingCells(neighbors);
-
-                // Phase 2b (after explode animation): apply all removals + gravity at once
                 setTimeout(() => {
                     const { matrix: explodedMatrix } = applyBombExplosion(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
                     setMatrix(explodedMatrix);
                     setExplodingCells(null);
-                    // Compute per-column info: how many removed and the lowest (max) row
                     const allRemoved = [{ row: picked.row, col: picked.col }, ...neighbors];
                     const colInfo = {};
                     for (const cell of allRemoved) {
@@ -819,13 +812,27 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     }
                     setGravityEvent({ bombExplosion: true, colInfo, tick: Date.now() });
                 }, 350);
-
                 setDrawCount(prev => prev + 1);
                 setTimeout(() => setIsDrawing(false), 700);
                 return;
 
             } else {
-                // --- Normal item cell ---
+                // --- Normal item (may carry doom mark) ---
+
+                // If item has doom mark, add danger to doom grid AND still give item to player
+                if (selectedCell.doomMark === 'danger') {
+                    setDoomGrid(prev => {
+                        const newGrid = [...prev];
+                        const emptyIndex = newGrid.findIndex(cell => cell.type === 'empty');
+                        if (emptyIndex !== -1) {
+                            newGrid[emptyIndex] = { type: 'danger' };
+                        }
+                        return newGrid;
+                    });
+                    showToast(t("厄运标记！厄运网格增加了一个危险格子"), "warning");
+                }
+
+                // Create item for inventory (doom mark does not transfer to inventory item)
                 let rarity = selectedCell.rarity;
                 if (capturedSkillState.nextDrawEnhanced) {
                     const nextRarity = getNextRarity(rarity.id, config);
@@ -861,7 +868,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     });
                 }
 
-                // Apply gravity (normal, without doom trigger)
                 // Apply gravity + check doom trigger mark
                 const doomTriggered = shouldSpawnDoomTrigger(drawCount + 1);
                 if (extraPicked) {
@@ -911,7 +917,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 handleIncomingItems(itemsToProcess, decayedInventory);
 
                 if (doomTriggered) {
-                    setLastDraw(null); // Clear pickingCell so gravity-filled cells are visible
+                    setLastDraw(null);
                     markDoomTriggerSpawned(drawCount + 1);
                     incrementDoomTriggerCount();
                     setDrawCount(prev => prev + 1);
@@ -1923,6 +1929,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleUnassignFromOrder,
             handleOrderSlotClick,
             handleCancelToolSelection,
+            handleGridRefresh,
             tickDoomResolution,
             completeDoomResolution,
         },
