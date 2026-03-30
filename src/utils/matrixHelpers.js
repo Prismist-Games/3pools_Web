@@ -23,7 +23,7 @@ const generateNormalCell = (allNormalItems, config, currentStageConfig) => {
   const rarity = rollRarity(config, null, 0, () => false, {}, currentStageConfig);
   return {
     type: 'normal',
-    item: { name: item.name, icon: item.icon, poolId: item.poolId, poolName: item.poolName },
+    item: { name: item.name, icon: item.icon, itemId: item.itemId, poolId: item.poolId || 'event', poolName: item.poolName || 'event' },
     rarity,
     uid: Math.random().toString(36).substr(2, 9),
   };

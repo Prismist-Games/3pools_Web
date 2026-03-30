@@ -9,6 +9,20 @@ export const getAllNormalItems = (pools, currentStageConfig) => {
     );
 };
 
+// 事件系统专用：从 EVENT_ITEMS 列表中根据 itemId 列表构建物品池
+export const getEventPoolItems = (eventItems, itemIds) => {
+    const idSet = new Set(itemIds);
+    return eventItems
+        .filter(item => idSet.has(item.itemId))
+        .map(item => ({
+            name: item.name,
+            icon: item.icon,
+            itemId: item.itemId,
+            poolId: 'event',
+            poolName: 'event',
+        }));
+};
+
 export const getRandomAffix = (affixes) => {
     const totalWeight = affixes.reduce((sum, a) => sum + (a.weight || 0), 0);
     let r = Math.random() * totalWeight;
