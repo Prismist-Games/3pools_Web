@@ -11,6 +11,7 @@ import ItemMap from './components/game/ItemMap';
 
 import MilestoneGrid from './components/game/MilestoneGrid';
 import { SKILL_DEFINITIONS } from './data/constants';
+import { EFFECT_ITEM_ICONS } from './data/spatialConstants';
 
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -40,7 +41,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, totalRecycleValue, selectedItemNames,
-        toolSelectionMode
+        toolSelectionMode,
+        activeEffect,
+        diceRerollMode
     } = state;
 
     const {
@@ -60,7 +63,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         refreshPools,
         addInventoryItem,
         handleToolItemUse,
+        handleEffectItemUse,
         handleCancelToolSelection,
+        handleConfirmDiceReroll,
+        handleCancelDiceReroll,
         handleRefreshMap,
         handleMapPlace,
         toggleDiceSubmitMode,
@@ -307,6 +313,18 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                             {/* Right: Item Map (supply side) */}
                             <div className="flex-shrink-0 flex flex-col items-center gap-3 relative">
+                                {/* Active Effect Indicator */}
+                                {activeEffect && (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border-2 border-emerald-300 rounded-lg shadow-sm animate-in fade-in">
+                                        <span className="text-xs font-bold text-emerald-700">{t("下次抽取")}:</span>
+                                        <span className="text-sm font-black text-emerald-800">
+                                            {EFFECT_ITEM_ICONS[activeEffect.effectId]} {t(activeEffect.effectConfig.name)}
+                                        </span>
+                                        <span className="text-[10px] text-emerald-600">
+                                            ({activeEffect.effectConfig.cost} 🪙)
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="flex items-start gap-2">
                                     <ItemMap
                                         itemMap={itemMap}
@@ -314,6 +332,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         milestone={milestone}
                                         rarityConfig={config.rarity}
                                         onPlace={handleMapPlace}
+                                        activeEffect={activeEffect}
                                         onHoverCoverage={(names) => {
                                             state.setHoveredPoolItemNames(names);
                                         }}
@@ -474,6 +493,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <Zap size={14} /> {t("请点击选择一个目标物品")}
                                     </span>
                                 )}
+                                {diceRerollMode && (
+                                    <span className="text-xs font-bold text-indigo-600 animate-pulse flex items-center gap-1">
+                                        🎲 {t("请选择1~2颗骰子进行重投")} ({diceRerollMode.selectedDiceIndices.length}/2)
+                                    </span>
+                                )}
                                 {isDiceSubmitMode && (
                                     <span className="text-xs font-bold text-indigo-600 animate-pulse flex items-center gap-1">
                                         🎲 {t("撤离模式: 选择命运骰子")} ({selectedDiceSum}/{evacuationThreshold})
@@ -492,7 +516,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <div className="flex flex-wrap gap-2 justify-center max-w-full">
                                     {Array.from({ length: maxInventorySize }).map((_, idx) => {
                                         const item = inventory[idx];
-                                        const isSelected = selectedSlot === idx || selectedIndices.includes(idx) || (toolSelectionMode?.toolIndex === idx);
+                                        const isSelected = selectedSlot === idx || selectedIndices.includes(idx) || (toolSelectionMode?.toolIndex === idx) || (diceRerollMode?.selectedDiceIndices.includes(idx)) || (diceRerollMode?.toolIndex === idx);
 
                                         // Synthesis Logic: Check against Selected Slot OR Pending Item
                                         const sourceItem = pendingItem || (selectedSlot !== null ? inventory[selectedSlot] : null);
@@ -542,7 +566,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 item={item}
                                                 isSelected={isSelected}
                                                 isTarget={!!sourceItem && !isSourceSelf}
-                                                isSubmitMode={isDiceSubmitMode}
+                                                isSubmitMode={isDiceSubmitMode || !!diceRerollMode}
                                                 isRecycleMode={isRecycleMode}
                                                 isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
                                                 isReference={selectionMode?.type === 'trade_in' || !!toolSelectionMode}
@@ -554,7 +578,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 isOverloadTarget={isOverloadTarget}
 
                                                 onClick={handleSlotClick}
-                                                onContextMenu={handleToolItemUse}
+                                                onContextMenu={(index) => {
+                                                    const item = inventory[index];
+                                                    if (item?.isEffectItem) handleEffectItemUse(index);
+                                                    else handleToolItemUse(index);
+                                                }}
                                                 onMouseEnter={(i, item) => { state.setHoveredSlotIndex(i); if (item) state.setHoveredItemName(item.name); }}
                                                 onMouseLeave={() => { state.setHoveredSlotIndex(null); state.setHoveredItemName(null); }}
                                                 isHovered={hoveredSlotIndex === idx}
@@ -574,7 +602,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         </button>
                                     )}
 
-                                    {!isDiceSubmitMode && !isRecycleMode && !pendingItem && !selectionMode && !toolSelectionMode && fateDiceIndices.length > 0 && (
+                                    {!isDiceSubmitMode && !isRecycleMode && !pendingItem && !selectionMode && !toolSelectionMode && !diceRerollMode && fateDiceIndices.length > 0 && (
                                         <button
                                             onClick={toggleDiceSubmitMode}
                                             className="w-full flex items-center justify-center gap-2 bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-indigo-200 transition-transform active:scale-95"
@@ -624,6 +652,24 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <button onClick={handleCancelToolSelection} className="w-full bg-white border border-cyan-300 text-cyan-700 font-bold py-2 px-6 rounded-xl shadow-sm hover:bg-cyan-50 flex items-center justify-center gap-2">
                                             <X size={14} /> {t("取消工具使用")}
                                         </button>
+                                    )}
+                                    {diceRerollMode && (
+                                        <div className="flex gap-2 w-full">
+                                            <button
+                                                onClick={handleConfirmDiceReroll}
+                                                disabled={diceRerollMode.selectedDiceIndices.length === 0}
+                                                className={`flex-1 font-bold py-2 px-4 rounded-xl shadow-sm flex items-center justify-center gap-2 ${
+                                                    diceRerollMode.selectedDiceIndices.length > 0
+                                                        ? 'bg-indigo-500 text-white hover:bg-indigo-600'
+                                                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                }`}
+                                            >
+                                                🎲 {t("确认重投")}
+                                            </button>
+                                            <button onClick={handleCancelDiceReroll} className="flex-1 bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50 flex items-center justify-center gap-2">
+                                                <X size={14} /> {t("取消")}
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
 

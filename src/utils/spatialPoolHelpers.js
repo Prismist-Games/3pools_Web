@@ -7,89 +7,47 @@ import {
   FIXED_SHAPE,
   MAP_ROWS,
   MAP_COLS,
-  EFFECT_SLOT_COUNT,
   FATE_DICE_CONFIG,
 } from '../data/spatialConstants.js';
 
-// --- Effect cell helpers ---
+// --- Cell generation helper ---
 
-/**
- * Pick EFFECT_SLOT_COUNT positions on the grid with spacing constraint:
- * no two positions share a 2×2 block (i.e., for any pair,
- * |row diff| >= 2 OR |col diff| >= 2).
- */
-export function generateEffectPositions() {
-  const allCells = [];
-  for (let r = 0; r < MAP_ROWS; r++) {
-    for (let c = 0; c < MAP_COLS; c++) {
-      allCells.push([r, c]);
-    }
-  }
-  // Shuffle
-  for (let i = allCells.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [allCells[i], allCells[j]] = [allCells[j], allCells[i]];
-  }
-  const positions = [];
-  for (const [r, c] of allCells) {
-    if (positions.length >= EFFECT_SLOT_COUNT) break;
-    const valid = positions.every(([pr, pc]) =>
-      Math.abs(pr - r) >= 2 || Math.abs(pc - c) >= 2
-    );
-    if (valid) positions.push([r, c]);
-  }
-  // Greedy pick can fail with unlucky shuffle order — retry
-  if (positions.length < EFFECT_SLOT_COUNT) return generateEffectPositions();
-  return positions;
+/** Pick a random effect cell. */
+function randomEffectCell() {
+  const effect = QUALITY_EFFECTS[Math.floor(Math.random() * QUALITY_EFFECTS.length)];
+  return { isEffect: true, effect };
 }
 
 /**
- * Pick `count` unique random quality effects from QUALITY_EFFECTS.
- * Returns array of effect config objects.
+ * Generate a single random cell.
+ * @param {Set<string>|null} neededNames - if provided, items not in this set are replaced with effects.
  */
-export function pickRandomEffects(count) {
-  const shuffled = [...QUALITY_EFFECTS];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+export function randomCell(neededNames = null) {
+  // Fate dice chance first (unchanged)
+  if (Math.random() < FATE_DICE_CONFIG.spawnChance) {
+    return { isFateDice: true, icon: FATE_DICE_CONFIG.icon, name: FATE_DICE_CONFIG.name };
   }
-  return shuffled.slice(0, count);
+  // Pick a random item
+  const item = ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];
+  // If we have needed names and this item isn't needed, replace with effect
+  if (neededNames && !neededNames.has(item.name)) {
+    return randomEffectCell();
+  }
+  return item;
 }
 
 // --- Item map generation ---
 
 /**
- * Generate a 3×4 item map with effect cells and random items.
- * Effect cells have { isEffect: true, effect: ... }.
- * Called on game start and on evacuation.
+ * Generate the item map grid.
+ * @param {Set<string>|null} neededNames - items not needed are replaced with effects.
  */
-export function generateItemMap() {
-  // 1. Generate effect slot positions with spacing constraint
-  const effectPositions = generateEffectPositions();
-  const effects = pickRandomEffects(effectPositions.length);
-  const effectSet = new Set(effectPositions.map(([r, c]) => `${r},${c}`));
-
-  // 2. Shuffle items for non-effect cells
-  const shuffled = [...ALL_ITEMS];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-
-  // 3. Build grid
+export function generateItemMap(neededNames = null) {
   const grid = [];
-  let itemIdx = 0;
-  let effectIdx = 0;
   for (let r = 0; r < MAP_ROWS; r++) {
     const row = [];
     for (let c = 0; c < MAP_COLS; c++) {
-      if (effectSet.has(`${r},${c}`)) {
-        row.push({ isEffect: true, effect: effects[effectIdx++] });
-      } else if (Math.random() < FATE_DICE_CONFIG.spawnChance) {
-        row.push({ isFateDice: true, icon: FATE_DICE_CONFIG.icon, name: FATE_DICE_CONFIG.name });
-      } else {
-        row.push(shuffled[itemIdx++ % shuffled.length]);
-      }
+      row.push(randomCell(neededNames));
     }
     grid.push(row);
   }
@@ -97,39 +55,16 @@ export function generateItemMap() {
 }
 
 /**
- * Refresh item cells covered by a 2×2 placement.
- * Effect cells are skipped (handled by refreshAllEffects).
+ * Refresh all cells covered by a 2×2 placement.
+ * @param {Set<string>|null} neededNames - items not needed are replaced with effects.
  */
-export function refreshCoveredCells(itemMap, anchorRow, anchorCol) {
+export function refreshCoveredCells(itemMap, anchorRow, anchorCol, neededNames = null) {
   const newMap = itemMap.map(row => [...row]);
   for (const [dr, dc] of FIXED_SHAPE.cells) {
     const r = anchorRow + dr;
     const c = anchorCol + dc;
     if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) continue;
-    if (newMap[r][c].isEffect) continue; // Skip effect cells
-    if (Math.random() < FATE_DICE_CONFIG.spawnChance) {
-      newMap[r][c] = { isFateDice: true, icon: FATE_DICE_CONFIG.icon, name: FATE_DICE_CONFIG.name };
-    } else {
-      newMap[r][c] = ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];
-    }
-  }
-  return newMap;
-}
-
-/**
- * Refresh all effect cell contents on the map (positions unchanged).
- * Returns a new map.
- */
-export function refreshAllEffects(itemMap) {
-  const newMap = itemMap.map(row => [...row]);
-  const newEffects = pickRandomEffects(EFFECT_SLOT_COUNT);
-  let idx = 0;
-  for (let r = 0; r < MAP_ROWS; r++) {
-    for (let c = 0; c < MAP_COLS; c++) {
-      if (newMap[r][c].isEffect) {
-        newMap[r][c] = { isEffect: true, effect: newEffects[idx++] };
-      }
-    }
+    newMap[r][c] = randomCell(neededNames);
   }
   return newMap;
 }

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Coins } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { isValidPlacement } from '../../utils/spatialPoolHelpers';
-import { FIXED_SHAPE, MAP_ROWS, MAP_COLS } from '../../data/spatialConstants';
+import { FIXED_SHAPE, MAP_ROWS, MAP_COLS, EFFECT_ITEM_ICONS } from '../../data/spatialConstants';
 
 const RARITY_BG = {
   common: 'bg-slate-100 border-slate-300',
@@ -67,7 +67,7 @@ function FlyingItem({ icon, startRect }) {
  *   'exit'      — draw executes, other 3 cells fade out
  *   'enter'     — 4 new items scale in
  */
-function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled }) {
+function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled, activeEffect }) {
   const { t } = useLanguage();
   const [hoverAnchor, setHoverAnchor] = useState(null);
   const [flyingItem, setFlyingItem] = useState(null);
@@ -109,25 +109,36 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
     return needs;
   }, [milestone, rarityConfig]);
 
+  const isTargetedMode = activeEffect?.effectId === 'targeted';
+
   const coveredCells = useMemo(() => {
     if (!hoverAnchor || isAnimating) return new Set();
     const { row, col } = hoverAnchor;
+    if (isTargetedMode) {
+      return new Set([`${row},${col}`]);
+    }
     if (!isValidPlacement(row, col)) return new Set();
     const cells = new Set();
     for (const [dr, dc] of FIXED_SHAPE.cells) {
       cells.add(`${row + dr},${col + dc}`);
     }
     return cells;
-  }, [hoverAnchor, isAnimating]);
+  }, [hoverAnchor, isAnimating, isTargetedMode]);
 
   const isValidHover = useMemo(() => {
     if (!hoverAnchor || isAnimating) return false;
+    if (isTargetedMode) return true;
     return isValidPlacement(hoverAnchor.row, hoverAnchor.col);
-  }, [hoverAnchor, isAnimating]);
+  }, [hoverAnchor, isAnimating, isTargetedMode]);
 
   const handleCellHover = useCallback((row, col) => {
     if (disabled || isAnimating) return;
     setHoverAnchor({ row, col });
+    if (isTargetedMode) {
+      const cell = itemMap[row]?.[col];
+      if (onHoverCoverage) onHoverCoverage(cell && !cell.isEffect ? [cell.name] : []);
+      return;
+    }
     if (isValidPlacement(row, col) && onHoverCoverage) {
       const names = FIXED_SHAPE.cells
         .map(([dr, dc]) => {
@@ -137,7 +148,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
         .filter(Boolean);
       onHoverCoverage(names);
     }
-  }, [disabled, isAnimating, itemMap, onHoverCoverage]);
+  }, [disabled, isAnimating, itemMap, onHoverCoverage, isTargetedMode]);
 
   const handleMouseLeave = useCallback(() => {
     if (!isAnimating) setHoverAnchor(null);
@@ -146,10 +157,10 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
 
   const handleCellClick = useCallback((row, col) => {
     if (disabled || isAnimating) return;
-    if (!isValidPlacement(row, col)) return;
+    if (!isTargetedMode && !isValidPlacement(row, col)) return;
     onPlace(row, col);
     setHoverAnchor(null);
-  }, [disabled, isAnimating, onPlace]);
+  }, [disabled, isAnimating, onPlace, isTargetedMode]);
 
   if (!itemMap) return null;
 
@@ -190,7 +201,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
 
           if (isEffectCell && (phase === 'exit' || phase === 'enter') && isCoveredAnim) {
             // Effect cell stays visible and stable during animation
-            bgClass = 'bg-teal-50 border-teal-300 border-dashed';
+            bgClass = 'bg-white border-slate-200';
             iconClass = '';
             textVisible = true;
           } else if (phase === 'highlight' && isDrawn) {
@@ -217,12 +228,12 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
             iconClass = 'animate-[scaleIn_0.3s_ease-out]';
           } else if (isCovered && isValidHover) {
             bgClass = isEffectCell
-              ? 'bg-teal-100 border-teal-400 ring-2 ring-teal-300 scale-105'
+              ? 'bg-slate-100 border-indigo-400 ring-2 ring-indigo-300 scale-105'
               : item.isFateDice
                 ? 'bg-indigo-200 border-indigo-400 ring-2 ring-indigo-300 scale-105'
                 : 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-300 scale-105';
           } else if (isEffectCell) {
-            bgClass = 'bg-teal-50 border-teal-300 border-dashed';
+            bgClass = 'bg-white border-slate-200';
           } else if (item.isFateDice) {
             bgClass = 'bg-gradient-to-br from-indigo-100 to-violet-100 border-indigo-300';
           } else if (neededRarity) {
@@ -247,13 +258,13 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
             >
               {isEffectCell ? (
                 <>
-                  <span className={`text-xs font-bold leading-tight text-center transition-all duration-300 ${iconClass}`}>
-                    {t(item.effect.name)}
+                  <span className={`text-xl leading-none transition-all duration-300 ${iconClass}`}>
+                    {EFFECT_ITEM_ICONS[item.effect.id] || '✨'}
                   </span>
-                  <span className={`flex items-center gap-0.5 text-[10px] font-bold text-amber-600 mt-0.5 transition-all duration-300 ${
+                  <span className={`text-[10px] font-bold text-slate-600 mt-0.5 truncate max-w-[56px] transition-all duration-300 ${
                     textVisible ? '' : 'opacity-0'
                   }`}>
-                    <Coins size={10} />{item.effect.cost}
+                    {t(item.effect.name)}
                   </span>
                 </>
               ) : item.isFateDice ? (
@@ -285,13 +296,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
       </div>
       {isValidHover && hoverAnchor && (
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 text-xs font-bold text-amber-600 bg-white border border-amber-300 rounded px-1.5 py-0.5 shadow-sm pointer-events-none z-10">
-          <Coins size={12} />
-          {(() => {
-            const effectInFrame = FIXED_SHAPE.cells
-              .map(([dr, dc]) => itemMap[hoverAnchor.row + dr]?.[hoverAnchor.col + dc])
-              .find(cell => cell?.isEffect);
-            return effectInFrame ? effectInFrame.effect.cost : 1;
-          })()}
+          <Coins size={12} />1
         </div>
       )}
     </>

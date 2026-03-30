@@ -10,8 +10,8 @@ import { SKILL_DEFINITIONS, TOOL_ITEMS, FATE_DICE_CONFIG } from '../data/constan
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
-import { generateItemMap, getFrameCoverage, refreshCoveredCells, refreshAllEffects } from '../utils/spatialPoolHelpers.js';
-import { DEFAULT_DRAW } from '../data/spatialConstants.js';
+import { generateItemMap, getFrameCoverage, refreshCoveredCells, randomCell } from '../utils/spatialPoolHelpers.js';
+import { DEFAULT_DRAW, EFFECT_ITEM_ICONS } from '../data/spatialConstants.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
     const { t } = useLanguage();
@@ -25,7 +25,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const [drawCount, setDrawCount] = useState(0);
 
-    const [itemMap, setItemMap] = useState(() => generateItemMap());
+    const [itemMap, setItemMap] = useState(() => generateItemMap(null));
 
     // Milestone grid system
     const [milestone, setMilestone] = useState(null);
@@ -59,6 +59,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // 工具物品选择目标模式: { toolIndex: number, effectType: string }
     const [toolSelectionMode, setToolSelectionMode] = useState(null);
 
+    // Active effect: queued from inventory, applies to next draw, then consumed
+    // { effectId, effectConfig, itemUid }
+    const [activeEffect, setActiveEffect] = useState(null);
+
+    // Dice reroll mode: { toolIndex: number, selectedDiceIndices: number[] }
+    const [diceRerollMode, setDiceRerollMode] = useState(null);
+
     const [skills, setSkills] = useState(initialSkills);
     const [skillSelectionCandidates, setSkillSelectionCandidates] = useState(null);
     const [skillState, setSkillState] = useState({
@@ -88,6 +95,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [initialSkills]);
 
+    // Needed item names from current milestone (unfilled cells)
+    const neededNames = useMemo(() => {
+        if (!milestone) return null;
+        const names = new Set();
+        for (const cell of milestone.cells) {
+            if (!cell.filledItem) names.add(cell.itemName);
+        }
+        return names.size > 0 ? names : null;
+    }, [milestone]);
+
     // Initialize milestone when null (game start or after milestone completion)
     useEffect(() => {
         if (!milestone && allNormalItems.length > 0) {
@@ -100,6 +117,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [milestone, allNormalItems]);
 
+    // Regenerate map when milestone is created or replaced
+    useEffect(() => {
+        if (neededNames) {
+            setItemMap(generateItemMap(neededNames));
+        }
+    }, [milestoneNumber, !!milestone]);
+
     const applyEntropy = (inv) => {
         if (!currentStageConfig.mechanics.entropy) return inv;
         return inv.map(item => {
@@ -109,8 +133,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const refreshPools = (tick = false) => {
-        // Refresh effect cell contents on the map (positions unchanged)
-        setItemMap(prev => refreshAllEffects(prev));
+        // No-op: effects now refresh naturally when their cells are covered
         if (tick && currentStageConfig.mechanics.entropy) {
             setInventory(prev => prev.map(item => {
                 if (!item || item.decay === undefined) return item;
@@ -455,7 +478,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     };
 
-    const handleNormalDraw = (pool) => {
+    const handleNormalDraw = (pool, overrideBaseInventory = null) => {
         setDrawCount(prev => prev + 1);
 
         let itemsToProcess = [];
@@ -508,7 +531,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setSkillState(newSkillState);
 
         // Apply Entropy (Time passes on draw)
-        const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
+        let baseInventory = overrideBaseInventory ? [...overrideBaseInventory] : [...inventory];
+        // If an active effect was consumed this draw, remove it from inventory snapshot
+        if (!overrideBaseInventory && activeEffect && pool.affixKey) {
+            baseInventory = baseInventory.filter(i => i?.uid !== activeEffect.itemUid);
+            setActiveEffect(null);
+        }
+        const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(baseInventory) : baseInventory;
 
         handleIncomingItems(tryDropToolItem(itemsToProcess), decayedInventory);
 
@@ -553,7 +582,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!item || !item.isToolItem) return;
 
         // 不允许在特殊模式中使用
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || toolSelectionMode) {
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || toolSelectionMode || diceRerollMode) {
             showToast(t("当前状态下无法使用工具物品"), 'error');
             return;
         }
@@ -567,6 +596,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             newInventory[index] = null;
             setInventory(newInventory.filter(i => i !== null));
             showToast(t("星辉祝福已激活：下次抽取品质+1"), 'success');
+        } else if (effectType === 'dice_reroll') {
+            // 命运重铸：进入骰子选择模式
+            const hasDice = inventory.some(i => i?.isFateDice);
+            if (!hasDice) {
+                showToast(t("背包中没有命运骰子！"), 'error');
+                return;
+            }
+            setDiceRerollMode({ toolIndex: index, selectedDiceIndices: [] });
+            setSelectedSlot(null);
+            showToast(t("请选择1~2颗命运骰子进行重投"), 'info');
         } else {
             // 命运熔炉 / 万象棱镜：进入选择目标模式
             setToolSelectionMode({ toolIndex: index, effectType });
@@ -577,6 +616,87 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const handleCancelToolSelection = () => {
         setToolSelectionMode(null);
+    };
+
+    const handleConfirmDiceReroll = () => {
+        if (!diceRerollMode || diceRerollMode.selectedDiceIndices.length === 0) return;
+        const { toolIndex, selectedDiceIndices } = diceRerollMode;
+        const newInventory = [...inventory];
+        // Reroll selected dice
+        for (const idx of selectedDiceIndices) {
+            const oldDice = newInventory[idx];
+            if (!oldDice?.isFateDice) continue;
+            const newDice = createFateDice();
+            newDice.uid = oldDice.uid;
+            newInventory[idx] = newDice;
+        }
+        // Consume the effect item
+        newInventory[toolIndex] = null;
+        setInventory(newInventory.filter(i => i !== null));
+        setDiceRerollMode(null);
+        showToast(t("骰子已重投！"), 'success');
+    };
+
+    const handleCancelDiceReroll = () => {
+        setDiceRerollMode(null);
+    };
+
+    // Create an effect item for inventory (drawn from map)
+    const createEffectItem = (effectConfig) => ({
+        name: effectConfig.name,
+        icon: EFFECT_ITEM_ICONS[effectConfig.id] || '✨',
+        uid: Math.random().toString(36).substr(2, 9),
+        isEffectItem: true,
+        effectId: effectConfig.id,
+        effectConfig: effectConfig,
+        toolDesc: effectConfig.desc,
+        rarity: config.rarity[0], // common rarity for display
+        sterile: true,
+    });
+
+    // Right-click to activate/deactivate an effect item in inventory
+    const handleEffectItemUse = (index) => {
+        const item = inventory[index];
+        if (!item || !item.isEffectItem) return;
+
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || toolSelectionMode || diceRerollMode || pendingQueue.length > 0) {
+            showToast(t("当前状态下无法使用"), 'error');
+            return;
+        }
+
+        // dice_reroll: enter dice reroll mode directly
+        if (item.effectId === 'dice_reroll') {
+            const hasDice = inventory.some(i => i?.isFateDice);
+            if (!hasDice) {
+                showToast(t("背包中没有命运骰子！"), 'error');
+                return;
+            }
+            setDiceRerollMode({ toolIndex: index, selectedDiceIndices: [] });
+            setSelectedSlot(null);
+            showToast(t("请选择1~2颗命运骰子进行重投"), 'info');
+            return;
+        }
+
+        // Toggle: clicking active effect deactivates it
+        if (activeEffect && activeEffect.itemUid === item.uid) {
+            setActiveEffect(null);
+            showToast(t("已取消效果"), 'info');
+            return;
+        }
+
+        setActiveEffect({
+            effectId: item.effectId,
+            effectConfig: item.effectConfig,
+            itemUid: item.uid,
+        });
+        showToast(`${t("已激活效果")}：${t(item.name)}`, 'success');
+    };
+
+    // Consume the active effect after a draw (remove from inventory)
+    const consumeActiveEffect = () => {
+        if (!activeEffect) return;
+        setInventory(prev => prev.filter(i => i?.uid !== activeEffect.itemUid));
+        setActiveEffect(null);
     };
 
     // 根据权重表随机选择一个品质
@@ -602,28 +722,71 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (drawAnimInfo) return;
         if (isDiceSubmitMode) return;
 
+        // "有的放矢" (targeted): 1×1 single-cell draw
+        if (activeEffect && activeEffect.effectId === 'targeted') {
+            if (anchorRow < 0 || anchorRow >= itemMap.length || anchorCol < 0 || anchorCol >= itemMap[0].length) return;
+            const cell = itemMap[anchorRow][anchorCol];
+            const cost = DEFAULT_DRAW.cost + activeEffect.effectConfig.cost;
+            if (gold < cost) {
+                showToast(t("金币不足！"), "error");
+                return;
+            }
+            setGold(prev => prev - cost);
+            setDrawCount(prev => prev + 1);
+
+            // Remove effect item from inventory BEFORE handleIncomingItems
+            // (handleIncomingItems uses setInventory with a snapshot, which would overwrite functional updates)
+            const effectUid = activeEffect.itemUid;
+            const cleanedInventory = inventory.filter(i => i?.uid !== effectUid);
+            setActiveEffect(null);
+
+            if (cell.isEffect) {
+                const effectItem = createEffectItem(cell.effect);
+                handleIncomingItems([effectItem], cleanedInventory);
+                showToast(`${t("获得效果")}：${t(cell.effect.name)}`, 'info');
+            } else if (cell.isFateDice) {
+                const dice = createFateDice();
+                handleIncomingItems([dice], cleanedInventory);
+                showToast(`${t("获得命运骰子")}: ${dice.icon} (${dice.diceValue}${t("点")})`, 'info');
+            } else {
+                const virtualPool = {
+                    name: 'spatial', items: [cell], affixKey: null, affix: null,
+                    cost, originalId: 'spatial', id: 'spatial',
+                };
+                handleNormalDraw(virtualPool, cleanedInventory);
+            }
+            // Refresh only the single cell
+            setItemMap(prev => {
+                const newMap = prev.map(row => [...row]);
+                newMap[anchorRow][anchorCol] = randomCell(neededNames);
+                return newMap;
+            });
+            return;
+        }
+
         const coverage = getFrameCoverage(anchorRow, anchorCol, itemMap);
         if (!coverage) return;
 
-        // Separate items from effects and fate dice in coverage
+        // Separate cell types in coverage
         const itemCells = coverage.filter(c => !c.item.isEffect && !c.item.isFateDice);
         const fateDiceCells = coverage.filter(c => c.item.isFateDice);
-        const effectCell = coverage.find(c => c.item.isEffect);
+        const effectCells = coverage.filter(c => c.item.isEffect);
 
-        // Determine effect config (null = default draw, no special effect)
-        const affixConfig = effectCell ? effectCell.item.effect : null;
-        const affixKey = affixConfig ? affixConfig.id : null;
-        const cost = affixConfig ? affixConfig.cost : DEFAULT_DRAW.cost;
-
-        // NOTE: Gold check and vip_discount are handled by handleDraw().
-        // We do NOT duplicate that logic here.
+        // Use activeEffect (from inventory) for quality, NOT frame coverage
+        const affixConfig = activeEffect ? activeEffect.effectConfig : null;
+        const affixKey = activeEffect ? activeEffect.effectId : null;
+        const cost = DEFAULT_DRAW.cost + (activeEffect ? activeEffect.effectConfig.cost : 0);
 
         const coveredKeys = new Set(coverage.map(c => `${c.row},${c.col}`));
-
-        // Build virtual pool from item cells only
         const poolItems = itemCells.map(c => c.item);
 
-        // For interactive effects (precise/trade_in), execute immediately
+        // Gold check upfront — before any animation or state changes
+        if (gold < cost) {
+            showToast(t("金币不足！"), "error");
+            return;
+        }
+
+        // For interactive activeEffects (precise/trade_in), execute immediately
         if (affixKey === 'trade_in' || affixKey === 'precise') {
             const virtualPool = {
                 name: 'spatial',
@@ -635,25 +798,26 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 id: 'spatial',
             };
             handleDraw(virtualPool);
+            consumeActiveEffect();
             setTimeout(() => {
                 setItemMap(prev => {
-                    const refreshed = refreshCoveredCells(prev, anchorRow, anchorCol);
-                    return refreshAllEffects(refreshed);
+                    return refreshCoveredCells(prev, anchorRow, anchorCol, neededNames);
                 });
             }, 600);
             return;
         }
 
-        // Combine item cells and fate dice cells for random draw
-        const drawableCells = [...itemCells, ...fateDiceCells];
+        // ALL cells participate in the draw lottery (items + effects + fate dice)
+        const drawableCells = [...itemCells, ...effectCells, ...fateDiceCells];
         if (drawableCells.length === 0) return;
 
         const drawnIndex = Math.floor(Math.random() * drawableCells.length);
         const drawnCell = drawableCells[drawnIndex];
         const drawnIsFateDice = !!drawnCell.item.isFateDice;
+        const drawnIsEffect = !!drawnCell.item.isEffect;
 
         const makePool = () => {
-            if (drawnIsFateDice) return null; // fate dice bypasses pool system
+            if (drawnIsFateDice || drawnIsEffect) return null;
             const items = affixKey === 'fragmented' ? poolItems : [drawnCell.item];
             return {
                 name: 'spatial',
@@ -666,7 +830,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             };
         };
 
-        // Phase 1: highlight the drawn item (300ms)
+        // Phase 1: highlight the drawn cell (300ms)
         setDrawAnimInfo({
             drawnKey: `${drawnCell.row},${drawnCell.col}`,
             coveredKeys,
@@ -679,18 +843,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             setTimeout(() => {
                 // Phase 3: execute draw + other cells fade out (400ms)
+                // Gold already checked upfront in handleMapPlace
                 if (drawnIsFateDice) {
-                    // Fate dice: deduct cost, create dice, add to inventory
-                    const finalCost = affixConfig ? affixConfig.cost : DEFAULT_DRAW.cost;
-                    if (gold < finalCost) {
-                        showToast(t("金币不足！"), "error");
-                        setDrawAnimInfo(null);
-                        return;
-                    }
-                    setGold(prev => prev - finalCost);
+                    setGold(prev => prev - cost);
                     const dice = createFateDice();
                     handleIncomingItems([dice]);
                     showToast(`${t("获得命运骰子")}: ${dice.icon} (${dice.diceValue}${t("点")})`, 'info');
+                } else if (drawnIsEffect) {
+                    setGold(prev => prev - cost);
+                    setDrawCount(prev => prev + 1);
+                    const effectItem = createEffectItem(drawnCell.item.effect);
+                    handleIncomingItems([effectItem]);
+                    showToast(`${t("获得效果")}：${t(drawnCell.item.effect.name)}`, 'info');
                 } else {
                     handleDraw(makePool());
                 }
@@ -699,10 +863,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 setTimeout(() => {
                     // Phase 4: refresh cells, new items enter (350ms)
                     setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
-                    setItemMap(prev => {
-                        const refreshed = refreshCoveredCells(prev, anchorRow, anchorCol);
-                        return refreshAllEffects(refreshed);
-                    });
+                    setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol, neededNames));
 
                     setTimeout(() => {
                         setDrawAnimInfo(null);
@@ -716,7 +877,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (pendingItem || isSubmitMode || isRecycleMode || isDiceSubmitMode || selectionMode || pendingQueue.length > 0) return;
 
         // Use pool cost (from affix config)
-        let finalCost = pool.cost || 2;
+        let finalCost = pool.cost ?? 2;
 
         if (hasSkill('vip_discount') && pool.affixKey === 'precise') {
             finalCost = Math.max(0, finalCost - 1);
@@ -797,7 +958,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (selectionMode?.type === 'trade_in') {
             // 退回金币
             const pool = selectionMode.pool;
-            let refundCost = pool.cost || 2;
+            let refundCost = pool.cost ?? 2;
             if (hasSkill('vip_discount') && pool.affixKey === 'precise') {
                 refundCost = Math.max(0, refundCost - 1);
             }
@@ -806,7 +967,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         } else if (selectionMode?.type === 'precise') {
             // 退回金币
             const pool = selectionMode.pool;
-            let refundCost = pool.cost || 2;
+            let refundCost = pool.cost ?? 2;
             if (hasSkill('vip_discount') && pool.affixKey === 'precise') {
                 refundCost = Math.max(0, refundCost - 1);
             }
@@ -830,11 +991,26 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
+        // 骰子重投模式：选择/取消选择命运骰子
+        if (diceRerollMode) {
+            const item = inventory[index];
+            if (!item || !item.isFateDice) return;
+            setDiceRerollMode(prev => {
+                const indices = prev.selectedDiceIndices;
+                if (indices.includes(index)) {
+                    return { ...prev, selectedDiceIndices: indices.filter(i => i !== index) };
+                }
+                if (indices.length >= 2) return prev; // max 2
+                return { ...prev, selectedDiceIndices: [...indices, index] };
+            });
+            return;
+        }
+
         // 工具选择模式：点击背包物品作为工具目标
         if (toolSelectionMode) {
             if (!clickedItem) return;
-            if (clickedItem.isToolItem) {
-                showToast(t("无法对工具物品使用！"), 'error');
+            if (clickedItem.isToolItem || clickedItem.isEffectItem) {
+                showToast(t("无法对该物品使用！"), 'error');
                 return;
             }
             const { toolIndex, effectType } = toolSelectionMode;
@@ -887,6 +1063,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             if (consumedItem.isToolItem) {
                 showToast(t("工具道具无法用于以旧换新！"), "error");
+                return;
+            }
+
+            if (consumedItem.isEffectItem) {
+                showToast(t("效果道具无法用于以旧换新！"), "error");
                 return;
             }
 
@@ -1308,7 +1489,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             totalRecycleValue,
             selectedItemNames,
             skillState,
-            toolSelectionMode
+            toolSelectionMode,
+            activeEffect,
+            diceRerollMode
         },
         actions: {
             showToast,
@@ -1335,11 +1518,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             refreshPools,
             addInventoryItem,
             handleToolItemUse,
+            handleEffectItemUse,
             handleCancelToolSelection,
+            handleConfirmDiceReroll,
+            handleCancelDiceReroll,
             handleRefreshMap: () => {
                 if (gold < 1) return;
                 setGold(prev => prev - 1);
-                setItemMap(generateItemMap());
+                setItemMap(generateItemMap(neededNames));
             },
             handleMapPlace,
         },

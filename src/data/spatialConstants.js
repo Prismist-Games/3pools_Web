@@ -20,24 +20,37 @@ export const FIXED_SHAPE = {
   coverageCount: 4,
 };
 
-// --- Quality effects (from affixes, excluding 'targeted') ---
-export const QUALITY_EFFECTS = INITIAL_AFFIXES_CONFIG.filter(a => a.id !== 'targeted');
+// --- Quality effects (all affixes available in spatial system) ---
+export const QUALITY_EFFECTS = INITIAL_AFFIXES_CONFIG;
 
 // --- Cost = affix cost (same as original system) ---
 // With fixed 2×2, cost is purely determined by quality effect.
 
 // --- Map dimensions ---
-// 3×4 grid: 12 random items from 20.
+// 4×4 grid: 16 cells with random items/effects from 20.
 // Only the 4 cells covered by the 2×2 placement refresh each draw.
-export const MAP_ROWS = 3;
+export const MAP_ROWS = 4;
 export const MAP_COLS = 4;
 
 // --- Effect cells ---
-// Number of effect slots placed on the map.
-export const EFFECT_SLOT_COUNT = 3;
+// Spawn chance per cell (both on initial generation and on refresh).
+// ~25% means roughly 3 out of 12 cells will be effects on average.
+export const EFFECT_SPAWN_CHANCE = 0.25;
 
 /** Default draw config when no effect cell is in the 2×2 frame */
 export const DEFAULT_DRAW = { id: null, cost: 1 };
+
+// --- Effect item icons (for inventory display) ---
+export const EFFECT_ITEM_ICONS = {
+  trade_in: '🔄',
+  hardened: '🛡️',
+  purified: '💎',
+  volatile: '🎲',
+  fragmented: '💥',
+  precise: '🎯',
+  targeted: '🎯',
+  dice_reroll: '🎲',
+};
 
 // --- Fate dice config re-export for spatial system ---
 export { FATE_DICE_CONFIG };

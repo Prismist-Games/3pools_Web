@@ -102,12 +102,13 @@ export const InventorySlot = ({
     const isMultiSelectMode = isSubmitMode || isRecycleMode;
     const isTradeInMode = isSelectionMode;
     const isToolItem = item?.isToolItem;
+    const isEffectItem = item?.isEffectItem;
     const isFateDice = item?.isFateDice;
-    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem || item.isFateDice)) || isPendingSlot;
+    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem || item.isEffectItem || item.isFateDice)) || isPendingSlot;
 
     const handleContextMenu = (e) => {
         e.preventDefault();
-        if (isToolItem && onContextMenu) {
+        if ((isToolItem || isEffectItem) && onContextMenu) {
             onContextMenu(index);
         }
     };
@@ -115,6 +116,9 @@ export const InventorySlot = ({
     // 工具物品独特样式：金色渐变边框 + 发光
     const toolItemStyle = isToolItem
         ? 'border-amber-400 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 ring-1 ring-amber-200/50 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
+        : '';
+    const effectItemStyle = isEffectItem
+        ? 'border-emerald-400 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 ring-1 ring-emerald-200/50 shadow-[0_0_12px_rgba(52,211,153,0.3)]'
         : '';
     const fateDiceStyle = isFateDice
         ? 'border-indigo-400 bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 ring-1 ring-indigo-200/50 shadow-[0_0_12px_rgba(99,102,241,0.3)]'
@@ -128,7 +132,7 @@ export const InventorySlot = ({
                 onContextMenu={handleContextMenu}
                 onMouseEnter={() => {
                     onMouseEnter(index, item);
-                    if (isToolItem) setShowTooltip(true);
+                    if (isToolItem || isEffectItem) setShowTooltip(true);
                 }}
                 onMouseLeave={() => {
                     onMouseLeave();
@@ -143,7 +147,9 @@ export const InventorySlot = ({
                             ? fateDiceStyle
                             : isToolItem
                                 ? toolItemStyle
-                                : `${item.rarity?.color || 'bg-slate-100 border-slate-300'} ${item.rarity?.shadow || ''} shadow-sm`
+                                : isEffectItem
+                                    ? effectItemStyle
+                                    : `${item.rarity?.color || 'bg-slate-100 border-slate-300'} ${item.rarity?.shadow || ''} shadow-sm`
                         : 'bg-slate-50 border-dashed border-slate-200'
                     }
                     ${!isMultiSelectMode && !isTradeInMode && isSelected ? '-translate-y-4 scale-110 z-10 shadow-xl ring-2 ring-blue-400' : ''}
@@ -165,14 +171,14 @@ export const InventorySlot = ({
 
                 {item && (
                     <>
-                        <div className={`flex flex-col items-center justify-center w-full h-full ${(item.sterile && !isToolItem) || (item.decay !== undefined && item.decay <= 0) ? 'grayscale opacity-70' : ''}`}>
+                        <div className={`flex flex-col items-center justify-center w-full h-full ${(item.sterile && !isToolItem && !isEffectItem) || (item.decay !== undefined && item.decay <= 0) ? 'grayscale opacity-70' : ''}`}>
                             <span className={`text-2xl lg:text-3xl filter drop-shadow-sm transition-transform duration-300 ${isToolItem ? 'animate-pulse' : ''}`}>
                                 {item.icon}
                             </span>
-                            <span className={`text-[10px] font-bold leading-none truncate max-w-full px-1 ${isToolItem ? 'text-amber-700' : ''}`}>
+                            <span className={`text-[10px] font-bold leading-none truncate max-w-full px-1 ${isToolItem ? 'text-amber-700' : isEffectItem ? 'text-emerald-700' : ''}`}>
                                 {t(item.name)}
                             </span>
-                            {item.rarity?.bonus > 0 && !isToolItem && (
+                            {item.rarity?.bonus > 0 && !isToolItem && !isEffectItem && (
                                 <div className="absolute top-0 right-0 p-0.5 bg-white/50 rounded-bl-lg">
                                     <Star size={8} fill="currentColor" className={item.rarity?.color ? item.rarity.color.split(' ')[2] : 'text-slate-400'} />
                                 </div>
@@ -188,6 +194,15 @@ export const InventorySlot = ({
                             </div>
                         )}
 
+                        {/* 效果物品标识 */}
+                        {isEffectItem && (
+                            <div className="absolute top-0 left-0 p-0.5 rounded-br-lg z-10">
+                                <div className="bg-emerald-500 text-white rounded-md px-1 py-0.5 text-[8px] font-black uppercase tracking-wider shadow-sm">
+                                    {t("效果")}
+                                </div>
+                            </div>
+                        )}
+
                         {isFateDice && (
                             <div className="absolute top-0 right-0 p-0.5 rounded-bl-lg z-10">
                                 <div className="bg-indigo-600 text-white rounded-md px-1.5 py-0.5 text-[10px] font-black shadow-sm">
@@ -197,17 +212,17 @@ export const InventorySlot = ({
                         )}
 
                         {/* 右键提示（hover 时显示在 slot 底部） */}
-                        {isToolItem && isHovered && !isMultiSelectMode && (
+                        {(isToolItem || isEffectItem) && isHovered && !isMultiSelectMode && (
                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-                                <div className="bg-amber-600 text-white rounded-full px-1.5 py-0.5 text-[8px] font-bold whitespace-nowrap shadow-lg flex items-center gap-0.5">
+                                <div className={`${isEffectItem ? 'bg-emerald-600' : 'bg-amber-600'} text-white rounded-full px-1.5 py-0.5 text-[8px] font-bold whitespace-nowrap shadow-lg flex items-center gap-0.5`}>
                                     <MousePointerClick size={8} />
-                                    {t("右键使用")}
+                                    {isEffectItem ? t("右键激活") : t("右键使用")}
                                 </div>
                             </div>
                         )}
 
                         {/* Status Icons */}
-                        {item.sterile && !isToolItem && (
+                        {item.sterile && !isToolItem && !isEffectItem && (
                             <div className="absolute bottom-0 left-0 p-0.5 bg-gray-800/80 rounded-tr-lg text-white z-10 text-[9px] px-1 font-bold">
                                 {t("绝育")}
                             </div>
@@ -292,7 +307,7 @@ export const InventorySlot = ({
             <ToolItemTooltip
                 item={item}
                 anchorRef={slotRef}
-                visible={isToolItem && showTooltip && !isMultiSelectMode}
+                visible={(isToolItem || isEffectItem) && showTooltip && !isMultiSelectMode}
             />
         </div>
     );
