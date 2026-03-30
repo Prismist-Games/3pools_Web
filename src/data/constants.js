@@ -217,30 +217,8 @@ export const SKILL_DEFINITIONS = [
     { id: 'hard_order_expert', name: '困难订单专家', desc: '完成需要史诗以上品质物品的订单时，额外获得 10 金币。', Icon: Trophy, type: 'order', color: 'text-fuchsia-600 bg-fuchsia-100' },
 ];
 
-// --- 工具物品定义 ---
-export const TOOL_ITEMS = [
-    {
-        id: 'tool_reforge',
-        name: '命运熔炉',
-        icon: '🔥',
-        desc: '使用后随机改变左侧物品的品质（品质概率与"有的放矢"词缀相同）。',
-        effectType: 'reforge_left',
-    },
-    {
-        id: 'tool_transmute',
-        name: '万象棱镜',
-        icon: '🔮',
-        desc: '使用后将左侧物品变为同类型（同奖池）的另一个物品，品质不变。',
-        effectType: 'transmute_left',
-    },
-    {
-        id: 'tool_enhance',
-        name: '星辉祝福',
-        icon: '✨',
-        desc: '使用后下一个抽出的物品品质提升1级。',
-        effectType: 'enhance_next',
-    },
-];
+// --- 工具物品定义 (legacy, kept for compatibility but drop is disabled) ---
+export const TOOL_ITEMS = [];
 
 // --- 工具物品掉落配置 ---
 export const TOOL_ITEM_CONFIG = {
@@ -262,7 +240,7 @@ export const TOOL_ITEM_CONFIG = {
 
 // --- 命运骰子配置 ---
 export const FATE_DICE_CONFIG = {
-    spawnChance: 0.15,          // 每个物品格子刷新为命运骰子的概率
+    spawnChance: 0.10,          // 每个物品格子刷新为命运骰子的概率
     icon: '🎲',
     name: '命运骰子',
     minValue: 1,
@@ -277,7 +255,7 @@ export const INITIAL_AFFIXES_CONFIG = [
         "desc": "用背包内的 1 个物品随机置换 1 个同品质的物品。",
         "type": "interaction",
         "weight": 10,
-        "cost": 1
+        "cost": 0
     },
     {
         "id": "hardened",
@@ -285,7 +263,7 @@ export const INITIAL_AFFIXES_CONFIG = [
         "desc": "稀有度更高，但物品带有【绝育】效果，无法合成。",
         "type": "passive",
         "weight": 10,
-        "cost": 2,
+        "cost": 0,
         "rarityWeights": {
             "common": 0,
             "uncommon": 0.2,
@@ -300,7 +278,7 @@ export const INITIAL_AFFIXES_CONFIG = [
         "desc": "保底产出稀有、史诗或传说物品。",
         "type": "passive",
         "weight": 10,
-        "cost": 3,
+        "cost": 0,
         "rarityWeights": {
             "common": 0,
             "uncommon": 0,
@@ -315,7 +293,7 @@ export const INITIAL_AFFIXES_CONFIG = [
         "desc": "有更高的概率出现传说物品，但只会产出普通和传说物品",
         "type": "passive",
         "weight": 10,
-        "cost": 1,
+        "cost": 0,
         "rarityWeights": {
             "common": 0.9,
             "uncommon": 0,
@@ -330,7 +308,7 @@ export const INITIAL_AFFIXES_CONFIG = [
         "desc": "一次抽取获得 3 个物品，但必定为普通品质。",
         "type": "passive",
         "weight": 10,
-        "cost": 1
+        "cost": 0
     },
     {
         "id": "precise",
@@ -338,15 +316,23 @@ export const INITIAL_AFFIXES_CONFIG = [
         "desc": "从 2 个不同的候选物品中任选其一。",
         "type": "interaction",
         "weight": 10,
-        "cost": 2
+        "cost": 0
     },
     {
         "id": "targeted",
         "name": "有的放矢的",
-        "desc": "指定一个想要的物品类型。",
+        "desc": "下次抽取范围缩小为1×1，精确拿取一个格子。",
         "type": "interaction",
         "weight": 10,
-        "cost": 4
+        "cost": 0
+    },
+    {
+        "id": "dice_reroll",
+        "name": "命运重铸",
+        "desc": "选择1~2颗命运骰子重新投掷。",
+        "type": "tool",
+        "weight": 10,
+        "cost": 0
     }
 ];
 
