@@ -288,21 +288,6 @@ export const INITIAL_AFFIXES_CONFIG = [
         }
     },
     {
-        "id": "volatile",
-        "name": "波动的",
-        "desc": "有更高的概率出现传说物品，但只会产出普通和传说物品",
-        "type": "passive",
-        "weight": 10,
-        "cost": 0,
-        "rarityWeights": {
-            "common": 0.9,
-            "uncommon": 0,
-            "rare": 0,
-            "epic": 0,
-            "legendary": 0.1
-        }
-    },
-    {
         "id": "fragmented",
         "name": "稀碎的",
         "desc": "一次抽取获得 3 个物品，但必定为普通品质。",

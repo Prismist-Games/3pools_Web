@@ -27,7 +27,7 @@ export const QUALITY_EFFECTS = INITIAL_AFFIXES_CONFIG;
 // With fixed 2×2, cost is purely determined by quality effect.
 
 // --- Map dimensions ---
-// 4×4 grid: 16 cells with random items/effects from 20.
+// 3×3 grid: 9 cells with random items/effects from 20.
 // Only the 4 cells covered by the 2×2 placement refresh each draw.
 export const MAP_ROWS = 4;
 export const MAP_COLS = 4;
@@ -45,7 +45,6 @@ export const EFFECT_ITEM_ICONS = {
   trade_in: '🔄',
   hardened: '🛡️',
   purified: '💎',
-  volatile: '🎲',
   fragmented: '💥',
   precise: '🎯',
   targeted: '🎯',
