@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom';
 import { Coins } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { isValidPlacement } from '../../utils/spatialPoolHelpers';
+import { isValidPlacement, computeClusterSizes } from '../../utils/spatialPoolHelpers';
 import { FIXED_SHAPE, MAP_ROWS, MAP_COLS, EFFECT_ITEM_ICONS } from '../../data/spatialConstants';
 
 const RARITY_BG = {
@@ -14,14 +14,9 @@ const RARITY_BG = {
   mythic: 'bg-rose-50 border-rose-300',
 };
 
-const RARITY_LABEL = {
-  common: '普', uncommon: '优', rare: '稀',
-  epic: '史', legendary: '传', mythic: '神',
-};
-
-const RARITY_LABEL_COLOR = {
-  common: 'text-slate-400', uncommon: 'text-green-500', rare: 'text-blue-500',
-  epic: 'text-purple-500', legendary: 'text-orange-500', mythic: 'text-rose-500',
+const RARITY_DOT_COLOR = {
+  common: 'bg-slate-400', uncommon: 'bg-green-500', rare: 'bg-blue-500',
+  epic: 'bg-purple-500', legendary: 'bg-orange-500', mythic: 'bg-rose-500',
 };
 
 /**
@@ -162,7 +157,44 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
     setHoverAnchor(null);
   }, [disabled, isAnimating, onPlace, isTargetedMode]);
 
+  // Compute cluster adjacency: which neighbors share the same item name
+  const clusterAdj = useMemo(() => {
+    if (!itemMap) return {};
+    const adj = {};
+    const getName = (r, c) => {
+      if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) return null;
+      const item = itemMap[r][c];
+      if (!item || item.isEffect || item.isFateDice) return null;
+      return item.name;
+    };
+    for (let r = 0; r < MAP_ROWS; r++) {
+      for (let c = 0; c < MAP_COLS; c++) {
+        const name = getName(r, c);
+        if (!name) { adj[`${r},${c}`] = null; continue; }
+        adj[`${r},${c}`] = {
+          top: getName(r - 1, c) === name,
+          bottom: getName(r + 1, c) === name,
+          left: getName(r, c - 1) === name,
+          right: getName(r, c + 1) === name,
+          topLeft: getName(r - 1, c - 1) === name,
+          topRight: getName(r - 1, c + 1) === name,
+          bottomLeft: getName(r + 1, c - 1) === name,
+          bottomRight: getName(r + 1, c + 1) === name,
+        };
+      }
+    }
+    return adj;
+  }, [itemMap]);
+
+  // Compute cluster sizes for quality indicator
+  const clusterSizeMap = useMemo(() => {
+    if (!itemMap) return null;
+    return computeClusterSizes(itemMap);
+  }, [itemMap]);
+
   if (!itemMap) return null;
+
+  const CLUSTER_RARITY_ID = { 1: 'common', 2: 'uncommon', 3: 'rare', 4: 'epic', 5: 'legendary' };
 
   const phase = drawAnimInfo?.phase;
   const drawnKey = drawAnimInfo?.drawnKey;
@@ -172,7 +204,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
     <>
       {flyingItem && <FlyingItem icon={flyingItem.icon} startRect={flyingItem.startRect} />}
       <div
-        className="relative inline-grid gap-1 p-2 bg-slate-100 rounded-lg border border-slate-200"
+        className="relative inline-grid gap-0 p-2 bg-slate-100 rounded-lg border border-slate-200"
         style={{
           gridTemplateRows: `repeat(${MAP_ROWS}, 1fr)`,
           gridTemplateColumns: `repeat(${MAP_COLS}, 1fr)`,
@@ -236,11 +268,26 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
             bgClass = 'bg-white border-slate-200';
           } else if (item.isFateDice) {
             bgClass = 'bg-gradient-to-br from-indigo-100 to-violet-100 border-indigo-300';
-          } else if (neededRarity) {
-            bgClass = RARITY_BG[neededRarity] || 'bg-white border-slate-200';
           } else {
-            bgClass = 'bg-white border-slate-200';
+            // Use cluster size to determine background color (quality tier)
+            const cs = clusterSizeMap?.[row]?.[col] || 1;
+            const clusterRarity = CLUSTER_RARITY_ID[Math.min(cs, 5)] || 'common';
+            bgClass = RARITY_BG[clusterRarity] || 'bg-white border-slate-200';
           }
+
+          // Cluster adjacency for metaball effect
+          const adj = clusterAdj[cellKey];
+          const hasCluster = adj && (adj.top || adj.bottom || adj.left || adj.right || adj.topLeft || adj.topRight || adj.bottomLeft || adj.bottomRight);
+          const clusterStyle = adj ? {
+            borderTopWidth: adj.top ? 0 : 2,
+            borderBottomWidth: adj.bottom ? 0 : 2,
+            borderLeftWidth: adj.left ? 0 : 2,
+            borderRightWidth: adj.right ? 0 : 2,
+            borderTopLeftRadius: (!adj.top && !adj.left && !adj.topLeft) ? 8 : 0,
+            borderTopRightRadius: (!adj.top && !adj.right && !adj.topRight) ? 8 : 0,
+            borderBottomLeftRadius: (!adj.bottom && !adj.left && !adj.bottomLeft) ? 8 : 0,
+            borderBottomRightRadius: (!adj.bottom && !adj.right && !adj.bottomRight) ? 8 : 0,
+          } : {};
 
           return (
             <div
@@ -248,11 +295,14 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
               ref={el => { cellRefs.current[cellKey] = el; }}
               className={`
                 relative flex flex-col items-center justify-center
-                w-16 h-16 rounded-md border select-none
+                w-16 h-16 border-2 border-solid select-none
                 transition-all duration-300
+                ${adj ? '' : 'rounded-md'}
+                ${hasCluster ? 'animate-[clusterPulse_3s_ease-in-out_infinite]' : ''}
                 ${bgClass}
                 ${!disabled && !isAnimating ? 'cursor-crosshair' : 'cursor-default'}
               `}
+              style={adj ? clusterStyle : {}}
               onMouseEnter={() => handleCellHover(row, col)}
               onClick={() => handleCellClick(row, col)}
             >
@@ -284,9 +334,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
                     {t(item.name)}
                   </span>
                   {neededRarity && textVisible && (
-                    <span className={`absolute top-0.5 right-1 text-[9px] font-bold ${RARITY_LABEL_COLOR[neededRarity]}`}>
-                      {RARITY_LABEL[neededRarity]}+
-                    </span>
+                    <span className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full border border-white shadow-sm ${RARITY_DOT_COLOR[neededRarity] || 'bg-slate-400'}`} />
                   )}
                 </>
               )}
