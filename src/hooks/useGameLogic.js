@@ -10,7 +10,7 @@ import { SKILL_DEFINITIONS, TOOL_ITEMS, FATE_DICE_CONFIG } from '../data/constan
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
-import { generateItemMap, getFrameCoverage, refreshCoveredCells, randomCell } from '../utils/spatialPoolHelpers.js';
+import { generateItemMap, getFrameCoverage, refreshCoveredCells, randomCell, computeClusterSizes } from '../utils/spatialPoolHelpers.js';
 import { DEFAULT_DRAW, EFFECT_ITEM_ICONS } from '../data/spatialConstants.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
@@ -96,11 +96,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     }, [initialSkills]);
 
     // Needed item names from current milestone (unfilled cells)
+    // All item names in the milestone (including already filled) — keeps pool stable
     const neededNames = useMemo(() => {
         if (!milestone) return null;
         const names = new Set();
         for (const cell of milestone.cells) {
-            if (!cell.filledItem) names.add(cell.itemName);
+            names.add(cell.itemName);
         }
         return names.size > 0 ? names : null;
     }, [milestone]);
@@ -316,8 +317,23 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [pendingItem, pendingQueue, inventory, maxInventorySize, currentStageConfig]);
 
-    const createItem = (pool, itemTemplate, affixKey = null) => {
-        const rarity = rollRarity(config, affixKey, gold, hasSkill, skillState, currentStageConfig);
+    // Cluster size → minimum rarity mapping
+    const CLUSTER_MIN_RARITY = { 1: null, 2: 'uncommon', 3: 'rare', 4: 'epic', 5: 'legendary' };
+
+    const createItem = (pool, itemTemplate, affixKey = null, clusterSize = 1) => {
+        let rarity = rollRarity(config, affixKey, gold, hasSkill, skillState, currentStageConfig);
+
+        // Apply cluster size quality floor
+        const minRarityId = CLUSTER_MIN_RARITY[Math.min(clusterSize, 5)] || null;
+        if (minRarityId) {
+            const rarityOrder = config.rarity.map(r => r.id);
+            const currentIdx = rarityOrder.indexOf(rarity.id);
+            const minIdx = rarityOrder.indexOf(minRarityId);
+            if (minIdx > currentIdx) {
+                rarity = config.rarity[minIdx];
+            }
+        }
+
         return {
             ...itemTemplate,
             uid: Math.random().toString(36).substr(2, 9),
@@ -326,7 +342,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             sterile: affixKey === 'hardened',
             decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
         };
-
     };
 
     const createFateDice = () => {
@@ -490,20 +505,20 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return nextRarity ? { ...item, rarity: nextRarity } : item;
         };
 
+        const cs = pool.clusterSize || 1;
         if (pool.affixKey === 'fragmented') {
             for (let i = 0; i < 3; i++) {
                 const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-                // 稀碎一次出3个，星辉祝福只提升第一个
-                itemsToProcess.push(i === 0 ? withEnhancement(createItemOrEffect(pool, tpl, 'fragmented')) : createItemOrEffect(pool, tpl, 'fragmented'));
+                itemsToProcess.push(i === 0 ? withEnhancement(createItemOrEffect(pool, tpl, 'fragmented', cs)) : createItemOrEffect(pool, tpl, 'fragmented', cs));
             }
         } else {
             const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-            itemsToProcess.push(withEnhancement(createItemOrEffect(pool, tpl, pool.affixKey)));
+            itemsToProcess.push(withEnhancement(createItemOrEffect(pool, tpl, pool.affixKey, cs)));
         }
 
         if (skillState.nextDrawExtraItem) {
             const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-            itemsToProcess.push(withEnhancement(createItemOrEffect(pool, tpl, pool.affixKey)));
+            itemsToProcess.push(withEnhancement(createItemOrEffect(pool, tpl, pool.affixKey, cs)));
         }
 
         const newSkillState = { ...skillState };
@@ -655,10 +670,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     });
 
     // Create an item from a pool template — handles regular items, effect cells, and fate dice
-    const createItemOrEffect = (pool, tpl, affixKey) => {
+    const createItemOrEffect = (pool, tpl, affixKey, clusterSize = 1) => {
         if (tpl.isEffect) return createEffectItem(tpl.effect);
         if (tpl.isFateDice) return createFateDice();
-        return createItem(pool, tpl, affixKey);
+        return createItem(pool, tpl, affixKey, clusterSize);
     };
 
     // Right-click to activate/deactivate an effect item in inventory
@@ -816,6 +831,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
+        // Compute cluster sizes for quality bonus
+        const clusterSizes = computeClusterSizes(itemMap);
+
         // ALL cells participate in the draw lottery (items + effects + fate dice)
         const drawableCells = [...itemCells, ...effectCells, ...fateDiceCells];
         if (drawableCells.length === 0) return;
@@ -824,6 +842,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const drawnCell = drawableCells[drawnIndex];
         const drawnIsFateDice = !!drawnCell.item.isFateDice;
         const drawnIsEffect = !!drawnCell.item.isEffect;
+        const drawnClusterSize = clusterSizes[drawnCell.row][drawnCell.col];
 
         const makePool = () => {
             // Fragmented always draws 3 from the entire pool, regardless of drawn cell type
@@ -834,6 +853,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     affixKey,
                     affix: affixConfig,
                     cost,
+                    clusterSize: drawnClusterSize,
                     originalId: 'spatial',
                     id: 'spatial',
                 };
@@ -845,6 +865,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 affixKey,
                 affix: affixConfig,
                 cost,
+                clusterSize: drawnClusterSize,
                 originalId: 'spatial',
                 id: 'spatial',
             };
