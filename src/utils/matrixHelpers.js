@@ -21,16 +21,12 @@ const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 const generateNormalCell = (allNormalItems, config, currentStageConfig) => {
   const item = allNormalItems[Math.floor(Math.random() * allNormalItems.length)];
   const rarity = rollRarity(config, null, 0, () => false, {}, currentStageConfig);
-  const cell = {
+  return {
     type: 'normal',
     item: { name: item.name, icon: item.icon, poolId: item.poolId, poolName: item.poolName },
     rarity,
     uid: Math.random().toString(36).substr(2, 9),
   };
-  if (Math.random() < MATRIX_CONFIG.doomMarkChance) {
-    cell.doomMark = 'danger';
-  }
-  return cell;
 };
 
 // ---------------------------------------------------------------------------

@@ -102,7 +102,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     }, [debugAddItem, actions]);
 
     const {
-        hp, doomGrid, doomLevel, doomHitCount, isDoomResolving, doomResolutionState,
+        hp, doomGrid, doomLevel, doomHitCount, isDoomResolving, doomResolutionState, doomGridHighlight,
         score, currentStageConfig, maxInventorySize,
         drawCount, matrix, gravityEvent, lastDraw, isDrawing, explodingCells, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, inventory,
         pendingItem, pendingQueue, selectedSlot,
@@ -423,14 +423,14 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             </HeaderTooltip>
 
                             {/* Doom Level Display */}
-                            <HeaderTooltip text={t("每次厄运结算抽取的格子数，厄运触发出现时升级")}>
+                            <HeaderTooltip text={t("每次厄运结算抽取的格子数，累计命中危险格时升级")}>
                                 <div className="flex flex-col gap-1 items-end cursor-default">
                                     <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-violet-200">{t("厄运等级")}</span>
                                     <div className="flex items-center gap-2 text-violet-400">
                                         <ChevronsUp size={20} className="drop-shadow-[0_0_8px_rgba(139,92,246,0.4)]" />
                                         <span className="text-3xl font-black font-mono tracking-tighter leading-none">LV.{doomLevel}</span>
                                     </div>
-                                    <span className="text-[10px] font-bold text-red-400">{t("触发")} {(config.doom?.hitsPerLevelUp || 3) - doomHitCount} {t("次后升级")}</span>
+                                    <span className="text-[10px] font-bold text-red-400">{t("命中")} {(config.doom?.hitsPerLevelUp || 3) - doomHitCount} {t("次后升级")}</span>
                                 </div>
                             </HeaderTooltip>
                         </div>
@@ -614,6 +614,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                             const isSettled = doomResolutionState?.phase === 'settled';
                                             const isSpinning = doomResolutionState?.phase === 'spinning';
                                             const isDanger = cell.type === 'danger';
+                                            const isNewlyLoaded = doomGridHighlight && doomGridHighlight.has(i);
                                             return (
                                                 <DoomGridCell key={i} cell={cell}>
                                                     {(cellRef, showTip, setShowTip) => (
@@ -632,9 +633,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                                         : 'ring-2 ring-yellow-400 scale-110 z-10'
                                                                     : ''
                                                             } ${
-                                                                isDanger
-                                                                    ? 'bg-red-50 border-red-400'
-                                                                    : 'bg-slate-50 border-slate-200'
+                                                                isNewlyLoaded
+                                                                    ? 'bg-red-300 border-red-600 scale-110 ring-2 ring-red-400 animate-pulse z-10'
+                                                                    : isDanger
+                                                                        ? 'bg-red-50 border-red-400'
+                                                                        : 'bg-slate-50 border-slate-200'
                                                             }`}
                                                         >
                                                             <span className="text-sm leading-none">{isDanger ? '☠️' : ''}</span>

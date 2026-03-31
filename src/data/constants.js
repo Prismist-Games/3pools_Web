@@ -567,7 +567,7 @@ export const DOOM_CONFIG = {
     initialDangerCount: 1,     // 初始"危险"格子数
     initialHP: 3,              // 初始生命值
     initialDoomLevel: 1,       // 初始厄运等级
-    hitsPerLevelUp: 5,         // 每累计触发N次，等级+1
+    hitsPerLevelUp: 3,         // 每累计命中N次，等级+1
     triggerChance: 0.20,       // 每次刷新触发厄运结算的概率
     triggerCooldownDraws: 1,   // 触发后冷却的抽取次数
     initialProtectionDraws: 1, // 游戏开始时的保护抽取次数

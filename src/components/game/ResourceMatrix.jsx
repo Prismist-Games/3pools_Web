@@ -1,51 +1,5 @@
-import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
-
-// --- Doom Tooltip (Portal) ---
-const DOOM_TOOLTIP_INFO = {
-    danger: { color: 'border-red-400/30', nameColor: 'text-red-300' },
-};
-
-const DoomTooltip = ({ cell, anchorRef, visible }) => {
-    const { t } = useLanguage();
-    const [pos, setPos] = useState(null);
-
-    useLayoutEffect(() => {
-        if (!visible || !anchorRef.current) { setPos(null); return; }
-        const rect = anchorRef.current.getBoundingClientRect();
-        setPos({ top: rect.top + window.scrollY - 8, left: rect.left + window.scrollX + rect.width / 2 });
-    }, [visible, anchorRef]);
-
-    if (!visible || !cell || !pos) return null;
-    const info = DOOM_TOOLTIP_INFO[cell.doomMark] || DOOM_TOOLTIP_INFO.danger;
-
-    return createPortal(
-        <div style={{ position: 'absolute', top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)', zIndex: 99999, pointerEvents: 'none' }}
-            className="animate-in fade-in zoom-in-95 duration-150">
-            <div className={`bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border ${info.color} min-w-[160px] max-w-[220px]`}>
-                <div className="flex items-center gap-2 mb-1 border-b border-slate-700 pb-1">
-                    <span className="text-lg">☠️</span>
-                    <span className={`font-black text-sm ${info.nameColor}`}>{t("厄运标记：危险")}</span>
-                </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                    {t("抽到时获得物品，同时标记加入厄运网格")}
-                </p>
-            </div>
-            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
-                <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-slate-900" />
-            </div>
-        </div>,
-        document.body
-    );
-};
-
-// Wrapper to provide ref + tooltip state per cell (hooks can't be called in map)
-const DoomCellWrapper = ({ cell, isDoom, children }) => {
-    const ref = useRef(null);
-    const [show, setShow] = useState(false);
-    return children(ref, show, setShow);
-};
 
 const GRID_SIZE = 4;
 
@@ -247,58 +201,49 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                             const isDropping = animatingCells.has(cellKey) && !newTopCells.has(cellKey);
                             const isNewTop = newTopCells.has(cellKey);
 
-                            const hasDoomMark = !!cell.doomMark;
-                            const hasDoomTriggerMark = !!cell.doomMarked;
-                            const showTooltip = hasDoomMark;
+                            const hasDoomLoadMark = !!cell.doomLoadMark;
+                            const hasDoomTriggerMark = !!cell.doomTriggerMark;
                             return (
-                                <DoomCellWrapper key={`${r}-${c}-${cell.uid}`} cell={cell} isDoom={showTooltip}>
-                                    {(cellRef, showTip, setShowTip) => (
-                                        <div
-                                            ref={cellRef}
-                                            onMouseEnter={() => showTooltip && setShowTip(true)}
-                                            onMouseLeave={() => setShowTip(false)}
-                                            className={`
-                                                relative flex flex-col items-center justify-center
-                                                rounded-lg border-2 select-none
-                                                ${(isPicking || isExploding) ? 'bg-slate-200 border-slate-300' : bgClass}
-                                                ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
-                                                ${hasDoomMark && !isPicking ? 'ring-2 ring-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' : ''}
-                                                ${hasDoomTriggerMark && !isPicking ? 'ring-2 ring-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''}
-                                                ${isDropping ? 'anim-drop' : ''}
-                                                ${isNewTop ? 'anim-new-top' : ''}
-                                                ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
-                                            `}
-                                        >
-                                            {/* Doom mark indicator */}
-                                            {hasDoomMark && !isPicking && (
-                                                <div className="absolute -top-2 -left-2 z-[3] w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[8px] border border-red-700 shadow">☠️</div>
-                                            )}
-                                            {/* Doom trigger indicator */}
-                                            {hasDoomTriggerMark && !isPicking && (
-                                                <div className="absolute -top-1.5 -left-1.5 z-[3] text-sm">⚡</div>
-                                            )}
-                                            {!isPicking && (
-                                                <div className={`flex flex-col items-center justify-center ${isExploding ? 'anim-explode-content' : ''}`}>
-                                                    <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
-                                                        {cell.item.icon}
-                                                    </span>
-                                                    <span className={`text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center mt-0.5 px-0.5 text-slate-600`}>
-                                                        {t(cell.item.name)}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            {/* Order needed indicator */}
-                                            {!isPicking && !isExploding && neededInfo && (
-                                                <div className="absolute -top-1 -right-1 flex items-center gap-px z-[2]">
-                                                    <div className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow ${neededInfo.rarity.dotColor}`} />
-                                                </div>
-                                            )}
-
-                                            <DoomTooltip cell={cell} anchorRef={cellRef} visible={showTip} />
+                                <div
+                                    key={`${r}-${c}-${cell.uid}`}
+                                    className={`
+                                        relative flex flex-col items-center justify-center
+                                        rounded-lg border-2 select-none
+                                        ${(isPicking || isExploding) ? 'bg-slate-200 border-slate-300' : bgClass}
+                                        ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
+                                        ${hasDoomLoadMark ? 'ring-2 ring-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.5)] z-10' : ''}
+                                        ${hasDoomTriggerMark ? 'ring-2 ring-yellow-400 animate-pulse shadow-[0_0_12px_rgba(234,179,8,0.6)] z-10' : ''}
+                                        ${isDropping ? 'anim-drop' : ''}
+                                        ${isNewTop ? 'anim-new-top' : ''}
+                                        ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
+                                    `}
+                                >
+                                    {/* Doom loading mark (装弹) */}
+                                    {hasDoomLoadMark && !isPicking && (
+                                        <div className="absolute -top-2 -left-2 z-[3] w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[8px] border border-red-700 shadow animate-bounce">☠️</div>
+                                    )}
+                                    {/* Doom trigger mark (开枪) */}
+                                    {hasDoomTriggerMark && !isPicking && (
+                                        <div className="absolute -top-2 -left-2 z-[3] w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-xs border border-yellow-600 shadow animate-bounce">⚡</div>
+                                    )}
+                                    {!isPicking && (
+                                        <div className={`flex flex-col items-center justify-center ${isExploding ? 'anim-explode-content' : ''}`}>
+                                            <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
+                                                {cell.item.icon}
+                                            </span>
+                                            <span className="text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center mt-0.5 px-0.5 text-slate-600">
+                                                {t(cell.item.name)}
+                                            </span>
                                         </div>
                                     )}
-                                </DoomCellWrapper>
+
+                                    {/* Order needed indicator */}
+                                    {!isPicking && !isExploding && neededInfo && (
+                                        <div className="absolute -top-1 -right-1 flex items-center gap-px z-[2]">
+                                            <div className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow ${neededInfo.rarity.dotColor}`} />
+                                        </div>
+                                    )}
+                                </div>
                             );
                         })}
                     </React.Fragment>
