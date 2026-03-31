@@ -40,7 +40,12 @@
       "Bash(npx vite:*)",
       "Bash(curl -s \"https://store.steampowered.com/search/?term=Sol+Cesto\")",
       "Bash(npx eslint:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "WebFetch(domain:wiki.biligame.com)",
+      "WebFetch(domain:sultansgame.wiki.gg)",
+      "Bash(curl -s \"https://en.wikipedia.org/wiki/Supermarket_Sweep\")",
+      "Bash(curl -s \"https://en.wikipedia.org/wiki/The_Crystal_Maze\")",
+      "Bash(curl -s \"https://en.wikipedia.org/wiki/Fort_Boyard_\\(TV_series\\)\")"
     ]
   }
 }
