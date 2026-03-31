@@ -43,7 +43,12 @@ export const generateRandomCell = (allNormalItems, config, currentStageConfig) =
       uid: Math.random().toString(36).substr(2, 9),
     };
   }
-  return generateNormalCell(allNormalItems, config, currentStageConfig);
+  const cell = generateNormalCell(allNormalItems, config, currentStageConfig);
+  // Doom mark: chance for gravity-refill cell to carry a doom mark
+  if (Math.random() < (MATRIX_CONFIG.doom?.markChance || 0.10)) {
+    cell.doomMark = true;
+  }
+  return cell;
 };
 
 // ---------------------------------------------------------------------------

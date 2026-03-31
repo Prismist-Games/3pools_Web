@@ -201,6 +201,7 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                             const isDropping = animatingCells.has(cellKey) && !newTopCells.has(cellKey);
                             const isNewTop = newTopCells.has(cellKey);
 
+                            const hasDoomMark = !!cell.doomMark;
                             const hasDoomLoadMark = !!cell.doomLoadMark;
                             const hasDoomTriggerMark = !!cell.doomTriggerMark;
                             return (
@@ -211,6 +212,7 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                                         rounded-lg border-2 select-none
                                         ${(isPicking || isExploding) ? 'bg-slate-200 border-slate-300' : bgClass}
                                         ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
+                                        ${hasDoomMark && !isPicking ? 'ring-2 ring-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)] z-10' : ''}
                                         ${hasDoomLoadMark ? 'ring-2 ring-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.5)] z-10' : ''}
                                         ${hasDoomTriggerMark ? 'ring-2 ring-yellow-400 animate-pulse shadow-[0_0_12px_rgba(234,179,8,0.6)] z-10' : ''}
                                         ${isDropping ? 'anim-drop' : ''}
@@ -218,11 +220,15 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                                         ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
                                     `}
                                 >
-                                    {/* Doom loading mark (装弹) */}
+                                    {/* Persistent doom mark (厄运标记 — drawing triggers doom resolution) */}
+                                    {hasDoomMark && !isPicking && (
+                                        <div className="absolute -top-1.5 -right-1.5 z-[3] w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center text-[8px] border border-purple-700 shadow">⚡</div>
+                                    )}
+                                    {/* Transient: doom loading mark (自动装弹) */}
                                     {hasDoomLoadMark && !isPicking && (
                                         <div className="absolute -top-2 -left-2 z-[3] w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[8px] border border-red-700 shadow animate-bounce">☠️</div>
                                     )}
-                                    {/* Doom trigger mark (开枪) */}
+                                    {/* Transient: doom trigger mark (开枪) */}
                                     {hasDoomTriggerMark && !isPicking && (
                                         <div className="absolute -top-2 -left-2 z-[3] w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-xs border border-yellow-600 shadow animate-bounce">⚡</div>
                                     )}

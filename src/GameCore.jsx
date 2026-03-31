@@ -83,7 +83,6 @@ const HeaderTooltip = ({ text, children }) => {
 const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
     const { t, language, toggleLanguage } = useLanguage();
     const [isSkillsCollapsed, setIsSkillsCollapsed] = useState(true);
-    const [gridRefreshMode, setGridRefreshMode] = useState(false);
 
     // Refs for fly animation
     const matrixRef = useRef(null);
@@ -144,20 +143,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         completeDoomResolution,
     } = actions;
 
-    // Grid refresh mode: intercept inventory clicks
-    const wrappedSlotClick = useCallback((index) => {
-        if (gridRefreshMode) {
-            const item = inventory[index];
-            if (item && item.rarity.bonus >= 0.25) {
-                handleGridRefresh(index);
-                setGridRefreshMode(false);
-            } else {
-                actions.showToast(t("需要稀有及以上品质的物品"), "error");
-            }
-            return;
-        }
-        handleSlotClick(index);
-    }, [gridRefreshMode, inventory, handleGridRefresh, handleSlotClick]);
+    const wrappedSlotClick = handleSlotClick;
 
     const { hasSkill } = helpers;
 
@@ -689,30 +675,15 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
                                 {/* Grid Refresh Button */}
                                 <div className="flex justify-center mt-2">
-                                    {!gridRefreshMode ? (
-                                        <button
-                                            onClick={() => {
-                                                if (inventory.some(i => i && i.rarity.bonus >= 0.25)) {
-                                                    setGridRefreshMode(true);
-                                                } else {
-                                                    actions.showToast(t("没有稀有及以上品质的物品可用"), "error");
-                                                }
-                                            }}
-                                            disabled={isDrawing || !!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!orderCandidates || isDoomResolving}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                        >
-                                            <RefreshCw size={14} />
-                                            {t("刷新网格")}
-                                        </button>
-                                    ) : (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-bold text-blue-600 animate-pulse">{t("选择一个稀有+物品消耗")}</span>
-                                            <button onClick={() => setGridRefreshMode(false)}
-                                                className="px-2 py-1 rounded text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all">
-                                                {t("取消")}
-                                            </button>
-                                        </div>
-                                    )}
+                                    <button
+                                        onClick={() => handleGridRefresh()}
+                                        disabled={isDrawing || !!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!orderCandidates || isDoomResolving}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-orange-600 bg-orange-50 border border-orange-200 hover:bg-orange-100 hover:border-orange-400 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <RefreshCw size={14} />
+                                        {t("刷新网格")}
+                                        <span className="text-[10px] text-orange-400 font-normal">({t("厄运+1")})</span>
+                                    </button>
                                 </div>
                             </div>
 

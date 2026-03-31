@@ -40,7 +40,8 @@
       "Bash(npx vite:*)",
       "Bash(curl -s \"https://store.steampowered.com/search/?term=Sol+Cesto\")",
       "Bash(npx eslint:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

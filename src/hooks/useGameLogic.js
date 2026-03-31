@@ -134,26 +134,27 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         refreshMatrix();
     }, [config]);
 
-    // Grid Refresh: consume 1 Rare+ item to fully refresh the matrix
-    const handleGridRefresh = (inventoryIndex) => {
+    // Grid Refresh: doom level +1, refresh matrix and doom grid
+    const handleGridRefresh = () => {
         if (isDrawing || pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || orderCandidates || modalContent || isDoomResolving) return;
-        const item = inventory[inventoryIndex];
-        if (!item || item.rarity.bonus < 0.25) {
-            showToast(t("需要稀有及以上品质的物品"), "error");
-            return;
-        }
-        const newInventory = [...inventory];
-        newInventory.splice(inventoryIndex, 1);
-        setInventory(newInventory);
+
+        // 1. Doom level +1
+        setDoomLevel(prev => prev + 1);
+        const newLevel = doomLevel + 1;
+
+        // 2. Refresh item matrix
         refreshMatrix();
-        // Manual refresh: no doom loading (protection rule), but can trigger doom resolution
-        isInitialMatrixRef.current = true; // temporarily block loading
-        showToast(`${t("消耗")} ${t(item.name)} ${t("刷新了物品网格")}`, "info");
-        const nextDraw = drawCount + 1;
-        if (shouldTriggerDoom(nextDraw)) {
-            lastDoomTriggerDrawRef.current = nextDraw;
-            setTimeout(() => triggerDoomResolution(), 600);
+        isInitialMatrixRef.current = true;
+
+        // 3. Reset doom grid to initial state
+        const freshGrid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+        for (let i = 0; i < doomConfig.initialDangerCount; i++) {
+            freshGrid[i] = { type: 'danger' };
         }
+        setDoomGrid(freshGrid);
+        setDoomHitCount(0);
+
+        showToast(`${t("网格刷新")}！${t("厄运等级提升至")} ${newLevel}`, "warning");
     };
 
     const triggerSkillSelection = () => {
@@ -612,18 +613,26 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     // --- Doom System Functions ---
 
-    // Doom loading (装弹): each new cell has a chance to add danger to doom grid
-    // newCellPositions: array of { row, col } for newly generated cells
-    const processDoomLoading = (newCellPositions) => {
-        if (isInitialMatrixRef.current) return 0;
-        const loadChance = MATRIX_CONFIG.doom?.loadChance || 0.05;
+    // Doom mark check: returns true if drawn cell's doom mark should trigger resolution
+    const shouldDoomMarkTrigger = (nextDrawCount) => {
+        if (nextDrawCount <= doomConfig.initialProtectionDraws) return false;
+        const sinceTrigger = nextDrawCount - lastDoomTriggerDrawRef.current;
+        if (sinceTrigger <= doomConfig.triggerCooldownDraws) return false;
+        return true;
+    };
+
+    // Auto-load doom (自动装弹): each new cell has a chance to add danger to doom grid
+    // Per-cell check — the specific cells that trigger it get the visual mark
+    const processAutoLoadDoom = (newCellPositions) => {
+        if (isInitialMatrixRef.current) return;
+        const chance = MATRIX_CONFIG.doom?.autoLoadChance || 0.05;
         const markedPositions = [];
         for (const pos of newCellPositions) {
-            if (Math.random() < loadChance) markedPositions.push(pos);
+            if (Math.random() < chance) markedPositions.push(pos);
         }
-        if (markedPositions.length === 0) return 0;
+        if (markedPositions.length === 0) return;
 
-        // Step 1: Show marks on matrix cells (visible for 1.5s)
+        // Show loading marks (☠️) on the specific cells that triggered it
         setMatrix(prev => {
             const m = prev.map(r => [...r]);
             for (const pos of markedPositions) {
@@ -634,9 +643,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return m;
         });
 
-        // Step 2: After display, remove marks and add dangers to doom grid
+        // After display, clear marks and add dangers to doom grid
         setTimeout(() => {
-            // Clear marks from matrix
             setMatrix(prev => {
                 const m = prev.map(r => [...r]);
                 for (const pos of markedPositions) {
@@ -647,7 +655,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 }
                 return m;
             });
-            // Add dangers to doom grid with highlight
             const highlightIndices = [];
             setDoomGrid(prev => {
                 const newGrid = [...prev];
@@ -662,19 +669,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             });
             setDoomGridHighlight(new Set(highlightIndices));
             setTimeout(() => setDoomGridHighlight(null), 2000);
-            showToast(`${t("装弹")}：${markedPositions.length}${t("个危险加入厄运网格")}`, "warning");
+            showToast(`${t("自动装弹")}：${markedPositions.length}${t("个危险加入厄运网格")}`, "warning");
         }, 800);
-
-        return markedPositions.length;
-    };
-
-    // Doom trigger (开枪): chance per refresh event
-    const shouldTriggerDoom = (nextDrawCount) => {
-        if (nextDrawCount <= doomConfig.initialProtectionDraws) return false;
-        const sinceTrigger = nextDrawCount - lastDoomTriggerDrawRef.current;
-        if (sinceTrigger <= doomConfig.triggerCooldownDraws) return false;
-        const chance = MATRIX_CONFIG.doom?.triggerChance || 0.10;
-        return Math.random() < chance;
     };
 
     const triggerDoomResolution = () => {
@@ -840,36 +836,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                         for (let r = 0; r < info.count; r++) newCellPositions.push({ row: r, col: c });
                     }
                     isInitialMatrixRef.current = false;
-                    processDoomLoading(newCellPositions);
-                    // Doom trigger check — show mark then resolve
-                    const nextDraw = drawCount + 1;
-                    if (shouldTriggerDoom(nextDraw)) {
-                        lastDoomTriggerDrawRef.current = nextDraw;
-                        // Pick a random new cell to show trigger mark
-                        const triggerPos = newCellPositions.length > 0
-                            ? newCellPositions[Math.floor(Math.random() * newCellPositions.length)]
-                            : { row: 0, col: 0 };
-                        setMatrix(prev => {
-                            const m = prev.map(r => [...r]);
-                            if (m[triggerPos.row]?.[triggerPos.col]) {
-                                m[triggerPos.row][triggerPos.col] = { ...m[triggerPos.row][triggerPos.col], doomTriggerMark: true };
-                            }
-                            return m;
-                        });
-                        setTimeout(() => {
-                            setMatrix(prev => {
-                                const m = prev.map(r => [...r]);
-                                if (m[triggerPos.row]?.[triggerPos.col]) {
-                                    const { doomTriggerMark, ...rest } = m[triggerPos.row][triggerPos.col];
-                                    m[triggerPos.row][triggerPos.col] = rest;
-                                }
-                                return m;
-                            });
-                            triggerDoomResolution();
-                        }, 800);
-                    } else {
-                        setTimeout(() => setIsDrawing(false), 350);
-                    }
+                    // Auto-load doom: each new cell has 5% chance to add danger to grid
+                    processAutoLoadDoom(newCellPositions);
+                    setTimeout(() => setIsDrawing(false), 350);
                 }, 350);
                 setDrawCount(prev => prev + 1);
                 return;
@@ -923,11 +892,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
                 }
 
-                // Doom loading: check new cells at row 0
                 isInitialMatrixRef.current = false;
                 const newCellPositions = [{ row: 0, col: picked.col }];
                 if (extraPicked) newCellPositions.push({ row: 0, col: extraPicked.col });
-                processDoomLoading(newCellPositions);
+                const nextDraw = drawCount + 1;
+
+                // Check if drawn cell had a doom mark → will trigger resolution after item processing
+                const hasDoomMark = !!selectedCell.doomMark;
+                const willResolveDoom = hasDoomMark && shouldDoomMarkTrigger(nextDraw);
 
                 // Update skill state
                 const newSkillState = { ...capturedSkillState };
@@ -957,34 +929,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(capturedInventory) : [...capturedInventory];
                 handleIncomingItems(itemsToProcess, decayedInventory);
 
-                // Doom trigger check (开枪): show mark on cell, then resolve
-                const nextDraw = drawCount + 1;
-                if (shouldTriggerDoom(nextDraw)) {
+                // Doom mark trigger: drawn cell had doom mark → trigger resolution
+                if (willResolveDoom) {
                     lastDoomTriggerDrawRef.current = nextDraw;
                     setLastDraw(null);
-                    // Show trigger mark on the new top cell
-                    setMatrix(prev => {
-                        const m = prev.map(r => [...r]);
-                        if (m[0]?.[picked.col]) {
-                            m[0][picked.col] = { ...m[0][picked.col], doomTriggerMark: true };
-                        }
-                        return m;
-                    });
+                    showToast(`${t("厄运标记")}！${t("触发厄运结算")}`, "error");
                     setDrawCount(prev => prev + 1);
-                    // Display 1.5s, then clear mark and start resolution
-                    setTimeout(() => {
-                        setMatrix(prev => {
-                            const m = prev.map(r => [...r]);
-                            if (m[0]?.[picked.col]) {
-                                const { doomTriggerMark, ...rest } = m[0][picked.col];
-                                m[0][picked.col] = rest;
-                            }
-                            return m;
-                        });
-                        triggerDoomResolution();
-                    }, 800);
+                    setTimeout(() => triggerDoomResolution(), 400);
                     return;
                 }
+
+                // Auto-load doom: each new cell has 5% chance to add danger to grid
+                processAutoLoadDoom(newCellPositions);
             }
 
             setDrawCount(prev => prev + 1);

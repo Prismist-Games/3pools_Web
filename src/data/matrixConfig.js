@@ -16,9 +16,9 @@ export const MATRIX_CONFIG = {
     name: '炸弹',
   },
 
-  // Doom events (invisible, during gravity refill)
+  // Doom events (during gravity refill)
   doom: {
-    loadChance: 0.05,    // 5% per new cell: add danger to doom grid (装弹)
-    triggerChance: 0.10,  // 10% per refresh event: trigger doom resolution (开枪)
+    markChance: 0.15,      // 15% per new cell: doom mark → triggers doom resolution (开枪)
+    autoLoadChance: 0.10,  // 10% per new cell: auto-add danger to doom grid (装弹)
   },
 };
