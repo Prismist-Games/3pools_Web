@@ -494,16 +494,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             for (let i = 0; i < 3; i++) {
                 const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
                 // 稀碎一次出3个，星辉祝福只提升第一个
-                itemsToProcess.push(i === 0 ? withEnhancement(createItem(pool, tpl, 'fragmented')) : createItem(pool, tpl, 'fragmented'));
+                itemsToProcess.push(i === 0 ? withEnhancement(createItemOrEffect(pool, tpl, 'fragmented')) : createItemOrEffect(pool, tpl, 'fragmented'));
             }
         } else {
             const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-            itemsToProcess.push(withEnhancement(createItem(pool, tpl, pool.affixKey)));
+            itemsToProcess.push(withEnhancement(createItemOrEffect(pool, tpl, pool.affixKey)));
         }
 
         if (skillState.nextDrawExtraItem) {
             const tpl = pool.items[Math.floor(Math.random() * pool.items.length)];
-            itemsToProcess.push(withEnhancement(createItem(pool, tpl, pool.affixKey)));
+            itemsToProcess.push(withEnhancement(createItemOrEffect(pool, tpl, pool.affixKey)));
         }
 
         const newSkillState = { ...skillState };
@@ -654,6 +654,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         sterile: true,
     });
 
+    // Create an item from a pool template — handles regular items, effect cells, and fate dice
+    const createItemOrEffect = (pool, tpl, affixKey) => {
+        if (tpl.isEffect) return createEffectItem(tpl.effect);
+        if (tpl.isFateDice) return createFateDice();
+        return createItem(pool, tpl, affixKey);
+    };
+
     // Right-click to activate/deactivate an effect item in inventory
     const handleEffectItemUse = (index) => {
         const item = inventory[index];
@@ -779,6 +786,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         const coveredKeys = new Set(coverage.map(c => `${c.row},${c.col}`));
         const poolItems = itemCells.map(c => c.item);
+        // Items + effects for draw pools that should include effect cells
+        const poolItemsWithEffects = [...itemCells, ...effectCells, ...fateDiceCells].map(c => c.item);
 
         // Gold check upfront — before any animation or state changes
         if (gold < cost) {
@@ -790,7 +799,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (affixKey === 'trade_in' || affixKey === 'precise') {
             const virtualPool = {
                 name: 'spatial',
-                items: poolItems,
+                items: poolItemsWithEffects,
                 affixKey,
                 affix: affixConfig,
                 cost,
@@ -817,11 +826,22 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const drawnIsEffect = !!drawnCell.item.isEffect;
 
         const makePool = () => {
+            // Fragmented always draws 3 from the entire pool, regardless of drawn cell type
+            if (affixKey === 'fragmented') {
+                return {
+                    name: 'spatial',
+                    items: poolItemsWithEffects,
+                    affixKey,
+                    affix: affixConfig,
+                    cost,
+                    originalId: 'spatial',
+                    id: 'spatial',
+                };
+            }
             if (drawnIsFateDice || drawnIsEffect) return null;
-            const items = affixKey === 'fragmented' ? poolItems : [drawnCell.item];
             return {
                 name: 'spatial',
-                items,
+                items: [drawnCell.item],
                 affixKey,
                 affix: affixConfig,
                 cost,
@@ -844,16 +864,31 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setTimeout(() => {
                 // Phase 3: execute draw + other cells fade out (400ms)
                 // Gold already checked upfront in handleMapPlace
-                if (drawnIsFateDice) {
+                // Fragmented always goes through handleDraw for 3 items
+                if (affixKey === 'fragmented') {
+                    handleDraw(makePool());
+                } else if (drawnIsFateDice) {
                     setGold(prev => prev - cost);
+                    // Consume active effect (no quality applies to dice, but effect is spent)
+                    let baseInv = undefined;
+                    if (activeEffect) {
+                        baseInv = inventory.filter(i => i?.uid !== activeEffect.itemUid);
+                        setActiveEffect(null);
+                    }
                     const dice = createFateDice();
-                    handleIncomingItems([dice]);
+                    handleIncomingItems([dice], baseInv);
                     showToast(`${t("获得命运骰子")}: ${dice.icon} (${dice.diceValue}${t("点")})`, 'info');
                 } else if (drawnIsEffect) {
                     setGold(prev => prev - cost);
                     setDrawCount(prev => prev + 1);
+                    // Consume active effect (no quality applies, but effect is spent)
+                    let baseInv = undefined;
+                    if (activeEffect) {
+                        baseInv = inventory.filter(i => i?.uid !== activeEffect.itemUid);
+                        setActiveEffect(null);
+                    }
                     const effectItem = createEffectItem(drawnCell.item.effect);
-                    handleIncomingItems([effectItem]);
+                    handleIncomingItems([effectItem], baseInv);
                     showToast(`${t("获得效果")}：${t(drawnCell.item.effect.name)}`, 'info');
                 } else {
                     handleDraw(makePool());
@@ -906,7 +941,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 const actualItemIdx = itemIndices[randArrIdx];
                 itemIndices.splice(randArrIdx, 1);
                 const tpl = pool.items[actualItemIdx];
-                candidates.push(createItem(pool, tpl, pool.affixKey));
+                candidates.push(createItemOrEffect(pool, tpl, pool.affixKey));
             }
             setSelectionMode({ type: 'precise', pool, items: candidates });
             return;
@@ -1081,39 +1116,52 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             // No intermediate setInventory needed, handleIncomingItems will set it.
 
-            let candidates = pool.items.filter(i => i.name !== consumedItem.name);
-            if (candidates.length === 0) candidates = pool.items;
-
-            const tpl = candidates[Math.floor(Math.random() * candidates.length)];
-            const rarityConfig = config.rarity;
-            const oldRarityIndex = rarityConfig.findIndex(r => r.id === consumedItem.rarity.id);
-
-            let newRarity;
-            if (oldRarityIndex === -1) {
-                newRarity = rarityConfig[0];
-            } else {
-                const isUpgrade = Math.random() < 0.05;
-                let newRarityIndex = oldRarityIndex;
-                if (isUpgrade) {
-                    newRarityIndex = Math.min(rarityConfig.length - 1, oldRarityIndex + 1);
-                }
-                newRarity = rarityConfig[newRarityIndex];
+            let candidates = pool.items.filter(i => !i.isEffect && !i.isFateDice && i.name !== consumedItem.name);
+            // Include effect cells and fate dice as possible results
+            const specialCandidates = pool.items.filter(i => i.isEffect || i.isFateDice);
+            const allCandidates = [...candidates, ...specialCandidates];
+            if (allCandidates.length === 0) {
+                // Fallback: pick from all pool items
+                candidates = pool.items;
             }
 
-            const newItem = {
-                ...tpl,
-                uid: Math.random().toString(36).substr(2, 9),
-                poolName: pool.name,
-                rarity: newRarity,
-                sterile: consumedItem.sterile,
-                decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
-            };
+            const tpl = (allCandidates.length > 0 ? allCandidates : candidates)[Math.floor(Math.random() * (allCandidates.length > 0 ? allCandidates : candidates).length)];
 
-            let finalItem = newItem;
-            if (skillState.nextDrawEnhanced) {
-                const nextRarity = getNextRarity(newItem.rarity.id, config);
-                if (nextRarity) finalItem = { ...newItem, rarity: nextRarity };
-                setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
+            let finalItem;
+            if (tpl.isEffect) {
+                finalItem = createEffectItem(tpl.effect);
+            } else if (tpl.isFateDice) {
+                finalItem = createFateDice();
+            } else {
+                const rarityConfig = config.rarity;
+                const oldRarityIndex = rarityConfig.findIndex(r => r.id === consumedItem.rarity.id);
+
+                let newRarity;
+                if (oldRarityIndex === -1) {
+                    newRarity = rarityConfig[0];
+                } else {
+                    const isUpgrade = Math.random() < 0.05;
+                    let newRarityIndex = oldRarityIndex;
+                    if (isUpgrade) {
+                        newRarityIndex = Math.min(rarityConfig.length - 1, oldRarityIndex + 1);
+                    }
+                    newRarity = rarityConfig[newRarityIndex];
+                }
+
+                finalItem = {
+                    ...tpl,
+                    uid: Math.random().toString(36).substr(2, 9),
+                    poolName: pool.name,
+                    rarity: newRarity,
+                    sterile: consumedItem.sterile,
+                    decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
+                };
+
+                if (skillState.nextDrawEnhanced) {
+                    const nextRarity = getNextRarity(finalItem.rarity.id, config);
+                    if (nextRarity) finalItem = { ...finalItem, rarity: nextRarity };
+                    setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
+                }
             }
 
             setDrawCount(prev => prev + 1);
