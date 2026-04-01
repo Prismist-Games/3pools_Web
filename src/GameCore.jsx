@@ -31,7 +31,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     const {
         gold, score, currentStageConfig, maxInventorySize,
         drawCount,
-        itemMap, drawAnimInfo,
+        itemMap, avatarPos, drawAnimInfo,
         milestone, milestoneNumber, cellMatches, fillableCellIds, relevantPoolIds,
         inventory,
         pendingItem, pendingQueue, selectedSlot,
@@ -314,6 +314,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <div className="flex items-start gap-2">
                                     <ItemMap
                                         itemMap={itemMap}
+                                        avatarPos={avatarPos}
                                         drawAnimInfo={drawAnimInfo}
                                         milestone={milestone}
                                         rarityConfig={config.rarity}

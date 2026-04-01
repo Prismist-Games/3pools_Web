@@ -10,8 +10,8 @@ import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
-import { generateItemMap, getFrameCoverage, refreshCoveredCells, randomCell, computeClusterSizes } from '../utils/spatialPoolHelpers.js';
-import { DEFAULT_DRAW, EFFECT_ITEM_ICONS } from '../data/spatialConstants.js';
+import { generateItemMap, getFrameCoverage, refreshCoveredCells, refreshWithClusters, getClusterCells, randomCell, computeClusterSizes, DEFAULT_AVATAR_POS } from '../utils/spatialPoolHelpers.js';
+import { DEFAULT_DRAW, EFFECT_ITEM_ICONS, FIXED_SHAPE } from '../data/spatialConstants.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
     const { t } = useLanguage();
@@ -26,6 +26,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [drawCount, setDrawCount] = useState(0);
 
     const [itemMap, setItemMap] = useState(() => generateItemMap(null));
+    const [avatarPos, setAvatarPos] = useState(DEFAULT_AVATAR_POS);
 
     // Milestone grid system
     const [milestone, setMilestone] = useState(null);
@@ -115,6 +116,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     useEffect(() => {
         if (neededNames) {
             setItemMap(generateItemMap(neededNames));
+            setAvatarPos(DEFAULT_AVATAR_POS);
         }
     }, [milestoneNumber, !!milestone]);
 
@@ -588,8 +590,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     // Create an item from a pool template — handles regular items, effect cells, and fate dice
     const createItemOrEffect = (pool, tpl, affixKey, clusterSize = 1) => {
-        if (tpl.isEffect) return createEffectItem(tpl.effect);
-        return createItem(pool, tpl, affixKey, clusterSize);
+        const item = tpl.isEffect ? createEffectItem(tpl.effect) : createItem(pool, tpl, affixKey, clusterSize);
+        // Preserve cell position tags for avatar movement tracking
+        if (tpl._cellRow !== undefined) {
+            item._cellRow = tpl._cellRow;
+            item._cellCol = tpl._cellCol;
+        }
+        return item;
     };
 
     // Right-click to activate/deactivate an effect item in inventory
@@ -675,12 +682,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 };
                 handleNormalDraw(virtualPool, cleanedInventory);
             }
-            // Refresh only the single cell
-            setItemMap(prev => {
-                const newMap = prev.map(row => [...row]);
-                newMap[anchorRow][anchorCol] = randomCell(neededNames);
-                return newMap;
-            });
+            // Move avatar to the targeted cell
+            setAvatarPos({ row: anchorRow, col: anchorCol });
+            // Refresh the drawn cell's entire cluster
+            setItemMap(prev => refreshWithClusters(prev, [[anchorRow, anchorCol]], [], neededNames));
             return;
         }
 
@@ -698,8 +703,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         const coveredKeys = new Set(coverage.map(c => `${c.row},${c.col}`));
         const poolItems = itemCells.map(c => c.item);
-        // Items + effects for draw pools that should include effect cells
-        const poolItemsWithEffects = [...itemCells, ...effectCells].map(c => c.item);
+        // Items + effects for draw pools — tagged with cell positions for avatar movement
+        const poolItemsWithEffects = [...itemCells, ...effectCells].map(c => ({
+            ...c.item,
+            _cellRow: c.row,
+            _cellCol: c.col,
+        }));
 
         // Gold check upfront — before any animation or state changes
         if (gold < cost) {
@@ -720,10 +729,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             };
             handleDraw(virtualPool);
             consumeActiveEffect();
+            // Refresh all clusters overlapping the 2×2 (drawn cell unknown until player selects)
+            const coveredSeedCells = coverage.map(c => [c.row, c.col]);
             setTimeout(() => {
-                setItemMap(prev => {
-                    return refreshCoveredCells(prev, anchorRow, anchorCol, neededNames);
-                });
+                setItemMap(prev => refreshWithClusters(prev, coveredSeedCells, [], neededNames));
             }, 600);
             return;
         }
@@ -739,6 +748,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const drawnCell = drawableCells[drawnIndex];
         const drawnIsEffect = !!drawnCell.item.isEffect;
         const drawnClusterSize = clusterSizes[drawnCell.row][drawnCell.col];
+
+        // Expand animation keys to include drawn cell's full cluster
+        const clusterCells = getClusterCells(itemMap, drawnCell.row, drawnCell.col);
+        for (const [r, c] of clusterCells) {
+            coveredKeys.add(`${r},${c}`);
+        }
 
         const makePool = () => {
             // Fragmented always draws 3 from the entire pool, regardless of drawn cell type
@@ -799,12 +814,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 } else {
                     handleDraw(makePool());
                 }
+                // Move avatar to the drawn cell's position
+                setAvatarPos({ row: drawnCell.row, col: drawnCell.col });
                 setDrawAnimInfo(prev => prev ? { ...prev, phase: 'exit' } : null);
 
                 setTimeout(() => {
-                    // Phase 4: refresh cells, new items enter (350ms)
+                    // Phase 4: refresh drawn cell's cluster + remaining 2×2 coverage
                     setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
-                    setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol, neededNames));
+                    const extraCells = FIXED_SHAPE.cells.map(([dr, dc]) => [anchorRow + dr, anchorCol + dc]);
+                    setItemMap(prev => refreshWithClusters(prev, [[drawnCell.row, drawnCell.col]], extraCells, neededNames));
 
                     setTimeout(() => {
                         setDrawAnimInfo(null);
@@ -890,6 +908,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const enhancedItem = applyEnhancement(selectedItem);
             handleIncomingItems(tryDropToolItem([enhancedItem]), decayedInventory);
             refreshPools(true);
+            // Move avatar to the selected item's cell position (if from spatial draw)
+            if (selectedItem._cellRow !== undefined) {
+                setAvatarPos({ row: selectedItem._cellRow, col: selectedItem._cellCol });
+            }
             setSelectionMode(null);
             if (skillState.nextDrawEnhanced) setSkillState(prev => ({ ...prev, nextDrawEnhanced: false }));
         }
@@ -1045,6 +1067,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setDrawCount(prev => prev + 1);
             handleIncomingItems(tryDropToolItem([finalItem]), decayedInv);
             refreshPools(true);
+            // Move avatar to the drawn item's cell position (if from spatial draw)
+            if (tpl._cellRow !== undefined) {
+                setAvatarPos({ row: tpl._cellRow, col: tpl._cellCol });
+            }
             setSelectionMode(null);
             return;
         }
@@ -1363,6 +1389,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             maxInventorySize,
             drawCount,
             itemMap,
+            avatarPos,
             drawAnimInfo,
             milestone,
             milestoneNumber,

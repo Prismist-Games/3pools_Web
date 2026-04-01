@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom';
 import { Coins } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { isValidPlacement, computeClusterSizes } from '../../utils/spatialPoolHelpers';
+import { isValidPlacement, computeClusterSizes, getDirectionAnchor, getValidAvatarAnchors } from '../../utils/spatialPoolHelpers';
 import { FIXED_SHAPE, MAP_ROWS, MAP_COLS, EFFECT_ITEM_ICONS } from '../../data/spatialConstants';
 
 const RARITY_BG = {
@@ -62,7 +62,7 @@ function FlyingItem({ icon, startRect }) {
  *   'exit'      — draw executes, other 3 cells fade out
  *   'enter'     — 4 new items scale in
  */
-function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled, activeEffect }) {
+function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled, activeEffect, avatarPos }) {
   const { t } = useLanguage();
   const [hoverAnchor, setHoverAnchor] = useState(null);
   const [flyingItem, setFlyingItem] = useState(null);
@@ -112,7 +112,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
     if (isTargetedMode) {
       return new Set([`${row},${col}`]);
     }
-    if (!isValidPlacement(row, col)) return new Set();
+    // hoverAnchor is already validated by getDirectionAnchor
     const cells = new Set();
     for (const [dr, dc] of FIXED_SHAPE.cells) {
       cells.add(`${row + dr},${col + dc}`);
@@ -122,28 +122,36 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
 
   const isValidHover = useMemo(() => {
     if (!hoverAnchor || isAnimating) return false;
-    if (isTargetedMode) return true;
-    return isValidPlacement(hoverAnchor.row, hoverAnchor.col);
-  }, [hoverAnchor, isAnimating, isTargetedMode]);
+    return true; // hoverAnchor is only set when valid
+  }, [hoverAnchor, isAnimating]);
 
   const handleCellHover = useCallback((row, col) => {
     if (disabled || isAnimating) return;
-    setHoverAnchor({ row, col });
+
     if (isTargetedMode) {
+      setHoverAnchor({ row, col });
       const cell = itemMap[row]?.[col];
       if (onHoverCoverage) onHoverCoverage(cell && !cell.isEffect ? [cell.name] : []);
       return;
     }
-    if (isValidPlacement(row, col) && onHoverCoverage) {
+
+    if (!avatarPos) { setHoverAnchor(null); return; }
+
+    const anchor = getDirectionAnchor(row, col, avatarPos.row, avatarPos.col);
+    setHoverAnchor(anchor);
+
+    if (anchor && onHoverCoverage) {
       const names = FIXED_SHAPE.cells
         .map(([dr, dc]) => {
-          const cell = itemMap[row + dr]?.[col + dc];
+          const cell = itemMap[anchor.row + dr]?.[anchor.col + dc];
           return cell && !cell.isEffect ? cell.name : null;
         })
         .filter(Boolean);
       onHoverCoverage(names);
+    } else if (onHoverCoverage) {
+      onHoverCoverage([]);
     }
-  }, [disabled, isAnimating, itemMap, onHoverCoverage, isTargetedMode]);
+  }, [disabled, isAnimating, itemMap, onHoverCoverage, isTargetedMode, avatarPos]);
 
   const handleMouseLeave = useCallback(() => {
     if (!isAnimating) setHoverAnchor(null);
@@ -152,10 +160,20 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
 
   const handleCellClick = useCallback((row, col) => {
     if (disabled || isAnimating) return;
-    if (!isTargetedMode && !isValidPlacement(row, col)) return;
-    onPlace(row, col);
+
+    if (isTargetedMode) {
+      onPlace(row, col);
+      setHoverAnchor(null);
+      return;
+    }
+
+    if (!avatarPos) return;
+    const anchor = getDirectionAnchor(row, col, avatarPos.row, avatarPos.col);
+    if (!anchor) return;
+
+    onPlace(anchor.row, anchor.col);
     setHoverAnchor(null);
-  }, [disabled, isAnimating, onPlace, isTargetedMode]);
+  }, [disabled, isAnimating, onPlace, isTargetedMode, avatarPos]);
 
   // Compute cluster adjacency: which neighbors share the same item name
   const clusterAdj = useMemo(() => {
@@ -191,6 +209,11 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
     if (!itemMap) return null;
     return computeClusterSizes(itemMap);
   }, [itemMap]);
+
+  const validDirs = useMemo(() => {
+    if (!avatarPos) return [];
+    return getValidAvatarAnchors(avatarPos.row, avatarPos.col);
+  }, [avatarPos]);
 
   if (!itemMap) return null;
 
@@ -330,6 +353,49 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
             </div>
           );
         })}
+
+        {/* Avatar overlay — slides smoothly between cells */}
+        {avatarPos && (
+          <div
+            className="absolute pointer-events-none z-20"
+            style={{
+              left: `${8 + avatarPos.col * 64}px`,
+              top: `${8 + avatarPos.row * 64}px`,
+              width: '64px',
+              height: '64px',
+              transition: 'left 350ms cubic-bezier(0.4, 0, 0.2, 1), top 350ms cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            {/* Glowing frame */}
+            <div
+              className="absolute inset-0 rounded-lg border-[3px] border-cyan-400"
+              style={{ animation: 'avatarGlow 2s ease-in-out infinite' }}
+            />
+            {/* Corner dot — position marker */}
+            <div className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-cyan-400 border-2 border-white shadow-sm" />
+
+            {/* Direction arrows — visible when interactable */}
+            {!isAnimating && !disabled && validDirs.map(({ direction }) => {
+              const pos = {
+                topLeft:     { top: '-18px', left: '-18px',  arrow: '↖' },
+                topRight:    { top: '-18px', right: '-18px', arrow: '↗' },
+                bottomLeft:  { bottom: '-18px', left: '-18px',  arrow: '↙' },
+                bottomRight: { bottom: '-18px', right: '-18px', arrow: '↘' },
+              }[direction];
+              if (!pos) return null;
+              const { arrow, ...style } = pos;
+              return (
+                <div
+                  key={direction}
+                  className="absolute w-5 h-5 flex items-center justify-center rounded-full bg-cyan-500/20 text-cyan-600 text-xs font-bold leading-none"
+                  style={style}
+                >
+                  {arrow}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
       {isValidHover && hoverAnchor && (
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 text-xs font-bold text-amber-600 bg-white border border-amber-300 rounded px-1.5 py-0.5 shadow-sm pointer-events-none z-10">

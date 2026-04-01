@@ -26,8 +26,8 @@ export const QUALITY_EFFECTS = INITIAL_AFFIXES_CONFIG;
 // --- Map dimensions ---
 // 4×4 grid: 16 cells with random items from needed pool.
 // Only the 4 cells covered by the 2×2 placement refresh each draw.
-export const MAP_ROWS = 3;
-export const MAP_COLS = 4;
+export const MAP_ROWS = 8;
+export const MAP_COLS = 8;
 
 /** Default draw config when no effect cell is in the 2×2 frame */
 export const DEFAULT_DRAW = { id: null, cost: 1 };
