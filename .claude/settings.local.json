@@ -35,5 +35,8 @@
       "Bash(npx vite:*)",
       "Bash(git push:*)"
     ]
+  },
+  "remote": {
+    "defaultEnvironmentId": "env_01WHW4TnQdGqdjkrsnu8CgUq"
   }
 }

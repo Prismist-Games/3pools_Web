@@ -67,6 +67,11 @@ const GridCellBase = ({ cell, isFillable, isHighlighted, onClick }) => {
         {RARITY_NAMES[cell.requiredRarity]}+
       </span>
 
+      {/* Top-right: evacuation marker */}
+      {cell.isEvacuation && (
+        <span className="absolute top-0.5 right-0.5 text-sm">🚀</span>
+      )}
+
       {/* Filled checkmark overlay */}
       {isFilled && (
         <div className="absolute inset-0 flex items-center justify-center">

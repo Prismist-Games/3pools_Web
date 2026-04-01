@@ -451,7 +451,26 @@ export function generateMilestone(allItems, rarities, difficulty = 1) {
   // Step 3: Assign items and quality requirements to cells
   const cells = assignItemsToCells(shapeCells, tasks, allItems, rarities);
 
-  // Step 3.5: Ensure each task has at least one cell with a reward (prefer non-intersection cells)
+  // Step 3.5: Assign evacuation cell — must be at intersection (≥2 tasks), rare+ quality
+  const intersectionCells = [];
+  for (let i = 0; i < cells.length; i++) {
+    const taskCount = tasks.filter(t => t.cellIndices.includes(i)).length;
+    if (taskCount >= 2) intersectionCells.push(i);
+  }
+  // Shuffle and pick first valid intersection cell
+  for (let i = intersectionCells.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [intersectionCells[i], intersectionCells[j]] = [intersectionCells[j], intersectionCells[i]];
+  }
+  const evacCellIdx = intersectionCells[0] ?? 0; // fallback to cell 0 if no intersection
+  const rareOrHigher = ['rare', 'epic', 'legendary', 'mythic'];
+  const evacCell = cells[evacCellIdx];
+  if (!rareOrHigher.includes(evacCell.requiredRarity)) {
+    cells[evacCellIdx] = { ...evacCell, requiredRarity: 'rare' };
+  }
+  cells[evacCellIdx] = { ...cells[evacCellIdx], isEvacuation: true, scoreReward: 0 };
+
+  // Step 3.6: Ensure each task has at least one cell with a reward (prefer non-intersection cells)
   const intersectionIndices = new Set();
   for (const task of tasks) {
     for (const idx of task.cellIndices) {
