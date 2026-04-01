@@ -2,7 +2,7 @@
 
 本文档是项目代码的完整技术参考，涵盖架构、数据流、每个文件的职责与实现细节、状态管理、UI 渲染逻辑和外部集成。阅读本文档后，无需再阅读源代码即可对项目做出正确修改。
 
-> **最后更新**: 2026-04-01 · 基于 `feature/cluster-based-effect` 分支
+> **最后更新**: 2026-04-01 · 基于 `feature/2x2-cluster-avatar` 分支
 
 ---
 
@@ -71,11 +71,11 @@ npm run lint      # ESLint 检查
 │   ├── main.jsx                   ← ReactDOM 渲染入口
 │   ├── App.jsx                    ← 配置管理 + 设置 UI + 调试工具 (~1127行)
 │   ├── GameCore.jsx               ← 游戏布局 + 组件编排 (~729行)
-│   ├── index.css                  ← Tailwind 指令 + 自定义滚动条隐藏
+│   ├── index.css                  ← Tailwind 指令 + 自定义动画 (scaleIn, avatarGlow 等)
 │   │
 │   ├── data/
 │   │   ├── constants.js           ← 核心游戏配置数据 (~566行)
-│   │   ├── spatialConstants.js    ← 空间地图系统常量 (~44行)
+│   │   ├── spatialConstants.js    ← 空间地图系统常量 + setMapSize() (~50行)
 │   │   └── gridConstants.js       ← 里程碑网格系统常量 (~47行)
 │   │
 │   ├── hooks/
@@ -83,7 +83,7 @@ npm run lint      # ESLint 检查
 │   │
 │   ├── utils/
 │   │   ├── helpers.js             ← 纯函数工具 (~355行)
-│   │   ├── spatialPoolHelpers.js  ← 空间地图纯函数 (~139行)
+│   │   ├── spatialPoolHelpers.js  ← 空间地图纯函数 + 簇/角色辅助 (~250行)
 │   │   ├── gridGenerator.js       ← 里程碑生成算法 (~518行)
 │   │   └── translations.js        ← 英文翻译映射
 │   │
@@ -137,7 +137,7 @@ INITIAL_GAME_CONFIG (constants.js)
         ▼
    GameCore.jsx ─── 解构 state/actions/helpers，传给子组件
         │
-        ├── ItemMap ← 空间物品地图 (3×4网格 + 2×2框选抽卡)
+        ├── ItemMap ← 空间物品地图 (可配置网格 + 角色位置约束 + 2×2框选抽卡)
         ├── MilestoneGrid ← 里程碑网格 (需求侧)
         ├── InventorySlot ← 背包格子交互
         ├── SkillSelectionModal ← 技能选择（休眠中）
@@ -279,8 +279,9 @@ INITIAL_GAME_CONFIG (constants.js)
 | `ALL_ITEMS` | 从 `INITIAL_POOLS_DATA` 扁平化的全部 20 个物品列表，每项含 `{ name, icon, poolId, poolName }` |
 | `FIXED_SHAPE` | 固定 2×2 框选形状 `{ cells: [[0,0],[0,1],[1,0],[1,1]], coverageCount: 4 }` |
 | `QUALITY_EFFECTS` | 等于 `INITIAL_AFFIXES_CONFIG`（全部词缀可在空间系统中作为效果出现） |
-| `MAP_ROWS` | 3（地图行数） |
-| `MAP_COLS` | 4（地图列数） |
+| `MAP_ROWS` | 8（地图行数，`let` — 可通过 `setMapSize()` 运行时修改） |
+| `MAP_COLS` | 8（地图列数，`let` — 可通过 `setMapSize()` 运行时修改） |
+| `setMapSize(rows, cols)` | 运行时修改地图尺寸，调用后须重置游戏（App.jsx 中 `gameId++`） |
 | `DEFAULT_DRAW` | `{ id: null, cost: 1 }`（无效果时的默认抽取配置） |
 | `EFFECT_ITEM_ICONS` | 效果物品的图标映射：`trade_in→🔄, hardened→🛡️, purified→💎, fragmented→💥, precise→🎯, targeted→🎯` |
 
@@ -363,6 +364,14 @@ Fisher-Yates 洗牌后取前 `count` 个。
 - 效果格（`isEffect: true`）不参与簇计算
 - 簇大小直接影响抽取品质下限
 
+#### `getClusterCells(itemMap, row, col) → [row, col][]`
+
+获取与指定格子同属一个簇的所有格子坐标（8方向 BFS）。效果格返回仅包含自身的数组。用于簇刷新和动画范围计算。
+
+#### `refreshWithClusters(itemMap, clusterSeeds, extraCells, neededNames) → ItemData[][]`
+
+**簇刷新**：将每个 seed 格子展开为其完整簇，合并 extraCells，全部替换为新随机物品。用于抽取后刷新（被抽中物品的整个簇 + 2×2 覆盖区）。
+
 #### `getFrameCoverage(anchorRow, anchorCol, itemMap) → CoveredCell[] | null`
 
 获取 2×2 框选覆盖的格子信息。越界返回 null。
@@ -370,6 +379,18 @@ Fisher-Yates 洗牌后取前 `count` 个。
 #### `isValidPlacement(anchorRow, anchorCol) → boolean`
 
 检查 2×2 放置是否完全在网格范围内。有效锚点范围：row ∈ [0, MAP_ROWS-2]，col ∈ [0, MAP_COLS-2]。
+
+#### `getDirectionAnchor(cellRow, cellCol, avatarRow, avatarCol) → {row, col} | null`
+
+根据悬停格子与角色位置的相对方向计算 2×2 锚点。角色格本身返回 null。确保锚点有效且悬停格在 2×2 范围内。
+
+#### `getValidAvatarAnchors(avatarRow, avatarCol) → {row, col, direction}[]`
+
+返回角色当前位置可用的所有 2×2 方向（最多 4 个对角方向：topLeft, topRight, bottomLeft, bottomRight）。
+
+#### `getDefaultAvatarPos() → {row, col}`
+
+返回地图中心位置，动态计算（适应可变 MAP_ROWS/MAP_COLS）。
 
 ### 5.3 `gridGenerator.js`
 
@@ -446,8 +467,9 @@ Fisher-Yates 洗牌后取前 `count` 个。
 #### 空间地图状态
 | 变量 | 类型 | 说明 |
 |------|------|------|
-| `itemMap` | ItemData[][] | 3×4 物品地图二维数组 |
-| `drawAnimInfo` | object\|null | 抽取动画状态 `{ drawnKey, coveredKeys, phase }` |
+| `itemMap` | ItemData[][] | MAP_ROWS×MAP_COLS 物品地图二维数组 |
+| `avatarPos` | {row, col} | 角色当前在地图上的位置，初始为地图中心 |
+| `drawAnimInfo` | object\|null | 抽取动画状态 `{ drawnKey, coveredKeys, phase }`。`coveredKeys` 包含 2×2 覆盖区 + 被抽中物品的完整簇 |
 
 #### 里程碑状态
 | 变量 | 类型 | 说明 |
@@ -510,7 +532,7 @@ skillState = {
 ### 6.3 Effects（副作用）
 
 1. **里程碑初始化**：`milestone` 为 null 且 `allNormalItems` 非空时，自动调用 `generateMilestone` 生成新里程碑。
-2. **地图重新生成**：`milestoneNumber` 变化或里程碑创建时，调用 `generateItemMap(neededNames)` 重建地图。
+2. **地图重新生成**：`milestoneNumber` 变化或里程碑创建时，调用 `generateItemMap(neededNames)` 重建地图，并重置 `avatarPos` 为地图中心。
 3. **待定队列处理**：`pendingItem` 为 null 且 `pendingQueue` 非空时，自动取出队首设为 `pendingItem`。检查超载（specialization）和背包空间。
 4. **技能同步**：`initialSkills` 变化时同步到 `skills` state。
 
@@ -544,21 +566,24 @@ CLUSTER_MIN_RARITY = { 1: null, 2: 'uncommon', 3: 'rare', 4: 'epic', 5: 'legenda
 
 1. **有的放矢模式**（`activeEffect.effectId === 'targeted'`）：
    - 1×1 单格抽取
-   - 扣费 → 移除效果物品 → 创建物品/效果 → 刷新该格
+   - 扣费 → 移除效果物品 → 创建物品/效果 → 角色移动到该格 → 刷新该格的整个簇
 
 2. **标准 2×2 模式**：
    - 获取 4 格覆盖信息，分离物品格和效果格
+   - 池物品带 `_cellRow`/`_cellCol` 标记（用于角色移动追踪）
    - 检查是否有 `activeEffect`（从背包激活的效果物品）
-   - **交互效果**（trade_in/precise）：立即执行对应流程，跳过动画
+   - **交互效果**（trade_in/precise）：立即执行对应流程，跳过动画，刷新覆盖区所有簇
    - **其他情况**：进入 4 阶段动画序列
 
 **4 阶段抽取动画**：
 ```
 Phase 1 (highlight, 300ms): 从可抽取格中随机选一格高亮
 Phase 2 (fly, 500ms): 选中格图标飞向背包区域（Portal 动画）
-Phase 3 (exit, 400ms): 执行实际抽取逻辑 + 4 格淡出
-Phase 4 (enter, 350ms): 4 格刷新新物品并缩放进入
+Phase 3 (exit, 400ms): 执行实际抽取逻辑 + 角色移动到抽中格 + 簇+2×2覆盖区淡出
+Phase 4 (enter, 350ms): 被抽中格的整个簇 + 2×2 覆盖区刷新新物品并缩放进入
 ```
+
+`coveredKeys` 在动画前就已展开（包含 2×2 + 被抽中物品的完整簇），确保簇内所有格子参与退出和进入动画。
 
 抽取逻辑（Phase 3 中执行）：
 - `fragmented` 效果：通过 `handleDraw` 处理（3 个物品）
@@ -669,7 +694,7 @@ Phase 4 (enter, 350ms): 4 格刷新新物品并缩放进入
     gold, score, drawCount,
     currentStageConfig, maxInventorySize,
     // 空间地图
-    itemMap, drawAnimInfo,
+    itemMap, avatarPos, drawAnimInfo,
     // 里程碑
     milestone, milestoneNumber, cellMatches, fillableCellIds, relevantPoolIds,
     // 背包
@@ -735,6 +760,7 @@ Phase 4 (enter, 350ms): 4 格刷新新物品并缩放进入
 | `defaultResetConfirmOpen` | boolean | 恢复默认确认对话框 |
 | `initialSkills` | string[] | 调试用预设技能 |
 | `initialStage` | number | 初始阶段（当前未使用） |
+| `mapRows`, `mapCols` | number | 地图尺寸编辑值（镜像 `spatialConstants`，应用时调用 `setMapSize` + `gameId++`） |
 | `selectedSpawnPoolId/ItemName/RarityId` | string | 调试物品生成选择器 |
 | `debugAddItemPulse` | object\|null | 脉冲信号触发 GameCore 添加物品 `{ itemName, rarityId, timestamp }` |
 
@@ -755,7 +781,7 @@ Phase 4 (enter, 350ms): 4 格刷新新物品并缩放进入
 
 ### 设置 UI 结构
 
-一个 85vh 可滚动模态框，包含配置区：调试物品生成、撤离订单配置、品质概率表、订单数量权重与奖励、杂项参数、词缀配置、工具物品配置、技能启用/禁用、调试技能选择、品质详情。
+一个 85vh 可滚动模态框，包含配置区：**地图尺寸**（行/列数 3–16，应用后自动重开）、调试物品生成、撤离订单配置、品质概率表、订单数量权重与奖励、杂项参数、词缀配置、工具物品配置、技能启用/禁用、调试技能选择、品质详情。
 
 ### 渲染结构
 
@@ -792,8 +818,8 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 │  TOP SECTION (flex-row, 水平居中)                     │
 │                                                     │
 │  ┌──────────────────┐  ┌─────────────────────────┐  │
-│  │ MilestoneGrid    │  │ ItemMap (3×4)            │  │
-│  │ (需求侧)         │  │ (供给侧)                 │  │
+│  │ MilestoneGrid    │  │ ItemMap (可配置网格)      │  │
+│  │ (需求侧)         │  │ (供给侧 + 角色位置)      │  │
 │  │ 里程碑网格        │  │ + 刷新按钮               │  │
 │  │ + 任务进度面板    │  │ + 效果激活指示器          │  │
 │  │                  │  │ + 精准二选一覆盖层        │  │
@@ -845,20 +871,24 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 
 空间物品地图组件 — 游戏的核心供给侧 UI。
 
-**Props**: `itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled, activeEffect`
+**Props**: `itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled, activeEffect, avatarPos`
 
 **核心特性**：
 
-**悬停交互**：
-- 标准模式：鼠标悬停显示 2×2 框选高亮（indigo 色 ring + scale-105）
-- 有的放矢模式：悬停单个格子高亮
+**角色位置（Avatar）**：
+- 单个绝对定位浮层渲染（非 per-cell），通过 CSS `transition: left/top 350ms` 实现平滑移动动画
+- 青色发光框 + `avatarGlow` 脉冲动画（2s 循环）+ 左上角标记圆点
+- 4 个对角方向箭头指示器（↖↗↙↘），仅在可交互时显示，由 `getValidAvatarAnchors` 计算
+
+**悬停交互**（角色约束）：
+- 标准模式：使用 `getDirectionAnchor()` 根据悬停格子与角色的相对位置计算 2×2 锚点，仅显示包含角色的有效方向
+- 有的放矢模式：悬停单个格子高亮（不受角色约束）
 - `onHoverCoverage` 回调传递覆盖区域的物品名称，用于里程碑高亮联动
 
 **簇可视化**（metaball 风格）：
 - 每个格子计算与 8 方向邻居的同名关系 (`clusterAdj`)
 - 同名相邻格子之间的边框移除，角的圆角根据邻接关系调整
 - 簇内格子共享品质色背景（由 `CLUSTER_RARITY_ID` 映射）
-- 簇内格子有呼吸动画 (`clusterPulse 3s ease-in-out infinite`)
 
 **品质指示器**：
 - 簇大小决定背景色：1=slate, 2=green(uncommon), 3=blue(rare), 4=purple(epic), 5+=orange(legendary)
