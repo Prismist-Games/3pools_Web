@@ -10,7 +10,7 @@ import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
-import { generateItemMap, getFrameCoverage, refreshCoveredCells, refreshWithClusters, getClusterCells, randomCell, computeClusterSizes, DEFAULT_AVATAR_POS } from '../utils/spatialPoolHelpers.js';
+import { generateItemMap, getFrameCoverage, refreshCoveredCells, refreshWithClusters, getClusterCells, randomCell, computeClusterSizes, getDefaultAvatarPos } from '../utils/spatialPoolHelpers.js';
 import { DEFAULT_DRAW, EFFECT_ITEM_ICONS, FIXED_SHAPE } from '../data/spatialConstants.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
@@ -26,7 +26,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [drawCount, setDrawCount] = useState(0);
 
     const [itemMap, setItemMap] = useState(() => generateItemMap(null));
-    const [avatarPos, setAvatarPos] = useState(DEFAULT_AVATAR_POS);
+    const [avatarPos, setAvatarPos] = useState(getDefaultAvatarPos());
 
     // Milestone grid system
     const [milestone, setMilestone] = useState(null);
@@ -116,7 +116,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     useEffect(() => {
         if (neededNames) {
             setItemMap(generateItemMap(neededNames));
-            setAvatarPos(DEFAULT_AVATAR_POS);
+            setAvatarPos(getDefaultAvatarPos());
         }
     }, [milestoneNumber, !!milestone]);
 

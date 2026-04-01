@@ -242,8 +242,10 @@ export function getValidAvatarAnchors(avatarRow, avatarCol) {
   return candidates.filter(c => isValidPlacement(c.row, c.col));
 }
 
-/** Default avatar starting position (center of grid). */
-export const DEFAULT_AVATAR_POS = {
-  row: Math.floor((MAP_ROWS - 1) / 2),
-  col: Math.floor((MAP_COLS - 1) / 2),
-};
+/** Default avatar starting position (center of grid). Computed dynamically for mutable MAP_ROWS/MAP_COLS. */
+export function getDefaultAvatarPos() {
+  return {
+    row: Math.floor((MAP_ROWS - 1) / 2),
+    col: Math.floor((MAP_COLS - 1) / 2),
+  };
+}

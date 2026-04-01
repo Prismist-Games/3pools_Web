@@ -23,11 +23,15 @@ export const FIXED_SHAPE = {
 // --- Quality effects (all affixes available in spatial system) ---
 export const QUALITY_EFFECTS = INITIAL_AFFIXES_CONFIG;
 
-// --- Map dimensions ---
-// 4×4 grid: 16 cells with random items from needed pool.
-// Only the 4 cells covered by the 2×2 placement refresh each draw.
-export const MAP_ROWS = 8;
-export const MAP_COLS = 8;
+// --- Map dimensions (mutable — use setMapSize to change, then reset the game) ---
+export let MAP_ROWS = 8;
+export let MAP_COLS = 8;
+
+/** Update map dimensions at runtime. Callers must reset the game afterward. */
+export function setMapSize(rows, cols) {
+  MAP_ROWS = rows;
+  MAP_COLS = cols;
+}
 
 /** Default draw config when no effect cell is in the 2×2 frame */
 export const DEFAULT_DRAW = { id: null, cost: 1 };
