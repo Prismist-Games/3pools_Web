@@ -294,7 +294,6 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
                 w-16 h-16 border-2 border-solid select-none
                 transition-all duration-300
                 ${adj ? '' : 'rounded-md'}
-                ${hasCluster ? 'animate-[clusterPulse_3s_ease-in-out_infinite]' : ''}
                 ${bgClass}
                 ${!disabled && !isAnimating ? 'cursor-crosshair' : 'cursor-default'}
               `}
