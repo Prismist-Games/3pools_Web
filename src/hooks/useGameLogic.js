@@ -6,7 +6,7 @@ import {
     getRandomAffix,
     getRandomItems
 } from '../utils/helpers';
-import { SKILL_DEFINITIONS, TOOL_ITEMS, FATE_DICE_CONFIG } from '../data/constants';
+import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
@@ -31,10 +31,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [milestone, setMilestone] = useState(null);
     const [milestoneNumber, setMilestoneNumber] = useState(1);
 
-    // Evacuation difficulty — increases each evacuation
-    const [evacuationDifficulty, setEvacuationDifficulty] = useState(
-        config.emergency?.difficulty?.initial || 1
-    );
 
     const [inventory, setInventory] = useState([]);
 
@@ -51,7 +47,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [isSubmitMode, setIsSubmitMode] = useState(false);
     const [isRecycleMode, setIsRecycleMode] = useState(false);
     const [selectedIndices, setSelectedIndices] = useState([]);
-    const [isDiceSubmitMode, setIsDiceSubmitMode] = useState(false);
 
     const [modalContent, setModalContent] = useState(null);
     const [selectionMode, setSelectionMode] = useState(null);
@@ -63,8 +58,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // { effectId, effectConfig, itemUid }
     const [activeEffect, setActiveEffect] = useState(null);
 
-    // Dice reroll mode: { toolIndex: number, selectedDiceIndices: number[] }
-    const [diceRerollMode, setDiceRerollMode] = useState(null);
 
     const [skills, setSkills] = useState(initialSkills);
     const [skillSelectionCandidates, setSkillSelectionCandidates] = useState(null);
@@ -252,37 +245,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     }, [isSubmitMode, selectedIndices, inventory]);
 
     // Fate dice in inventory
-    const fateDiceIndices = useMemo(() => {
-        return inventory
-            .map((item, idx) => ({ item, idx }))
-            .filter(({ item }) => item && item.isFateDice)
-            .map(({ idx }) => idx);
-    }, [inventory]);
-
-    const totalDiceValue = useMemo(() => {
-        return inventory.reduce((sum, item) => {
-            return sum + (item?.isFateDice ? item.diceValue : 0);
-        }, 0);
-    }, [inventory]);
-
-    const selectedDiceSum = useMemo(() => {
-        if (!isDiceSubmitMode || selectedIndices.length === 0) return 0;
-        return selectedIndices.reduce((sum, idx) => {
-            const item = inventory[idx];
-            return sum + (item?.isFateDice ? item.diceValue : 0);
-        }, 0);
-    }, [isDiceSubmitMode, selectedIndices, inventory]);
-
-    // Evacuation threshold based on current difficulty
-    const evacuationThreshold = useMemo(() => {
-        const thresholds = config.emergency?.difficultyThresholds;
-        if (thresholds && thresholds[evacuationDifficulty] !== undefined) {
-            return thresholds[evacuationDifficulty];
-        }
-        return FATE_DICE_CONFIG.evacuationThreshold; // fallback
-    }, [config.emergency?.difficultyThresholds, evacuationDifficulty]);
-
-    const canEvacuate = isDiceSubmitMode && selectedDiceSum >= evacuationThreshold;
 
     useEffect(() => {
         if (!pendingItem && pendingQueue.length > 0) {
@@ -344,19 +306,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         };
     };
 
-    const createFateDice = () => {
-        const value = Math.floor(Math.random() * FATE_DICE_CONFIG.maxValue) + FATE_DICE_CONFIG.minValue;
-        const DICE_ICONS = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-        return {
-            name: FATE_DICE_CONFIG.name,
-            icon: DICE_ICONS[value - 1],
-            uid: Math.random().toString(36).substr(2, 9),
-            isFateDice: true,
-            diceValue: value,
-            rarity: config.rarity.find(r => r.id === 'common') || config.rarity[0],
-            sterile: true,
-        };
-    };
 
     const handleIncomingItems = (newItems, overrideInventory = null) => {
         let currentInventory = overrideInventory ? [...overrideInventory] : [...inventory];
@@ -597,7 +546,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!item || !item.isToolItem) return;
 
         // 不允许在特殊模式中使用
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || toolSelectionMode || diceRerollMode) {
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || toolSelectionMode) {
             showToast(t("当前状态下无法使用工具物品"), 'error');
             return;
         }
@@ -611,16 +560,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             newInventory[index] = null;
             setInventory(newInventory.filter(i => i !== null));
             showToast(t("星辉祝福已激活：下次抽取品质+1"), 'success');
-        } else if (effectType === 'dice_reroll') {
-            // 命运重铸：进入骰子选择模式
-            const hasDice = inventory.some(i => i?.isFateDice);
-            if (!hasDice) {
-                showToast(t("背包中没有命运骰子！"), 'error');
-                return;
-            }
-            setDiceRerollMode({ toolIndex: index, selectedDiceIndices: [] });
-            setSelectedSlot(null);
-            showToast(t("请选择1~2颗命运骰子进行重投"), 'info');
         } else {
             // 命运熔炉 / 万象棱镜：进入选择目标模式
             setToolSelectionMode({ toolIndex: index, effectType });
@@ -633,28 +572,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setToolSelectionMode(null);
     };
 
-    const handleConfirmDiceReroll = () => {
-        if (!diceRerollMode || diceRerollMode.selectedDiceIndices.length === 0) return;
-        const { toolIndex, selectedDiceIndices } = diceRerollMode;
-        const newInventory = [...inventory];
-        // Reroll selected dice
-        for (const idx of selectedDiceIndices) {
-            const oldDice = newInventory[idx];
-            if (!oldDice?.isFateDice) continue;
-            const newDice = createFateDice();
-            newDice.uid = oldDice.uid;
-            newInventory[idx] = newDice;
-        }
-        // Consume the effect item
-        newInventory[toolIndex] = null;
-        setInventory(newInventory.filter(i => i !== null));
-        setDiceRerollMode(null);
-        showToast(t("骰子已重投！"), 'success');
-    };
-
-    const handleCancelDiceReroll = () => {
-        setDiceRerollMode(null);
-    };
 
     // Create an effect item for inventory (drawn from map)
     const createEffectItem = (effectConfig) => ({
@@ -672,7 +589,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // Create an item from a pool template — handles regular items, effect cells, and fate dice
     const createItemOrEffect = (pool, tpl, affixKey, clusterSize = 1) => {
         if (tpl.isEffect) return createEffectItem(tpl.effect);
-        if (tpl.isFateDice) return createFateDice();
         return createItem(pool, tpl, affixKey, clusterSize);
     };
 
@@ -681,21 +597,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const item = inventory[index];
         if (!item || !item.isEffectItem) return;
 
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || toolSelectionMode || diceRerollMode || pendingQueue.length > 0) {
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || toolSelectionMode || pendingQueue.length > 0) {
             showToast(t("当前状态下无法使用"), 'error');
-            return;
-        }
-
-        // dice_reroll: enter dice reroll mode directly
-        if (item.effectId === 'dice_reroll') {
-            const hasDice = inventory.some(i => i?.isFateDice);
-            if (!hasDice) {
-                showToast(t("背包中没有命运骰子！"), 'error');
-                return;
-            }
-            setDiceRerollMode({ toolIndex: index, selectedDiceIndices: [] });
-            setSelectedSlot(null);
-            showToast(t("请选择1~2颗命运骰子进行重投"), 'info');
             return;
         }
 
@@ -742,7 +645,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const handleMapPlace = (anchorRow, anchorCol) => {
         if (drawAnimInfo) return;
-        if (isDiceSubmitMode) return;
 
         // "有的放矢" (targeted): 1×1 single-cell draw
         if (activeEffect && activeEffect.effectId === 'targeted') {
@@ -766,10 +668,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 const effectItem = createEffectItem(cell.effect);
                 handleIncomingItems([effectItem], cleanedInventory);
                 showToast(`${t("获得效果")}：${t(cell.effect.name)}`, 'info');
-            } else if (cell.isFateDice) {
-                const dice = createFateDice();
-                handleIncomingItems([dice], cleanedInventory);
-                showToast(`${t("获得命运骰子")}: ${dice.icon} (${dice.diceValue}${t("点")})`, 'info');
             } else {
                 const virtualPool = {
                     name: 'spatial', items: [cell], affixKey: null, affix: null,
@@ -790,8 +688,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!coverage) return;
 
         // Separate cell types in coverage
-        const itemCells = coverage.filter(c => !c.item.isEffect && !c.item.isFateDice);
-        const fateDiceCells = coverage.filter(c => c.item.isFateDice);
+        const itemCells = coverage.filter(c => !c.item.isEffect);
         const effectCells = coverage.filter(c => c.item.isEffect);
 
         // Use activeEffect (from inventory) for quality, NOT frame coverage
@@ -802,7 +699,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const coveredKeys = new Set(coverage.map(c => `${c.row},${c.col}`));
         const poolItems = itemCells.map(c => c.item);
         // Items + effects for draw pools that should include effect cells
-        const poolItemsWithEffects = [...itemCells, ...effectCells, ...fateDiceCells].map(c => c.item);
+        const poolItemsWithEffects = [...itemCells, ...effectCells].map(c => c.item);
 
         // Gold check upfront — before any animation or state changes
         if (gold < cost) {
@@ -835,12 +732,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const clusterSizes = computeClusterSizes(itemMap);
 
         // ALL cells participate in the draw lottery (items + effects + fate dice)
-        const drawableCells = [...itemCells, ...effectCells, ...fateDiceCells];
+        const drawableCells = [...itemCells, ...effectCells];
         if (drawableCells.length === 0) return;
 
         const drawnIndex = Math.floor(Math.random() * drawableCells.length);
         const drawnCell = drawableCells[drawnIndex];
-        const drawnIsFateDice = !!drawnCell.item.isFateDice;
         const drawnIsEffect = !!drawnCell.item.isEffect;
         const drawnClusterSize = clusterSizes[drawnCell.row][drawnCell.col];
 
@@ -858,7 +754,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     id: 'spatial',
                 };
             }
-            if (drawnIsFateDice || drawnIsEffect) return null;
+            if (drawnIsEffect) return null;
             return {
                 name: 'spatial',
                 items: [drawnCell.item],
@@ -888,17 +784,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 // Fragmented always goes through handleDraw for 3 items
                 if (affixKey === 'fragmented') {
                     handleDraw(makePool());
-                } else if (drawnIsFateDice) {
-                    setGold(prev => prev - cost);
-                    // Consume active effect (no quality applies to dice, but effect is spent)
-                    let baseInv = undefined;
-                    if (activeEffect) {
-                        baseInv = inventory.filter(i => i?.uid !== activeEffect.itemUid);
-                        setActiveEffect(null);
-                    }
-                    const dice = createFateDice();
-                    handleIncomingItems([dice], baseInv);
-                    showToast(`${t("获得命运骰子")}: ${dice.icon} (${dice.diceValue}${t("点")})`, 'info');
                 } else if (drawnIsEffect) {
                     setGold(prev => prev - cost);
                     setDrawCount(prev => prev + 1);
@@ -930,7 +815,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleDraw = (pool) => {
-        if (pendingItem || isSubmitMode || isRecycleMode || isDiceSubmitMode || selectionMode || pendingQueue.length > 0) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0) return;
 
         // Use pool cost (from affix config)
         let finalCost = pool.cost ?? 2;
@@ -1037,31 +922,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const handleSlotClick = (index) => {
         const clickedItem = inventory[index];
 
-        // Dice submit mode: toggle selection of fate dice items only
-        if (isDiceSubmitMode) {
-            const item = inventory[index];
-            if (!item || !item.isFateDice) return;
-            setSelectedIndices(prev =>
-                prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
-            );
-            return;
-        }
-
-        // 骰子重投模式：选择/取消选择命运骰子
-        if (diceRerollMode) {
-            const item = inventory[index];
-            if (!item || !item.isFateDice) return;
-            setDiceRerollMode(prev => {
-                const indices = prev.selectedDiceIndices;
-                if (indices.includes(index)) {
-                    return { ...prev, selectedDiceIndices: indices.filter(i => i !== index) };
-                }
-                if (indices.length >= 2) return prev; // max 2
-                return { ...prev, selectedDiceIndices: [...indices, index] };
-            });
-            return;
-        }
-
         // 工具选择模式：点击背包物品作为工具目标
         if (toolSelectionMode) {
             if (!clickedItem) return;
@@ -1137,9 +997,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             // No intermediate setInventory needed, handleIncomingItems will set it.
 
-            let candidates = pool.items.filter(i => !i.isEffect && !i.isFateDice && i.name !== consumedItem.name);
-            // Include effect cells and fate dice as possible results
-            const specialCandidates = pool.items.filter(i => i.isEffect || i.isFateDice);
+            let candidates = pool.items.filter(i => !i.isEffect && i.name !== consumedItem.name);
+            const specialCandidates = pool.items.filter(i => i.isEffect);
             const allCandidates = [...candidates, ...specialCandidates];
             if (allCandidates.length === 0) {
                 // Fallback: pick from all pool items
@@ -1151,8 +1010,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             let finalItem;
             if (tpl.isEffect) {
                 finalItem = createEffectItem(tpl.effect);
-            } else if (tpl.isFateDice) {
-                finalItem = createFateDice();
             } else {
                 const rarityConfig = config.rarity;
                 const oldRarityIndex = rarityConfig.findIndex(r => r.id === consumedItem.rarity.id);
@@ -1369,50 +1226,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     };
 
-    const toggleDiceSubmitMode = () => {
-        if (isDiceSubmitMode) {
-            setIsDiceSubmitMode(false);
-            setSelectedIndices([]);
-        } else {
-            if (fateDiceIndices.length === 0) {
-                showToast(t("背包中没有命运骰子！"), 'error');
-                return;
-            }
-            setIsDiceSubmitMode(true);
-            setSelectedSlot(null);
-            setSelectedIndices([]);
-            setIsRecycleMode(false);
-            setIsSubmitMode(false);
-        }
-    };
-
-    const handleConfirmDiceEvacuation = () => {
-        if (!canEvacuate) return;
-
-        // Remove submitted dice from inventory
-        const submittedSet = new Set(selectedIndices);
-        const newInventory = inventory.filter((_, idx) => !submittedSet.has(idx));
-        setInventory(newInventory);
-
-        // Reset gold
-        setGold(config.global?.initialGold || currentStageConfig.initialGold);
-
-        // Increase evacuation difficulty
-        const diffConfig = config.emergency?.difficulty;
-        const maxDiff = diffConfig?.maxDifficulty || 10;
-        const increase = diffConfig?.increaseOnNewOrder ?? 1;
-        setEvacuationDifficulty(prev => Math.min(maxDiff, prev + increase));
-
-        // Clean up mode state
-        setIsDiceSubmitMode(false);
-        setSelectedIndices([]);
-        setSelectedSlot(null);
-
-        showToast(t('撤离成功！金币已重置'), 'epic');
-    };
 
     const handleSortInventory = () => {
-        if (pendingItem || isSubmitMode || isRecycleMode || isDiceSubmitMode || selectionMode) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode) return;
 
         setInventory(prev => {
             const validItems = prev.filter(i => i !== null);
@@ -1495,11 +1311,22 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const newInventory = [...inventory];
         newInventory[invIdx] = null;
 
+        // Check if evacuation becomes available:
+        // A task covering the evacuation cell was just completed
+        const evacCellIdx = updatedCells.findIndex(c => c.isEvacuation);
+        let evacuationAvailable = milestone.evacuationAvailable || false;
+        if (evacCellIdx >= 0) {
+            evacuationAvailable = updatedTasks.some(
+                task => task.isCompleted && task.cellIndices.includes(evacCellIdx)
+            );
+        }
+
         // Apply state updates
         setMilestone({
             ...milestone,
             cells: updatedCells,
             tasks: updatedTasks,
+            evacuationAvailable,
         });
         setInventory(newInventory);
         setSelectedSlot(null);
@@ -1513,16 +1340,19 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 'epic'
             );
         }
+    };
 
-        // Check if ALL tasks are now completed → refresh milestone
-        const allTasksComplete = updatedTasks.every(task => task.isCompleted);
-        if (allTasksComplete) {
-            showToast(t('里程碑完成！进入下一个里程碑'), 'epic');
-            setTimeout(() => {
-                setMilestoneNumber(prev => prev + 1);
-                setMilestone(null); // triggers re-generation via useEffect
-            }, 800);
-        }
+    const handleEvacuate = () => {
+        if (!milestone?.evacuationAvailable) return;
+
+        // Reset gold
+        setGold(config.global?.initialGold || currentStageConfig.initialGold);
+
+        showToast(t('撤离成功！金币已重置'), 'epic');
+        setTimeout(() => {
+            setMilestoneNumber(prev => prev + 1);
+            setMilestone(null);
+        }, 800);
     };
 
     return {
@@ -1545,13 +1375,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
             setHoveredPoolId, setHoveredItemName, setHoveredSlotIndex, setHoveredPoolItemNames,
             isSubmitMode, isRecycleMode, selectedIndices,
-            isDiceSubmitMode,
-            fateDiceIndices,
-            totalDiceValue,
-            evacuationThreshold,
-            evacuationDifficulty,
-            selectedDiceSum,
-            canEvacuate,
             modalContent, selectionMode,
             skills, skillSelectionCandidates,
             toast,
@@ -1560,7 +1383,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             skillState,
             toolSelectionMode,
             activeEffect,
-            diceRerollMode
         },
         actions: {
             showToast,
@@ -1579,8 +1401,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleConfirmRecycle,
             toggleSubmitMode,
             toggleRecycleMode,
-            toggleDiceSubmitMode,
-            handleConfirmDiceEvacuation,
             handleSortInventory,
             handlePoolHover,
             handlePoolLeave,
@@ -1589,8 +1409,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleToolItemUse,
             handleEffectItemUse,
             handleCancelToolSelection,
-            handleConfirmDiceReroll,
-            handleCancelDiceReroll,
+            handleEvacuate,
             handleRefreshMap: () => {
                 if (gold < 1) return;
                 setGold(prev => prev - 1);

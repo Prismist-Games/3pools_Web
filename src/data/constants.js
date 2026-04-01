@@ -239,14 +239,6 @@ export const TOOL_ITEM_CONFIG = {
 };
 
 // --- 命运骰子配置 ---
-export const FATE_DICE_CONFIG = {
-    spawnChance: 0.10,          // 每个物品格子刷新为命运骰子的概率
-    icon: '🎲',
-    name: '命运骰子',
-    minValue: 1,
-    maxValue: 6,
-    evacuationThreshold: 7,    // 撤离所需的点数总和
-};
 
 export const INITIAL_AFFIXES_CONFIG = [
     {
@@ -311,14 +303,6 @@ export const INITIAL_AFFIXES_CONFIG = [
         "weight": 10,
         "cost": 0
     },
-    {
-        "id": "dice_reroll",
-        "name": "命运重铸",
-        "desc": "选择1~2颗命运骰子重新投掷。",
-        "type": "tool",
-        "weight": 10,
-        "cost": 0
-    }
 ];
 
 export const INITIAL_RARITY_CONFIG = [

@@ -6,28 +6,21 @@ import {
   FIXED_SHAPE,
   MAP_ROWS,
   MAP_COLS,
-  FATE_DICE_CONFIG,
 } from '../data/spatialConstants.js';
 
 // --- Cell generation helper ---
 
 /**
- * Pick a random needed item (or fate dice).
- * Only generates items from neededNames. No effect cells.
+ * Pick a random needed item.
+ * Only generates items from neededNames if provided.
  */
 export function randomCell(neededNames = null) {
-  // Fate dice chance
-  if (Math.random() < FATE_DICE_CONFIG.spawnChance) {
-    return { isFateDice: true, icon: FATE_DICE_CONFIG.icon, name: FATE_DICE_CONFIG.name };
-  }
-  // Pick from needed items only (if provided)
   if (neededNames && neededNames.size > 0) {
     const needed = ALL_ITEMS.filter(i => neededNames.has(i.name));
     if (needed.length > 0) {
       return needed[Math.floor(Math.random() * needed.length)];
     }
   }
-  // Fallback: any item
   return ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];
 }
 
@@ -35,7 +28,7 @@ export function randomCell(neededNames = null) {
 
 /**
  * Generate the item map grid.
- * Only needed items appear (+ fate dice). No effect cells.
+ * Only needed items appear if neededNames is provided.
  */
 export function generateItemMap(neededNames = null) {
   const grid = [];
@@ -67,7 +60,7 @@ export function refreshCoveredCells(itemMap, anchorRow, anchorCol, neededNames =
 
 /**
  * Compute cluster size for every cell on the map.
- * A cluster = group of adjacent cells (up/down/left/right) with the same item name.
+ * A cluster = group of adjacent cells (8-direction) with the same item name.
  * Returns a 2D array of cluster sizes matching the grid dimensions.
  */
 export function computeClusterSizes(itemMap) {
@@ -78,7 +71,7 @@ export function computeClusterSizes(itemMap) {
 
   const getName = (r, c) => {
     const item = itemMap[r][c];
-    if (!item || item.isEffect || item.isFateDice) return null;
+    if (!item || item.isEffect) return null;
     return item.name;
   };
 
@@ -88,7 +81,6 @@ export function computeClusterSizes(itemMap) {
       const name = getName(r, c);
       if (!name) { visited[r][c] = true; continue; }
 
-      // BFS to find all cells in this cluster
       const cluster = [];
       const queue = [[r, c]];
       visited[r][c] = true;
@@ -104,7 +96,6 @@ export function computeClusterSizes(itemMap) {
         }
       }
 
-      // Set cluster size for all cells in this cluster
       const size = cluster.length;
       for (const [cr, cc] of cluster) {
         sizes[cr][cc] = size;

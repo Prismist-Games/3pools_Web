@@ -103,8 +103,7 @@ export const InventorySlot = ({
     const isTradeInMode = isSelectionMode;
     const isToolItem = item?.isToolItem;
     const isEffectItem = item?.isEffectItem;
-    const isFateDice = item?.isFateDice;
-    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem || item.isEffectItem || item.isFateDice)) || isPendingSlot;
+    const isDisabled = isAssigned || (isMultiSelectMode && !item) || (isReference && (!item || item.isScoreItem || item.isToolItem || item.isEffectItem)) || isPendingSlot;
 
     const handleContextMenu = (e) => {
         e.preventDefault();
@@ -119,9 +118,6 @@ export const InventorySlot = ({
         : '';
     const effectItemStyle = isEffectItem
         ? 'border-emerald-400 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 ring-1 ring-emerald-200/50 shadow-[0_0_12px_rgba(52,211,153,0.3)]'
-        : '';
-    const fateDiceStyle = isFateDice
-        ? 'border-indigo-400 bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 ring-1 ring-indigo-200/50 shadow-[0_0_12px_rgba(99,102,241,0.3)]'
         : '';
 
     return (
@@ -143,11 +139,9 @@ export const InventorySlot = ({
                     relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 select-none overflow-visible
                     ${item ? 'animate-[fadeIn_0.3s_ease-out]' : ''}
                     ${item
-                        ? isFateDice
-                            ? fateDiceStyle
-                            : isToolItem
-                                ? toolItemStyle
-                                : isEffectItem
+                        ? isToolItem
+                            ? toolItemStyle
+                            : isEffectItem
                                     ? effectItemStyle
                                     : `${item.rarity?.color || 'bg-slate-100 border-slate-300'} ${item.rarity?.shadow || ''} shadow-sm`
                         : 'bg-slate-50 border-dashed border-slate-200'
@@ -203,13 +197,6 @@ export const InventorySlot = ({
                             </div>
                         )}
 
-                        {isFateDice && (
-                            <div className="absolute top-0 right-0 p-0.5 rounded-bl-lg z-10">
-                                <div className="bg-indigo-600 text-white rounded-md px-1.5 py-0.5 text-[10px] font-black shadow-sm">
-                                    {item.diceValue}
-                                </div>
-                            </div>
-                        )}
 
                         {/* 右键提示（hover 时显示在 slot 底部） */}
                         {(isToolItem || isEffectItem) && isHovered && !isMultiSelectMode && (

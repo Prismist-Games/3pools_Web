@@ -37,13 +37,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         pendingItem, pendingQueue, selectedSlot,
         hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, selectedIndices,
-        isDiceSubmitMode, fateDiceIndices, selectedDiceSum, canEvacuate, totalDiceValue, evacuationThreshold, evacuationDifficulty,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
         toast, totalRecycleValue, selectedItemNames,
         toolSelectionMode,
-        activeEffect,
-        diceRerollMode
+        activeEffect
     } = state;
 
     const {
@@ -65,12 +63,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleToolItemUse,
         handleEffectItemUse,
         handleCancelToolSelection,
-        handleConfirmDiceReroll,
-        handleCancelDiceReroll,
+        handleEvacuate,
         handleRefreshMap,
         handleMapPlace,
-        toggleDiceSubmitMode,
-        handleConfirmDiceEvacuation,
     } = actions;
 
     const { hasSkill } = helpers;
@@ -258,15 +253,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             )}
 
                             {/* Evacuation Dice Threshold */}
-                            <div className="flex flex-col gap-1 items-end">
-                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-indigo-200">{t("撤离点数")}</span>
-                                <div className="flex items-center gap-2 text-indigo-400">
-                                    <span className="text-lg drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]">🎲</span>
-                                    <span className={`text-3xl font-black font-mono tracking-tighter leading-none ${totalDiceValue >= evacuationThreshold ? 'text-green-400' : ''}`}>
-                                        {totalDiceValue}<span className="text-lg opacity-50">/{evacuationThreshold}</span>
-                                    </span>
-                                </div>
-                            </div>
                         </div>
 
                         {/* Stage Info (Compact) */}
@@ -336,7 +322,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         onHoverCoverage={(names) => {
                                             state.setHoveredPoolItemNames(names);
                                         }}
-                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || isDiceSubmitMode || !!selectionMode}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
                                     />
                                     <button
                                         onClick={handleRefreshMap}
@@ -403,7 +389,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         ${pendingItem ? 'bg-red-50/95' : ''}
                         ${isRecycleMode ? 'bg-amber-50/95' : ''}
                         ${selectionMode?.type === 'trade_in' ? 'bg-purple-50/95' : ''}
-                        ${isDiceSubmitMode ? 'bg-indigo-50/95' : ''}
                     `}>
 
                             {/* Skill Bar Area */}
@@ -493,16 +478,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <Zap size={14} /> {t("请点击选择一个目标物品")}
                                     </span>
                                 )}
-                                {diceRerollMode && (
-                                    <span className="text-xs font-bold text-indigo-600 animate-pulse flex items-center gap-1">
-                                        🎲 {t("请选择1~2颗骰子进行重投")} ({diceRerollMode.selectedDiceIndices.length}/2)
-                                    </span>
-                                )}
-                                {isDiceSubmitMode && (
-                                    <span className="text-xs font-bold text-indigo-600 animate-pulse flex items-center gap-1">
-                                        🎲 {t("撤离模式: 选择命运骰子")} ({selectedDiceSum}/{evacuationThreshold})
-                                    </span>
-                                )}
 
 
 
@@ -516,7 +491,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <div className="flex flex-wrap gap-2 justify-center max-w-full">
                                     {Array.from({ length: maxInventorySize }).map((_, idx) => {
                                         const item = inventory[idx];
-                                        const isSelected = selectedSlot === idx || selectedIndices.includes(idx) || (toolSelectionMode?.toolIndex === idx) || (diceRerollMode?.selectedDiceIndices.includes(idx)) || (diceRerollMode?.toolIndex === idx);
+                                        const isSelected = selectedSlot === idx || selectedIndices.includes(idx) || (toolSelectionMode?.toolIndex === idx);
 
                                         // Synthesis Logic: Check against Selected Slot OR Pending Item
                                         const sourceItem = pendingItem || (selectedSlot !== null ? inventory[selectedSlot] : null);
@@ -566,7 +541,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 item={item}
                                                 isSelected={isSelected}
                                                 isTarget={!!sourceItem && !isSourceSelf}
-                                                isSubmitMode={isDiceSubmitMode || !!diceRerollMode}
+                                                isSubmitMode={false}
                                                 isRecycleMode={isRecycleMode}
                                                 isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
                                                 isReference={selectionMode?.type === 'trade_in' || !!toolSelectionMode}
@@ -602,38 +577,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         </button>
                                     )}
 
-                                    {!isDiceSubmitMode && !isRecycleMode && !pendingItem && !selectionMode && !toolSelectionMode && !diceRerollMode && fateDiceIndices.length > 0 && (
-                                        <button
-                                            onClick={toggleDiceSubmitMode}
-                                            className="w-full flex items-center justify-center gap-2 bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-indigo-200 transition-transform active:scale-95"
-                                        >
-                                            🎲 {t("撤离")}
+                                    {milestone?.evacuationAvailable && !isRecycleMode && !pendingItem && !selectionMode && (
+                                        <button onClick={handleEvacuate} className="w-full flex items-center justify-center gap-2 bg-indigo-500 text-white border border-indigo-600 font-bold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-600 transition-transform active:scale-95 animate-pulse">
+                                            🚀 {t("撤离")}
                                         </button>
-                                    )}
-
-                                    {isDiceSubmitMode && (
-                                        <div className="flex flex-col gap-2">
-                                            <div className="text-center text-sm font-bold text-indigo-700 bg-indigo-50 rounded-lg py-2 px-3 border border-indigo-200">
-                                                🎲 {selectedDiceSum} / {evacuationThreshold}
-                                            </div>
-                                            <button
-                                                onClick={handleConfirmDiceEvacuation}
-                                                disabled={!canEvacuate}
-                                                className={`w-full flex items-center justify-center gap-2 font-bold py-3 px-6 rounded-xl shadow-md ${
-                                                    canEvacuate
-                                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                                        : 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                                                }`}
-                                            >
-                                                🚀 {t("确认撤离")}
-                                            </button>
-                                            <button
-                                                onClick={toggleDiceSubmitMode}
-                                                className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50"
-                                            >
-                                                {t("取消")}
-                                            </button>
-                                        </div>
                                     )}
 
                                     {isRecycleMode && (
@@ -652,24 +599,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <button onClick={handleCancelToolSelection} className="w-full bg-white border border-cyan-300 text-cyan-700 font-bold py-2 px-6 rounded-xl shadow-sm hover:bg-cyan-50 flex items-center justify-center gap-2">
                                             <X size={14} /> {t("取消工具使用")}
                                         </button>
-                                    )}
-                                    {diceRerollMode && (
-                                        <div className="flex gap-2 w-full">
-                                            <button
-                                                onClick={handleConfirmDiceReroll}
-                                                disabled={diceRerollMode.selectedDiceIndices.length === 0}
-                                                className={`flex-1 font-bold py-2 px-4 rounded-xl shadow-sm flex items-center justify-center gap-2 ${
-                                                    diceRerollMode.selectedDiceIndices.length > 0
-                                                        ? 'bg-indigo-500 text-white hover:bg-indigo-600'
-                                                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                }`}
-                                            >
-                                                🎲 {t("确认重投")}
-                                            </button>
-                                            <button onClick={handleCancelDiceReroll} className="flex-1 bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50 flex items-center justify-center gap-2">
-                                                <X size={14} /> {t("取消")}
-                                            </button>
-                                        </div>
                                     )}
                                 </div>
 
