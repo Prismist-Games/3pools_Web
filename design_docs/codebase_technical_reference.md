@@ -2,14 +2,7 @@
 
 本文档是项目代码的完整技术参考，涵盖架构、数据流、每个文件的职责与实现细节、状态管理、UI 渲染逻辑和外部集成。阅读本文档后，无需再阅读源代码即可对项目做出正确修改。
 
-> **最后更新**: 2026-02-26 · 基于 `code_simplify` 分支 commit `4c22ee4`
->
-> **⚠️ 注意：本文档严重过时。** 当前系统已发生以下重大变更：
-> - 奖池系统已空间化为物品地图（3×4网格 + 2×2框选），取代了旧的3个分类奖池
-> - 词缀/效果格系统已移除，品质由"簇"（同名相邻物品群）大小决定
-> - 工具物品系统已移除
-> - 命运骰子系统已移除，撤离回归里程碑网格
-> - 请以 `game_rules.md` 和源代码为准
+> **最后更新**: 2026-04-01 · 基于 `feature/cluster-based-effect` 分支
 
 ---
 
@@ -18,8 +11,8 @@
 1. [技术栈与构建](#1-技术栈与构建)
 2. [目录结构](#2-目录结构)
 3. [数据流总览](#3-数据流总览)
-4. [配置层：constants.js](#4-配置层constantsjs)
-5. [纯工具函数：helpers.js](#5-纯工具函数helpersjs)
+4. [配置层](#4-配置层)
+5. [纯工具函数](#5-纯工具函数)
 6. [核心状态：useGameLogic.js](#6-核心状态usegamelogicjs)
 7. [顶层组件：App.jsx](#7-顶层组件appjsx)
 8. [布局渲染层：GameCore.jsx](#8-布局渲染层gamecorejsx)
@@ -76,19 +69,23 @@ npm run lint      # ESLint 检查
 │
 ├── src/
 │   ├── main.jsx                   ← ReactDOM 渲染入口
-│   ├── App.jsx                    ← 配置管理 + 设置 UI + 调试工具 (~107KB)
-│   ├── GameCore.jsx               ← 游戏布局 + 组件编排 (~74KB)
+│   ├── App.jsx                    ← 配置管理 + 设置 UI + 调试工具 (~1127行)
+│   ├── GameCore.jsx               ← 游戏布局 + 组件编排 (~729行)
 │   ├── index.css                  ← Tailwind 指令 + 自定义滚动条隐藏
 │   │
 │   ├── data/
-│   │   └── constants.js           ← 所有游戏配置数据 (~20KB)
+│   │   ├── constants.js           ← 核心游戏配置数据 (~566行)
+│   │   ├── spatialConstants.js    ← 空间地图系统常量 (~44行)
+│   │   └── gridConstants.js       ← 里程碑网格系统常量 (~47行)
 │   │
 │   ├── hooks/
-│   │   └── useGameLogic.js        ← 游戏全部状态与逻辑 (~92KB, ~2200行)
+│   │   └── useGameLogic.js        ← 游戏全部状态与逻辑 (~1424行)
 │   │
 │   ├── utils/
-│   │   ├── helpers.js             ← 纯函数工具 (~14KB)
-│   │   ├── translations.js        ← 英文翻译映射 (~15KB)
+│   │   ├── helpers.js             ← 纯函数工具 (~355行)
+│   │   ├── spatialPoolHelpers.js  ← 空间地图纯函数 (~139行)
+│   │   ├── gridGenerator.js       ← 里程碑生成算法 (~518行)
+│   │   └── translations.js        ← 英文翻译映射
 │   │
 │   ├── contexts/
 │   │   └── LanguageContext.jsx     ← 语言切换 Context + t() 翻译函数
@@ -96,10 +93,13 @@ npm run lint      # ESLint 检查
 │   └── components/
 │       ├── ErrorBoundary.jsx       ← 错误边界（类组件）
 │       ├── game/
-│       │   ├── InventorySlot.jsx   ← 背包格子 (~14KB)
-│       │   ├── OrderCard.jsx       ← 订单卡片 (~33KB)
-│       │   ├── PoolCard.jsx        ← 奖池卡片 (~4KB)
-│       │   ├── SkillSelectionModal.jsx ← 技能选择弹窗 (~10KB)
+│       │   ├── ItemMap.jsx         ← 空间物品地图 (~344行)
+│       │   ├── MilestoneGrid.jsx   ← 里程碑网格 (~166行)
+│       │   ├── GridCell.jsx        ← 里程碑格子 (~97行)
+│       │   ├── InventorySlot.jsx   ← 背包格子 (~301行)
+│       │   ├── SkillSelectionModal.jsx ← 技能选择弹窗
+│       │   ├── PoolCard.jsx        ← 奖池卡片（已弃用，保留文件）
+│       │   └── FrameSelector.jsx   ← 框选器（已弃用，保留文件）
 │       └── ui/
 │           ├── ConfirmDialog.jsx   ← 通用确认对话框
 │           └── Toast.jsx           ← 浮动提示
@@ -115,6 +115,8 @@ npm run lint      # ESLint 检查
 
 ```
 INITIAL_GAME_CONFIG (constants.js)
+  + GRID_CONFIG (gridConstants.js)
+  + MAP_ROWS/COLS, ALL_ITEMS (spatialConstants.js)
         │
         ▼
    App.jsx ─── config state (可通过设置 UI 修改)
@@ -129,35 +131,38 @@ INITIAL_GAME_CONFIG (constants.js)
         ▼
    useGameLogic(config, initialSkills, onReset, initialScore)
         │
-        ├── 内部使用 helpers.js 的纯函数
+        ├── 内部使用 helpers.js / spatialPoolHelpers.js / gridGenerator.js
         ├── 返回 { state, actions, helpers }
         │
         ▼
    GameCore.jsx ─── 解构 state/actions/helpers，传给子组件
         │
-        ├── PoolCard ← 奖池展示 + 抽卡入口
-        ├── OrderCard ← 订单展示 + 提交入口
+        ├── ItemMap ← 空间物品地图 (3×4网格 + 2×2框选抽卡)
+        ├── MilestoneGrid ← 里程碑网格 (需求侧)
         ├── InventorySlot ← 背包格子交互
-        ├── SkillSelectionModal ← 技能选择
+        ├── SkillSelectionModal ← 技能选择（休眠中）
 ```
 
 ### 核心原则
 
 1. **单向数据流**：Config → App → GameCore → useGameLogic → 子组件。
 2. **单一状态源**：所有游戏状态集中在 `useGameLogic` 中，组件不持有游戏逻辑状态。
-3. **配置驱动**：数值、物品、词缀、技能等全部由 `INITIAL_GAME_CONFIG` 定义，修改平衡时编辑 `constants.js`。
+3. **配置驱动**：数值、物品、词缀、技能等全部由配置文件定义，修改平衡时编辑配置。
+4. **供需分离**：ItemMap 是供给侧（物品来源），MilestoneGrid 是需求侧（物品去向），背包是中间缓冲区。
 
 ---
 
-## 4. 配置层：constants.js
+## 4. 配置层
 
-此文件导出所有游戏数据。以下列出每个导出的结构和用途。
+配置分布在 3 个文件中：`constants.js`（核心配置）、`spatialConstants.js`（空间地图）、`gridConstants.js`（里程碑网格）。
 
-### 4.1 `INITIAL_STAGE_CONFIG`（4 个阶段）
+### 4.1 `constants.js`
+
+#### `INITIAL_STAGE_CONFIG`（4 个阶段）
 
 ```js
 [
-  { // Stage 0: 普通模式
+  { // Stage 0: 普通模式 — 当前唯一使用的阶段
     inventorySize: 10, orderSlots: 3, poolSize: 4, allowedPoolCount: 5,
     initialGold: 20,
     mechanics: { refresh: true, affixes: true, synthesis: true, variablePrice: true },
@@ -174,14 +179,14 @@ INITIAL_GAME_CONFIG (constants.js)
 
 > **重要**：当前 `useGameLogic` 硬编码使用 `config.stages[0]`，阶段切换系统尚未启用。
 
-### 4.2 `SKILL_DEFINITIONS`（13 个技能）
+#### `SKILL_DEFINITIONS`（13 个技能）
 
 每个技能对象：`{ id, name, desc, Icon, type, color }`
 
 | id | 名称 | 简述 |
 |----|------|------|
 | `poverty_relief` | 贫困救济 | 金币<20 完成订单 +5 金币 |
-| `lucky_7` | 幸运7 | 金币尾数7或7倍数时传说概率×2 |
+| `lucky_7` | 幸运7 | 金币尾数7时传说概率×2 |
 | `alchemy` | 炼金术 | 回收 Rare+ 25% 概率 +5 金币 |
 | `vip_discount` | 贵宾折扣 | precise/targeted 费用 -1 |
 | `negotiator` | 谈判专家 | 抽到 Epic+ 时订单刷新次数 +1 |
@@ -194,51 +199,39 @@ INITIAL_GAME_CONFIG (constants.js)
 | `big_order_expert` | 大订单专家 | 4需求订单完成 +5 金币 |
 | `hard_order_expert` | 困难订单专家 | 含 Epic+ 需求订单完成 +10 金币 |
 
-Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通过 `hasSkill(id)` 检查后以条件分支实现。
+> 技能系统代码完整但当前未启用。`triggerSkillSelection()` 存在但无自动触发点。
 
-### 4.3 `TOOL_ITEMS`（3 种工具物品）
+#### `TOOL_ITEMS`（已废弃）
 
-| id | 名称 | 图标 | effectType | 行为 |
-|----|------|------|------------|------|
-| `tool_reforge` | 命运熔炉 | 🔥 | `reforge_left` | 右键→选目标→随机重置品质 |
-| `tool_transmute` | 万象棱镜 | 🔮 | `transmute_left` | 右键→选目标→变同池其他物品 |
-| `tool_enhance` | 星辉祝福 | ✨ | `enhance_next` | 右键→直接激活→下次抽卡品质+1 |
+`TOOL_ITEMS` 数组为空 `[]`。工具物品掉落已禁用（`tryDropToolItem` 直接返回原数组）。`TOOL_ITEM_CONFIG` 配置保留但不生效。
 
-### 4.4 `TOOL_ITEM_CONFIG`
+#### `INITIAL_AFFIXES_CONFIG`（6 种词缀）
 
-```js
-{ dropChance: 0.2, weights: { each: 1 },
-  reforgeRarityWeights: { common:0.4, uncommon:0.3, rare:0.2, epic:0.08, legendary:0.02, mythic:0 } }
-```
-
-### 4.5 `INITIAL_AFFIXES_CONFIG`（7 种词缀）
+当前 6 种词缀用作效果物品（从地图上获取后放入背包，激活后影响下次抽取）：
 
 | id | 名称 | 类型 | cost | 特殊权重 |
 |----|------|------|------|----------|
-| `trade_in` | 以旧换新的 | interaction | 1 | — |
-| `hardened` | 硬化的 | passive | 2 | rare:0.67, epic:0.3, legendary:0.03 |
-| `purified` | 提纯的 | passive | 3 | 同 hardened |
-| `volatile` | 波动的 | passive | 1 | — (逻辑约束只出 common/legendary) |
-| `fragmented` | 稀碎的 | passive | 1 | — (逻辑约束全 common) |
-| `precise` | 精准的 | interaction | 2 | — |
-| `targeted` | 有的放矢的 | interaction | 4 | — |
+| `trade_in` | 以旧换新的 | interaction | 0 | — |
+| `hardened` | 硬化的 | passive | 0 | uncommon:0.2, rare:0.7, epic:0.09, legendary:0.01 |
+| `purified` | 提纯的 | passive | 0 | rare:0.67, epic:0.3, legendary:0.03 |
+| `fragmented` | 稀碎的 | passive | 0 | — (逻辑约束全 common, 出 3 个) |
+| `precise` | 精准的 | interaction | 0 | — (二选一) |
+| `targeted` | 有的放矢的 | interaction | 0 | — (1×1 精确选取) |
 
-每个词缀对象还包含 `name`、`desc`、`weight`（用于随机选取）等字段。
+> 注意：旧的 `volatile`（波动的）词缀已移除。所有词缀 cost 当前为 0，费用由地图抽取的基础 cost（1 金币）统一承担。
 
-### 4.6 `INITIAL_RARITY_CONFIG`（6 级品质）
+#### `INITIAL_RARITY_CONFIG`（6 级品质）
 
-| id | name | bonus | recycleValue | color (Tailwind) |
-|----|------|-------|-------------|-----------------|
-| `common` | 普通 | 0 | 1 | gray-400 |
-| `uncommon` | 优秀 | 0.1 | 2 | green-400 |
-| `rare` | 稀有 | 0.25 | 5 | blue-400 |
-| `epic` | 史诗 | 0.5 | 15 | purple-400 |
-| `legendary` | 传说 | 1.0 | 50 | orange-400 |
-| `mythic` | 神话 | 2.0 | 200 | red-400 |
+| id | name | bonus | recycleValue |
+|----|------|-------|-------------|
+| `common` | 普通 | 0 | 1 |
+| `uncommon` | 优秀 | 0.1 | 2 |
+| `rare` | 稀有 | 0.25 | 5 |
+| `epic` | 史诗 | 0.5 | 15 |
+| `legendary` | 传说 | 1.0 | 50 |
+| `mythic` | 神话 | 2.0 | 200 |
 
-> 注意：`constants.js` 默认值可能被 JSON 配置覆盖（通过 App.jsx 的导入功能）。`game_rules.md` 中的数值以 JSON 配置为准。
-
-### 4.7 `INITIAL_POOLS_DATA`（5 个物品池）
+#### `INITIAL_POOLS_DATA`（5 个物品池）
 
 | poolId | 池名 | 图标 | 物品 (4个) |
 |--------|------|------|-----------|
@@ -248,31 +241,20 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 | `kitchenware` | 厨具 | 🍳 | 平底锅🍳 菜刀🔪 砧板🪵 汤勺🥄 |
 | `electronics` | 电器 | ⚡️ | 手机📱 耳机🎧 空调❄️ 电脑💻 |
 
-### 4.8 `EMERGENCY_ORDER_CONFIG`（撤离订单配置）
+5 池 × 4 物品 = 20 种物品。
 
-```js
-{
-  difficulty: { initial: 1, increaseOnNewOrder: 1, decreaseOnScoreOrder: 1, min: 1, max: 10 },
-  reqCountMin: 1, reqCountMax: 4,
-  baseRarityWeights: { ... },
-  difficultyReqCountWeights: { 1-10: { 2-4: weight } },
-  difficultyRarityWeights: { 1-10: { rarities } },
-  difficultyRequirements: {}  // 空=使用随机模式；可配置精确模式
-}
-```
+#### `EMERGENCY_ORDER_CONFIG`（撤离订单配置，已部分废弃）
 
-> 撤离订单没有时限和生命值系统。胜负由"金币耗尽前能否完成撤离订单"决定。
+配置仍然存在于代码中，但当前撤离系统通过里程碑网格实现，不再使用独立的撤离订单。此配置为历史遗留。
 
-### 4.9 `SCORE_PROGRESS_CONFIG`
+#### `SCORE_PROGRESS_CONFIG`
 
 ```js
 { targetProgress: Infinity, progressOffset: 0,
   rarityWeights: { common:0.5, uncommon:1.0, rare:1.5, epic:2.0, legendary:3.0, mythic:4.0 } }
 ```
 
-### 4.10 `INITIAL_GAME_CONFIG`（总配置对象）
-
-将以上所有配置聚合：
+#### `INITIAL_GAME_CONFIG`（总配置对象）
 
 ```js
 {
@@ -288,54 +270,153 @@ Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通�
 }
 ```
 
+### 4.2 `spatialConstants.js`
+
+空间物品地图的配置常量。
+
+| 导出 | 说明 |
+|------|------|
+| `ALL_ITEMS` | 从 `INITIAL_POOLS_DATA` 扁平化的全部 20 个物品列表，每项含 `{ name, icon, poolId, poolName }` |
+| `FIXED_SHAPE` | 固定 2×2 框选形状 `{ cells: [[0,0],[0,1],[1,0],[1,1]], coverageCount: 4 }` |
+| `QUALITY_EFFECTS` | 等于 `INITIAL_AFFIXES_CONFIG`（全部词缀可在空间系统中作为效果出现） |
+| `MAP_ROWS` | 3（地图行数） |
+| `MAP_COLS` | 4（地图列数） |
+| `DEFAULT_DRAW` | `{ id: null, cost: 1 }`（无效果时的默认抽取配置） |
+| `EFFECT_ITEM_ICONS` | 效果物品的图标映射：`trade_in→🔄, hardened→🛡️, purified→💎, fragmented→💥, precise→🎯, targeted→🎯` |
+
+### 4.3 `gridConstants.js`
+
+里程碑网格系统的配置常量。
+
+| 导出 | 说明 |
+|------|------|
+| `GRID_CONFIG` | `{ canvasSize: 5, cellCount: {min:8, max:12}, taskCount: {min:3, max:5}, taskSize: {min:2, max:4} }` |
+| `CELL_SCORE_WEIGHTS` | 各品质的分数权重：`common:2, uncommon:2.5, rare:4, epic:8, legendary:16, mythic:32` |
+| `TASK_GOLD_REWARD` | 任务完成金币奖励：`3`（当前代码中未使用此常量） |
+| `CELL_RARITY_WEIGHTS` | 格子品质需求的随机权重：`common:0.40, uncommon:0.35, rare:0.20, epic:0.05` |
+| `TASK_COLORS` | 10 种任务颜色（CSS hex） |
+| `CELL_REWARD_CHANCE` | 格子有奖励的概率：`0.3` |
+| `RARITY_BG_COLORS` | 各品质的背景/边框颜色（rgba 格式） |
+
 ---
 
-## 5. 纯工具函数：helpers.js
+## 5. 纯工具函数
+
+### 5.1 `helpers.js`
 
 所有函数为纯函数，不依赖 React，不持有状态。
 
-### `getAllNormalItems(pools, currentStageConfig) → Item[]`
+#### `getAllNormalItems(pools, currentStageConfig) → Item[]`
 
 根据 `allowedPoolCount`（限制池子数量）和 `poolSize`（限制每池物品数）从 `pools` 中取出扁平物品列表。每个物品附加 `poolId` 和 `poolName`。
 
-### `getRandomAffix(affixes) → Affix`
+#### `getRandomAffix(affixes) → Affix`
 
 按 `weight` 字段加权随机选取一个词缀。
 
-### `getRandomItems(array, count) → Item[]`
+#### `getRandomItems(array, count) → Item[]`
 
 Fisher-Yates 洗牌后取前 `count` 个。
 
-### `rollRequirementRarity(config, stageConfig, isEmergency, difficulty) → RarityId`
+#### `rollRequirementRarity(config, stageConfig, isEmergency, difficulty) → Rarity`
 
-确定订单需求的品质：
-- 撤离订单：先查 `difficultyRarityWeights[difficulty]`，fallback 到 `baseRarityWeights`，再 fallback 到 `stageConfig.orderRarityWeights`
-- 普通订单：使用 `stageConfig.orderRarityWeights`
-- 累积概率法随机选取
+确定订单需求的品质（历史遗留，里程碑系统中由 `gridGenerator.js` 的 `rollCellRarity` 替代）。
 
-### `generateOrder(allItems, config, hasSkill, stageConfig, isEmergency, difficulty) → Order`
+#### `generateOrder(allItems, config, hasSkill, stageConfig, isEmergency, difficulty) → Order`
 
-完整订单生成流程：
-1. 检查 `difficultyRequirements[difficulty]` 是否存在精确模式（固定品质列表）
-2. 否则随机模式：按权重选需求数量 → 为每个需求选物品 + 品质
-3. 撤离订单强制不同池子（`getUniquePoolItems` 辅助函数）
-4. `cut_corners` 技能：20% 概率减少1个需求
-5. 计算 `baseScoreReward = max(1, floor(Σ rarityWeights + offset))`
-6. 返回 `{ id, requirements, baseScoreReward, isScoreOrder }`
+完整订单生成流程（历史遗留，里程碑系统中不使用）。
 
-### `rollRarity(config, affixKey, gold, hasSkill, skillState, stageConfig) → Rarity`
+#### `rollRarity(config, affixKey, gold, hasSkill, skillState, stageConfig) → Rarity`
 
-抽卡品质判定核心：
-1. 根据词缀确定 `allowedRarityIds`（volatile → [common, legendary]，fragmented → [common] 等）
+**抽卡品质判定核心**（仍在使用）：
+1. 根据词缀确定 `allowedRarityIds`（fragmented → [common]，hardened/purified → [rare+] 等）
 2. 优先使用词缀自定义权重，否则使用阶段权重
 3. `lucky_7` 技能：`gold % 10 === 7` 时传说权重 ×2
 4. `nextDrawGuaranteedRare`：从允许的 Rare+ 中随机选
 5. 累积概率随机选取
 6. Fallback → common
 
-### `getNextRarity(currentRarityId, config) → Rarity | null`
+#### `getNextRarity(currentRarityId, config) → Rarity | null`
 
-返回比当前品质高一级的品质对象，mythic 返回 null。
+返回比当前品质高一级的品质对象，mythic 返回 null。用于合成升级。
+
+### 5.2 `spatialPoolHelpers.js`
+
+空间物品地图的纯函数。
+
+#### `randomCell(neededNames) → ItemData`
+
+从 `ALL_ITEMS` 中随机选取一个物品。如果提供了 `neededNames`（Set），则只从匹配的物品中选取。
+
+#### `generateItemMap(neededNames) → ItemData[][]`
+
+生成 `MAP_ROWS × MAP_COLS` 的二维数组，每个格子调用 `randomCell`。
+
+#### `refreshCoveredCells(itemMap, anchorRow, anchorCol, neededNames) → ItemData[][]`
+
+刷新 2×2 区域覆盖的格子，其余格子不变。返回新地图（不可变更新）。
+
+#### `computeClusterSizes(itemMap) → number[][]`
+
+**簇大小计算**（核心算法）：使用 BFS 遍历整个地图，将同名相邻物品（8 方向）归为同一簇。返回与网格同尺寸的二维数组，每个格子的值为其所在簇的大小。
+
+- 效果格（`isEffect: true`）不参与簇计算
+- 簇大小直接影响抽取品质下限
+
+#### `getFrameCoverage(anchorRow, anchorCol, itemMap) → CoveredCell[] | null`
+
+获取 2×2 框选覆盖的格子信息。越界返回 null。
+
+#### `isValidPlacement(anchorRow, anchorCol) → boolean`
+
+检查 2×2 放置是否完全在网格范围内。有效锚点范围：row ∈ [0, MAP_ROWS-2]，col ∈ [0, MAP_COLS-2]。
+
+### 5.3 `gridGenerator.js`
+
+里程碑网格生成算法。
+
+#### `getNeighbors(row, col, canvasSize) → {row, col}[]`
+
+获取四邻域邻居（上下左右），不超出画布边界。
+
+#### `rollCellRarity(rarities, weights) → string`
+
+按权重随机选择一个品质 ID，用于里程碑格子的品质需求。
+
+#### `generateMilestoneShape(canvasSize, targetCellCount) → {row, col}[]`
+
+**不规则形状生成**：从画布中心附近开始，通过随机 flood-fill 扩展生成连通区域。结果是一组连通的格子坐标。
+
+#### `generateTasks(cells, numTasks, minSize, maxSize) → Task[]`
+
+**任务生成**：在里程碑形状上生成直线型任务（水平或垂直方向的连续格子段）。
+
+关键逻辑：
+1. 每个任务是一条连续直线（行或列的子段）
+2. 后续任务倾向从已覆盖格子开始，产生重叠
+3. 拒绝与已有任务完全重复的候选
+4. 生成后确保所有格子至少属于一个任务（未覆盖格子通过扩展已有任务或创建桥接任务解决）
+5. 使用 Union-Find 确保任务图完全连通（桥接断开的组件）
+
+#### `assignItemsToCells(cells, tasks, allItems, rarities) → Cell[]`
+
+为每个格子分配物品和品质需求：
+1. 确保物品来自至少 3 个池子
+2. 格子数超过物品种类数时循环分配
+3. 交叉格子（≥2 任务共享）不获得奖励
+4. 按 `CELL_RARITY_WEIGHTS` 随机选取品质需求
+5. 按 `CELL_REWARD_CHANCE`（0.3）决定是否有分数奖励
+
+#### `generateMilestone(allItems, rarities, difficulty) → Milestone`
+
+**里程碑生成主函数**：
+1. 在 `GRID_CONFIG` 范围内随机确定格子数和任务数
+2. 调用 `generateMilestoneShape` → `generateTasks` → `assignItemsToCells`
+3. 指定撤离格：选择交叉格子，品质至少 rare，标记 `isEvacuation: true`
+4. 确保每个任务至少有一个带奖励的格子
+5. 计算网格边界
+
+返回 `{ cells, tasks, gridBounds, isComplete }`
 
 ---
 
@@ -345,7 +426,7 @@ Fisher-Yates 洗牌后取前 `count` 个。
 
 **返回**: `{ state, actions, helpers }` — GameCore 解构后分发给子组件。
 
-此 hook 约 2200 行，是整个游戏的"大脑"。以下逐一说明。
+此 hook 约 1424 行，是整个游戏的"大脑"。
 
 ### 6.1 State 变量
 
@@ -353,42 +434,45 @@ Fisher-Yates 洗牌后取前 `count` 个。
 | 变量 | 类型 | 说明 |
 |------|------|------|
 | `score` | number | 当前积分 |
-| `gold` | number | 当前金币 |
+| `gold` | number | 当前金币（初始由 `config.global.initialGold` 决定） |
 | `drawCount` | number | 累计抽卡次数 |
-| `emergencyDifficulty` | number | 当前撤离订单难度 |
-| `orderRefreshCount` | number | 剩余订单刷新次数 |
-| `REFRESH_MAX` | number | 最大刷新次数（来自 config） |
 
 #### 配置衍生
 | 变量 | 类型 | 说明 |
 |------|------|------|
 | `currentStageConfig` | object | 始终为 `config.stages[0]` |
-| `maxInventorySize` | number | `currentStageConfig.inventorySize` |
+| `maxInventorySize` | number | `currentStageConfig.inventorySize`（默认 10） |
+
+#### 空间地图状态
+| 变量 | 类型 | 说明 |
+|------|------|------|
+| `itemMap` | ItemData[][] | 3×4 物品地图二维数组 |
+| `drawAnimInfo` | object\|null | 抽取动画状态 `{ drawnKey, coveredKeys, phase }` |
+
+#### 里程碑状态
+| 变量 | 类型 | 说明 |
+|------|------|------|
+| `milestone` | Milestone\|null | 当前里程碑数据 `{ cells, tasks, gridBounds, evacuationAvailable }` |
+| `milestoneNumber` | number | 当前里程碑编号（从 1 开始） |
 
 #### 集合状态
 | 变量 | 类型 | 说明 |
 |------|------|------|
-| `activePools` | Pool[3] | 当前3个活跃奖池（含词缀） |
-| `orders` | Order[3] | 普通订单数组 |
-| `emergencyOrders` | Order[2] | 撤离订单数组 |
 | `inventory` | (Item\|null)[] | 背包数组（null 为空格） |
-| `skills` | string[] | 已拥有技能 ID（最多3个） |
+| `skills` | string[] | 已拥有技能 ID（最多3个，当前未启用获取流程） |
 
 #### 交互状态
 | 变量 | 类型 | 说明 |
 |------|------|------|
-| `pendingItem` | Item\|null | 等待放置的物品 |
+| `pendingItem` | Item\|null | 等待放置的物品（背包满或超载时） |
 | `pendingQueue` | Item[] | 待处理物品队列 |
 | `selectedSlot` | number\|null | 选中的背包格子索引 |
 | `selectedIndices` | number[] | 多选模式选中的格子索引 |
-| `isSubmitMode` | boolean | 提交模式 |
+| `isSubmitMode` | boolean | 提交模式（当前未使用，保留代码） |
 | `isRecycleMode` | boolean | 回收模式 |
-| `isEvacuationMode` | boolean | 撤离模式 |
-| `selectionMode` | object\|null | 交互词缀选择模式 `{ type, pool, items, cost }` |
-| `toolSelectionMode` | object\|null | 工具物品使用模式 `{ toolIndex, effectType }` |
-| `orderSlotAssignments` | object | 订单槽位分配映射 `{ "orderIdx-reqIdx": itemUid }` |
-| `orderCandidates` | object\|null | 当前候选订单 `{ slotIndex, candidates[] }` |
-| `orderCandidateQueue` | object[] | 候选订单队列 |
+| `selectionMode` | object\|null | 交互词缀选择模式 `{ type, pool, items }` |
+| `toolSelectionMode` | object\|null | 工具物品使用模式 `{ toolIndex, effectType }`（历史遗留） |
+| `activeEffect` | object\|null | 已激活的效果物品 `{ effectId, effectConfig, itemUid }` |
 | `modalContent` | object\|null | 模态框数据 |
 | `skillSelectionCandidates` | Skill[]\|null | 技能选择候选列表 |
 | `toast` | object\|null | 浮动提示数据 |
@@ -399,7 +483,7 @@ Fisher-Yates 洗牌后取前 `count` 个。
 | `hoveredPoolId` | 鼠标悬停的池子 ID |
 | `hoveredItemName` | 鼠标悬停的物品名称 |
 | `hoveredSlotIndex` | 鼠标悬停的背包格子索引 |
-| `hoveredPoolItemNames` | 鼠标悬停池子的物品名称列表 |
+| `hoveredPoolItemNames` | 鼠标悬停地图区域的物品名称列表（用于里程碑高亮） |
 
 #### 技能状态追踪
 ```js
@@ -416,182 +500,157 @@ skillState = {
 | 名称 | 依赖 | 说明 |
 |------|------|------|
 | `allNormalItems` | `config.pools`, `currentStageConfig` | 所有可用物品扁平列表 |
-| `maxRequirementRarityMap` | `orders`, `emergencyOrders`, `config.rarity` | 物品名→所有订单中该物品最高需求品质的 bonus |
-| `assignedItemUids` | `orderSlotAssignments` | 已分配物品 UID 集合 |
-| `phantomMarks` | `orders`, `emergencyOrders`, `orderSlotAssignments`, `inventory` | 交叉订单幻影标记：`{ "orderIdx-reqIdx": { orderIndex, reqIndex, itemUid }[] }` |
-| `satisfiableOrders` | `selectedIndices`, `inventory`, `orders`, `emergencyOrders` | 当前选中物品可满足的订单列表（仅在提交/撤离模式计算） |
-| `potentialSatisfiableOrders` | `inventory`, `orders`, `emergencyOrders` | 全背包物品可满足的订单（始终计算，用于预览） |
+| `neededNames` | `milestone` | 当前里程碑所有格子的物品名称集合（包括已填充的，保持地图物品池稳定） |
+| `cellMatches` | `milestone`, `inventory`, `config.rarity` | 每个未填充格子可以匹配的背包物品索引映射 `{ cellId: [invIdx, ...] }` |
+| `fillableCellIds` | `cellMatches` | 当前可填充的格子 ID 列表 |
+| `relevantPoolIds` | `milestone` | 未填充格子涉及的池子 ID 集合 |
 | `totalRecycleValue` | `selectedIndices`, `inventory` | 回收模式下选中物品的总回收金币值 |
 | `selectedItemNames` | `selectedIndices`, `inventory` | 选中物品名称集合 |
 
 ### 6.3 Effects（副作用）
 
-1. **订单初始化**：组件挂载时填充 `orders` 至 `orderSlots` 个，初始化 2 个撤离订单。
-2. **奖池初始化**：`config` 变化时调用 `refreshPools(false)`。
-3. **待定队列处理**：`pendingItem` 为 null 且 `pendingQueue` 非空时，自动取出队首设为 `pendingItem`。
-4. **候选队列处理**：`orderCandidates` 为 null 且 `orderCandidateQueue` 非空时，自动取出队首设为当前候选。
+1. **里程碑初始化**：`milestone` 为 null 且 `allNormalItems` 非空时，自动调用 `generateMilestone` 生成新里程碑。
+2. **地图重新生成**：`milestoneNumber` 变化或里程碑创建时，调用 `generateItemMap(neededNames)` 重建地图。
+3. **待定队列处理**：`pendingItem` 为 null 且 `pendingQueue` 非空时，自动取出队首设为 `pendingItem`。检查超载（specialization）和背包空间。
+4. **技能同步**：`initialSkills` 变化时同步到 `skills` state。
 
 ### 6.4 核心函数详解
 
-#### 奖池管理
+#### 簇品质映射
 
-**`generateActivePools()`**
-1. 从 `config.pools` 中随机选 3 个不重复池子
-2. 为每个池子随机分配不重复词缀（`getRandomAffix`）
-3. 每个活跃池子对象 = `{ ...pool, affix, cost: affix.cost }`
+```js
+CLUSTER_MIN_RARITY = { 1: null, 2: 'uncommon', 3: 'rare', 4: 'epic', 5: 'legendary' }
+```
 
-**`refreshPools(tick: boolean)`**
-- 调用 `generateActivePools()` 更新 `activePools`
-- `tick=true` 时应用熵增衰减（`applyEntropy`）
+簇大小 ≥5 按 5 处理（品质下限为 legendary）。
 
-**`applyEntropy(inv)`**
-- 遍历背包所有物品，`decay` 值 -1（仅在 entropy 机制启用时执行）
+#### 物品创建
 
-#### 抽卡流程
+**`createItem(pool, itemTemplate, affixKey, clusterSize)`**：
+1. 调用 `rollRarity` 获取基础品质
+2. 根据簇大小查 `CLUSTER_MIN_RARITY` 获取品质下限
+3. 如果下限高于 roll 结果，提升到下限
+4. 返回完整物品对象（含 uid、rarity、sterile、decay 等）
 
-**`handleDraw(pool)`** — 抽卡入口：
-1. 守卫检查（非 submitMode、非 recycleMode、非 evacuationMode、非 selectionMode、非 toolSelectionMode、非 pendingItem）
-2. `vip_discount` 技能：precise/targeted 词缀费用 -1
-3. 金币不足 → toast 提示，return
-4. 交互词缀 → `setSelectionMode(...)` 进入交互流程，return
-5. 被动词缀 → 扣金币 → `handleNormalDraw(pool)`
+**`createEffectItem(effectConfig)`**：
+创建效果物品（从地图效果格获取），标记 `isEffectItem: true`，品质固定为 common（仅用于显示）。
 
-**`handleNormalDraw(pool)`** — 实际抽卡执行：
+**`createItemOrEffect(pool, tpl, affixKey, clusterSize)`**：
+分派函数：模板有 `isEffect` 标记时创建效果物品，否则创建普通物品。
+
+#### 地图放置与抽取
+
+**`handleMapPlace(anchorRow, anchorCol)`** — 核心抽取入口：
+
+1. **有的放矢模式**（`activeEffect.effectId === 'targeted'`）：
+   - 1×1 单格抽取
+   - 扣费 → 移除效果物品 → 创建物品/效果 → 刷新该格
+
+2. **标准 2×2 模式**：
+   - 获取 4 格覆盖信息，分离物品格和效果格
+   - 检查是否有 `activeEffect`（从背包激活的效果物品）
+   - **交互效果**（trade_in/precise）：立即执行对应流程，跳过动画
+   - **其他情况**：进入 4 阶段动画序列
+
+**4 阶段抽取动画**：
+```
+Phase 1 (highlight, 300ms): 从可抽取格中随机选一格高亮
+Phase 2 (fly, 500ms): 选中格图标飞向背包区域（Portal 动画）
+Phase 3 (exit, 400ms): 执行实际抽取逻辑 + 4 格淡出
+Phase 4 (enter, 350ms): 4 格刷新新物品并缩放进入
+```
+
+抽取逻辑（Phase 3 中执行）：
+- `fragmented` 效果：通过 `handleDraw` 处理（3 个物品）
+- 效果格被抽中：创建效果物品加入背包
+- 普通物品：通过 `handleNormalDraw` 处理
+
+**`handleDraw(pool)`** — 词缀处理入口：
+1. 守卫检查（非各种特殊模式、非 pendingItem）
+2. `vip_discount` 技能：precise 费用 -1
+3. 金币不足 → toast 提示
+4. `trade_in` → 进入 `selectionMode`（选择背包物品消耗）
+5. `precise` → 进入 `selectionMode`（二选一）
+6. 其他 → 扣金币 → `handleNormalDraw`
+
+**`handleNormalDraw(pool, overrideBaseInventory)`** — 实际抽卡执行：
 1. `drawCount++`
 2. 根据词缀决定物品数和品质：
-   - `fragmented`：3 个 common 物品
-   - 其他：1 个随机品质物品
-3. `nextDrawExtraItem`（auto_restock 技能）→ 额外复制第一个物品
-4. `nextDrawEnhanced`（enhance 工具）→ 品质 +1（`getNextRarity`）
+   - `fragmented`：3 个 common 物品（簇大小影响下限）
+   - 其他：1 个随机品质物品（簇大小影响下限）
+3. `nextDrawEnhanced`：品质 +1（`getNextRarity`）
+4. `nextDrawExtraItem`：额外 1 个物品
 5. 更新 `skillState`（连续 common 计数、安慰奖触发等）
-6. 对当前背包应用熵增衰减
-7. `tryDropToolItem(items)` → 20% 概率追加一个工具物品
-8. `handleIncomingItems(items, decayedInventory)`
-9. `refreshPools(true)`
+6. 对当前背包应用熵增衰减（如启用）
+7. `handleIncomingItems(items, decayedInventory)`
+8. `refreshPools(true)`（当前为空操作，仅处理熵增）
 
 **`handleIncomingItems(newItems, overrideInventory)`**：
-1. 检查 `negotiator` 技能（Epic+ 物品 → 刷新次数 +1）
-2. 对每个新物品：
-   - 检查种类限制（specialization: 背包中唯一名称 ≥7 且新名称是新种类）
-   - 背包有空位 → 放入第一个 null 槽位
-   - 背包满 → 设为 `pendingItem`（或加入 `pendingQueue`）
-   - 超载 → 设为 `pendingItem`
+逐个处理新物品：
+1. 检查种类限制（specialization: 唯一名称 ≥7 且新名称是新种类 → 超载）
+2. 背包有空位 → 放入第一个 null 槽位
+3. 背包满 → 设为 `pendingItem`
+4. 超载 → 设为 `pendingItem`（标记 `isOverload`）
+5. 已有 pendingItem → 加入 `pendingQueue`
 
-**`tryDropToolItem(items)`**：以 `dropChance`（0.2）概率调用 `rollToolItem` 并 push 到 items 数组。
+#### 效果物品系统
 
-**`rollToolItem(config)`**：加权随机选择工具类型，创建工具物品实例（`isTool: true`, `sterile: true`）。
+**`handleEffectItemUse(index)`** — 右键激活效果物品：
+- 守卫检查（非特殊模式）
+- 再次点击已激活的效果 → 取消激活
+- 设置 `activeEffect = { effectId, effectConfig, itemUid }`
+- 效果在下次抽取时消耗（抽取后从背包移除）
 
-#### 交互词缀处理
+**`consumeActiveEffect()`**：从背包移除已激活的效果物品并清除 `activeEffect`。
 
-**`handleSelectionSelect(selectedItem)`**：
-- `precise`/`targeted`：以选中物品创建 item，应用 enhancement，`handleIncomingItems`
-- 之后清除 `selectionMode`
+#### 里程碑交互
 
-**`handleSelectionCancel()`**：
-- 退还金币（`targeted`/`precise`/`trade_in` 各自退还对应 cost）
-- 清除 `selectionMode`
+**`handleFillCell(cellId)`** — 点击里程碑格子填充物品：
+1. 查找匹配的背包物品（`cellMatches`）
+2. 使用第一个匹配物品填充格子
+3. 检查任务完成（任务所有格子已填充）
+4. 计算分数奖励（已完成任务格子的 `scoreReward` 之和）
+5. 从背包移除消耗的物品
+6. 检查撤离可用性（覆盖撤离格的任务已完成）
+7. 更新里程碑状态
+
+**`handleEvacuate()`** — 撤离操作：
+1. 检查 `milestone.evacuationAvailable`
+2. 重置金币为初始值
+3. 递增 `milestoneNumber`
+4. 清空 `milestone`（触发新里程碑生成）
 
 #### 背包交互
 
-**`handleSlotClick(index)`** — 最复杂的函数，约 200 行，根据当前模式分派：
+**`handleSlotClick(index)`** — 背包点击分派（约 250 行）：
 
 | 当前模式 | 点击目标 | 行为 |
 |----------|----------|------|
 | `toolSelectionMode` | 任意物品 | `reforge`: 重新 roll 品质；`transmute`: 变同池其他物品 |
-| `trade_in` selectionMode | 任意物品 | 消耗该物品，从对应池子生成新物品（同品质，5% 升级，不同名称） |
-| submit/recycle/evacuation | 任意物品 | 切换 `selectedIndices` 中该索引 |
+| `trade_in` selectionMode | 任意物品 | 消耗该物品，从对应池子生成新物品（同品质，5% 升级概率） |
+| submit/recycle | 任意物品 | 切换 `selectedIndices` 中该索引 |
 | `pendingItem` + 空格 | null | 放入 pendingItem |
-| `pendingItem` + 物品 | item | 可合成→合成；不可合成→替换（回收旧物品） |
+| `pendingItem` + 物品 | item | 可合成→合成；超载→替换该类所有物品；普通→替换（回收旧物品） |
 | `selectedSlot` + 空格 | null | 移动物品到空格 |
 | `selectedSlot` + 物品 | item | 可合成→合成；不可合成→交换位置 |
 | 无模式 + 物品 | item | 选中该格子 (`selectedSlot = index`) |
 | 无模式 + 空格 | null | 无操作 |
 
 **合成逻辑**：
-- 条件：同名、同品质、非 mythic、双方非 sterile、衰变非 0
+- 条件：同名、同品质、非 mythic、双方非 sterile、衰变非 0（如启用）
 - 结果：消耗两个物品，生成一个品质 +1 的新物品
 
-**被分配物品的保护**：已分配到订单槽位的物品（`assignedItemUids` 包含其 uid）在大部分模式下不可交互（显示灰色+不透明），例外情况：trade_in、recycle mode、pendingItem 替换、selectedSlot 合成。
-
-#### 订单交互
-
-**`handleOrderClick(orderIndex)`**：
-- 若 `selectedSlot` 有值：自动分配物品到该订单匹配的需求槽位
-- 撤离订单（index ≥ 998）：自动从背包选择物品
-- 普通订单：自动进入 submit 模式，用算法填充 `selectedIndices` 为最佳候选
-
-**`handleAssignToOrder(orderIdx, reqIdx)` / `handleUnassignFromOrder(orderIdx, reqIdx)`**：
-管理 `orderSlotAssignments` 字典。
-
-**`handleOrderSlotClick(orderIdx, reqIdx)`**：
-- 根据当前模式分派（toolSelectionMode、trade_in、recycle/submit/evacuation、pendingItem、selectedSlot、默认=取消分配）
-
-**`handleRefreshAllOrders()`**：
-为每个订单槽位生成 2 个候选，排入 `orderCandidateQueue` 供顺序选择。
-
-**`handleRefreshSingleOrder(index)`**：
-单个订单刷新，生成 2 候选，`time_freeze` 技能 20% 概率不消耗刷新次数。
-
-**`handleSelectOrderCandidate(candidateIndex)`**：
-将选中的候选订单放入目标槽位。
-
-#### 提交与回收
-
-**`handleConfirmSubmission()`**：
-1. 验证 `satisfiableOrders.length > 0`
-2. 对每个可满足的订单计算奖励：
-   - `baseScoreReward` × `multiplier`（1 + Σ 物品品质 bonus）
-   - `ocd` 技能：同池物品时 multiplier ×2
-   - `big_order_expert`：4 需求 +5 金币
-   - `hard_order_expert`：含 Epic+ 需求 +10 金币
-   - `poverty_relief`：金币 <20 时 +5 金币
-   - `auto_restock` / `turn_fortune`：激活 skillState 标记
-3. 更新 score、gold
-4. 每完成一个订单 → `orderRefreshCount` +1
-5. 完成积分订单 → `emergencyDifficulty` 递减（不低于 min）
-6. 为完成的普通订单生成候选队列
-7. 从背包移除已提交物品
-8. 清除相关 `orderSlotAssignments`
-9. 退出 submit 模式
+#### 回收
 
 **`handleConfirmRecycle()`**：
 - 移除选中物品，金币 += Σ recycleValue
 - `alchemy` 技能：Rare+ 物品 25% 概率 +5 金币
-- 清除相关 `orderSlotAssignments`
 
-#### 撤离流程
+#### 地图刷新
 
-**`handleEvacuate()`** → `toggleEvacuationMode()` — 进入撤离模式
-
-**`handleConfirmEvacuation()`**：
-- 验证至少1个撤离订单可满足
-- 设 `modalContent = { type: 'evacuation_success' }`
-
-**`handleEvacuationContinue()`**：
-- 难度 +1
-- 生成新撤离订单（新难度）
-- 重置金币为 `currentStageConfig.initialGold`
-- 移除已提交物品
-
-**`handleEvacuationExtract()`**：
-- 设 `modalContent = { type: 'victory' }`（触发胜利结算显示）
-
-#### 工具物品使用
-
-**`handleToolItemUse(index)`** — 右键点击工具触发：
-- `enhance_next`：直接激活 `skillState.nextDrawEnhanced = true`，从背包移除工具
-- `reforge_left` / `transmute_left`：设 `toolSelectionMode = { toolIndex, effectType }`，等待玩家点击目标
-
-工具效果在 `handleSlotClick` 的 `toolSelectionMode` 分支中实现。
-
-#### 技能选择
-
-**`triggerSkillSelection()`**：
-- 过滤可用技能（未拥有、满足积分门槛）
-- 随机取 3 个设为 `skillSelectionCandidates`
-
-**`handleSkillSelect(skill)` / `handleSkillReplace(oldId, newSkill)`**：
-- 添加/替换 skills 数组中的技能
+**`handleRefreshMap()`**：
+- 花费 1 金币
+- 调用 `generateItemMap(neededNames)` 重建整个地图
 
 #### 杂项
 
@@ -599,7 +658,7 @@ skillState = {
 
 **`addInventoryItem(itemName, rarityId)`**：调试函数，直接添加物品到背包。
 
-**`debugGetOrderItems(orderIndex)`**：调试函数，直接将订单所需物品全部加入背包。
+**`handleDiscardNew()`**：丢弃 pendingItem，回收其 recycleValue 为金币。
 
 ### 6.5 返回值结构
 
@@ -607,49 +666,50 @@ skillState = {
 {
   state: {
     // 核心数值
-    gold, score, emergencyDifficulty, drawCount, orderRefreshCount, REFRESH_MAX,
+    gold, score, drawCount,
     currentStageConfig, maxInventorySize,
-    // 集合
-    activePools, orders, emergencyOrders, inventory, skills,
+    // 空间地图
+    itemMap, drawAnimInfo,
+    // 里程碑
+    milestone, milestoneNumber, cellMatches, fillableCellIds, relevantPoolIds,
+    // 背包
+    inventory,
     // 交互状态
     pendingItem, pendingQueue, selectedSlot,
-    isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
+    isSubmitMode, isRecycleMode, selectedIndices,
     selectionMode, toolSelectionMode,
-    orderSlotAssignments, assignedItemUids, phantomMarks,
-    orderCandidates, orderCandidateQueue,
+    activeEffect,
     modalContent, skillSelectionCandidates, toast,
-    skillState,
+    skills, skillState,
     // 悬停状态（含 setter）
     hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
     setHoveredPoolId, setHoveredItemName, setHoveredSlotIndex, setHoveredPoolItemNames,
     // 衍生数据
-    satisfiableOrders, potentialSatisfiableOrders, totalRecycleValue, selectedItemNames,
+    totalRecycleValue, selectedItemNames,
   },
   actions: {
     showToast, hideToast,
     // 抽卡
-    handleDraw, handleSelectionSelect, handleSelectionCancel,
+    handleDraw, handleMapPlace, handleRefreshMap,
+    handleSelectionSelect, handleSelectionCancel,
     // 背包
     handleSlotClick, handleDiscardNew, handleSortInventory,
-    // 订单
-    handleOrderClick, handleRefreshAllOrders, handleRefreshSingleOrder,
-    handleSelectOrderCandidate, handleUnassignFromOrder, handleOrderSlotClick,
+    // 里程碑
+    handleFillCell, handleEvacuate,
     // 模式切换
-    toggleSubmitMode, toggleRecycleMode, toggleEvacuationMode,
+    toggleSubmitMode, toggleRecycleMode,
     // 确认操作
-    handleConfirmSubmission, handleConfirmRecycle, handleConfirmEvacuation,
-    // 撤离
-    handleEvacuate, handleEvacuationContinue, handleEvacuationExtract,
-    // 工具
-    handleToolItemUse, handleCancelToolSelection,
-    // 奖池
+    handleConfirmRecycle,
+    // 效果/工具
+    handleEffectItemUse, handleToolItemUse, handleCancelToolSelection,
+    // 奖池（历史遗留接口）
     refreshPools, handlePoolHover, handlePoolLeave,
     // 技能
     triggerSkillSelection, handleSkillSelect, handleSkillReplace,
     // 模态
     handleCloseModal,
     // 调试
-    addInventoryItem, debugGetOrderItems,
+    addInventoryItem,
   },
   helpers: {
     hasSkill  // (skillId) => boolean
@@ -674,9 +734,9 @@ skillState = {
 | `resetConfirmOpen` | boolean | 重置确认对话框 |
 | `defaultResetConfirmOpen` | boolean | 恢复默认确认对话框 |
 | `initialSkills` | string[] | 调试用预设技能 |
-| `initialStage` | number | 未使用 |
+| `initialStage` | number | 初始阶段（当前未使用） |
 | `selectedSpawnPoolId/ItemName/RarityId` | string | 调试物品生成选择器 |
-| `debugAddItemPulse` | number | 脉冲信号触发 GameCore 添加物品 |
+| `debugAddItemPulse` | object\|null | 脉冲信号触发 GameCore 添加物品 `{ itemName, rarityId, timestamp }` |
 
 ### 关键函数
 
@@ -695,18 +755,7 @@ skillState = {
 
 ### 设置 UI 结构
 
-一个 85vh 可滚动模态框，包含以下配置区：
-1. 调试物品生成（选择池/物品/品质，点击添加）
-2. 撤离订单配置（难度系统）
-3. 撤离订单难度精确需求配置（1-10级折叠面板）
-4. 品质概率表（`rarityWeights` + `orderRarityWeights`）
-5. 订单数量权重与奖励
-6. 杂项参数（刷新费用、初始金币等）
-7. 词缀配置（每个词缀的费用和自定义品质权重）
-8. 工具物品配置（掉落率、各工具权重、重铸品质分布）
-9. 技能启用/禁用
-10. 调试技能选择
-11. 品质详情（bonus 和 recycleValue）
+一个 85vh 可滚动模态框，包含配置区：调试物品生成、撤离订单配置、品质概率表、订单数量权重与奖励、杂项参数、词缀配置、工具物品配置、技能启用/禁用、调试技能选择、品质详情。
 
 ### 渲染结构
 
@@ -738,31 +787,28 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│ HEADER: 标题 | 积分 | 金币 | 撤离难度 | 语言/调试/设置/重置 │
-├────────────────────┬────────────────────────────────┤
-│  LEFT (45%)        │  RIGHT (flex-1)                │
-│                    │                                │
-│  ┌──────────────┐  │  ┌─────────────────────────┐   │
-│  │ 撤离订单区域 │  │  │ 奖池区域 (3× PoolCard)  │   │
-│  │ (2× OrderCard│  │  └─────────────────────────┘   │
-│  │  idx 998,999)│  │                                │
-│  └──────────────┘  │  ┌─────────────────────────┐   │
-│                    │  │ 选择覆盖层               │   │
-│  ┌──────────────┐  │  │ (precise/targeted)       │   │
-│  │ 普通订单     │  │  └─────────────────────────┘   │
-│  │ (3× OrderCard│  │                                │
-│  │  idx 0,1,2)  │  │  ┌─────────────────────────┐   │
-│  └──────────────┘  │  │ 底部固定区域             │   │
-│                    │  │ ├ 技能面板 (可折叠)       │   │
-│  ┌──────────────┐  │  │ ├ 品质加成行             │   │
-│  │ 候选面板     │  │  │ ├ 背包状态栏             │   │
-│  │ (2个选项)    │  │  │ ├ 模式状态标签           │   │
-│  └──────────────┘  │  │ ├ 背包网格               │   │
-│                    │  │ │  (maxSize× InventorySlot│   │
-│                    │  │ ├ 操作按钮 (提交/回收)    │   │
-│                    │  │ └ 待定物品面板            │   │
-│                    │  └─────────────────────────┘   │
-└────────────────────┴────────────────────────────────┘
+│ HEADER: 标题 | 积分 | 金币 | 里程碑# | 语言/调试/设置/重置  │
+├─────────────────────────────────────────────────────┤
+│  TOP SECTION (flex-row, 水平居中)                     │
+│                                                     │
+│  ┌──────────────────┐  ┌─────────────────────────┐  │
+│  │ MilestoneGrid    │  │ ItemMap (3×4)            │  │
+│  │ (需求侧)         │  │ (供给侧)                 │  │
+│  │ 里程碑网格        │  │ + 刷新按钮               │  │
+│  │ + 任务进度面板    │  │ + 效果激活指示器          │  │
+│  │                  │  │ + 精准二选一覆盖层        │  │
+│  └──────────────────┘  └─────────────────────────┘  │
+├─────────────────────────────────────────────────────┤
+│  BOTTOM SECTION                                     │
+│  ┌─────────────────────────────────────────────┐    │
+│  │ 技能面板 (可折叠)                             │    │
+│  │ 品质加成行                                    │    │
+│  │ 背包状态栏 + 一键整理                          │    │
+│  │ 模式状态标签 (回收/以旧换新/工具选择)           │    │
+│  │ 背包网格 (maxSize × InventorySlot)           │    │
+│  │ 操作按钮 (回收/撤离)    │  待定物品面板         │    │
+│  └─────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────┘
 ```
 
 ### 组件向子组件传递的计算属性
@@ -772,14 +818,11 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 | 属性 | 说明 |
 |------|------|
 | `canSynthesize` | 与当前 selectedSlot/pendingItem 可否合成 |
-| `isNeededForOrder` | 是否被某个订单需要（名称匹配） |
-| `isMaxSatisfied` | 品质是否已达到/超过最高订单需求 |
-| `hasUpgradePair` | 背包中是否存在同名同品质的配对物品 |
+| `isNeededForOrder` | 是否被里程碑未填充格子需要（名称匹配） |
+| `isMaxSatisfied` | 品质是否已达到/超过里程碑格子最高品质需求 |
+| `hasUpgradePair` | 背包中是否存在同名同品质的配对物品（可合成提示） |
 | `isOverloadTarget` | specialization 模式下是否为超载替换目标 |
 | `isToolTarget` | 工具选择模式下是否为有效目标 |
-| `isAssigned` | 是否已分配到某个订单槽位 |
-
-在渲染 `OrderCard` 时，传递 `orderSlotAssignments`、`phantomMarks`、`potentialSatisfy` 等。
 
 ### 模态框渲染（`renderModal`）
 
@@ -788,8 +831,7 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 2. `modalContent.type === 'victory'` → 奖杯 + 最终积分 + 重开按钮
 3. `modalContent.type === 'stage_up'` → 阶段提升提示
 4. `modalContent.type === 'game_over'` → 游戏结束
-5. `modalContent.type === 'evacuation_success'` → 撤离成功（继续/提取按钮）
-6. 其他 → 标准物品模态
+5. 其他 → 标准物品模态
 
 ### Trade-in 覆盖层
 
@@ -799,67 +841,88 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 
 ## 9. 游戏组件详解
 
-### 9.1 PoolCard.jsx
+### 9.1 ItemMap.jsx
 
-**Props**: `pool, gold, hasSkill, config, inventory, onDraw, onMouseEnter, onMouseLeave, isHovered, relevantRequirements, disabled`
+空间物品地图组件 — 游戏的核心供给侧 UI。
 
-**逻辑**：
-- 计算 `finalCost`：`vip_discount` 技能对 precise/targeted 减 1
-- `canAfford = gold >= finalCost`
-- `isEffectiveDisabled = disabled || !canAfford`
-
-**布局（3行）**：
-1. 池子图标(4xl) + 名称(bold xl) + 价格胶囊（黄色硬币图标，折扣时划线原价）
-2. 词缀名称（大号加粗 + ✨ 前缀）
-3. 词缀描述
-
-**视觉状态**：
-- 悬停：`scale-[1.02]`、`ring-4 ring-white/50`
-- 禁用：`opacity-60 grayscale-[0.8]`
-- 点击：`active:scale-95`
-
-### 9.2 OrderCard.jsx
-
-**Props**（约 25 个）：完整的订单数据 + 所有交互回调 + UI 状态。
+**Props**: `itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled, activeEffect`
 
 **核心特性**：
 
-**奖励预览 memo（`rewardInfo`）**：
-- `minReward`：基础积分（无品质加成）
-- `expectedReward`：基于已分配/幻影物品品质计算的预期积分
-- 两者不同时显示范围
+**悬停交互**：
+- 标准模式：鼠标悬停显示 2×2 框选高亮（indigo 色 ring + scale-105）
+- 有的放矢模式：悬停单个格子高亮
+- `onHoverCoverage` 回调传递覆盖区域的物品名称，用于里程碑高亮联动
 
-**需求项双模式渲染**：
-- **胶囊模式**（未分配）：小药丸形状，显示品质色点 + 图标 + 名称
-- **槽位模式**（已分配）：64×64 卡片，显示物品图标 + 名称，CSS 动画过渡
+**簇可视化**（metaball 风格）：
+- 每个格子计算与 8 方向邻居的同名关系 (`clusterAdj`)
+- 同名相邻格子之间的边框移除，角的圆角根据邻接关系调整
+- 簇内格子共享品质色背景（由 `CLUSTER_RARITY_ID` 映射）
+- 簇内格子有呼吸动画 (`clusterPulse 3s ease-in-out infinite`)
 
-**槽位视觉状态**：
+**品质指示器**：
+- 簇大小决定背景色：1=slate, 2=green(uncommon), 3=blue(rare), 4=purple(epic), 5+=orange(legendary)
+- 里程碑需要的物品在右上角显示品质色点
 
-| 状态             | 样式                     |
-| -------------- | ---------------------- |
-| 可合成            | 黄色 ring-4              |
-| 工具目标           | 青色 ring-4              |
-| 回收/trade-in 目标 | 琥珀色 ring-4             |
-| 被选中            | 红色 ring-4              |
-| 绝育             | "绝育" 暗色 badge          |
-| 衰变             | 左上角数字；≤0 时 "损坏" + 红色覆盖 |
-| 幻影链接           | 链接图标                   |
-| 品质升级           | 升级 badge               |
+**抽取动画**（`drawAnimInfo` 4 阶段）：
+- `highlight`：选中格高亮放大 + 琥珀色光环
+- `fly`：选中格图标隐藏，`FlyingItem` portal 从格子飞向屏幕底部
+- `exit`：选中格和其他 3 格淡出缩小
+- `enter`：4 个新物品缩放进入
 
-**刷新按钮**：右侧橙色圆按钮 + 剩余次数 badge。在 submit/evacuation/candidate 模式隐藏。
+**`FlyingItem` 内嵌组件**：
+- 使用 `createPortal(…, document.body)` 渲染飞行中的物品图标
+- CSS transition 从源格子位置飞到 `(window.innerWidth/2, window.innerHeight-80)`
 
-**可提交指示器**：`isSatisfied` 时绿色 "可提交" badge 带动画。
+**效果格渲染**：
+- 效果格（`isEffect: true`）使用白色背景，显示效果图标和名称
+- 不参与簇计算和品质着色
 
-**被替换动画**：黄色脉冲环 + 弹跳角点。
+### 9.2 MilestoneGrid.jsx
 
-### 9.3 InventorySlot.jsx
+里程碑网格组件 — 游戏的核心需求侧 UI。
+
+**Props**: `milestone, fillableCellIds, onFillCell, milestoneNumber, hoveredPoolItemNames`
+
+**布局**：
+- 左侧：CSS Grid 网格，格子大小 6rem，间距 16px
+- 右侧：侧面板显示里程碑编号、任务进度（已完成/总数）、每个任务的颜色标识和格子数
+
+**任务连线**：
+- 每个任务渲染为一条彩色直线（水平或垂直），通过 CSS Grid 定位
+- 已完成任务连线透明度降低 (`opacity-25`)
+- 单格任务显示为圆点（10×10px）
+
+**格子渲染**：
+- 使用 `GridCell` 组件
+- `fillableCellIds` 控制哪些格子可点击（绿色光环）
+- `hoveredPoolItemNames` 控制地图悬停时的联动高亮
+
+### 9.3 GridCell.jsx
+
+里程碑网格中的单个格子组件。
+
+**Props**: `cell, isFillable, isHighlighted, onClick`
+
+**视觉元素**：
+- 品质色边框和背景（由 `requiredRarity` 决定）
+- 左上角：分数奖励标签 (`+N分`)
+- 中间：物品图标（未填充时灰度 + 透明，填充后全色）+ 物品名称
+- 左下角：品质名称 + "+" 后缀
+- 右上角：撤离标记 🚀（`isEvacuation` 格子）
+- 填充后：绿色勾号覆盖
+- 可填充时：绿色光环 + 右上角绿色勾号
+
+### 9.4 InventorySlot.jsx
+
+背包格子组件。
 
 **Props**（约 23 个）：物品数据 + 所有视觉状态标志 + 交互回调。
 
 **内嵌组件 `ToolItemTooltip`**：
 - 使用 `createPortal(…, document.body)` 渲染到 body
 - `useLayoutEffect` 中基于 anchor `ref.getBoundingClientRect()` 计算绝对定位
-- 显示工具名称、描述、"右键点击使用"提示
+- 显示工具/效果名称、描述、"右键点击使用"提示
 - 避免溢出/z-index 裁剪
 
 **物品槽视觉状态**：
@@ -868,21 +931,24 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 |------|------|
 | 空格 | 虚线灰色边框 |
 | 有物品 | 品质色 + 阴影 + 图标(2xl/3xl) + 名称(10px 截断) |
-| 工具物品 | 琥珀渐变边框 + 脉冲图标 + "TOOL" badge |
+| 工具物品 | 琥珀渐变边框 + 脉冲图标 + "工具" badge |
+| 效果物品 | 翡翠渐变边框 + "效果" badge |
 | 被选中（常规） | translate-y-4 上移 + scale |
-| 被选中（submit） | 蓝色边框 |
 | 被选中（recycle） | 琥珀色边框 |
 | 合成目标 | 黄色 ring-4 + scale-105 |
 | 超载目标 | 红色覆盖 + 垃圾桶图标 |
 | 交换目标 | 蓝色覆盖 + 箭头图标 |
-| 已分配到订单 | 30% 不透明 + 灰度 + pointer-events-none |
 | 升级配对 | 右上角黄色弹跳 ChevronsUp badge |
-| 订单需求提示 | 右下角绿色/灰色对勾 |
+| 里程碑需求提示 | 右下角绿色/灰色对勾 |
 | 绝育标记 | 左下角 "绝育" 暗色 badge |
 | 衰变计数 | 左上角等宽数字；≤0 时 "损坏" + 红覆盖 |
-| 工具悬停 | 底部 "R-Click" 指示器 + portal tooltip |
+| 工具/效果悬停 | 底部 "右键使用/激活" 指示器 + portal tooltip |
 
-### 9.4 SkillSelectionModal.jsx
+**右键交互**：
+- 工具物品：触发 `handleToolItemUse`
+- 效果物品：触发 `handleEffectItemUse`（激活/取消激活效果）
+
+### 9.5 SkillSelectionModal.jsx
 
 **Props**: `candidates, onSelect, currentSkills, onReplace`
 
@@ -893,6 +959,8 @@ onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
 **特殊功能**：
 - "按住查看"按钮：`isPeeking` 状态使弹窗背景透明、隐藏内容，方便查看游戏状态
 - "放弃新技能"按钮始终可用
+
+> 当前技能系统未启用，此组件处于休眠状态。
 
 ---
 
@@ -935,13 +1003,12 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
 
 ### translations.js
 
-`EN_TRANSLATIONS` 扁平对象，约 120+ 条目。覆盖：
+`EN_TRANSLATIONS` 扁平对象。覆盖：
 - UI 通用术语、品质名称、池子/物品名称（全部 20 种）
 - 词缀名称和描述
 - 13 个技能名称和描述
-- Toast/错误消息
-- 模态框标题和按钮
-- 工具物品、候选订单、撤离流程相关文案
+- Toast/错误消息、模态框标题和按钮
+- 里程碑、效果物品相关文案
 
 **惯例**：中文是源语言。所有新增 UI 文本必须先用中文硬编码，然后在 `translations.js` 中添加英文翻译，组件中使用 `t()` 包裹。
 
@@ -949,67 +1016,96 @@ React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误�
 
 ## 12. 关键算法与流程
 
-### 12.1 抽卡完整流程
+### 12.1 地图抽取完整流程
 
 ```
-用户点击 PoolCard
-  → PoolCard.onDraw(pool)
-    → actions.handleDraw(pool)
-      ├── 守卫检查（模式冲突）
-      ├── 计算 finalCost（VIP折扣）
-      ├── 金币不足 → toast + return
-      ├── 交互词缀 → setSelectionMode + return
-      └── 被动词缀 → 扣金币 → handleNormalDraw(pool)
-            ├── drawCount++
-            ├── 按词缀生成物品
-            │   ├── fragmented → 3× common
-            │   └── 其他 → 1× rollRarity(...)
-            ├── auto_restock → 额外复制1个
-            ├── enhance → 品质+1
-            ├── 更新 skillState
-            ├── applyEntropy(inventory)
-            ├── tryDropToolItem(20%)
-            ├── handleIncomingItems(items, decayed)
-            │   ├── negotiator check (Epic+ → refresh+1)
-            │   ├── specialization check
-            │   ├── 有空位 → 放入
-            │   └── 无空位 → pendingItem/pendingQueue
-            └── refreshPools(true) → generateActivePools()
+用户点击 ItemMap 格子
+  → ItemMap.handleCellClick(row, col)
+    → actions.handleMapPlace(anchorRow, anchorCol)
+      │
+      ├── targeted 模式？
+      │   → 1×1 单格抽取，立即执行
+      │
+      └── 标准 2×2 模式
+            ├── 获取 4 格覆盖信息
+            ├── 检查 activeEffect（背包中激活的效果）
+            ├── 交互效果 (trade_in/precise)?
+            │   → 立即进入 selectionMode，跳过动画
+            │
+            └── 常规抽取
+                  ├── 计算 clusterSizes（簇大小）
+                  ├── 从覆盖格中随机选 1 格
+                  │
+                  ├── Phase 1: highlight (300ms)
+                  ├── Phase 2: fly (500ms) — portal 动画
+                  ├── Phase 3: exit (400ms)
+                  │   ├── fragmented → handleDraw → 3 个物品
+                  │   ├── 效果格 → createEffectItem → 加入背包
+                  │   └── 普通格 → handleNormalDraw
+                  │         ├── createItem(簇大小影响品质下限)
+                  │         ├── enhancement/extra item（技能效果）
+                  │         ├── 更新 skillState
+                  │         ├── applyEntropy（如启用）
+                  │         └── handleIncomingItems → 背包/pendingItem
+                  │
+                  ├── Phase 4: enter (350ms) — 4 格刷新
+                  └── refreshCoveredCells
 ```
 
-### 12.2 订单满足算法
-
-`satisfiableOrders` 计算（在 `useMemo` 中）：
+### 12.2 簇品质系统
 
 ```
-输入: selectedIndices（选中的背包格子）, inventory, orders+emergencyOrders
-输出: { orderIndex, matchedItems[], isScoreOrder }[]
+1. computeClusterSizes(itemMap)
+   BFS 遍历全图，8 方向相邻同名物品归为一簇
+   → 每个格子获得簇大小值
 
-对每个订单:
-  1. 收集该订单所有需求: [{ name, minRarityBonus }]
-  2. 收集可用物品: selectedIndices 中名称匹配 + 品质 >= 需求的物品
-  3. 使用贪心匹配（每个物品只能用一次）
-  4. 若所有需求满足 → 加入结果
+2. 抽取时查表:
+   簇大小 1 → 无品质下限（正常 roll）
+   簇大小 2 → 品质下限 uncommon
+   簇大小 3 → 品质下限 rare
+   簇大小 4 → 品质下限 epic
+   簇大小 5+ → 品质下限 legendary
+
+3. 如果 rollRarity 结果低于下限 → 提升到下限
 ```
 
-### 12.3 幻影标记算法
-
-`phantomMarks` 计算：
+### 12.3 里程碑生成流程
 
 ```
-对每个订单的每个已分配需求:
-  找到对应的背包物品
-  检查该物品是否也能满足其他订单的某个需求
-  如果能 → 标记为幻影（显示链接图标）
+generateMilestone(allItems, rarities, difficulty)
+  │
+  ├── generateMilestoneShape(canvasSize=5, targetCellCount=8~12)
+  │   └── 从中心开始随机 flood-fill 扩展连通区域
+  │
+  ├── generateTasks(cells, numTasks=3~5, minSize=2, maxSize=4)
+  │   ├── 寻找直线段（水平/垂直连续格子）
+  │   ├── 确保所有格子被覆盖
+  │   └── Union-Find 确保任务图连通
+  │
+  ├── assignItemsToCells(cells, tasks, allItems, rarities)
+  │   ├── 从 ≥3 个池子分配物品
+  │   ├── 按 CELL_RARITY_WEIGHTS 随机品质需求
+  │   └── 30% 概率有分数奖励（交叉格无奖励）
+  │
+  ├── 指定撤离格（交叉格，品质≥rare，标记 🚀）
+  └── 确保每个任务至少 1 个有奖励的格子
 ```
 
-### 12.4 积分计算公式
+### 12.4 里程碑填充与撤离流程
 
 ```
-baseScoreReward = max(1, floor(Σ req.rarityScoreWeight + progressOffset))
-multiplier = 1 + Σ submittedItem.rarity.bonus
-if (ocd && 全部同池) multiplier *= 2
-finalScore = ceil(baseScoreReward × multiplier)
+用户点击可填充的 GridCell
+  → handleFillCell(cellId)
+    ├── 匹配背包物品（名称 + 品质 ≥ 需求）
+    ├── 填充格子，从背包移除物品
+    ├── 检查任务完成 → 累加分数奖励
+    └── 检查撤离可用性
+
+撤离条件：覆盖撤离格的任何任务已完成
+  → handleEvacuate()
+    ├── 重置金币
+    ├── milestoneNumber++
+    └── milestone = null（触发新里程碑生成 + 地图重建）
 ```
 
 ---
@@ -1018,17 +1114,17 @@ finalScore = ceil(baseScoreReward × multiplier)
 
 此矩阵显示不同模式下各种交互的行为：
 
-| 操作\模式 | 默认       | submit | recycle | evacuation | pendingItem | selectedSlot | selectionMode | toolSelection |
-| ----- | -------- | ------ | ------- | ---------- | ----------- | ------------ | ------------- | ------------- |
-| 点击空格  | 无        | 无      | 无       | 无          | 放入物品        | 移动到空格        | 无             | 无             |
-| 点击物品  | 选中       | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成/交换        | trade_in消耗    | 应用工具效果        |
-| 点击奖池  | 抽卡       | 阻止     | 阻止      | 阻止         | 阻止          | 抽卡           | 阻止            | 阻止            |
-| 点击订单  | 自动选物     | 无      | 无       | 无          | 无           | 分配到槽位        | 无             | 无             |
-| 点击订单槽 | 取消分配     | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成           | trade_in      | 应用工具          |
-| 右键物品  | 无（工具→使用） | 无      | 无       | 无          | 无           | 无            | 无             | 无             |
-| 确认按钮  | —        | 提交     | 回收      | 撤离确认       | —           | —            | —             | —             |
+| 操作\模式 | 默认 | recycle | pendingItem | selectedSlot | selectionMode | toolSelection |
+|-----------|------|---------|-------------|--------------|---------------|---------------|
+| 点击地图格子 | 2×2抽取 | 阻止 | 阻止 | 2×2抽取 | 阻止 | 阻止 |
+| 点击背包空格 | 无 | 无 | 放入物品 | 移动到空格 | 无 | 无 |
+| 点击背包物品 | 选中 | 切换选择 | 合成/替换 | 合成/交换 | trade_in消耗 | 应用工具效果 |
+| 点击里程碑格 | 填充(如可) | 填充(如可) | — | — | — | — |
+| 右键效果物品 | 激活/取消 | 阻止 | 阻止 | 阻止 | 阻止 | 阻止 |
+| 确认按钮 | — | 回收 | — | — | — | — |
+| 刷新地图 | 花1金币 | 阻止 | 阻止 | 花1金币 | 阻止 | 阻止 |
 
-**互斥规则**：进入任何模式会清除其他模式。`pendingItem` 阻止抽卡和模式切换。
+**互斥规则**：进入任何模式会清除其他模式。`pendingItem` 阻止抽卡和模式切换。动画进行中阻止所有地图交互。
 
 ---
 
@@ -1037,13 +1133,22 @@ finalScore = ceil(baseScoreReward × multiplier)
 ### 休眠系统
 
 1. **阶段系统**：4 个阶段完整定义在 `INITIAL_STAGE_CONFIG`，但 `useGameLogic` 硬编码 `config.stages[0]`，无阶段切换触发器。
-2. **技能获取流程**：`triggerSkillSelection()` 存在但无自动触发点。技能只能通过调试工具或未来代码手动触发。
+2. **技能获取流程**：`triggerSkillSelection()` 存在但无自动触发点。`SkillSelectionModal` UI 完整但不会被激活。技能只能通过调试工具或未来代码手动触发。
 3. **积分进度**：`targetProgress: Infinity`，进度系统框架存在但无具体目标。
+
+### 已废弃但保留的代码
+
+1. **工具物品系统**：`TOOL_ITEMS` 为空数组，`tryDropToolItem` 为空操作，但 `handleToolItemUse`、`toolSelectionMode` 相关逻辑仍保留在代码中。
+2. **订单系统**：`generateOrder`、`OrderCard`（如存在）等为历史遗留。当前需求侧完全由里程碑网格系统承担。
+3. **PoolCard / FrameSelector**：文件保留但不在 GameCore 中使用。
+4. **命运骰子系统**：已完全移除，撤离通过里程碑网格的撤离格实现。
+5. **EMERGENCY_ORDER_CONFIG**：配置保留但不影响当前游戏流程。
 
 ### 代码规模
 
-- `useGameLogic.js` 约 2200 行，是单一巨型 hook，无子 hook 拆分。
-- `App.jsx` 和 `GameCore.jsx` 各自约 1000+ 行，设置 UI 内联在 App 中。
+- `useGameLogic.js` 约 1424 行，是单一巨型 hook，无子 hook 拆分。
+- `App.jsx` 约 1127 行，设置 UI 内联在 App 中。
+- `GameCore.jsx` 约 729 行。
 
 ---
 
@@ -1051,28 +1156,32 @@ finalScore = ceil(baseScoreReward × multiplier)
 
 ### 修改游戏数值
 
-编辑 `src/data/constants.js` 中的对应配置。所有数值集中在此文件。
+- 抽取品质权重 → `constants.js` 中 `INITIAL_STAGE_CONFIG[0].rarityWeights`
+- 里程碑参数 → `gridConstants.js` 中 `GRID_CONFIG`、`CELL_RARITY_WEIGHTS`、`CELL_SCORE_WEIGHTS`
+- 簇品质映射 → `useGameLogic.js` 中 `CLUSTER_MIN_RARITY` 常量
+- 地图尺寸 → `spatialConstants.js` 中 `MAP_ROWS`、`MAP_COLS`
+- 抽取费用 → `spatialConstants.js` 中 `DEFAULT_DRAW.cost`
+- 品质回收价值 → `constants.js` 中 `INITIAL_RARITY_CONFIG`
 
-### 添加新词缀
+### 添加新效果（词缀）
 
 1. 在 `constants.js` 的 `INITIAL_AFFIXES_CONFIG` 数组中添加新词缀对象
-2. 在 `helpers.js` 的 `rollRarity` 中添加品质约束逻辑（如果需要）
-3. 在 `useGameLogic.js` 的 `handleDraw`/`handleNormalDraw` 中添加行为分支
-4. 在 `translations.js` 中添加英文翻译
+2. 在 `spatialConstants.js` 的 `EFFECT_ITEM_ICONS` 中添加图标
+3. 在 `helpers.js` 的 `rollRarity` 中添加品质约束逻辑（如果需要）
+4. 在 `useGameLogic.js` 的 `handleMapPlace`/`handleDraw`/`handleNormalDraw` 中添加行为分支
+5. 在 `translations.js` 中添加英文翻译
 
-### 添加新技能
+### 修改里程碑生成
 
-1. 在 `constants.js` 的 `SKILL_DEFINITIONS` 添加技能定义
-2. 在 `useGameLogic.js` 中使用 `hasSkill('skill_id')` 在对应事件点添加条件逻辑
-3. 如需状态追踪，在 `skillState` 中添加字段
-4. 在 `translations.js` 中添加翻译
+编辑 `gridConstants.js` 中的 `GRID_CONFIG`：
+- `canvasSize`：画布大小（影响里程碑最大范围）
+- `cellCount.min/max`：格子数量范围
+- `taskCount.min/max`：任务数量范围
+- `taskSize.min/max`：每个任务的格子数范围
 
-### 添加新工具物品
+### 修改簇品质系统
 
-1. 在 `constants.js` 的 `TOOL_ITEMS` 添加定义
-2. 在 `useGameLogic.js` 的 `handleToolItemUse` 添加激活逻辑
-3. 如果是选择型（非直接激活），在 `handleSlotClick` 的 `toolSelectionMode` 分支添加效果
-4. 在 `InventorySlot.jsx` 中确保工具外观正确
+在 `useGameLogic.js` 中修改 `CLUSTER_MIN_RARITY` 映射即可。如需改变簇计算方式（如只用 4 方向而非 8 方向），修改 `spatialPoolHelpers.js` 中 `computeClusterSizes` 的方向数组。
 
 ### 添加新 UI 组件
 
@@ -1091,7 +1200,7 @@ finalScore = ceil(baseScoreReward × multiplier)
 ### 启用技能获取流程
 
 需要：
-1. 在合适时机（如完成订单后、积分达标时）调用 `actions.triggerSkillSelection()`
+1. 在合适时机（如完成任务后、撤离时）调用 `actions.triggerSkillSelection()`
 2. `SkillSelectionModal` 的 UI 已完整实现，无需额外 UI 工作
 
 ### i18n 注意事项
@@ -1102,5 +1211,5 @@ finalScore = ceil(baseScoreReward × multiplier)
 
 ---
 
-*文档版本：基于 `code_simplify` 分支 commit `4c22ee4` 全量源码分析生成*
-*最后更新：2026-03-05*
+*文档版本：基于 `feature/cluster-based-effect` 分支全量源码分析生成*
+*最后更新：2026-04-01*
