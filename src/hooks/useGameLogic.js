@@ -4,9 +4,9 @@ import {
     generateOrder,
     getNextRarity,
     getRandomItems,
-    rollRarity
+    rollRarity,
 } from '../utils/helpers';
-import { generateItemMatrix, applyGravity, applyBombExplosion } from '../utils/matrixHelpers';
+import { generateItemMatrix, applyGravity, applyBombExplosion, getClusterCells, getClusterSize, getClusterGuaranteedRarityId, removeCells } from '../utils/matrixHelpers';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -91,6 +91,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const allNormalItems = useMemo(() => getAllNormalItems(config.pools, currentStageConfig), [config.pools, currentStageConfig]);
 
+    // Matrix item pool: only items needed by current orders (with fallback to all items)
+    const matrixItems = useMemo(() => {
+        const neededNames = new Set();
+        [...orders, ...emergencyOrders].forEach(order => {
+            if (!order) return;
+            order.requirements.forEach(req => neededNames.add(req.name));
+        });
+        if (neededNames.size === 0) return allNormalItems;
+        return allNormalItems.filter(item => neededNames.has(item.name));
+    }, [allNormalItems, orders, emergencyOrders]);
+
     useEffect(() => {
         if (initialSkills && initialSkills.length > 0) {
             setSkills([...initialSkills]);
@@ -137,7 +148,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const refreshMatrix = () => {
-        const newMatrix = generateItemMatrix(allNormalItems, config, currentStageConfig);
+        const newMatrix = generateItemMatrix(matrixItems);
         setMatrix(newMatrix);
     };
 
@@ -165,10 +176,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setTimeout(() => setGoldFlash(false), 600);
     };
 
+    // Reset gold when config changes; matrix is refreshed by the matrixItems effect below
     useEffect(() => {
-        refreshMatrix();
         setGold(config.global?.initialGold || 30);
     }, [config]);
+
+    // Refresh matrix whenever the filtered item pool changes (i.e. orders change)
+    useEffect(() => {
+        refreshMatrix();
+    }, [matrixItems]);
 
     const triggerSkillSelection = () => {
         const availableSkills = SKILL_DEFINITIONS.filter(s => {
@@ -692,30 +708,46 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const selectedCell = picked.cell;
         const cellType = selectedCell.type || 'normal';
 
+        // === Deduct draw cost (1 gold per draw) ===
+        deductGold(1);
+
         // === Phase 1: fly animation starts immediately ===
         setIsDrawing(true);
-        setLastDraw({ row: picked.row, col: picked.col, item: selectedCell.item, rarity: selectedCell.rarity, cellType, tick: Date.now() });
+        // For normal cells, roll rarity now (at draw time, not at pool generation time)
+        // Then apply cluster guaranteed minimum rarity
+        let drawnRarity = null;
+        if (cellType === 'normal') {
+            drawnRarity = rollRarity(config, null, gold, hasSkill, skillState, currentStageConfig);
+            const clusterSize = getClusterSize(matrix, picked.row, picked.col);
+            const guaranteedId = getClusterGuaranteedRarityId(clusterSize);
+            if (guaranteedId) {
+                const guaranteed = config.rarity.find(r => r.id === guaranteedId);
+                if (guaranteed && guaranteed.bonus > drawnRarity.bonus) {
+                    drawnRarity = guaranteed;
+                }
+            }
+        }
+        setLastDraw({ row: picked.row, col: picked.col, item: selectedCell.item, rarity: drawnRarity, cellType, tick: Date.now() });
 
         const capturedMatrix = matrix;
         const capturedInventory = [...inventory];
         const capturedSkillState = { ...skillState };
+        const capturedMatrixItems = matrixItems;
+
+        // Pre-compute cluster cells for normal items (before timeout, on captured matrix)
+        const clusterCells = cellType === 'normal'
+            ? getClusterCells(matrix, picked.row, picked.col)
+            : null;
+        // Cluster siblings = cluster cells excluding the picked cell itself
+        const clusterSiblings = clusterCells
+            ? clusterCells.filter(c => !(c.row === picked.row && c.col === picked.col))
+            : [];
 
         drawTimerRef.current = setTimeout(() => {
-            // First: gravity for the picked cell itself
-            let afterPickMatrix = applyGravity(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
-
-            if (cellType === 'gold_penalty') {
-                // --- Gold penalty cell: deduct gold, no item ---
-                setMatrix(afterPickMatrix);
-                setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
-                deductGold(selectedCell.goldCost);
-                showToast(`${t("金币陷阱")} -${selectedCell.goldCost} 🪙`, "warning");
-
-            } else if (cellType === 'bomb') {
+            if (cellType === 'bomb') {
                 // --- Bomb cell: explode then gravity ---
                 showToast(t("💣 炸弹爆炸！"), "info");
 
-                // Compute neighbors on the original matrix (bomb cell still present)
                 const neighbors = [];
                 for (let dr = -1; dr <= 1; dr++) {
                     for (let dc = -1; dc <= 1; dc++) {
@@ -728,15 +760,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     }
                 }
 
-                // Phase 2a: show neighbors exploding (bomb cell already hidden via pickingCell)
                 setExplodingCells(neighbors);
 
-                // Phase 2b (after explode animation): apply all removals + gravity at once
                 setTimeout(() => {
-                    const { matrix: explodedMatrix } = applyBombExplosion(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
+                    const { matrix: explodedMatrix } = applyBombExplosion(capturedMatrix, picked.row, picked.col, capturedMatrixItems);
                     setMatrix(explodedMatrix);
                     setExplodingCells(null);
-                    // Compute per-column info: how many removed and the lowest (max) row
                     const allRemoved = [{ row: picked.row, col: picked.col }, ...neighbors];
                     const colInfo = {};
                     for (const cell of allRemoved) {
@@ -752,8 +781,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 return;
 
             } else {
-                // --- Normal item cell ---
-                let rarity = selectedCell.rarity;
+                // --- Normal item cell: rarity was rolled at draw time ---
+                let rarity = drawnRarity;
                 if (capturedSkillState.nextDrawEnhanced) {
                     const nextRarity = getNextRarity(rarity.id, config);
                     if (nextRarity) rarity = nextRarity;
@@ -774,7 +803,17 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 if (capturedSkillState.nextDrawExtraItem && cells.length > 1) {
                     const remaining = cells.filter(c => c !== picked);
                     extraPicked = remaining[Math.floor(Math.random() * remaining.length)];
-                    let extraRarity = extraPicked.cell.rarity;
+                    let extraRarity = rollRarity(config, null, gold, hasSkill, capturedSkillState, currentStageConfig);
+                    if (extraPicked.cell.type === 'normal') {
+                        const extraClusterSize = getClusterSize(capturedMatrix, extraPicked.row, extraPicked.col);
+                        const extraGuaranteedId = getClusterGuaranteedRarityId(extraClusterSize);
+                        if (extraGuaranteedId) {
+                            const extraGuaranteed = config.rarity.find(r => r.id === extraGuaranteedId);
+                            if (extraGuaranteed && extraGuaranteed.bonus > extraRarity.bonus) {
+                                extraRarity = extraGuaranteed;
+                            }
+                        }
+                    }
                     if (capturedSkillState.nextDrawEnhanced) {
                         const next = getNextRarity(extraRarity.id, config);
                         if (next) extraRarity = next;
@@ -788,14 +827,29 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     });
                 }
 
-                // Apply gravity
-                if (extraPicked) {
-                    const finalMatrix = applyGravity(afterPickMatrix, extraPicked.row, extraPicked.col, allNormalItems, config, currentStageConfig);
-                    setMatrix(finalMatrix);
-                    setGravityEvent({ col: picked.col, removedRow: picked.row, col2: extraPicked.col, removedRow2: extraPicked.row, tick: Date.now() });
+                // Remove entire cluster (picked cell + siblings) with gravity
+                if (clusterSiblings.length > 0) {
+                    // Show cluster siblings exploding
+                    setExplodingCells(clusterSiblings);
+
+                    setTimeout(() => {
+                        // Remove all cluster cells at once (including picked cell)
+                        const { matrix: newMatrix, colInfo } = removeCells(capturedMatrix, clusterCells, capturedMatrixItems);
+                        setMatrix(newMatrix);
+                        setExplodingCells(null);
+                        setGravityEvent({ bombExplosion: true, colInfo, tick: Date.now() });
+                    }, 350);
                 } else {
-                    setMatrix(afterPickMatrix);
-                    setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
+                    // Single cell (no cluster) — simple gravity
+                    const afterPickMatrix = applyGravity(capturedMatrix, picked.row, picked.col, capturedMatrixItems);
+                    if (extraPicked) {
+                        const finalMatrix = applyGravity(afterPickMatrix, extraPicked.row, extraPicked.col, capturedMatrixItems);
+                        setMatrix(finalMatrix);
+                        setGravityEvent({ col: picked.col, removedRow: picked.row, col2: extraPicked.col, removedRow2: extraPicked.row, tick: Date.now() });
+                    } else {
+                        setMatrix(afterPickMatrix);
+                        setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
+                    }
                 }
 
                 // Update skill state
@@ -828,7 +882,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             }
 
             setDrawCount(prev => prev + 1);
-            setIsDrawing(false);
+            // If cluster had siblings, delay isDrawing reset to match explode animation
+            if (clusterSiblings.length > 0) {
+                setTimeout(() => setIsDrawing(false), 700);
+            } else {
+                setIsDrawing(false);
+            }
         }, 450);
     };
 

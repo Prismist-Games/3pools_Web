@@ -1,20 +1,79 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { computeClusters, getClusterGuaranteedRarityId } from '../../utils/matrixHelpers';
 
 const GRID_SIZE = 4;
 
-const RARITY_BG = {
-    common: 'bg-slate-100 border-slate-300',
-    uncommon: 'bg-green-50 border-green-400',
-    rare: 'bg-blue-50 border-blue-400',
-    epic: 'bg-purple-50 border-purple-400',
-    legendary: 'bg-orange-50 border-orange-400',
-    mythic: 'bg-red-50 border-red-400',
-};
+const NORMAL_BG = 'bg-slate-100 border-slate-300';
 
 const SPECIAL_BG = {
-    gold_penalty: 'bg-amber-50 border-amber-400',
     bomb: 'bg-red-50 border-red-400',
+};
+
+// Cluster visual styles keyed by guaranteed rarity id
+const CLUSTER_STYLES = {
+    uncommon:  { bg: 'bg-green-50',  border: 'border-green-400',  shadowColor: '#bbf7d0' },
+    rare:      { bg: 'bg-blue-50',   border: 'border-blue-400',   shadowColor: '#bfdbfe' },
+    epic:      { bg: 'bg-purple-50', border: 'border-purple-400', shadowColor: '#e9d5ff' },
+    legendary: { bg: 'bg-orange-50', border: 'border-orange-400', shadowColor: '#fed7aa' },
+    mythic:    { bg: 'bg-red-50',    border: 'border-red-400',    shadowColor: '#fecaca' },
+};
+
+/**
+ * Compute inline style (box-shadow + border-radius) for a cluster cell
+ * to visually connect it with adjacent same-cluster cells.
+ */
+const getClusterCellStyle = (clusterMap, r, c) => {
+    const info = clusterMap?.[r]?.[c];
+    if (!info || info.size < 2) return null;
+
+    const rarityId = getClusterGuaranteedRarityId(info.size);
+    if (!rarityId) return null;
+
+    const colors = CLUSTER_STYLES[rarityId];
+    if (!colors) return null;
+
+    const id = info.id;
+    const has = (dr, dc) => {
+        const nr = r + dr, nc = c + dc;
+        return nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && clusterMap[nr]?.[nc]?.id === id;
+    };
+
+    const top = has(-1, 0), bottom = has(1, 0), left = has(0, -1), right = has(0, 1);
+    const tl = has(-1, -1), tr = has(-1, 1), bl = has(1, -1), br = has(1, 1);
+
+    // Box-shadow to fill gap space toward adjacent cluster cells
+    const sc = colors.shadowColor;
+    const g = 'var(--gap)';
+    const ng = 'calc(-1 * var(--gap))';
+    const shadows = [];
+    // Cardinal shadows
+    if (right)  shadows.push(`${g} 0 0 0 ${sc}`);
+    if (bottom) shadows.push(`0 ${g} 0 0 ${sc}`);
+    if (left)   shadows.push(`${ng} 0 0 0 ${sc}`);
+    if (top)    shadows.push(`0 ${ng} 0 0 ${sc}`);
+    // Diagonal shadows — only require the diagonal neighbor itself
+    if (br) shadows.push(`${g} ${g} 0 0 ${sc}`);
+    if (bl) shadows.push(`${ng} ${g} 0 0 ${sc}`);
+    if (tr) shadows.push(`${g} ${ng} 0 0 ${sc}`);
+    if (tl) shadows.push(`${ng} ${ng} 0 0 ${sc}`);
+
+    // Border-radius: flatten corner whenever diagonal neighbor is in cluster
+    const rd = '0.5rem';
+    const borderRadius = [
+        tl ? '0' : rd,
+        tr ? '0' : rd,
+        br ? '0' : rd,
+        bl ? '0' : rd,
+    ].join(' ');
+
+    return {
+        classes: `${colors.bg} ${colors.border}`,
+        style: {
+            boxShadow: shadows.length > 0 ? shadows.join(', ') : undefined,
+            borderRadius,
+        },
+    };
 };
 
 const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, orders = [], emergencyOrders = [], inventory = [] }, ref) => {
@@ -35,8 +94,6 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
         const tops = new Set();
 
         if (gravityEvent.bombExplosion) {
-            // Bomb explosion: all cells from row 0 to lowestRow use uniform drop animation.
-            // No opacity-based fade-in — prevents flicker when React remounts shifted cells.
             for (const [colStr, info] of Object.entries(gravityEvent.colInfo)) {
                 const col = parseInt(colStr);
                 for (let r = 0; r <= info.lowestRow; r++) {
@@ -103,6 +160,9 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
         return map;
     }, [orders, emergencyOrders, inventory]);
 
+    // Cluster map for visual display
+    const clusterMap = useMemo(() => computeClusters(matrix), [matrix]);
+
     if (!matrix) {
         return <div className="flex items-center justify-center py-12 text-slate-400 text-sm">{t("生成矩阵中...")}</div>;
     }
@@ -117,8 +177,6 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
         onSelectCol?.(colIdx);
     };
 
-    // Single unified grid: (GRID_SIZE+1) columns × (GRID_SIZE+1) rows
-    // [0,0] = empty corner, [0,1..N] = col buttons, [1..N,0] = row buttons, [1..N,1..N] = cells
     return (
         <div className="flex flex-col items-center">
             <style>{`
@@ -210,12 +268,19 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                             const isExploding = explodingCells && explodingCells.some(ec => ec.row === r && ec.col === c);
                             const isHighlighted = (hoveredRow === r || hoveredCol === c) && !disabled;
                             const cellType = cell.type || 'normal';
-                            const bgClass = cellType !== 'normal'
-                                ? (SPECIAL_BG[cellType] || RARITY_BG.common)
-                                : (RARITY_BG[cell.rarity.id] || RARITY_BG.common);
                             const neededInfo = cellType === 'normal' ? neededItemMap[cell.item.name] : null;
                             const isDropping = animatingCells.has(cellKey) && !newTopCells.has(cellKey);
                             const isNewTop = newTopCells.has(cellKey);
+
+                            // Cluster visuals
+                            const clusterStyle = cellType === 'normal' ? getClusterCellStyle(clusterMap, r, c) : null;
+                            const bgClass = (isPicking || isExploding)
+                                ? 'bg-slate-200 border-slate-300'
+                                : clusterStyle
+                                    ? clusterStyle.classes
+                                    : cellType !== 'normal'
+                                        ? (SPECIAL_BG[cellType] || NORMAL_BG)
+                                        : NORMAL_BG;
 
                             return (
                                 <div
@@ -223,27 +288,22 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                                     className={`
                                         relative flex flex-col items-center justify-center
                                         rounded-lg border-2 select-none
-                                        ${(isPicking || isExploding) ? 'bg-slate-200 border-slate-300' : bgClass}
-                                        ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
+                                        ${bgClass}
+                                        ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : (clusterStyle ? 'z-[1]' : '')}
                                         ${isDropping ? 'anim-drop' : ''}
                                         ${isNewTop ? 'anim-new-top' : ''}
                                         ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
                                     `}
+                                    style={(!isPicking && !isExploding && !isHighlighted && clusterStyle) ? clusterStyle.style : undefined}
                                 >
                                     {!isPicking && (
                                         <div className={`flex flex-col items-center justify-center ${isExploding ? 'anim-explode-content' : ''}`}>
                                             <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
                                                 {cell.item.icon}
                                             </span>
-                                            {cellType === 'gold_penalty' ? (
-                                                <span className="text-[9px] font-black text-amber-600 leading-none mt-0.5">
-                                                    -{cell.goldCost} 🪙
-                                                </span>
-                                            ) : (
-                                                <span className="text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center text-slate-600 mt-0.5 px-0.5">
-                                                    {t(cell.item.name)}
-                                                </span>
-                                            )}
+                                            <span className="text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center text-slate-600 mt-0.5 px-0.5">
+                                                {t(cell.item.name)}
+                                            </span>
                                         </div>
                                     )}
 
