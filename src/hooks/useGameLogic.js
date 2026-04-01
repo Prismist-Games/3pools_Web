@@ -6,7 +6,7 @@ import {
     getRandomItems,
     rollRarity
 } from '../utils/helpers';
-import { generateItemMatrix, applyGravity, applyBombExplosion } from '../utils/matrixHelpers';
+import { generateItemMatrix, applyGravity } from '../utils/matrixHelpers';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -33,8 +33,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [gravityEvent, setGravityEvent] = useState(null);
     // Last drawn item for fly animation: { row, col, item, rarity, tick }
     const [lastDraw, setLastDraw] = useState(null);
-    // Cells being destroyed by bomb explosion: [{row, col}, ...]
-    const [explodingCells, setExplodingCells] = useState(null);
+    const [explodingCells, setExplodingCells] = useState(null); // kept for prop compat, always null
     const [orders, setOrders] = useState([]);
     const [emergencyOrders, setEmergencyOrders] = useState([]);
 
@@ -714,53 +713,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 // --- Blank cell: not needed by orders, just gravity, no item ---
                 setMatrix(afterPickMatrix);
                 setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
-
-            } else if (cellType === 'gold_penalty') {
-                // --- Gold penalty cell: deduct gold, no item ---
-                setMatrix(afterPickMatrix);
-                setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
-                deductGold(selectedCell.goldCost);
-                showToast(`${t("金币陷阱")} -${selectedCell.goldCost} 🪙`, "warning");
-
-            } else if (cellType === 'bomb') {
-                // --- Bomb cell: explode then gravity ---
-                showToast(t("💣 炸弹爆炸！"), "info");
-
-                // Compute neighbors on the original matrix (bomb cell still present)
-                const neighbors = [];
-                for (let dr = -1; dr <= 1; dr++) {
-                    for (let dc = -1; dc <= 1; dc++) {
-                        if (dr === 0 && dc === 0) continue;
-                        const nr = picked.row + dr;
-                        const nc = picked.col + dc;
-                        if (nr >= 0 && nr < MATRIX_CONFIG.gridSize && nc >= 0 && nc < MATRIX_CONFIG.gridSize) {
-                            neighbors.push({ row: nr, col: nc });
-                        }
-                    }
-                }
-
-                // Phase 2a: show neighbors exploding (bomb cell already hidden via pickingCell)
-                setExplodingCells(neighbors);
-
-                // Phase 2b (after explode animation): apply all removals + gravity at once
-                setTimeout(() => {
-                    const { matrix: explodedMatrix } = applyBombExplosion(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
-                    setMatrix(explodedMatrix);
-                    setExplodingCells(null);
-                    // Compute per-column info: how many removed and the lowest (max) row
-                    const allRemoved = [{ row: picked.row, col: picked.col }, ...neighbors];
-                    const colInfo = {};
-                    for (const cell of allRemoved) {
-                        if (!colInfo[cell.col]) colInfo[cell.col] = { count: 0, lowestRow: 0 };
-                        colInfo[cell.col].count++;
-                        colInfo[cell.col].lowestRow = Math.max(colInfo[cell.col].lowestRow, cell.row);
-                    }
-                    setGravityEvent({ bombExplosion: true, colInfo, tick: Date.now() });
-                }, 350);
-
-                setDrawCount(prev => prev + 1);
-                setTimeout(() => setIsDrawing(false), 700);
-                return;
 
             } else {
                 // --- Normal item cell ---
