@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Settings, Download, Upload, RotateCcw, X, Flag, Package, Zap, Timer } from 'lucide-react';
+import { Settings, Download, Upload, RotateCcw, X, Flag, Package, Zap, Timer, Grid3x3 } from 'lucide-react';
 import GameCore from './GameCore';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { INITIAL_GAME_CONFIG, SKILL_DEFINITIONS } from './data/constants';
+import { MAP_ROWS, MAP_COLS, setMapSize } from './data/spatialConstants';
 import ErrorBoundary from './components/ErrorBoundary';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
@@ -19,6 +20,19 @@ export default function App() {
     const [devSkillsSelected, setDevSkillsSelected] = useState([]);
     const [initialSkills, setInitialSkills] = useState([]);
     const [initialStage, setInitialStage] = useState(0);
+
+    // Map size state (mirrors spatialConstants, applied on confirm)
+    const [mapRows, setMapRows] = useState(MAP_ROWS);
+    const [mapCols, setMapCols] = useState(MAP_COLS);
+
+    const handleApplyMapSize = () => {
+        const r = Math.max(3, Math.min(16, mapRows));
+        const c = Math.max(3, Math.min(16, mapCols));
+        setMapRows(r);
+        setMapCols(c);
+        setMapSize(r, c);
+        setGameId(prev => prev + 1); // hard reset to apply
+    };
 
     // Item Spawn State
     const [selectedSpawnPoolId, setSelectedSpawnPoolId] = useState(config.pools[0]?.id);
@@ -38,7 +52,8 @@ export default function App() {
     };
 
     const handleExportConfig = () => {
-        const dataStr = JSON.stringify(config, null, 2);
+        const exportData = { ...config, mapSize: { rows: MAP_ROWS, cols: MAP_COLS } };
+        const dataStr = JSON.stringify(exportData, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -123,6 +138,16 @@ export default function App() {
 
                     return next;
                 });
+
+                // 5. 地图尺寸 (stored outside config, in spatialConstants)
+                if (imported.mapSize) {
+                    const r = Math.max(3, Math.min(16, imported.mapSize.rows || MAP_ROWS));
+                    const c = Math.max(3, Math.min(16, imported.mapSize.cols || MAP_COLS));
+                    setMapSize(r, c);
+                    setMapRows(r);
+                    setMapCols(c);
+                }
+
                 // Auto-restart game with new config
                 setGameId(prev => prev + 1);
             } catch (err) {
@@ -194,6 +219,46 @@ export default function App() {
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-6 space-y-8">
+
+                            {/* 0. 地图尺寸 */}
+                            <section className="bg-cyan-50 p-4 rounded-xl border-2 border-cyan-100">
+                                <h4 className="text-lg font-bold mb-4 flex items-center gap-2 text-cyan-700">
+                                    <Grid3x3 size={20} /> 地图尺寸
+                                </h4>
+                                <div className="flex items-end gap-4">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-cyan-600">行数</label>
+                                        <input
+                                            type="number" min="3" max="16"
+                                            className="w-20 p-2 border rounded font-mono text-sm"
+                                            value={mapRows}
+                                            onChange={(e) => setMapRows(parseInt(e.target.value) || 3)}
+                                        />
+                                    </div>
+                                    <div className="text-lg font-bold text-cyan-400">×</div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-cyan-600">列数</label>
+                                        <input
+                                            type="number" min="3" max="16"
+                                            className="w-20 p-2 border rounded font-mono text-sm"
+                                            value={mapCols}
+                                            onChange={(e) => setMapCols(parseInt(e.target.value) || 3)}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleApplyMapSize}
+                                        disabled={mapRows === MAP_ROWS && mapCols === MAP_COLS}
+                                        className={`px-4 py-2 rounded-lg font-bold transition-all ${
+                                            mapRows === MAP_ROWS && mapCols === MAP_COLS
+                                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                                : 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-md active:scale-95'
+                                        }`}
+                                    >
+                                        应用并重开
+                                    </button>
+                                    <span className="text-xs text-slate-400">当前: {MAP_ROWS}×{MAP_COLS}</span>
+                                </div>
+                            </section>
 
                             {/* 1. 开发者工具：实时添加物品 */}
                             <section className="bg-red-50 p-4 rounded-xl border-2 border-red-100">
