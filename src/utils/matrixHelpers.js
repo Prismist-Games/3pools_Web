@@ -15,7 +15,8 @@ const { gridSize } = MATRIX_CONFIG;
 // ---------------------------------------------------------------------------
 
 const generateCell = (config, currentStageConfig, orderNeededItems = []) => {
-  if (orderNeededItems.length > 0 && Math.random() < 0.5) {
+  const orderChance = config.global?.matrixOrderItemChance ?? 0.5;
+  if (orderNeededItems.length > 0 && Math.random() < orderChance) {
     // 有用物品：从订单需求中随机选一个
     const item = orderNeededItems[Math.floor(Math.random() * orderNeededItems.length)];
     const rarity = rollRarity(config, null, 0, () => false, {}, currentStageConfig);

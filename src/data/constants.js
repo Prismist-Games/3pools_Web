@@ -646,7 +646,8 @@ export const INITIAL_GAME_CONFIG = {
         "refreshCost": 5,
         "initialGold": 30,
         "initialRefreshCount": 3,
-        "maxRefreshCount": 3
+        "maxRefreshCount": 3,
+        "matrixOrderItemChance": 0.5
     }
 };
 

@@ -848,6 +848,15 @@ export default function App() {
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-slate-500">矩阵订单物品概率 (0-1)</label>
+                                        <input
+                                            type="number" step="0.05" min="0" max="1"
+                                            value={config.global.matrixOrderItemChance ?? 0.5}
+                                            onChange={(e) => setConfig({ ...config, global: { ...config.global, matrixOrderItemChance: parseFloat(e.target.value) || 0 } })}
+                                            className="border rounded px-3 py-2 font-mono"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
                                         <label className="text-xs font-bold text-slate-500">主线道具出现概率 (0-1)</label>
                                         <input
                                             type="number" step="0.05"
