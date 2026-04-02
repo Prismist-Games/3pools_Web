@@ -9,8 +9,8 @@ export const MATRIX_CONFIG = {
   // Special cell counts per board (min/max, uniform random)
   specialCells: {
     goldPenalty: {
-      min: 3,
-      max: 5,           // ~4 average
+      min: 1,
+      max: 2,           // ~1.5 average (~10% of 16)
       minCost: 1,
       maxCost: 3,
       icon: '🪙',
@@ -18,7 +18,7 @@ export const MATRIX_CONFIG = {
     },
     bomb: {
       min: 1,
-      max: 3,            // ~2 average
+      max: 2,            // ~1.5 average (~10% of 16)
       icon: '💣',
       name: '炸弹',
     },

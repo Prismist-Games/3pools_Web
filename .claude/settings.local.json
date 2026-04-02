@@ -39,7 +39,13 @@
       "Bash(timeout 8 npx vite --host)",
       "Bash(npx vite:*)",
       "Bash(curl -s \"https://store.steampowered.com/search/?term=Sol+Cesto\")",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(grep -roh 't\\(['\"'\"'\"`][^'\"'\"'\"`]*['\"'\"'\"`]\\)' src/ --include=\"*.jsx\" --include=\"*.js\")",
+      "Bash(perl -ne 'print if /[\\\\x{4E00}-\\\\x{9FFF}]/' /tmp/used_keys.txt)",
+      "Bash(perl -ne 'print if /[\\\\x{4E00}-\\\\x{9FFF}]/' /tmp/translation_keys.txt)",
+      "Read(//private/tmp/**)",
+      "Bash(grep -v \"^[[:space:]]*$\")",
+      "Bash(grep -v \"^[a-zA-Z0-9 '\\(\\)-]*$\")"
     ]
   }
 }

@@ -1,7 +1,51 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const GRID_SIZE = 4;
+
+// Portal tooltip for special cells (gold_penalty / bomb), same style as ToolItemTooltip
+const SpecialCellTooltip = ({ cell, cellType, anchorRef, visible }) => {
+    const { t } = useLanguage();
+    const [pos, setPos] = useState(null);
+
+    useLayoutEffect(() => {
+        if (!visible || !anchorRef.current) { setPos(null); return; }
+        const rect = anchorRef.current.getBoundingClientRect();
+        setPos({
+            top: rect.top + window.scrollY - 8,
+            left: rect.left + window.scrollX + rect.width / 2,
+        });
+    }, [visible, anchorRef]);
+
+    if (!visible || !pos) return null;
+
+    const isGold = cellType === 'gold_penalty';
+    const icon = isGold ? '🪙' : '💣';
+    const name = isGold ? t("金币陷阱") : t("炸弹");
+    const desc = isGold
+        ? t("扣除{cost}金币").replace('{cost}', cell.goldCost)
+        : t("炸弹：摧毁周围8格");
+
+    return createPortal(
+        <div
+            style={{ position: 'absolute', top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)', zIndex: 99999, pointerEvents: 'none' }}
+            className="animate-in fade-in zoom-in-95 duration-150"
+        >
+            <div className={`bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border ${isGold ? 'border-amber-400/30' : 'border-red-400/30'} min-w-[140px] max-w-[200px]`}>
+                <div className="flex items-center gap-2 mb-1 border-b border-slate-700 pb-1">
+                    <span className="text-lg">{icon}</span>
+                    <span className={`font-black text-sm ${isGold ? 'text-amber-300' : 'text-red-300'}`}>{name}</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">{desc}</p>
+            </div>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-slate-900" />
+            </div>
+        </div>,
+        document.body
+    );
+};
 
 const RARITY_BG = {
     common: 'bg-slate-100 border-slate-300',
@@ -15,6 +59,23 @@ const RARITY_BG = {
 const SPECIAL_BG = {
     gold_penalty: 'bg-amber-50 border-amber-400',
     bomb: 'bg-red-50 border-red-400',
+};
+
+// Wrapper that provides ref + hover state for special cells, pass-through for normal cells
+const SpecialCellWrapper = ({ cell, cellType, isSpecial, children }) => {
+    const [hovered, setHovered] = useState(false);
+    const cellRef = useRef(null);
+
+    if (!isSpecial) {
+        return children(undefined, () => {});
+    }
+
+    return (
+        <>
+            {children(cellRef, setHovered)}
+            <SpecialCellTooltip cell={cell} cellType={cellType} anchorRef={cellRef} visible={hovered} />
+        </>
+    );
 };
 
 const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, orders = [], emergencyOrders = [], inventory = [] }, ref) => {
@@ -216,45 +277,56 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                             const neededInfo = cellType === 'normal' ? neededItemMap[cell.item.name] : null;
                             const isDropping = animatingCells.has(cellKey) && !newTopCells.has(cellKey);
                             const isNewTop = newTopCells.has(cellKey);
+                            const isSpecial = cellType === 'gold_penalty' || cellType === 'bomb';
 
                             return (
-                                <div
-                                    key={`${r}-${c}-${cell.uid}`}
-                                    className={`
-                                        relative flex flex-col items-center justify-center
-                                        rounded-lg border-2 select-none
-                                        ${(isPicking || isExploding) ? 'bg-slate-200 border-slate-300' : bgClass}
-                                        ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
-                                        ${isDropping ? 'anim-drop' : ''}
-                                        ${isNewTop ? 'anim-new-top' : ''}
-                                        ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
-                                    `}
-                                >
-                                    {!isPicking && (
-                                        <div className={`flex flex-col items-center justify-center ${isExploding ? 'anim-explode-content' : ''}`}>
-                                            <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
-                                                {cell.item.icon}
-                                            </span>
-                                            {cellType === 'gold_penalty' ? (
-                                                <span className="text-[9px] font-black text-amber-600 leading-none mt-0.5">
-                                                    -{cell.goldCost} 🪙
-                                                </span>
-                                            ) : (
-                                                <span className="text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center text-slate-600 mt-0.5 px-0.5">
-                                                    {t(cell.item.name)}
-                                                </span>
+                                <SpecialCellWrapper key={`${r}-${c}-${cell.uid}`} cell={cell} cellType={cellType} isSpecial={isSpecial}>
+                                    {(wrapperRef, setHover) => (
+                                        <div
+                                            ref={wrapperRef}
+                                            onMouseEnter={isSpecial ? () => setHover(true) : undefined}
+                                            onMouseLeave={isSpecial ? () => setHover(false) : undefined}
+                                            className={`
+                                                relative flex flex-col items-center justify-center
+                                                rounded-lg border-2 select-none w-full h-full
+                                                ${(isPicking || isExploding) ? 'bg-slate-200 border-slate-300' : bgClass}
+                                                ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
+                                                ${isDropping ? 'anim-drop' : ''}
+                                                ${isNewTop ? 'anim-new-top' : ''}
+                                                ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
+                                            `}
+                                        >
+                                            {!isPicking && (
+                                                <div className={`flex flex-col items-center justify-center ${isExploding ? 'anim-explode-content' : ''}`}>
+                                                    <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
+                                                        {cell.item.icon}
+                                                    </span>
+                                                    {cellType === 'gold_penalty' ? (
+                                                        <span className="text-[9px] font-black text-amber-600 leading-none mt-0.5">
+                                                            -{cell.goldCost} 🪙
+                                                        </span>
+                                                    ) : cellType === 'bomb' ? (
+                                                        <span className="text-[9px] font-black text-red-500 leading-none mt-0.5">
+                                                            {t("炸弹")}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center text-slate-600 mt-0.5 px-0.5">
+                                                            {t(cell.item.name)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Order needed indicator */}
+                                            {!isPicking && !isExploding && neededInfo && (
+                                                <div className="absolute -top-1 -right-1 flex items-center gap-px z-[2]">
+                                                    {neededInfo.isEmergency && <span className="text-[9px] drop-shadow">🚚</span>}
+                                                    <div className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow ${neededInfo.rarity.dotColor}`} />
+                                                </div>
                                             )}
                                         </div>
                                     )}
-
-                                    {/* Order needed indicator */}
-                                    {!isPicking && !isExploding && neededInfo && (
-                                        <div className="absolute -top-1 -right-1 flex items-center gap-px z-[2]">
-                                            {neededInfo.isEmergency && <span className="text-[9px] drop-shadow">🚚</span>}
-                                            <div className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow ${neededInfo.rarity.dotColor}`} />
-                                        </div>
-                                    )}
-                                </div>
+                                </SpecialCellWrapper>
                             );
                         })}
                     </React.Fragment>
