@@ -10,7 +10,7 @@ import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateMilestone } from '../utils/gridGenerator.js';
 import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
-import { generateItemMap, getFrameCoverage, refreshCoveredCells, refreshWithClusters, getClusterCells, randomCell, computeClusterSizes, getDefaultAvatarPos } from '../utils/spatialPoolHelpers.js';
+import { generateItemMap, getFrameCoverage, refreshCoveredCells, randomCell, computeClusterSizes, getDefaultAvatarPos, getDrawCost } from '../utils/spatialPoolHelpers.js';
 import { DEFAULT_DRAW, EFFECT_ITEM_ICONS, FIXED_SHAPE } from '../data/spatialConstants.js';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
@@ -653,66 +653,31 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const handleMapPlace = (anchorRow, anchorCol) => {
         if (drawAnimInfo) return;
 
-        // "有的放矢" (targeted): 1×1 single-cell draw
-        if (activeEffect && activeEffect.effectId === 'targeted') {
-            if (anchorRow < 0 || anchorRow >= itemMap.length || anchorCol < 0 || anchorCol >= itemMap[0].length) return;
-            const cell = itemMap[anchorRow][anchorCol];
-            if (cell.isEvacuation) return; // can't draw from evacuation cell
-            const cost = DEFAULT_DRAW.cost + activeEffect.effectConfig.cost;
-            if (gold < cost) {
-                showToast(t("金币不足！"), "error");
-                return;
-            }
-            setGold(prev => prev - cost);
-            setDrawCount(prev => prev + 1);
-
-            // Remove effect item from inventory BEFORE handleIncomingItems
-            // (handleIncomingItems uses setInventory with a snapshot, which would overwrite functional updates)
-            const effectUid = activeEffect.itemUid;
-            const cleanedInventory = inventory.filter(i => i?.uid !== effectUid);
-            setActiveEffect(null);
-
-            if (cell.isEffect) {
-                const effectItem = createEffectItem(cell.effect);
-                handleIncomingItems([effectItem], cleanedInventory);
-                showToast(`${t("获得效果")}：${t(cell.effect.name)}`, 'info');
-            } else {
-                const virtualPool = {
-                    name: 'spatial', items: [cell], affixKey: null, affix: null,
-                    cost, originalId: 'spatial', id: 'spatial',
-                };
-                handleNormalDraw(virtualPool, cleanedInventory);
-            }
-            // Move avatar to the targeted cell
-            setAvatarPos({ row: anchorRow, col: anchorCol });
-            // Refresh the drawn cell's entire cluster
-            setItemMap(prev => refreshWithClusters(prev, [[anchorRow, anchorCol]], [], neededNames));
-            return;
-        }
-
         const coverage = getFrameCoverage(anchorRow, anchorCol, itemMap);
         if (!coverage) return;
+
+        // Distance cost: base 1 + Manhattan gap between nearest edges of 2×2 blocks
+        const distCost = getDrawCost(avatarPos.row, avatarPos.col, anchorRow, anchorCol);
 
         // Separate cell types in coverage
         const itemCells = coverage.filter(c => !c.item.isEffect && !c.item.isEvacuation);
         const effectCells = coverage.filter(c => c.item.isEffect);
         const evacCells = coverage.filter(c => c.item.isEvacuation);
 
-        // Use activeEffect (from inventory) for quality, NOT frame coverage
+        // Use activeEffect (from inventory) for quality
         const affixConfig = activeEffect ? activeEffect.effectConfig : null;
         const affixKey = activeEffect ? activeEffect.effectId : null;
-        const cost = DEFAULT_DRAW.cost + (activeEffect ? activeEffect.effectConfig.cost : 0);
+        const cost = distCost + (activeEffect ? activeEffect.effectConfig.cost : 0);
 
         const coveredKeys = new Set(coverage.map(c => `${c.row},${c.col}`));
-        const poolItems = itemCells.map(c => c.item);
-        // Items + effects for draw pools — tagged with cell positions for avatar movement
+        // Items + effects for draw pools — tagged with cell positions
         const poolItemsWithEffects = [...itemCells, ...effectCells].map(c => ({
             ...c.item,
             _cellRow: c.row,
             _cellCol: c.col,
         }));
 
-        // Gold check upfront — before any animation or state changes
+        // Gold check upfront
         if (gold < cost) {
             showToast(t("金币不足！"), "error");
             return;
@@ -731,10 +696,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             };
             handleDraw(virtualPool);
             consumeActiveEffect();
-            // Refresh all clusters overlapping the 2×2 (drawn cell unknown until player selects)
-            const coveredSeedCells = coverage.map(c => [c.row, c.col]);
+            setAvatarPos({ row: anchorRow, col: anchorCol });
             setTimeout(() => {
-                setItemMap(prev => refreshWithClusters(prev, coveredSeedCells, [], neededNames));
+                setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol, neededNames));
             }, 600);
             return;
         }
@@ -752,38 +716,22 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const drawnIsEvac = !!drawnCell.item.isEvacuation;
         const drawnClusterSize = clusterSizes[drawnCell.row][drawnCell.col];
 
-        // Expand animation keys to include drawn cell's full cluster
-        const clusterCells = getClusterCells(itemMap, drawnCell.row, drawnCell.col);
-        for (const [r, c] of clusterCells) {
-            coveredKeys.add(`${r},${c}`);
-        }
-
         const makePool = () => {
-            // Fragmented always draws 3 from the entire pool, regardless of drawn cell type
             if (affixKey === 'fragmented') {
                 return {
-                    name: 'spatial',
-                    items: poolItemsWithEffects,
-                    affixKey,
-                    affix: affixConfig,
-                    cost,
-                    clusterSize: drawnClusterSize,
-                    originalId: 'spatial',
-                    id: 'spatial',
+                    name: 'spatial', items: poolItemsWithEffects, affixKey, affix: affixConfig,
+                    cost, clusterSize: drawnClusterSize, originalId: 'spatial', id: 'spatial',
                 };
             }
             if (drawnIsEffect) return null;
             return {
-                name: 'spatial',
-                items: [drawnCell.item],
-                affixKey,
-                affix: affixConfig,
-                cost,
-                clusterSize: drawnClusterSize,
-                originalId: 'spatial',
-                id: 'spatial',
+                name: 'spatial', items: [drawnCell.item], affixKey, affix: affixConfig,
+                cost, clusterSize: drawnClusterSize, originalId: 'spatial', id: 'spatial',
             };
         };
+
+        // Move avatar to the target 2×2 immediately (CSS transition animates it)
+        setAvatarPos({ row: anchorRow, col: anchorCol });
 
         // Phase 1: highlight the drawn cell (300ms)
         setDrawAnimInfo({
@@ -797,10 +745,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setDrawAnimInfo(prev => prev ? { ...prev, phase: 'fly' } : null);
 
             setTimeout(() => {
-                // Phase 3: execute draw + other cells fade out (400ms)
-                // Gold already checked upfront in handleMapPlace
+                // Phase 3: execute draw + covered cells fade out (400ms)
                 if (drawnIsEvac) {
-                    // Evacuation cell drawn — just pay cost, move avatar, no item
+                    // Evacuation cell drawn — just pay cost, no item
                     setGold(prev => prev - cost);
                     setDrawCount(prev => prev + 1);
                     if (activeEffect) {
@@ -808,12 +755,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                         setActiveEffect(null);
                     }
                 } else if (affixKey === 'fragmented') {
-                    // Fragmented always goes through handleDraw for 3 items
                     handleDraw(makePool());
                 } else if (drawnIsEffect) {
                     setGold(prev => prev - cost);
                     setDrawCount(prev => prev + 1);
-                    // Consume active effect (no quality applies, but effect is spent)
                     let baseInv = undefined;
                     if (activeEffect) {
                         baseInv = inventory.filter(i => i?.uid !== activeEffect.itemUid);
@@ -825,15 +770,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 } else {
                     handleDraw(makePool());
                 }
-                // Move avatar to the drawn cell's position
-                setAvatarPos({ row: drawnCell.row, col: drawnCell.col });
                 setDrawAnimInfo(prev => prev ? { ...prev, phase: 'exit' } : null);
 
                 setTimeout(() => {
-                    // Phase 4: refresh drawn cell's cluster + remaining 2×2 coverage
+                    // Phase 4: refresh only the 2×2 covered cells (cut, not demolish)
                     setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
-                    const extraCells = FIXED_SHAPE.cells.map(([dr, dc]) => [anchorRow + dr, anchorCol + dc]);
-                    setItemMap(prev => refreshWithClusters(prev, [[drawnCell.row, drawnCell.col]], extraCells, neededNames));
+                    setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol, neededNames));
 
                     setTimeout(() => {
                         setDrawAnimInfo(null);
@@ -1378,8 +1320,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     };
 
-    // Evacuation is available when avatar is standing on an evacuation cell
-    const evacuationAvailable = avatarPos && itemMap?.[avatarPos.row]?.[avatarPos.col]?.isEvacuation;
+    // Evacuation is available when the avatar 2×2 covers an evacuation cell
+    const evacuationAvailable = avatarPos && FIXED_SHAPE.cells.some(([dr, dc]) => {
+        const r = avatarPos.row + dr, c = avatarPos.col + dc;
+        return itemMap?.[r]?.[c]?.isEvacuation;
+    });
 
     const handleEvacuate = () => {
         if (!evacuationAvailable) return;

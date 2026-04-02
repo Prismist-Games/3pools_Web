@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom';
 import { Coins } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { isValidPlacement, computeClusterSizes, getDirectionAnchor, getValidAvatarAnchors } from '../../utils/spatialPoolHelpers';
+import { isValidPlacement, computeClusterSizes, getDrawCost } from '../../utils/spatialPoolHelpers';
 import { FIXED_SHAPE, MAP_ROWS, MAP_COLS, EFFECT_ITEM_ICONS } from '../../data/spatialConstants';
 
 const RARITY_BG = {
@@ -59,8 +59,8 @@ function FlyingItem({ icon, startRect }) {
  * drawAnimInfo phases:
  *   'highlight' — drawn cell glows, others unchanged
  *   'fly'       — drawn cell icon hidden (portal flies), others unchanged
- *   'exit'      — draw executes, other 3 cells fade out
- *   'enter'     — 4 new items scale in
+ *   'exit'      — draw executes, covered cells fade out
+ *   'enter'     — covered cells refresh with new items scale in
  */
 function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled, activeEffect, avatarPos }) {
   const { t } = useLanguage();
@@ -106,13 +106,14 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
 
   const isTargetedMode = activeEffect?.effectId === 'targeted';
 
+  // Covered cells for hover preview
   const coveredCells = useMemo(() => {
     if (!hoverAnchor || isAnimating) return new Set();
     const { row, col } = hoverAnchor;
     if (isTargetedMode) {
       return new Set([`${row},${col}`]);
     }
-    // hoverAnchor is already validated by getDirectionAnchor
+    if (!isValidPlacement(row, col)) return new Set();
     const cells = new Set();
     for (const [dr, dc] of FIXED_SHAPE.cells) {
       cells.add(`${row + dr},${col + dc}`);
@@ -122,9 +123,17 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
 
   const isValidHover = useMemo(() => {
     if (!hoverAnchor || isAnimating) return false;
-    return true; // hoverAnchor is only set when valid
-  }, [hoverAnchor, isAnimating]);
+    if (isTargetedMode) return true;
+    return isValidPlacement(hoverAnchor.row, hoverAnchor.col);
+  }, [hoverAnchor, isAnimating, isTargetedMode]);
 
+  // Cost for the hovered position
+  const hoverCost = useMemo(() => {
+    if (!isValidHover || !avatarPos || !hoverAnchor || isTargetedMode) return null;
+    return getDrawCost(avatarPos.row, avatarPos.col, hoverAnchor.row, hoverAnchor.col);
+  }, [isValidHover, avatarPos, hoverAnchor, isTargetedMode]);
+
+  // Free selection: hovered cell = top-left anchor of 2×2
   const handleCellHover = useCallback((row, col) => {
     if (disabled || isAnimating) return;
 
@@ -135,23 +144,23 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
       return;
     }
 
-    if (!avatarPos) { setHoverAnchor(null); return; }
-
-    const anchor = getDirectionAnchor(row, col, avatarPos.row, avatarPos.col);
-    setHoverAnchor(anchor);
-
-    if (anchor && onHoverCoverage) {
-      const names = FIXED_SHAPE.cells
-        .map(([dr, dc]) => {
-          const cell = itemMap[anchor.row + dr]?.[anchor.col + dc];
-          return cell && !cell.isEffect && !cell.isEvacuation ? cell.name : null;
-        })
-        .filter(Boolean);
-      onHoverCoverage(names);
-    } else if (onHoverCoverage) {
-      onHoverCoverage([]);
+    // Use hovered cell as anchor if it makes a valid 2×2 placement
+    if (isValidPlacement(row, col)) {
+      setHoverAnchor({ row, col });
+      if (onHoverCoverage) {
+        const names = FIXED_SHAPE.cells
+          .map(([dr, dc]) => {
+            const cell = itemMap[row + dr]?.[col + dc];
+            return cell && !cell.isEffect && !cell.isEvacuation ? cell.name : null;
+          })
+          .filter(Boolean);
+        onHoverCoverage(names);
+      }
+    } else {
+      setHoverAnchor(null);
+      if (onHoverCoverage) onHoverCoverage([]);
     }
-  }, [disabled, isAnimating, itemMap, onHoverCoverage, isTargetedMode, avatarPos]);
+  }, [disabled, isAnimating, itemMap, onHoverCoverage, isTargetedMode]);
 
   const handleMouseLeave = useCallback(() => {
     if (!isAnimating) setHoverAnchor(null);
@@ -167,13 +176,10 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
       return;
     }
 
-    if (!avatarPos) return;
-    const anchor = getDirectionAnchor(row, col, avatarPos.row, avatarPos.col);
-    if (!anchor) return;
-
-    onPlace(anchor.row, anchor.col);
+    if (!isValidPlacement(row, col)) return;
+    onPlace(row, col);
     setHoverAnchor(null);
-  }, [disabled, isAnimating, onPlace, isTargetedMode, avatarPos]);
+  }, [disabled, isAnimating, onPlace, isTargetedMode]);
 
   // Compute cluster adjacency: which neighbors share the same item name
   const clusterAdj = useMemo(() => {
@@ -209,11 +215,6 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
     if (!itemMap) return null;
     return computeClusterSizes(itemMap);
   }, [itemMap]);
-
-  const validDirs = useMemo(() => {
-    if (!avatarPos) return [];
-    return getValidAvatarAnchors(avatarPos.row, avatarPos.col);
-  }, [avatarPos]);
 
   if (!itemMap) return null;
 
@@ -256,33 +257,26 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           let textVisible = true;
 
           if (isEvacCell) {
-            // Evacuation cell always has its own fixed style, ignores animations
             bgClass = 'bg-indigo-50 border-indigo-300';
           } else if (isEffectCell && (phase === 'exit' || phase === 'enter') && isCoveredAnim) {
-            // Effect cell stays visible and stable during animation
             bgClass = 'bg-white border-slate-200';
             iconClass = '';
             textVisible = true;
           } else if (phase === 'highlight' && isDrawn) {
-            // Phase 1: drawn cell glows big
             bgClass = 'bg-amber-100 border-amber-400 ring-2 ring-amber-400 scale-110 shadow-lg shadow-amber-200/60';
           } else if (phase === 'fly' && isDrawn) {
-            // Phase 2: drawn cell icon hidden (portal handles it), cell stays amber
             bgClass = 'bg-amber-50 border-amber-300';
             iconClass = 'opacity-0';
             textVisible = false;
           } else if (phase === 'exit' && isDrawn) {
-            // Phase 3: drawn cell fades
             bgClass = 'bg-slate-200 border-slate-300';
             iconClass = 'opacity-0';
             textVisible = false;
           } else if (phase === 'exit' && isOther) {
-            // Phase 3: other 3 cells shrink and fade
             bgClass = 'bg-slate-200 border-slate-300';
             iconClass = 'scale-50 opacity-0';
             textVisible = false;
           } else if (phase === 'enter' && isCoveredAnim) {
-            // Phase 4: new items scale in
             bgClass = 'bg-white border-slate-200';
             iconClass = 'animate-[scaleIn_0.3s_ease-out]';
           } else if (isCovered && isValidHover) {
@@ -292,7 +286,6 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           } else if (isEffectCell) {
             bgClass = 'bg-white border-slate-200';
           } else {
-            // Use cluster size to determine background color (quality tier)
             const cs = clusterSizeMap?.[row]?.[col] || 1;
             const clusterRarity = CLUSTER_RARITY_ID[Math.min(cs, 5)] || 'common';
             bgClass = RARITY_BG[clusterRarity] || 'bg-white border-slate-200';
@@ -300,7 +293,6 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
 
           // Cluster adjacency for metaball effect
           const adj = clusterAdj[cellKey];
-          const hasCluster = adj && (adj.top || adj.bottom || adj.left || adj.right || adj.topLeft || adj.topRight || adj.bottomLeft || adj.bottomRight);
           const clusterStyle = adj ? {
             borderTopWidth: adj.top ? 0 : 2,
             borderBottomWidth: adj.bottom ? 0 : 2,
@@ -365,58 +357,40 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           );
         })}
 
-        {/* Avatar overlay — slides smoothly between cells */}
+        {/* Avatar overlay — 2×2 frame, slides smoothly between positions */}
         {avatarPos && (
           <div
             className="absolute pointer-events-none z-20"
             style={{
               left: `${8 + avatarPos.col * 64}px`,
               top: `${8 + avatarPos.row * 64}px`,
-              width: '64px',
-              height: '64px',
+              width: '128px',
+              height: '128px',
               transition: 'left 350ms cubic-bezier(0.4, 0, 0.2, 1), top 350ms cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            {/* Glowing frame */}
             <div
               className="absolute inset-0 rounded-lg border-[3px] border-cyan-400"
               style={{ animation: 'avatarGlow 2s ease-in-out infinite' }}
             />
-            {/* Corner dot — position marker */}
             <div className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-cyan-400 border-2 border-white shadow-sm" />
-
-            {/* Direction arrows — 8 directions, visible when interactable */}
-            {!isAnimating && !disabled && validDirs.map(({ direction }) => {
-              const pos = {
-                upLeft:    { top: '-18px', left: '12px',   arrow: '↑' },
-                upRight:   { top: '-18px', right: '12px',  arrow: '↑' },
-                rightUp:   { top: '12px',  right: '-18px', arrow: '→' },
-                rightDown: { bottom: '12px', right: '-18px', arrow: '→' },
-                downRight: { bottom: '-18px', right: '12px', arrow: '↓' },
-                downLeft:  { bottom: '-18px', left: '12px',  arrow: '↓' },
-                leftDown:  { bottom: '12px', left: '-18px',  arrow: '←' },
-                leftUp:    { top: '12px',  left: '-18px',  arrow: '←' },
-              }[direction];
-              if (!pos) return null;
-              const { arrow, ...style } = pos;
-              return (
-                <div
-                  key={direction}
-                  className="absolute w-4 h-4 flex items-center justify-center rounded-full bg-cyan-500/20 text-cyan-600 text-[10px] font-bold leading-none"
-                  style={style}
-                >
-                  {arrow}
-                </div>
-              );
-            })}
+          </div>
+        )}
+        {/* Cost tooltip — pinned to top-right of hover 2×2 */}
+        {isValidHover && hoverAnchor && hoverCost !== null && (
+          <div
+            className="absolute flex items-center gap-1 text-xs font-bold bg-white border border-amber-300 rounded px-1.5 py-0.5 shadow-md pointer-events-none z-30"
+            style={{
+              left: `${8 + (hoverAnchor.col + 2) * 64 + 4}px`,
+              top: `${8 + hoverAnchor.row * 64 - 2}px`,
+              color: hoverCost > 1 ? '#d97706' : '#16a34a',
+              borderColor: hoverCost > 1 ? '#fbbf24' : '#86efac',
+            }}
+          >
+            <Coins size={12} />{hoverCost}
           </div>
         )}
       </div>
-      {isValidHover && hoverAnchor && (
-        <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 text-xs font-bold text-amber-600 bg-white border border-amber-300 rounded px-1.5 py-0.5 shadow-sm pointer-events-none z-10">
-          <Coins size={12} />1
-        </div>
-      )}
     </>
   );
 }

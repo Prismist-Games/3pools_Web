@@ -122,72 +122,6 @@ export function computeClusterSizes(itemMap) {
   return sizes;
 }
 
-/**
- * Get all cells belonging to the same cluster as (row, col).
- * A cluster = connected component of same-name cells (8-direction adjacency).
- * Returns array of [row, col] pairs. For effect cells, returns just the cell itself.
- */
-export function getClusterCells(itemMap, row, col) {
-  const rows = itemMap.length;
-  const cols = itemMap[0].length;
-  const item = itemMap[row]?.[col];
-  if (!item || item.isEffect || item.isEvacuation) return [[row, col]];
-
-  const name = item.name;
-  const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
-  const cluster = [];
-  const queue = [[row, col]];
-  visited[row][col] = true;
-
-  while (queue.length > 0) {
-    const [cr, cc] = queue.shift();
-    cluster.push([cr, cc]);
-    for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]]) {
-      const nr = cr + dr, nc = cc + dc;
-      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc]) {
-        const nItem = itemMap[nr][nc];
-        if (nItem && !nItem.isEffect && !nItem.isEvacuation && nItem.name === name) {
-          visited[nr][nc] = true;
-          queue.push([nr, nc]);
-        }
-      }
-    }
-  }
-  return cluster;
-}
-
-/**
- * Refresh cells: expand each "seed" cell into its full cluster, union with extra cells,
- * then replace all of them with new random items.
- *
- * @param itemMap       Current grid
- * @param clusterSeeds  Array of [row, col] — each seed's entire cluster will be refreshed
- * @param extraCells    Array of [row, col] — additional cells to refresh (not cluster-expanded)
- * @param neededNames   Set of needed item names (for randomCell)
- */
-export function refreshWithClusters(itemMap, clusterSeeds, extraCells = [], neededNames = null) {
-  const toRefresh = new Set();
-
-  for (const [r, c] of clusterSeeds) {
-    for (const [cr, cc] of getClusterCells(itemMap, r, c)) {
-      toRefresh.add(`${cr},${cc}`);
-    }
-  }
-  for (const [r, c] of extraCells) {
-    toRefresh.add(`${r},${c}`);
-  }
-
-  const newMap = itemMap.map(row => [...row]);
-  for (const key of toRefresh) {
-    const [r, c] = key.split(',').map(Number);
-    if (r >= 0 && r < MAP_ROWS && c >= 0 && c < MAP_COLS) {
-      if (newMap[r][c]?.isEvacuation) continue; // never refresh evacuation cell
-      newMap[r][c] = randomCell(neededNames);
-    }
-  }
-  return newMap;
-}
-
 // --- Coverage calculation (fixed 2×2) ---
 
 /**
@@ -222,65 +156,24 @@ export function isValidPlacement(anchorRow, anchorCol) {
 }
 
 /**
- * 8-direction anchor offsets from avatar position.
- * The 2×2 block never includes the avatar cell itself.
- *
- *   上左  上右          ↑↑
- *   左上       右上    ←← [A] →→
- *   左下       右下     ↓↓
- *   下左  下右
+ * Manhattan distance between two 2×2 blocks (nearest edges).
+ * Returns 0 if they overlap or are adjacent.
  */
-const DIRECTION_ANCHORS = [
-  { dr: -2, dc: -1, direction: 'upLeft' },     // 上左
-  { dr: -2, dc:  0, direction: 'upRight' },    // 上右
-  { dr: -1, dc:  1, direction: 'rightUp' },    // 右上
-  { dr:  0, dc:  1, direction: 'rightDown' },  // 右下
-  { dr:  1, dc:  0, direction: 'downRight' },  // 下右
-  { dr:  1, dc: -1, direction: 'downLeft' },   // 下左
-  { dr:  0, dc: -2, direction: 'leftDown' },   // 左下
-  { dr: -1, dc: -2, direction: 'leftUp' },     // 左上
-];
-
-/**
- * Given a hovered cell and the avatar position, determine the valid 2×2 anchor.
- * Uses 8 directions — the avatar cell is never part of the 2×2.
- * Returns { row, col } anchor or null if no valid placement exists.
- */
-export function getDirectionAnchor(cellRow, cellCol, avatarRow, avatarCol) {
-  if (cellRow === avatarRow && cellCol === avatarCol) return null;
-
-  for (const { dr, dc } of DIRECTION_ANCHORS) {
-    const anchorRow = avatarRow + dr;
-    const anchorCol = avatarCol + dc;
-    if (!isValidPlacement(anchorRow, anchorCol)) continue;
-
-    const inRange = FIXED_SHAPE.cells.some(([sdr, sdc]) =>
-      anchorRow + sdr === cellRow && anchorCol + sdc === cellCol
-    );
-    if (inRange) return { row: anchorRow, col: anchorCol };
-  }
-
-  return null;
+export function getMovementDistance(fromRow, fromCol, toRow, toCol) {
+  const rowDist = Math.max(0, toRow - (fromRow + 1), fromRow - (toRow + 1));
+  const colDist = Math.max(0, toCol - (fromCol + 1), fromCol - (toCol + 1));
+  return rowDist + colDist;
 }
 
-/**
- * Get all valid 2×2 anchors reachable from the avatar position (8 directions).
- * Returns array of { row, col, direction } objects.
- */
-export function getValidAvatarAnchors(avatarRow, avatarCol) {
-  return DIRECTION_ANCHORS
-    .map(({ dr, dc, direction }) => ({
-      row: avatarRow + dr,
-      col: avatarCol + dc,
-      direction,
-    }))
-    .filter(c => isValidPlacement(c.row, c.col));
+/** Total draw cost = base 1 + distance. */
+export function getDrawCost(fromRow, fromCol, toRow, toCol) {
+  return 1 + getMovementDistance(fromRow, fromCol, toRow, toCol);
 }
 
 /** Default avatar starting position (center of grid). Computed dynamically for mutable MAP_ROWS/MAP_COLS. */
 export function getDefaultAvatarPos() {
   return {
-    row: Math.floor((MAP_ROWS - 1) / 2),
-    col: Math.floor((MAP_COLS - 1) / 2),
+    row: Math.floor((MAP_ROWS - 2) / 2),
+    col: Math.floor((MAP_COLS - 2) / 2),
   };
 }

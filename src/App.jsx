@@ -52,7 +52,8 @@ export default function App() {
     };
 
     const handleExportConfig = () => {
-        const dataStr = JSON.stringify(config, null, 2);
+        const exportData = { ...config, mapSize: { rows: MAP_ROWS, cols: MAP_COLS } };
+        const dataStr = JSON.stringify(exportData, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -137,6 +138,16 @@ export default function App() {
 
                     return next;
                 });
+
+                // 5. 地图尺寸 (stored outside config, in spatialConstants)
+                if (imported.mapSize) {
+                    const r = Math.max(3, Math.min(16, imported.mapSize.rows || MAP_ROWS));
+                    const c = Math.max(3, Math.min(16, imported.mapSize.cols || MAP_COLS));
+                    setMapSize(r, c);
+                    setMapRows(r);
+                    setMapCols(c);
+                }
+
                 // Auto-restart game with new config
                 setGameId(prev => prev + 1);
             } catch (err) {
