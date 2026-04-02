@@ -11,7 +11,8 @@ import { InventorySlot } from './components/game/InventorySlot';
 import ResourceMatrix from './components/game/ResourceMatrix';
 
 import { OrderCard } from './components/game/OrderCard';
-import { SKILL_DEFINITIONS } from './data/constants';
+import HostDialogue from './components/game/HostDialogue';
+import { SKILL_DEFINITIONS, HOME_STATS } from './data/constants';
 
 // --- Doom Grid Tooltip (Portal, same style as ToolItemTooltip) ---
 const DoomGridTooltip = ({ isDanger, anchorRef, visible }) => {
@@ -50,7 +51,7 @@ const DoomGridCell = ({ cell, children }) => {
 };
 
 // --- Header stat tooltip (Portal, same dark style) ---
-const HeaderTooltip = ({ text, children }) => {
+const HeaderTooltip = ({ text, children, className }) => {
     const ref = useRef(null);
     const [show, setShow] = useState(false);
     const [pos, setPos] = useState(null);
@@ -58,14 +59,14 @@ const HeaderTooltip = ({ text, children }) => {
     useLayoutEffect(() => {
         if (!show || !ref.current) { setPos(null); return; }
         const rect = ref.current.getBoundingClientRect();
-        setPos({ top: rect.bottom + window.scrollY + 8, left: rect.left + window.scrollX + rect.width / 2 });
+        setPos({ top: rect.bottom + 8, left: rect.left + rect.width / 2 });
     }, [show]);
 
     return (
-        <div ref={ref} onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+        <div ref={ref} onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)} className={className}>
             {children}
             {show && pos && createPortal(
-                <div style={{ position: 'absolute', top: pos.top, left: pos.left, transform: 'translateX(-50%)', zIndex: 99999, pointerEvents: 'none' }}
+                <div style={{ position: 'fixed', top: pos.top, left: pos.left, transform: 'translateX(-50%)', zIndex: 99999, pointerEvents: 'none' }}
                     className="animate-in fade-in zoom-in-95 duration-150">
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-0">
                         <div className="w-0 h-0 border-x-[6px] border-x-transparent border-b-[6px] border-b-slate-900" />
@@ -84,11 +85,16 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     const { t, language, toggleLanguage } = useLanguage();
     const [isSkillsCollapsed, setIsSkillsCollapsed] = useState(true);
     const [gridRefreshMode, setGridRefreshMode] = useState(false);
+    const [storageOpen, setStorageOpen] = useState(false);
+    const [selectedRoom, setSelectedRoom] = useState(null); // 'kitchen' | 'bathroom' | 'garden' | 'living' | null
 
     // Refs for fly animation
     const matrixRef = useRef(null);
     const inventoryRef = useRef(null);
     const [flyingItem, setFlyingItem] = useState(null);
+
+    // Refs for room popup positioning
+    const roomRefs = useRef({});
 
     // Initialize Logic Hook
     const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialScore);
@@ -112,7 +118,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         skills, skillSelectionCandidates, skillState,
         toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
         orderSlotAssignments, assignedItemUids, phantomMarks,
-        toolSelectionMode
+        toolSelectionMode,
+        gamePhase, showDrawsThisRound, DRAWS_PER_ROUND,
+        day, tvWatchedToday,
+        deliveryItems, deliveryRevealed,
+        hostCommentKey,
     } = state;
 
     const {
@@ -142,6 +152,13 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleGridRefresh,
         tickDoomResolution,
         completeDoomResolution,
+        startShow,
+        beginDrawing,
+        goHome,
+        confirmGoHome,
+        openDelivery,
+        collectDelivery,
+        sleep,
     } = actions;
 
     // Grid refresh mode: intercept inventory clicks
@@ -160,6 +177,34 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     }, [gridRefreshMode, inventory, handleGridRefresh, handleSlotClick]);
 
     const { hasSkill } = helpers;
+
+    // Room labels
+    const ROOM_LABELS = {
+        kitchen: '厨房',
+        bathroom: '厕所',
+        garden: '花园',
+        living: '客厅',
+        bedroom: '卧室',
+        storage: '仓库',
+    };
+    // Filter orders by room (using roomId field from ROOM_NEEDS)
+    const getOrdersForRoom = (roomId) => {
+        if (!roomId) return [];
+        return orders
+            .map((order, idx) => ({ order, idx }))
+            .filter(({ order }) => {
+                if (!order) return false;
+                return order.roomId === roomId;
+            });
+    };
+    const roomOrderCounts = {
+        kitchen: getOrdersForRoom('kitchen').length,
+        bathroom: getOrdersForRoom('bathroom').length,
+        garden: getOrdersForRoom('garden').length,
+        living: getOrdersForRoom('living').length,
+        bedroom: getOrdersForRoom('bedroom').length,
+        storage: getOrdersForRoom('storage').length,
+    };
 
     // Doom resolution spinning animation
     useEffect(() => {
@@ -210,6 +255,233 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         const clearTimer = setTimeout(() => setFlyingItem(null), 550);
         return () => clearTimeout(clearTimer);
     }, [lastDraw]);
+
+    // Room click handler
+    const handleRoomClick = (roomId, e) => {
+        e?.stopPropagation();
+        if (selectedRoom === roomId) {
+            setSelectedRoom(null);
+        } else {
+            setSelectedRoom(roomId);
+            // Store clicked element rect for popup positioning
+            if (e?.currentTarget) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                roomRefs.current[roomId] = rect;
+            }
+        }
+    };
+
+    // Render room needs floating popup (portal)
+    const renderRoomPopup = () => {
+        if (!selectedRoom || !roomRefs.current[selectedRoom]) return null;
+        const rect = roomRefs.current[selectedRoom];
+        const roomOrders = getOrdersForRoom(selectedRoom);
+        if (roomOrders.length === 0) return null;
+
+        return createPortal(
+            <div
+                style={{
+                    position: 'fixed',
+                    top: rect.bottom + 8,
+                    left: rect.left + rect.width / 2,
+                    transform: 'translateX(-50%)',
+                    zIndex: 99990,
+                }}
+                className="animate-in fade-in zoom-in-95 duration-200"
+            >
+                {/* Arrow */}
+                <div className="absolute -top-[6px] left-1/2 -translate-x-1/2">
+                    <div className="w-0 h-0 border-x-[6px] border-x-transparent border-b-[6px] border-b-white" />
+                </div>
+                <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-3 min-w-[220px] max-w-[320px]">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-slate-600">{t(ROOM_LABELS[selectedRoom])}</span>
+                        <button onClick={() => setSelectedRoom(null)} className="text-slate-400 hover:text-slate-600 text-xs">✕</button>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                        {/* Group orders by func */}
+                        {Object.entries(
+                            roomOrders.reduce((groups, { order, idx }) => {
+                                const func = order.func || '其他';
+                                if (!groups[func]) groups[func] = [];
+                                groups[func].push({ order, idx });
+                                return groups;
+                            }, {})
+                        ).map(([func, items]) => (
+                            <div key={func} className="flex flex-col gap-1.5">
+                                <div className="text-[11px] font-black text-slate-700 border-b border-slate-100 pb-1">{t(func)}</div>
+                                {items.map(({ order, idx }) => (
+                                    <div key={order.id} className="flex flex-col gap-1 pl-2">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            {order.requirements.map((req, rIdx) => (
+                                                <div key={rIdx} className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-200 bg-white text-xs">
+                                                    <span>{req.icon}</span>
+                                                    <span className="font-bold text-slate-700">{t(req.name)}</span>
+                                                </div>
+                                            ))}
+                                            <span className="text-[9px] text-slate-400">→</span>
+                                            <span className="text-[10px] text-emerald-600 font-bold">{order.effect}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>,
+            document.body
+        );
+    };
+
+    // Render floor plan (used in both show and home phases)
+    const renderFloorPlan = () => {
+        const isShow = gamePhase === 'show';
+        const s = 1;
+        const mockValues = { vitality: 70, warmth: 55, cleanliness: 40, health: 75, hunger: 45, garden_slots: 2, storage_size: 10 };
+        const barStats = ['vitality', 'warmth', 'cleanliness', 'health', 'hunger'];
+        const countStats = ['garden_slots', 'storage_size'];
+        return (
+            <div className={`flex flex-col items-center gap-2 ${isShow ? 'py-0' : 'py-2'}`}>
+                {gamePhase === 'home' && (
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        {t("第")} {day} {t("天")}
+                    </div>
+                )}
+
+                {/* Stats bar */}
+                <div className="flex items-center gap-3 flex-wrap justify-center py-1">
+                    {Object.entries(HOME_STATS).filter(([k]) => barStats.includes(k)).map(([key, stat]) => {
+                        const val = mockValues[key] ?? 50;
+                        const barColor = val > 60 ? 'bg-emerald-400' : val > 30 ? 'bg-amber-400' : 'bg-red-400';
+                        return (
+                            <div key={key} className="flex items-center gap-1.5" title={stat.desc}>
+                                <span className="text-sm">{stat.icon}</span>
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-[9px] font-bold text-slate-500">{stat.name}</span>
+                                    <div className="w-14 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                        <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${val}%` }} />
+                                    </div>
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-400">{val}</span>
+                            </div>
+                        );
+                    })}
+                    <div className="w-px h-6 bg-slate-200" />
+                    {Object.entries(HOME_STATS).filter(([k]) => countStats.includes(k)).map(([key, stat]) => {
+                        const val = mockValues[key] ?? 0;
+                        return (
+                            <div key={key} className="flex items-center gap-1" title={stat.desc}>
+                                <span className="text-xs">{stat.icon}</span>
+                                <span className="text-[9px] font-bold text-slate-500">{stat.name} {val}{stat.max <= 20 ? `/${stat.max}` : ''}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+                <div className="relative w-[500px] h-[380px]" style={{ transform: `scale(${s})`, transformOrigin: 'top center', marginBottom: -(380 * (1 - s)) }}>
+                    {/* Living room */}
+                    <div className="absolute top-0 left-[100px] w-[280px] h-[210px] border-[3px] border-slate-700 bg-stone-100">
+                        <div className="absolute inset-0 opacity-[0.03]" style={{
+                            backgroundImage: 'repeating-linear-gradient(0deg, #000 0px, #000 1px, transparent 1px, transparent 12px), repeating-linear-gradient(90deg, #000 0px, #000 1px, transparent 1px, transparent 12px)',
+                        }} />
+                        <div className="absolute top-[-14px] left-1/2 -translate-x-1/2 text-[8px] text-slate-400 font-bold tracking-wider">{t("客厅")}</div>
+                        {/* TV */}
+                        {gamePhase === 'home' && (
+                            <button onClick={startShow} disabled={tvWatchedToday}
+                                title={tvWatchedToday ? t("今天已经看过节目了") : t("打开电视观看抽奖节目")}
+                                className={`absolute top-2 left-[60px] flex flex-col items-center gap-0.5 px-3 py-1 rounded transition-all ${tvWatchedToday ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-amber-200/50 hover:scale-110 active:scale-95 cursor-pointer'}`}>
+                                <span className="text-2xl">📺</span>
+                                <span className="text-[9px] font-bold">{tvWatchedToday ? t("已看过") : t("电视")}</span>
+                            </button>
+                        )}
+                        {/* Sofa area (living room needs) */}
+                        <div onClick={(e) => handleRoomClick('living', e)}
+                            className={`absolute top-[70px] left-[50px] w-20 h-16 flex items-center justify-center rounded-lg cursor-pointer transition-all hover:bg-slate-200/50 ${selectedRoom === 'living' ? 'bg-slate-200/50 ring-1 ring-slate-400' : ''}`}>
+                            <span className="text-lg">🪑</span>
+                            {roomOrderCounts.living > 0 && (
+                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-black flex items-center justify-center shadow">{roomOrderCounts.living}</div>
+                            )}
+                        </div>
+                        {/* Door */}
+                        <div className="absolute top-[-3px] right-[40px] w-12 h-[3px] bg-stone-100" />
+                        <div className="absolute top-[-16px] right-[32px] text-[9px] font-black text-slate-500 tracking-wider">🚪 {t("家门")}</div>
+                        {/* Window */}
+                        <div className="absolute bottom-[-3px] left-[120px] w-14 h-[3px] bg-sky-300/60" />
+                    </div>
+
+                    {/* Bedroom (room clickable for needs) */}
+                    <div onClick={(e) => handleRoomClick('bedroom', e)}
+                        className={`absolute top-0 left-0 w-[103px] h-[140px] border-[3px] border-slate-700 bg-blue-50/50 cursor-pointer transition-all hover:bg-blue-100/60 ${selectedRoom === 'bedroom' ? 'ring-2 ring-blue-400' : ''}`}>
+                        <div className="absolute top-[-14px] left-1/2 -translate-x-1/2 text-[8px] text-slate-400 font-bold tracking-wider whitespace-nowrap">{t("卧室")}</div>
+                        <div className="absolute top-[40px] right-[-3px] w-[3px] h-10 bg-blue-50/50" />
+                        {/* Bed (click = sleep, separate from room click) */}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); if (tvWatchedToday && gamePhase === 'home') sleep(); }}
+                            disabled={!tvWatchedToday || gamePhase !== 'home'}
+                            className={`absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 px-2 py-1 rounded transition-all ${
+                                tvWatchedToday && gamePhase === 'home'
+                                    ? 'text-slate-700 hover:bg-indigo-200/50 hover:scale-110 active:scale-95 cursor-pointer'
+                                    : 'text-slate-300 cursor-default'
+                            }`}
+                        >
+                            <span className="text-xl">🛏️</span>
+                            {gamePhase === 'home' && <span className="text-[8px] font-bold">{t("睡觉")}</span>}
+                        </button>
+                        {roomOrderCounts.bedroom > 0 && (
+                            <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow">{roomOrderCounts.bedroom}</div>
+                        )}
+                    </div>
+
+                    {/* Storage */}
+                    <div onClick={() => { if (gamePhase === 'home') setStorageOpen(!storageOpen); }}
+                        title={gamePhase === 'home' ? (storageOpen ? t("点击关闭仓库") : t("点击查看仓库中的物品")) : ''}
+                        className={`absolute top-0 left-[377px] w-[120px] h-[210px] border-[3px] border-slate-700 bg-amber-50/50 ${gamePhase === 'home' ? 'cursor-pointer hover:bg-amber-100/60' : ''} transition-all ${storageOpen ? 'ring-2 ring-amber-400' : ''}`}>
+                        <div className="absolute top-[-14px] left-1/2 -translate-x-1/2 text-[8px] text-slate-400 font-bold tracking-wider">{t("仓库")}</div>
+                        <div className="absolute top-[80px] left-[-3px] w-[3px] h-10 bg-amber-50/50" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+                            <span className="text-2xl">📦</span>
+                            <span className="text-[9px] font-bold text-slate-500">{inventory.filter(Boolean).length} {t("件")}</span>
+                        </div>
+                        {roomOrderCounts.storage > 0 && (
+                            <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow">{roomOrderCounts.storage}</div>
+                        )}
+                    </div>
+
+                    {/* Kitchen */}
+                    <div onClick={(e) => handleRoomClick('kitchen', e)}
+                        className={`absolute top-[207px] left-[240px] w-[140px] h-[120px] border-[3px] border-slate-700 bg-orange-50/50 cursor-pointer transition-all hover:bg-orange-100/60 ${selectedRoom === 'kitchen' ? 'ring-2 ring-orange-400' : ''}`}>
+                        <div className="absolute bottom-[-14px] left-1/2 -translate-x-1/2 text-[8px] text-slate-400 font-bold tracking-wider">{t("厨房")}</div>
+                        <div className="absolute top-[-3px] left-[30px] w-10 h-[3px] bg-orange-50/50" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"><span className="text-2xl">🍳</span></div>
+                        {roomOrderCounts.kitchen > 0 && (
+                            <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow">{roomOrderCounts.kitchen}</div>
+                        )}
+                    </div>
+
+                    {/* Bathroom */}
+                    <div onClick={(e) => handleRoomClick('bathroom', e)}
+                        className={`absolute top-[207px] left-[100px] w-[143px] h-[120px] border-[3px] border-slate-700 bg-cyan-50/50 cursor-pointer transition-all hover:bg-cyan-100/60 ${selectedRoom === 'bathroom' ? 'ring-2 ring-cyan-400' : ''}`}>
+                        <div className="absolute bottom-[-14px] left-1/2 -translate-x-1/2 text-[8px] text-slate-400 font-bold tracking-wider">{t("厕所")}</div>
+                        <div className="absolute top-[-3px] right-[30px] w-10 h-[3px] bg-cyan-50/50" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"><span className="text-2xl">🚿</span></div>
+                        {roomOrderCounts.bathroom > 0 && (
+                            <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow">{roomOrderCounts.bathroom}</div>
+                        )}
+                    </div>
+
+                    {/* Garden */}
+                    <div onClick={(e) => handleRoomClick('garden', e)}
+                        className={`absolute top-[137px] left-0 w-[103px] h-[240px] border-[3px] border-dashed border-green-600/50 bg-green-50/30 rounded-sm cursor-pointer transition-all hover:bg-green-100/40 ${selectedRoom === 'garden' ? 'ring-2 ring-green-400' : ''}`}>
+                        <div className="absolute bottom-[-14px] left-1/2 -translate-x-1/2 text-[8px] text-green-600/60 font-bold tracking-wider">{t("花园")}</div>
+                        <div className="absolute top-[-3px] left-[25px] w-10 h-[3px] bg-green-50/30" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"><span className="text-2xl">🌱</span></div>
+                        {roomOrderCounts.garden > 0 && (
+                            <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow">{roomOrderCounts.garden}</div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     // Helper to render modals
     const renderModal = () => {
@@ -337,10 +609,13 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     };
 
     return (
-        <div className="h-screen w-full bg-slate-50 text-slate-800 font-sans selection:bg-blue-100 overflow-hidden flex flex-col animate-in fade-in duration-500 relative">
+        <div className={`h-screen w-full text-slate-800 font-sans selection:bg-blue-100 overflow-hidden flex flex-col animate-in fade-in duration-500 relative transition-all duration-500 ${
+            ['show_intro', 'show', 'show_outro'].includes(gamePhase) ? 'phase-show' : 'phase-home'
+        }`}>
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => actions.hideToast()} />}
 
             {renderModal()}
+            {renderRoomPopup()}
 
             {/* Flying item animation */}
             {flyingItem && (
@@ -406,38 +681,6 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                     </div>
 
                     <div className="flex items-center gap-6">
-                        {/* HP & Doom Display */}
-                        <div className="flex items-center gap-8 pr-6 border-r border-slate-800">
-                            {/* HP Display */}
-                            <HeaderTooltip text={t("生命值归零时游戏结束，失去一半物品")}>
-                                <div className="flex flex-col gap-1 items-end cursor-default">
-                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-red-200">{t("生命值")}</span>
-                                    <div className="flex items-center gap-1.5">
-                                        {Array.from({ length: config.doom?.initialHP || 3 }).map((_, i) => (
-                                            <span key={i} className={`text-xl transition-all duration-300 ${i < hp ? 'drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]' : 'opacity-30'}`}>
-                                                {i < hp ? '❤️' : '🖤'}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            </HeaderTooltip>
-
-                            {/* Doom Level Display */}
-                            <HeaderTooltip text={t("每次厄运结算抽取的格子数，累计命中危险格时升级")}>
-                                <div className="flex flex-col gap-1 items-end cursor-default">
-                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-violet-200">{t("厄运等级")}</span>
-                                    <div className="flex items-center gap-2 text-violet-400">
-                                        <ChevronsUp size={20} className="drop-shadow-[0_0_8px_rgba(139,92,246,0.4)]" />
-                                        <span className="text-3xl font-black font-mono tracking-tighter leading-none">LV.{doomLevel}</span>
-                                    </div>
-                                    <span className="text-[10px] font-bold text-red-400">{t("命中")} {(config.doom?.hitsPerLevelUp || 3) - doomHitCount} {t("次后升级")}</span>
-                                </div>
-                            </HeaderTooltip>
-                        </div>
-
-                        {/* Stage Info (Compact) */}
-
-
                         {/* Quick Actions */}
                         <div className="flex items-center gap-2 bg-slate-800/80 rounded-xl p-1 border border-slate-700 shadow-inner">
                             <button onClick={toggleLanguage} className="px-2.5 py-1 hover:bg-slate-700 rounded-lg text-[11px] font-black text-slate-400 hover:text-white transition-all">
@@ -458,146 +701,178 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 <Power size={18} />
                             </button>
                         </div>
+
+                        {/* Debug Phase Switcher */}
+                        {debugMode && (
+                            <div className="flex items-center gap-1 bg-slate-800/80 rounded-xl p-1 border border-red-500/30">
+                                {['show_intro', 'show', 'show_outro', 'delivery_knock', 'delivery_open', 'home'].map(phase => (
+                                    <button
+                                        key={phase}
+                                        onClick={() => actions.setGamePhase(phase)}
+                                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                            gamePhase === phase
+                                                ? 'bg-red-500 text-white'
+                                                : 'text-slate-400 hover:bg-slate-700 hover:text-white'
+                                        }`}
+                                    >
+                                        {phase}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </header>
 
                 <main className="flex-1 flex flex-col lg:flex-row overflow-hidden transition-all duration-300">
 
-                    {/* LEFT COLUMN: ORDERS */}
-                    <section className={`
-                     flex-none lg:w-[45%] xl:w-[42%] h-full flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 transition-all
-                     ${selectionMode?.type === 'targeted' ? 'hidden md:block md:w-1/4' : ''}
-                  `}>
-                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                            <div className="flex flex-col gap-3">
-
-                                {/* Evacuate Button */}
-                                <div className="mb-2 flex items-center gap-2">
-                                    <button
-                                        onClick={handleEvacuate}
-                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!orderCandidates || !!modalContent || isDoomResolving}
-                                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-black transition-all duration-200 text-sm shadow-lg border-2 bg-emerald-500 text-white hover:bg-emerald-600 border-emerald-600 hover:scale-105 active:scale-95 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200"
-                                    >
-                                        <Flag size={18} />
-                                        <span>{t("撤离")}</span>
-                                    </button>
-                                </div>
-
-                                {/* Normal Orders (no mainline) */}
-                                {orders.map((order, idx) => (
-                                    <OrderCard
-                                        key={order ? order.id : `empty-${idx}`}
-                                        order={order}
-                                        index={idx}
-                                        isScoreOrder={true}
-                                        isSubmitMode={isSubmitMode}
-                                                                                canSatisfy={satisfiableOrders.find(r => r.index === idx)}
-                                        potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === idx)} // Pass preview
-                                        onClick={handleOrderClick}
-                                        onRefresh={handleRefreshSingleOrder}
-                                        orderRefreshCount={orderRefreshCount}
-                                        REFRESH_MAX={REFRESH_MAX}
-                                        onDebugGetItems={debugMode ? debugGetOrderItems : null}
-                                        currentStageConfig={currentStageConfig}
-                                        config={config}
-                                        inventory={inventory}
-                                        selectedIndices={selectedIndices}
-                                        hasSkill={hasSkill}
-                                        hoveredPoolId={null}
-                                        hoveredItemName={hoveredItemName}
-                                        hoveredPoolItemNames={[]}
-                                        selectedItemNames={selectedItemNames}
-                                        isBeingReplaced={orderCandidates?.slotIndex === idx}
-                                        orderSlotAssignments={orderSlotAssignments}
-                                        phantomMarks={phantomMarks}
-                                        onUnassign={handleUnassignFromOrder}
-                                        onSlotClick={handleOrderSlotClick}
-                                        pendingItem={pendingItem}
-                                        selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
-                                        toolSelectionMode={toolSelectionMode}
-                                        isRecycleMode={isRecycleMode}
-                                        selectionMode={selectionMode}
-                                    // selectedIndices={selectedIndices} // Already passed above
-                                    // currentStageConfig={currentStageConfig} // Already passed above
-                                    />
-                                ))}
+                    {/* SHOW INTRO OVERLAY */}
+                    {gamePhase === 'show_intro' && (
+                        <div className="flex-1 flex items-center justify-center p-8">
+                            <div className="max-w-md w-full">
+                                <HostDialogue
+                                    phase="show_intro"
+                                    day={day}
+                                    onStartShow={beginDrawing}
+                                />
                             </div>
+                        </div>
+                    )}
 
-                            {/* 候选订单选择区域 - 从订单栏底部升起 */}
-                            {orderCandidates && (
-                                <div className="mt-4 animate-in slide-in-from-bottom-4 fade-in duration-300">
-                                    {/* 指向箭头 */}
-                                    <div className="flex items-center justify-center -mb-2 relative z-10">
-                                        <div className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-black flex items-center gap-1.5 shadow-lg border-2 border-yellow-500 animate-bounce">
-                                            <ChevronUp size={14} strokeWidth={3} />
-                                            <span>{t("替换上方订单")}</span>
-                                            <ChevronUp size={14} strokeWidth={3} />
-                                        </div>
+
+                    {/* SHOW OUTRO OVERLAY */}
+                    {gamePhase === 'show_outro' && (
+                        <div className="flex-1 flex items-center justify-center p-8">
+                            <div className="max-w-md w-full">
+                                <HostDialogue
+                                    phase="show_outro"
+                                    day={day}
+                                    onContinue={confirmGoHome}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* DELIVERY KNOCK */}
+                    {gamePhase === 'delivery_knock' && (
+                        <div className="flex-1 flex items-center justify-center p-8">
+                            <div className="max-w-md w-full flex flex-col gap-4">
+                                <div className="text-center text-3xl animate-bounce">🚪</div>
+                                <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 flex items-start gap-3">
+                                    <div className="w-10 h-10 bg-slate-300 rounded-full flex items-center justify-center text-xl shrink-0">🧑</div>
+                                    <div className="flex-1">
+                                        <div className="text-xs font-black text-slate-500 mb-1">{t("敲门声")}</div>
+                                        <p className="text-sm text-slate-700">{t("您好，今天的配给到了。请签收。")}</p>
+                                        <button
+                                            onClick={() => { openDelivery(); actions.setGamePhase('delivery_open'); }}
+                                            className="mt-3 bg-slate-700 text-white font-bold px-6 py-2 rounded-xl hover:bg-slate-800 active:scale-95 transition-all shadow-sm"
+                                        >
+                                            {t("开门签收")}
+                                        </button>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-4 border-blue-300 rounded-2xl p-4 shadow-2xl ring-4 ring-blue-200">
-                                        <div className="flex flex-col gap-3">
-                                            {/* 标题栏 */}
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="bg-blue-500 text-white rounded-full p-1.5 shadow-lg">
-                                                        <Package size={16} />
-                                                    </div>
-                                                    <h3 className="text-base font-black text-slate-800">{t("选择一个订单")}</h3>
+                    {/* DELIVERY OPEN - unboxing */}
+                    {gamePhase === 'delivery_open' && (
+                        <div className="flex-1 flex items-center justify-center p-8">
+                            <div className="max-w-md w-full flex flex-col items-center gap-6">
+                                <div className="text-sm font-bold text-slate-500">{t("今日配给")}</div>
+                                {!deliveryRevealed ? (
+                                    <button
+                                        onClick={openDelivery}
+                                        className="w-24 h-24 bg-amber-100 border-2 border-amber-300 rounded-2xl flex items-center justify-center text-5xl hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-lg"
+                                    >
+                                        📦
+                                    </button>
+                                ) : (
+                                    <>
+                                        <div className="flex flex-wrap gap-3 justify-center">
+                                            {deliveryItems.map((item, idx) => (
+                                                <div key={idx}
+                                                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 shadow-sm animate-in zoom-in-50 fade-in duration-300 ${item.rarity.color}`}
+                                                    style={{ animationDelay: `${idx * 150}ms` }}
+                                                >
+                                                    <span className="text-3xl">{item.icon}</span>
+                                                    <span className="text-[10px] font-bold">{t(item.name)}</span>
+                                                    <span className="text-[9px] opacity-60">{t(item.rarity.name)}</span>
                                                 </div>
-                                                {orderCandidateQueue.length > 0 && (
-                                                    <div className="text-xs text-slate-500 font-bold bg-white/60 px-2 py-1 rounded-full">
-                                                        {t("待选订单")}: {orderCandidateQueue.length + 1}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <p className="text-xs text-slate-600 font-medium">{t("请从以下2个订单中选择1个")}</p>
-
-                                            {/* 候选订单卡片 - 使用完整的 OrderCard 组件 */}
-                                            <div className="flex flex-col gap-2">
-                                                {orderCandidates.candidates.map((candidate, idx) => (
-                                                    <div
-                                                        key={candidate.id}
-                                                        onClick={() => handleSelectOrderCandidate(idx)}
-                                                        className="cursor-pointer hover:scale-[1.01] transition-transform duration-200"
-                                                    >
-                                                        <OrderCard
-                                                            order={candidate}
-                                                            index={-1}
-                                                            isScoreOrder={true}
-                                                            isSubmitMode={false}
-                                                                                                                        canSatisfy={null}
-                                                            potentialSatisfy={null}
-                                                            onClick={() => handleSelectOrderCandidate(idx)}
-                                                            onRefresh={() => { }}
-                                                            currentStageConfig={currentStageConfig}
-                                                            config={config}
-                                                            inventory={inventory}
-                                                            selectedIndices={[]}
-                                                            hasSkill={hasSkill}
-                                                            hoveredPoolId={null}
-                                                            hoveredItemName={hoveredItemName}
-                                                            hoveredPoolItemNames={[]}
-                                                            selectedItemNames={[]}
-                                                            isBeingReplaced={false}
-                                                            isCandidate={true}
-                                                        />
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            ))}
                                         </div>
-                                    </div>
+                                        <button
+                                            onClick={collectDelivery}
+                                            className="bg-emerald-500 text-white font-bold px-8 py-2.5 rounded-xl hover:bg-emerald-600 active:scale-95 transition-all shadow-lg flex items-center gap-2"
+                                        >
+                                            📥 {t("放入仓库")}
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MAIN CONTENT AREA */}
+                    {(gamePhase === 'show' || gamePhase === 'home') && (
+                    <section className="flex-1 flex flex-col h-full overflow-hidden relative">
+                        {/* MAIN SCROLLABLE AREA */}
+                        <div className={`flex-1 flex p-3 lg:p-4 relative overflow-hidden ${gamePhase === 'show' ? 'flex-row gap-3' : 'flex-col'}`}>
+
+                            {/* Show: Left = floor plan (separate from TV) */}
+                            {gamePhase === 'show' && (
+                                <div className="flex-none flex flex-col items-center gap-2 overflow-y-auto pr-3 border-r border-slate-200/50 w-[520px]">
+                                    {renderFloorPlan()}
                                 </div>
                             )}
-                        </div>
-                    </section>
 
-                    {/* RIGHT COLUMN: POOLS */}
-                    <section className="flex-1 flex flex-col h-full overflow-hidden relative">
-                        {/* POOLS SCROLLABLE AREA */}
-                        <div className="flex-1 flex flex-col p-3 lg:p-4 relative overflow-hidden">
-                            <div className="flex flex-col gap-3 flex-1 justify-center">
+                            {/* Main content column */}
+                            <div className={`flex flex-col gap-3 flex-1 justify-center items-center ${gamePhase === 'show' ? 'overflow-y-auto' : ''}`}>
+
+                                {/* Show: HP + Doom + host + stop button */}
+                                {gamePhase === 'show' && (
+                                    <div className="w-full flex flex-col gap-2 items-center">
+                                        {/* HP & Doom inline */}
+                                        <div className="flex items-center gap-6 bg-slate-800/80 rounded-xl px-4 py-2 border border-slate-700">
+                                            <div className="flex items-center gap-1.5">
+                                                {Array.from({ length: config.doom?.initialHP || 3 }).map((_, i) => (
+                                                    <span key={i} className={`text-lg transition-all duration-300 ${i < hp ? 'drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]' : 'opacity-30'}`}>
+                                                        {i < hp ? '❤️' : '🖤'}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            <div className="w-px h-6 bg-slate-600" />
+                                            <div className="flex items-center gap-1.5 text-violet-400">
+                                                <ChevronsUp size={16} />
+                                                <span className="text-sm font-black font-mono">LV.{doomLevel}</span>
+                                                <span className="text-[9px] text-red-400 font-bold">({(config.doom?.hitsPerLevelUp || 3) - doomHitCount})</span>
+                                            </div>
+                                        </div>
+                                        <HostDialogue
+                                            phase="show"
+                                            day={day}
+                                            showContext={{
+                                                drawCount: showDrawsThisRound,
+                                                lastDrawnItem: lastDraw?.item,
+                                                lastDrawRarity: lastDraw?.rarity?.id,
+                                                inventoryCount: inventory.filter(Boolean).length,
+                                                commentKey: hostCommentKey,
+                                            }}
+                                        />
+                                        <button
+                                            onClick={goHome}
+                                            disabled={isDrawing || !!pendingItem || isDoomResolving || pendingQueue.length > 0}
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-xs bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                        >
+                                            {t("停止抽取")}
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Room floor plan (home only - show uses left panel) */}
+                                {gamePhase === 'home' && renderFloorPlan()}
+
+                                {/* Doom Grid Display (show phase only) */}
+                                {gamePhase === 'show' && (<>
                                 {/* Doom Grid Display */}
                                 <div className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${isDoomResolving ? 'scale-110' : ''}`}>
                                     {/* Doom resolution banner */}
@@ -714,11 +989,13 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         </div>
                                     )}
                                 </div>
+                            </>)}
                             </div>
 
                         </div>
 
-                        {/* BOTTOM UI (Previously Footer) */}
+                        {/* BOTTOM UI - Storage/Inventory (always in show, toggle in home) */}
+                        {(gamePhase === 'show' || storageOpen) && (
                         <div className={`
                     flex-none w-full p-4 border-t-2 border-slate-200 bg-white/95 backdrop-blur shadow-[0_-8px_30px_rgba(0,0,0,0.1)] z-30 transition-colors duration-300 relative
                     ${pendingItem ? 'bg-red-50/95 border-red-200' : ''}
@@ -783,7 +1060,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                             {/* Status Bar */}
                             <div className="flex justify-between items-center mb-2 px-2 max-w-3xl mx-auto">
                                 <div className="flex items-center gap-3">
-                                    <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("背包栏位")} ({inventory.length}/{maxInventorySize})</h2>
+                                    <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("仓库")} ({inventory.length}/{maxInventorySize})</h2>
                                     {!pendingItem && !isSubmitMode && !isRecycleMode && !selectionMode && (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleSortInventory(); }}
@@ -904,7 +1181,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     })}
                                 </div>
 
-                                {/* Action Buttons */}
+                                {/* Action Buttons (home only) */}
+                                {gamePhase !== 'show' && (
                                 <div className={`flex flex-col gap-2 shrink-0 justify-end pb-2 w-40 min-h-[88px] ${pendingItem ? 'hidden' : ''}`}>
                                     {!isSubmitMode && !isRecycleMode && !pendingItem && !selectionMode && (
                                         <>
@@ -944,6 +1222,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         </button>
                                     )}
                                 </div>
+                                )}
 
                                 {/* Pending Queue Popup */}
                                 {pendingItem && (
@@ -1031,7 +1310,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 )}
                             </div>
                         </div>
+                        )}
                     </section>
+                    )}
                 </main>
             </div>
 

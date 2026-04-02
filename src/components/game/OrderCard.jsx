@@ -45,6 +45,7 @@ const OrderCardBase = ({
     toolSelectionMode,
     isRecycleMode,
     selectionMode,
+    gamePhase,
 }) => {
     const { t } = useLanguage();
     const [hoveredReqIndex, setHoveredReqIndex] = useState(null);
@@ -57,7 +58,7 @@ const OrderCardBase = ({
         );
     }
 
-    const { id, requirements, baseScoreReward, remainingRefreshes } = order;
+    const { id, requirements, baseScoreReward, remainingRefreshes, homeDesc, showDesc } = order;
 
     // Calculate visualization states
     const isSatisfied = !!canSatisfy;
@@ -166,18 +167,9 @@ const OrderCardBase = ({
                 {/* Left Side: Info & Reqs */}
                 <div className={`flex flex-col flex-1 ${isCandidate ? 'gap-1' : 'gap-1.5'}`}>
 
-                    {/* Header / Reward Badge */}
+                    {/* Header */}
                     <div className="flex flex-wrap items-center gap-2">
-                        {/* Label & Status */}
-                        {isScoreOrder && !isCandidate && (
-                            <div className="flex items-center">
-                                <span className="text-[10px] font-black text-blue-700 uppercase tracking-wider flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-full border border-blue-200 whitespace-nowrap">
-                                    <Star size={10} fill="currentColor" /> {t("积分订单")}
-                                </span>
-                            </div>
-                        )}
-
-                        {order.isEmergency ? (
+                        {order.isEmergency && (
                             <div className="flex flex-wrap items-center gap-2">
                                 {emergencyOrderCompleted && (
                                     <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-green-300">
@@ -185,35 +177,16 @@ const OrderCardBase = ({
                                         <span>✅ {t("已完成")}</span>
                                     </div>
                                 )}
-                                {order.difficulty && (
-                                    <div className="flex items-center gap-1 bg-orange-100 text-orange-600 px-2 py-1 rounded-lg font-black text-xs shadow-sm border border-orange-200">
-                                        <span>LV.{order.difficulty}</span>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            /* Rewards Badge for Normal/Score Orders */
-                            <div className={`flex items-center ${isCandidate ? 'gap-1' : 'gap-2'}`}>
-                                {/* Score Reward */}
-                                <div className={`flex items-center gap-1 rounded-lg font-black text-[10px] shadow-sm ${isCandidate ? 'px-1.5 py-0.5' : 'px-2 py-1'} ${canSatisfy ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'}`}>
-                                    <span>{rewardInfo?.minScoreReward ?? baseScoreReward}</span>
-                                    {rewardInfo?.isDifferent && !canSatisfy && (
-                                        <>
-                                            <span className="opacity-60">→</span>
-                                            <span className="text-xs font-black">{rewardInfo.slotScoreReward}</span>
-                                        </>
-                                    )}
-                                    {canSatisfy && (
-                                        <>
-                                            <span className="opacity-60">→</span>
-                                            <span className="text-xs">{canSatisfy.finalScoreReward}</span>
-                                        </>
-                                    )}
-                                    <span className="opacity-70">⭐</span>
-                                </div>
                             </div>
                         )}
                     </div>
+
+                    {/* Effect */}
+                    {!isCandidate && order.effect && (
+                        <p className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                            {order.effect}
+                        </p>
+                    )}
 
                     {/* Requirements */}
                     <div className={`flex ${isCandidate ? 'flex-wrap gap-1.5' : 'flex-nowrap gap-1.5'}`}>

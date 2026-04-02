@@ -11,3 +11,122 @@
       scrollbar-width: none;
   }
 }
+
+/* === Phase: Show (TV game show) === */
+.phase-show {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
+}
+
+.phase-show header {
+  background: linear-gradient(90deg, #78350f, #92400e, #78350f) !important;
+  border-bottom-color: #d97706 !important;
+  box-shadow: 0 4px 20px rgba(217, 119, 6, 0.3);
+}
+
+.phase-show .border-slate-200 {
+  border-color: #fbbf24;
+}
+
+.phase-show section {
+  border-color: #f59e0b !important;
+}
+
+/* CRT TV overlay — scanlines + color fringing */
+.phase-show::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.035) 2px,
+      rgba(0, 0, 0, 0.035) 4px
+    );
+  animation: crt-flicker 8s infinite;
+}
+
+/* Vignette — darkened edges + barrel distortion feel */
+.phase-show::after {
+  content: '';
+  position: fixed;
+  inset: -2%;
+  z-index: 9998;
+  pointer-events: none;
+  border-radius: 8% / 4%;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    rgba(0, 0, 0, 0.12) 75%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  box-shadow: inset 0 0 80px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* CRT screen curvature on main content */
+.phase-show > * {
+  transform: perspective(1200px) rotateX(0.3deg);
+  transform-origin: center center;
+}
+
+/* Subtle RGB color split on text */
+.phase-show h1,
+.phase-show h2,
+.phase-show h3 {
+  text-shadow:
+    0.5px 0 0 rgba(255, 0, 0, 0.06),
+    -0.5px 0 0 rgba(0, 255, 255, 0.06);
+}
+
+/* CRT flicker animation */
+@keyframes crt-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.85; }
+  94% { opacity: 1; }
+  97% { opacity: 0.9; }
+  98% { opacity: 1; }
+}
+
+/* Show phase: warmer shadows, bolder borders */
+.phase-show .shadow-sm {
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+}
+
+.phase-show .shadow-lg {
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+}
+
+/* === Phase: Home (reality) === */
+.phase-home {
+  background: #f8f8f6;
+}
+
+.phase-home header {
+  background: #334155 !important;
+  box-shadow: none;
+}
+
+/* Home phase: muted, desaturated feel */
+.phase-home .shadow-sm {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.phase-home .shadow-lg {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* Home: no CRT overlay (pseudo-elements not present) */
+
+/* === Delivery/knock phases: inherit home style but dimmer === */
+.phase-home .bg-white {
+  background-color: #fafaf9;
+}
+
+/* === Transition between phases === */
+.phase-show, .phase-home {
+  transition: background 0.8s ease, color 0.5s ease;
+}

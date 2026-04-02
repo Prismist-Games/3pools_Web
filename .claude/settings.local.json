@@ -40,7 +40,13 @@
       "Bash(npx vite:*)",
       "Bash(curl -s \"https://store.steampowered.com/search/?term=Sol+Cesto\")",
       "Bash(npx eslint:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Skill(update-config)",
+      "Bash(git ls-tree:*)",
+      "Bash(git stash:*)",
+      "Bash(git reset:*)",
+      "Bash(curl -s http://localhost:5173/3pools_Web/)",
+      "Bash(pkill -f \"vite\")"
     ]
   }
 }

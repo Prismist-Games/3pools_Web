@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo } from 'react';
 import {
     getAllNormalItems,
     generateOrder,
+    generateRoomNeedOrder,
     getNextRarity,
     getRandomItems,
     rollRarity
 } from '../utils/helpers';
 import { generateItemMatrix, applyGravity, applyBombExplosion } from '../utils/matrixHelpers';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { SKILL_DEFINITIONS, TOOL_ITEMS, DOOM_CONFIG } from '../data/constants';
+import { SKILL_DEFINITIONS, TOOL_ITEMS, DOOM_CONFIG, ROOM_NEEDS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
@@ -17,6 +18,24 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const currentStageConfig = config.stages[0]; // Always use stage 0 (no stage progression)
     const maxInventorySize = currentStageConfig.inventorySize;
+
+    // Game Phase System: 'show_intro' → 'show' → 'home'
+    const [gamePhase, setGamePhase] = useState('show_intro');
+    const [showDrawsThisRound, setShowDrawsThisRound] = useState(0);
+    const DRAWS_PER_ROUND = 5; // 每轮节目可抽取次数
+
+    // Day system (day 1 starts in show_intro, TV already watched)
+    const [day, setDay] = useState(1);
+    const [tvWatchedToday, setTvWatchedToday] = useState(true);
+
+    // Track items drawn during show round (held until delivery)
+    const [showDrawnItems, setShowDrawnItems] = useState([]);
+
+    // Host comment key: increments after each draw to trigger new comment
+    const [hostCommentKey, setHostCommentKey] = useState(0);
+
+    // Home storage: persistent inventory separate from show inventory
+    const [homeStorage, setHomeStorage] = useState([]);
 
     // Doom System
     const doomConfig = config.doom || DOOM_CONFIG;
@@ -107,13 +126,23 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [initialSkills]);
 
+    // Initialize orders from room needs
     useEffect(() => {
         if (orders.length < currentStageConfig.orderSlots) {
             const needed = currentStageConfig.orderSlots - orders.length;
-            const newOrders = [...orders, ...Array(needed).fill(null).map(() => generateOrder(allNormalItems, config, hasSkill, currentStageConfig))];
+            const newOrders = [...orders];
+            for (let i = 0; i < needed; i++) {
+                const order = generateRoomNeedOrder(allNormalItems, config, ROOM_NEEDS, newOrders);
+                if (order) newOrders.push(order);
+            }
             setOrders(newOrders);
         } else if (orders.length === 0) {
-            setOrders(Array(currentStageConfig.orderSlots).fill(null).map(() => generateOrder(allNormalItems, config, hasSkill, currentStageConfig)));
+            const newOrders = [];
+            for (let i = 0; i < currentStageConfig.orderSlots; i++) {
+                const order = generateRoomNeedOrder(allNormalItems, config, ROOM_NEEDS, newOrders);
+                if (order) newOrders.push(order);
+            }
+            setOrders(newOrders);
         }
     }, [config, allNormalItems, currentStageConfig.orderSlots, orders.length]);
 
@@ -777,6 +806,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const selectRowOrColumn = (type, index) => {
         // Guard: block during pending states or ongoing draw animation
+        if (gamePhase !== 'show') return;
         if (isDrawing || pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || orderCandidates || modalContent || isDoomResolving) return;
         if (!matrix) return;
 
@@ -953,6 +983,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 }
 
                 setSkillState(newSkillState);
+
+                // Record drawn items for delivery + trigger host comment update
+                if (gamePhase === 'show') {
+                    setShowDrawnItems(prev => [...prev, ...itemsToProcess]);
+                    setHostCommentKey(prev => prev + 1);
+                }
 
                 const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(capturedInventory) : [...capturedInventory];
                 handleIncomingItems(itemsToProcess, decayedInventory);
@@ -1573,8 +1609,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // 为每个槽位生成2个候选订单，逐个让玩家选择
         const allCandidates = [];
         for (let i = 0; i < currentStageConfig.orderSlots; i++) {
-            const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
-            const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            const candidate1 = generateRoomNeedOrder(allNormalItems, config, ROOM_NEEDS, orders) || generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            const candidate2 = generateRoomNeedOrder(allNormalItems, config, ROOM_NEEDS, orders) || generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
             allCandidates.push({ slotIndex: i, candidates: [candidate1, candidate2] });
         }
 
@@ -1808,8 +1844,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         const candidateQueue = [];
         completedIndices.forEach(idx => {
-            const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
-            const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            const candidate1 = generateRoomNeedOrder(allNormalItems, config, ROOM_NEEDS, orders) || generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            const candidate2 = generateRoomNeedOrder(allNormalItems, config, ROOM_NEEDS, orders) || generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
             candidateQueue.push({ slotIndex: idx, candidates: [candidate1, candidate2] });
         });
 
@@ -1913,6 +1949,89 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setHoveredPoolItemNames([]);
     };
 
+    // Phase transition: open TV → show intro
+    const startShow = () => {
+        if (tvWatchedToday) return;
+        setTvWatchedToday(true);
+        setShowDrawnItems([]);
+        setGamePhase('show_intro');
+    };
+
+    // Phase transition: host intro done → start drawing (empty show inventory)
+    const beginDrawing = () => {
+        setHomeStorage([...inventory]); // save home items
+        setInventory([]); // show starts with empty inventory
+        refreshMatrix(); // fresh grid each day
+        setGamePhase('show');
+        setShowDrawsThisRound(0);
+    };
+
+    // Phase transition: show outro (host says goodbye, then player goes home)
+    const goHome = () => {
+        setGamePhase('show_outro');
+        setShowDrawsThisRound(0);
+    };
+
+    // Phase transition: confirm going home after outro → delivery knock
+    const confirmGoHome = () => {
+        setGamePhase('delivery_knock');
+    };
+
+    // Phase transition: open the delivery box
+    const [deliveryItems, setDeliveryItems] = useState([]);
+    const [deliveryRevealed, setDeliveryRevealed] = useState(false);
+
+    const openDelivery = () => {
+        // Delivery = only items still in show inventory (recycled items excluded)
+        setDeliveryItems([...inventory]);
+        setDeliveryRevealed(true);
+    };
+
+    const collectDelivery = () => {
+        // Merge remaining show items into home storage
+        const mergedStorage = [...homeStorage, ...inventory.filter(Boolean)];
+        setInventory(mergedStorage);
+        setHomeStorage(mergedStorage);
+        setDeliveryItems([]);
+        setDeliveryRevealed(false);
+        setShowDrawnItems([]);
+        setGamePhase('home');
+    };
+
+    // Keep homeStorage in sync with inventory during home phase
+    useEffect(() => {
+        if (gamePhase === 'home') {
+            setHomeStorage([...inventory]);
+        }
+    }, [inventory, gamePhase]);
+
+    // Sleep: advance to next day (only after watching TV)
+    const sleep = () => {
+        if (!tvWatchedToday) return;
+        setHomeStorage([...inventory]); // save before sleep
+        setDay(prev => prev + 1);
+        setTvWatchedToday(false);
+        setGamePhase('home');
+    };
+
+    // Track draws per round — auto-transition to home after DRAWS_PER_ROUND
+    useEffect(() => {
+        if (gamePhase === 'show' && showDrawsThisRound >= DRAWS_PER_ROUND && !isDrawing && !isDoomResolving && !pendingItem && pendingQueue.length === 0) {
+            goHome();
+        }
+    }, [showDrawsThisRound, gamePhase, isDrawing, isDoomResolving, pendingItem, pendingQueue]);
+
+    // Increment per-round draw counter when drawCount changes (skip initial)
+    const prevDrawCountRef = { current: drawCount };
+    useEffect(() => {
+        if (drawCount > 0 && drawCount !== prevDrawCountRef.current) {
+            prevDrawCountRef.current = drawCount;
+            if (gamePhase === 'show') {
+                setShowDrawsThisRound(prev => prev + 1);
+            }
+        }
+    }, [drawCount, gamePhase]);
+
     // Simplified evacuation: unconditional, keep all items
     const handleEvacuate = () => {
         setModalContent({
@@ -1959,7 +2078,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             orderSlotAssignments,
             assignedItemUids,
             phantomMarks,
-            toolSelectionMode
+            toolSelectionMode,
+            gamePhase,
+            showDrawsThisRound,
+            DRAWS_PER_ROUND,
+            day,
+            tvWatchedToday,
+            deliveryItems,
+            deliveryRevealed,
+            hostCommentKey,
         },
         actions: {
             showToast,
@@ -1994,6 +2121,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleGridRefresh,
             tickDoomResolution,
             completeDoomResolution,
+            startShow,
+            beginDrawing,
+            goHome,
+            confirmGoHome,
+            openDelivery,
+            collectDelivery,
+            sleep,
+            setGamePhase,
         },
         helpers: {
             hasSkill

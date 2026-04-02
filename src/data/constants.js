@@ -11,7 +11,7 @@ export const INITIAL_STAGE_CONFIG = [
         "mechanicDesc": "基础机制生效",
         "desc": "普通模式 (Base)",
         "inventorySize": 10,
-        "orderSlots": 3,
+        "orderSlots": 6,
         "poolSize": 4,
         "allowedPoolCount": 5,
         // "initialGold": 20, // removed: gold system replaced by doom/HP
@@ -62,7 +62,7 @@ export const INITIAL_STAGE_CONFIG = [
         "mechanicDesc": "奖池的价格随机波动",
         "desc": "波动模式 (Volatility)",
         "inventorySize": 10,
-        "orderSlots": 3,
+        "orderSlots": 6,
         "poolSize": 4,
         "allowedPoolCount": 5,
         // "initialGold": 30, // removed: gold system replaced by doom/HP
@@ -109,7 +109,7 @@ export const INITIAL_STAGE_CONFIG = [
         "mechanicDesc": "背包内物品种类数量受限",
         "desc": "专业化模式 (Specialization)",
         "inventorySize": 20,
-        "orderSlots": 3,
+        "orderSlots": 6,
         "poolSize": 4,
         "allowedPoolCount": 5,
         // "initialGold": 40, // removed: gold system replaced by doom/HP
@@ -156,7 +156,7 @@ export const INITIAL_STAGE_CONFIG = [
         "mechanicDesc": "物品随时间腐烂衰变",
         "desc": "熵增模式 (Entropy)",
         "inventorySize": 10,
-        "orderSlots": 3,
+        "orderSlots": 6,
         "poolSize": 4,
         "allowedPoolCount": 5,
         // "initialGold": 50, // removed: gold system replaced by doom/HP
@@ -572,6 +572,73 @@ export const DOOM_CONFIG = {
     triggerCooldownDraws: 1,   // 触发后冷却的抽取次数
     initialProtectionDraws: 1, // 游戏开始时的保护抽取次数
 };
+
+// --- 家的状态（mockup，暂无逻辑）---
+// 房子是一个活物，需要被照料和养育
+export const HOME_STATS = {
+    // 房子的生命状态
+    vitality: { name: '生机', icon: '🏠', max: 100, desc: '房子整体的活力。房间功能正常运作时缓慢恢复，长期不打理会衰退。过低时房间功能开始失灵。' },
+    warmth: { name: '温暖', icon: '🔥', max: 100, desc: '房子的温度。做饭、使用电器会产生温暖。过低时人和房子都会受影响。' },
+    cleanliness: { name: '整洁', icon: '✨', max: 100, desc: '房子的干净程度。每天自然下降。过低时健康下降，房间功能效率降低。' },
+
+    // 人的状态
+    health: { name: '健康', icon: '❤️', max: 100, desc: '受温暖、整洁、饮食影响。过低时无法参加节目。' },
+    hunger: { name: '饱腹', icon: '🍽️', max: 100, desc: '每天下降。做饭可恢复。长期饥饿影响健康。' },
+
+    // 成长
+    garden_slots: { name: '花园', icon: '🌱', max: 4, desc: '可种植的位置。种下水果后会生长，成熟后可收获。' },
+    storage_size: { name: '仓库', icon: '📦', max: 20, desc: '仓库容量。扩建后可存更多物品。' },
+};
+
+// --- 房间功能定义 ---
+// 房子是活物。每个房间有自己的功能，需要物品来运作或成长。
+export const ROOM_NEEDS = [
+    // === 厨房 (kitchen) — 喂饱自己和房子 ===
+    { room: 'kitchen', func: '做饭', items: ['苹果'], effect: '做一顿简单的饭，恢复饱腹' },
+    { room: 'kitchen', func: '做饭', items: ['芒果'], effect: '做一顿简单的饭，恢复饱腹' },
+    { room: 'kitchen', func: '做饭', items: ['西瓜'], effect: '做一顿简单的饭，恢复饱腹' },
+    { room: 'kitchen', func: '做饭', items: ['柠檬'], effect: '做一顿简单的饭，恢复饱腹' },
+    { room: 'kitchen', func: '生火', items: ['笔记本'], effect: '烧掉笔记本生火，厨房和房子都暖起来' },
+    { room: 'kitchen', func: '安装厨具', items: ['平底锅'], effect: '厨房解锁"炒菜"，做饭恢复更多' },
+    { room: 'kitchen', func: '安装厨具', items: ['菜刀', '砧板'], effect: '厨房解锁"备菜"，可以组合食材做更好的料理' },
+
+    // === 厕所 (bathroom) — 保持清洁，治疗自己 ===
+    { room: 'bathroom', func: '打扫', items: ['汤勺'], effect: '刮掉墙上的霉斑，房子的整洁恢复' },
+    { room: 'bathroom', func: '打扫', items: ['橡皮'], effect: '擦掉污渍，房子的整洁恢复' },
+    { room: 'bathroom', func: '治疗', items: ['冲剂'], effect: '喝一包冲剂，解除当前的不适' },
+    { room: 'bathroom', func: '治疗', items: ['胶囊'], effect: '吃药，今天不会生病' },
+    { room: 'bathroom', func: '治疗', items: ['滴眼液'], effect: '缓解疲劳，明天抽取时能看得更清楚' },
+    { room: 'bathroom', func: '急救箱', items: ['注射器'], effect: '在墙上安装急救箱，健康过低时自动恢复一次' },
+
+    // === 花园 (garden) — 种东西，花园会自己生长 ===
+    { room: 'garden', func: '种植', items: ['苹果'], effect: '种下，几天后花园会自己长出苹果' },
+    { room: 'garden', func: '种植', items: ['芒果'], effect: '种下，需要更久但产出更多' },
+    { room: 'garden', func: '种植', items: ['柠檬'], effect: '种下，成熟后花园会散发清香，房子的生机提升' },
+    { room: 'garden', func: '种植', items: ['西瓜'], effect: '种下，占两个位置，成熟后一次收获很多' },
+    { room: 'garden', func: '开垦', items: ['汤勺'], effect: '用汤勺挖出一块新的种植区域' },
+    { room: 'garden', func: '开垦', items: ['铅笔'], effect: '在地上画出新的种植区域规划' },
+    { room: 'garden', func: '施肥', items: ['冲剂'], effect: '把过期冲剂撒在土里，所有植物加速生长一天' },
+
+    // === 客厅 (living) — 房子的心脏，连接内外 ===
+    { room: 'living', func: '收听广播', items: ['耳机'], effect: '听到外面的消息，可能提前知道明天的天气' },
+    { room: 'living', func: '收听广播', items: ['手机'], effect: '收到一条模糊的信号，可能触发特殊事件' },
+    { room: 'living', func: '搭建天线', items: ['电脑'], effect: '永久改善信号，每天能收到更多信息' },
+    { room: 'living', func: '搭建天线', items: ['电脑', '手机'], effect: '搭建完整通讯站，解锁向外界求助' },
+    { room: 'living', func: '取暖', items: ['空调'], effect: '安装后房子的温暖不再自然下降' },
+
+    // === 卧室 (bedroom) — 睡眠质量影响第二天的状态 ===
+    { room: 'bedroom', func: '铺床', items: ['橡皮'], effect: '把枕头上的碎屑擦干净，睡得好一点' },
+    { room: 'bedroom', func: '铺床', items: ['笔记本'], effect: '垫在枕头下面，睡觉时会梦到有用的东西' },
+    { room: 'bedroom', func: '安装灯', items: ['手机'], effect: '把手机当台灯用，睡前可以看到房间的状态' },
+    { room: 'bedroom', func: '写日记', items: ['铅笔', '笔记本'], effect: '记录今天发生的事，第二天醒来时思路更清晰' },
+
+    // === 仓库 (storage) — 扩容，整理 ===
+    { room: 'storage', func: '扩建', items: ['砧板'], effect: '当隔板用，腾出更多空间' },
+    { room: 'storage', func: '扩建', items: ['菜刀'], effect: '裁纸板做收纳盒，增加存储位' },
+    { room: 'storage', func: '扩建', items: ['砧板', '菜刀'], effect: '自制一整面货架，大幅增加空间' },
+    { room: 'storage', func: '整理', items: ['订书机'], effect: '把标签钉好，以后找东西更快' },
+    { room: 'storage', func: '整理', items: ['订书机', '笔记本'], effect: '建立完整的库存清单，随时知道有什么' },
+];
 
 export const INITIAL_GAME_CONFIG = {
     affixes: INITIAL_AFFIXES_CONFIG,

@@ -81,6 +81,100 @@ export const rollRequirementRarity = (config, currentStageConfig, isEmergency = 
     return config.rarity.find(r => r.id === 'common');
 };
 
+// 从 ROOM_NEEDS 生成一个需求订单
+export const generateRoomNeedOrder = (allNormalItems, config, roomNeeds, existingOrders = []) => {
+    // Avoid duplicate needs
+    const existingItemKeys = new Set(
+        existingOrders.filter(Boolean).map(o => o.requirements.map(r => r.name).sort().join('+'))
+    );
+    const available = roomNeeds.filter(need => {
+        const key = need.items.sort().join('+');
+        return !existingItemKeys.has(key);
+    });
+    if (available.length === 0) return null;
+
+    const need = available[Math.floor(Math.random() * available.length)];
+    const commonRarity = config.rarity.find(r => r.id === 'common');
+
+    const requirements = need.items.map(itemName => {
+        const found = allNormalItems.find(i => i.name === itemName);
+        if (!found) return { name: itemName, icon: '❓', poolId: 'unknown', poolName: '未知', requiredRarity: commonRarity };
+        return {
+            ...found,
+            requiredRarity: commonRarity,
+        };
+    });
+
+    return {
+        id: Math.random().toString(36).substr(2, 9),
+        requirements,
+        baseScoreReward: 0,
+        isScoreOrder: false,
+        homeDesc: need.desc,
+        showDesc: need.showDesc,
+        roomId: need.room,
+        func: need.func,
+        effect: need.effect,
+    };
+};
+
+// 根据订单需求物品生成描述（现实 + 节目两种）— 用于旧的随机订单系统
+const generateOrderDescription = (requirements) => {
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    // === 现实描述：基于具体物品名，结合房间用途 ===
+    const ITEM_FLAVOR = {
+        // 水果 → 花园/厨房
+        "西瓜": ["种一棵西瓜藤，夏天就有西瓜吃了", "花园里刚好有块空地"],
+        "柠檬": ["柠檬树适合种在窗边", "泡一杯柠檬水也不错"],
+        "芒果": ["要是能种出芒果就好了", "热带水果，但也许能活"],
+        "苹果": ["苹果树需要时间，但值得等", "一颗苹果，一棵树的开始"],
+        // 药物 → 厕所/卧室
+        "冲剂": ["感觉有点着凉了", "备着总比没有好"],
+        "滴眼液": ["看太久东西眼睛干涩", "需要缓解一下眼睛"],
+        "注射器": ["以防万一要用到", "药箱里应该有这个"],
+        "胶囊": ["每天按时吃药", "药快吃完了"],
+        // 文具 → 花园/客厅
+        "铅笔": ["想画一画花园的样子", "记录每天发生的事"],
+        "橡皮": ["画错了可以擦掉重来", "要是生活也能这样就好了"],
+        "订书机": ["把这些天的笔记装订起来", "纸太多了，需要整理"],
+        "笔记本": ["开始写日记吧", "空白的本子，像空白的日子"],
+        // 厨具 → 厨房
+        "平底锅": ["想做一顿像样的饭", "有锅才能做饭"],
+        "菜刀": ["切菜需要一把好刀", "厨房怎么能没有刀"],
+        "砧板": ["切东西总得有个案板", "准备一个干净的砧板"],
+        "汤勺": ["煮汤的时候用得上", "喝碗热汤暖暖身子"],
+        // 电器 → 客厅
+        "手机": ["好久没和外面联系了", "看看有没有信号"],
+        "耳机": ["想安静地听点什么", "戴上耳机，世界就远了"],
+        "空调": ["房间里太闷了", "要是有空调就好了"],
+        "电脑": ["需要查一些东西", "有电脑日子会好过很多"],
+    };
+
+    const GENERIC_HOME = ["这个用得上", "家里正好缺这个", "有比没有强"];
+
+    // 取第一个需求物品的风味文字
+    const firstItem = requirements[0];
+    const homeDesc = ITEM_FLAVOR[firstItem?.name]
+        ? pick(ITEM_FLAVOR[firstItem.name])
+        : pick(GENERIC_HOME);
+
+    // === 节目描述：通用兑奖风格 ===
+    const reqCount = requirements.length;
+    const hasRare = requirements.some(r => ['rare', 'epic', 'legendary'].includes(r.requiredRarity?.id));
+
+    const SHOW_BY_COUNT = {
+        2: ["轻松兑奖！只需2个token！", "小奖快兑！凑齐2个就能换！", "2token速兑，手快有手慢无！"],
+        3: ["经典兑奖！集齐3个token赢大奖！", "3token组合奖，奖品升级！", "三连兑！观众最爱的经典环节！"],
+        4: ["超级大奖！4个token兑换豪华奖品！", "终极挑战！集齐4个token赢走大奖！", "4token豪华兑换，今天的重头戏！"],
+    };
+    const SHOW_RARE = ["高品质token兑换！这可是稀有大奖！", "品质挑战！拿出您最好的token来兑换！", "尊贵奖品专区！需要高品质token哦！"];
+
+    const showDesc = hasRare ? pick(SHOW_RARE) : pick(SHOW_BY_COUNT[reqCount] || SHOW_BY_COUNT[3]);
+
+    return { homeDesc, showDesc };
+};
+
 export const generateOrder = (allNormalItems, config, hasSkill = () => false, currentStageConfig, isEmergency = false, emergencyDifficulty = 1) => {
     // 检查是否有精确的难度需求配置（优先级最高）
     const difficultyRequirements = isEmergency && config.emergency?.difficultyRequirements?.[emergencyDifficulty];
@@ -256,7 +350,8 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         id: Math.random().toString(36).substr(2, 9),
         requirements,
         baseScoreReward,
-        isScoreOrder: !isEmergency
+        isScoreOrder: !isEmergency,
+        ...(!isEmergency ? generateOrderDescription(requirements) : { homeDesc: null, showDesc: null }),
     };
 };
 
