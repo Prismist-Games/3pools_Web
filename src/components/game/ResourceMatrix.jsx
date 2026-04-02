@@ -78,10 +78,28 @@ const SpecialCellWrapper = ({ cell, cellType, isSpecial, children }) => {
     );
 };
 
-const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, orders = [], emergencyOrders = [], inventory = [] }, ref) => {
+const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, orders = [], emergencyOrders = [], inventory = [], onHoverItems }, ref) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
+
+    // Report hovered item names to parent
+    useEffect(() => {
+        if (!onHoverItems || !matrix) return;
+        const names = new Set();
+        if (hoveredRow !== null) {
+            for (const cell of matrix[hoveredRow]) {
+                if (cell.type === 'normal' || !cell.type) names.add(cell.item.name);
+            }
+        }
+        if (hoveredCol !== null) {
+            for (const row of matrix) {
+                const cell = row[hoveredCol];
+                if (cell.type === 'normal' || !cell.type) names.add(cell.item.name);
+            }
+        }
+        onHoverItems(names.size > 0 ? names : null);
+    }, [hoveredRow, hoveredCol, matrix, onHoverItems]);
 
     // Gravity animation state
     const [animatingCells, setAnimatingCells] = useState(new Set());
@@ -319,8 +337,7 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
 
                                             {/* Order needed indicator */}
                                             {!isPicking && !isExploding && neededInfo && (
-                                                <div className="absolute -top-1 -right-1 flex items-center gap-px z-[2]">
-                                                    {neededInfo.isEmergency && <span className="text-[9px] drop-shadow">🚚</span>}
+                                                <div className="absolute -top-1 -right-1 z-[2]">
                                                     <div className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow ${neededInfo.rarity.dotColor}`} />
                                                 </div>
                                             )}

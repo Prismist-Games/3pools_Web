@@ -20,6 +20,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
     const matrixRef = useRef(null);
     const inventoryRef = useRef(null);
     const [flyingItem, setFlyingItem] = useState(null);
+    const [matrixHoveredItems, setMatrixHoveredItems] = useState(null);
 
     // Initialize Logic Hook
     const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialScore);
@@ -493,6 +494,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     hoveredPoolId={null}
                                                     hoveredItemName={hoveredItemName}
                                                     hoveredPoolItemNames={[]}
+                                                    matrixHoveredItems={matrixHoveredItems}
                                                     selectedItemNames={selectedItemNames}
 
                                                     isBeingReplaced={false}
@@ -536,6 +538,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         hoveredPoolId={null}
                                         hoveredItemName={hoveredItemName}
                                         hoveredPoolItemNames={[]}
+                                        matrixHoveredItems={matrixHoveredItems}
                                         selectedItemNames={selectedItemNames}
                                         isBeingReplaced={orderCandidates?.slotIndex === idx}
                                         orderSlotAssignments={orderSlotAssignments}
@@ -610,6 +613,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                             hoveredPoolId={null}
                                                             hoveredItemName={hoveredItemName}
                                                             hoveredPoolItemNames={[]}
+                                                            matrixHoveredItems={matrixHoveredItems}
                                                             selectedItemNames={[]}
                                                             isBeingReplaced={false}
                                                             isCandidate={true}
@@ -642,6 +646,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     orders={orders}
                                     emergencyOrders={emergencyOrders}
                                     inventory={inventory}
+                                    onHoverItems={setMatrixHoveredItems}
                                 />
                             </div>
 

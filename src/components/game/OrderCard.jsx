@@ -32,6 +32,7 @@ const OrderCardBase = ({
     hoveredPoolId,
     hoveredItemName,
     hoveredPoolItemNames,
+    matrixHoveredItems,
     selectedItemNames,
     // 订单槽位系统
     orderSlotAssignments,
@@ -253,7 +254,7 @@ const OrderCardBase = ({
                             const isQualitySatisfied = matchedItem && matchedItem.rarity.bonus >= req.requiredRarity.bonus;
 
                             const isPoolHighlighted = hoveredPoolId && !req.isScoreItem && hoveredPoolItemNames && hoveredPoolItemNames.includes(req.name);
-                            const isItemHighlighted = hoveredItemName && req.name === hoveredItemName;
+                            const isItemHighlighted = (hoveredItemName && req.name === hoveredItemName) || (matrixHoveredItems && matrixHoveredItems.has(req.name));
 
                             const borderStyle = hasItem ? 'border-solid' : 'border-dashed';
                             let bgColorClass = 'bg-slate-50';
