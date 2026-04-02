@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
     getAllNormalItems,
     generateOrder,
@@ -88,7 +88,22 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const hasSkill = (id) => skills.includes(id);
 
-    const allNormalItems = useMemo(() => getAllNormalItems(config.pools, currentStageConfig), [config.pools, currentStageConfig]);
+    const allNormalItems = useMemo(() => getAllNormalItems(config.catalog), [config.catalog]);
+
+    // 当前订单需要的物品列表（用于矩阵生成偏向）
+    const orderNeededItems = useMemo(() => {
+        const names = new Set();
+        const items = [];
+        for (const order of [...orders, ...emergencyOrders].filter(Boolean)) {
+            for (const req of order.requirements) {
+                if (!names.has(req.name)) {
+                    names.add(req.name);
+                    items.push({ name: req.name, icon: req.icon, poolId: req.name, poolName: req.name });
+                }
+            }
+        }
+        return items;
+    }, [orders, emergencyOrders]);
 
     useEffect(() => {
         if (initialSkills && initialSkills.length > 0) {
@@ -107,16 +122,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         // Initialize Emergency Orders if none
         if (emergencyOrders.length === 0) {
-            // Generate first order
             const order1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, emergencyDifficulty);
             order1.isEmergency = true;
             order1.difficulty = emergencyDifficulty;
 
-            // Generate second order (ensure different item types AND CATEGORIES)
-            const usedPoolIds = new Set(order1.requirements.map(r => r.poolId));
-            const availableForSecond = allNormalItems.filter(i => !usedPoolIds.has(i.poolId));
-
-            // Fallback if no items left (unlikely but safe)
+            const usedNames = new Set(order1.requirements.map(r => r.name));
+            const availableForSecond = allNormalItems.filter(i => !usedNames.has(i.name));
             const itemsForOrder2 = availableForSecond.length >= (config.emergency?.reqCountMin || 1) ? availableForSecond : allNormalItems;
 
             const order2 = generateOrder(itemsForOrder2, config, hasSkill, currentStageConfig, true, emergencyDifficulty);
@@ -127,6 +138,20 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [config, allNormalItems, currentStageConfig.orderSlots, orders.length, emergencyOrders.length, emergencyDifficulty]);
 
+    // 当订单需求物品列表变化时，重新生成矩阵
+    // 这确保矩阵内容与当前订单需求同步（尤其是初始化时）
+    const prevNeededRef = useRef(null);
+    useEffect(() => {
+        if (orderNeededItems.length > 0) {
+            // 只在需求物品集合实际变化时才刷新（避免不必要的重置）
+            const neededKey = orderNeededItems.map(i => i.name).sort().join(',');
+            if (prevNeededRef.current !== neededKey) {
+                prevNeededRef.current = neededKey;
+                setMatrix(generateItemMatrix(allNormalItems, config, currentStageConfig, orderNeededItems));
+            }
+        }
+    }, [orderNeededItems]);
+
     const applyEntropy = (inv) => {
         if (!currentStageConfig.mechanics.entropy) return inv;
         return inv.map(item => {
@@ -136,7 +161,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const refreshMatrix = () => {
-        const newMatrix = generateItemMatrix(allNormalItems, config, currentStageConfig);
+        const newMatrix = generateItemMatrix(allNormalItems, config, currentStageConfig, orderNeededItems);
         setMatrix(newMatrix);
     };
 
@@ -165,7 +190,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     useEffect(() => {
-        refreshMatrix();
         setGold(config.global?.initialGold || 30);
     }, [config]);
 
@@ -187,7 +211,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const addInventoryItem = (itemName, rarityId) => {
-        const allItems = getAllNormalItems(config.pools, currentStageConfig);
+        const allItems = getAllNormalItems(config.catalog);
         const baseItem = allItems.find(i => i.name === itemName);
         const rarity = config.rarity.find(r => r.id === rarityId) || config.rarity[0];
         if (!baseItem) {
@@ -220,7 +244,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!order) return;
 
         const itemsToAdd = order.requirements.map(req => {
-            const allItems = getAllNormalItems(config.pools, currentStageConfig);
+            const allItems = getAllNormalItems(config.catalog);
             const baseItem = allItems.find(i => i.name === req.name);
             return {
                 ...baseItem,
@@ -668,9 +692,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setInventory(currentInventory);
     };
 
-    // --- Row/Column selection: core draw action (two-phase: fly then gravity) ---
+    // --- Row/Column selection: core draw action (two-phase: cycling animation then gravity) ---
     const [isDrawing, setIsDrawing] = useState(false);
-    const drawTimerRef = { current: null };
+    const [drawAnimation, setDrawAnimation] = useState(null);
+    const pendingDrawRef = useRef(null); // stores captured state for animation completion
 
     const selectRowOrColumn = (type, index) => {
         // Guard: block during pending states or ongoing draw animation
@@ -687,27 +712,50 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
 
         // Random pick 1
-        const picked = cells[Math.floor(Math.random() * cells.length)];
+        const pickedIdx = Math.floor(Math.random() * cells.length);
+        const picked = cells[pickedIdx];
         const selectedCell = picked.cell;
         const rawCellType = selectedCell.type || 'normal';
 
-        // Blank check: normal items not needed by any active order show as blank
-        const orderNames = new Set();
-        for (const o of orders.filter(Boolean)) for (const req of o.requirements) orderNames.add(req.name);
-        for (const o of emergencyOrders.filter(Boolean)) for (const req of o.requirements) orderNames.add(req.name);
-        const cellType = (rawCellType === 'normal' && !orderNames.has(selectedCell.item.name)) ? 'blank' : rawCellType;
+        // Filler items don't give rewards (same as old blank behavior)
+        const cellType = rawCellType === 'filler' ? 'blank' : rawCellType;
 
-        // === Phase 1: fly animation starts immediately ===
+        // Block further clicks immediately
         setIsDrawing(true);
+
+        // Capture state for deferred processing
+        pendingDrawRef.current = {
+            picked, cells, selectedCell, cellType,
+            capturedMatrix: matrix,
+            capturedInventory: [...inventory],
+            capturedSkillState: { ...skillState },
+        };
+
+        // Signal the component to start the cycling animation
+        setDrawAnimation({
+            type,
+            index,
+            targetIdx: pickedIdx, // index within the line (0-3)
+            tick: Date.now(),
+        });
+    };
+
+    // Called by the component when the cycling animation finishes
+    const onDrawAnimationComplete = () => {
+        const pending = pendingDrawRef.current;
+        if (!pending) return;
+        pendingDrawRef.current = null;
+        setDrawAnimation(null);
+
+        const { picked, cells, selectedCell, cellType, capturedMatrix, capturedInventory, capturedSkillState } = pending;
+
+        // Set lastDraw for fly animation
         setLastDraw({ row: picked.row, col: picked.col, item: selectedCell.item, rarity: selectedCell.rarity, cellType, tick: Date.now() });
 
-        const capturedMatrix = matrix;
-        const capturedInventory = [...inventory];
-        const capturedSkillState = { ...skillState };
-
-        drawTimerRef.current = setTimeout(() => {
+        // Use a short delay for the fly animation before processing gravity + items
+        setTimeout(() => {
             // First: gravity for the picked cell itself
-            let afterPickMatrix = applyGravity(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig);
+            let afterPickMatrix = applyGravity(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig, orderNeededItems);
 
             if (cellType === 'blank') {
                 // --- Blank cell: not needed by orders, just gravity, no item ---
@@ -753,7 +801,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
                 // Apply gravity
                 if (extraPicked) {
-                    const finalMatrix = applyGravity(afterPickMatrix, extraPicked.row, extraPicked.col, allNormalItems, config, currentStageConfig);
+                    const finalMatrix = applyGravity(afterPickMatrix, extraPicked.row, extraPicked.col, allNormalItems, config, currentStageConfig, orderNeededItems);
                     setMatrix(finalMatrix);
                     setGravityEvent({ col: picked.col, removedRow: picked.row, col2: extraPicked.col, removedRow2: extraPicked.row, tick: Date.now() });
                 } else {
@@ -979,15 +1027,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 updateAssignmentUid(item.uid, newUid);
                 showToast(`${t("命运熔炉")}：${t(item.name)} → ${t(newRarity.name)}`, 'success');
             } else if (effectType === 'transmute_left') {
-                const sourcePool = config.pools.find(p => p.items.some(pi => pi.name === item.name));
-                if (!sourcePool) { showToast(t("找不到对应的奖池！"), 'error'); setToolSelectionMode(null); return; }
-                const candidates = sourcePool.items.filter(pi => pi.name !== item.name);
-                if (candidates.length === 0) { showToast(t("同奖池中没有其他物品！"), 'error'); setToolSelectionMode(null); return; }
+                const candidates = allNormalItems.filter(i => i.name !== item.name);
+                if (candidates.length === 0) { showToast(t("没有其他物品可变换！"), 'error'); setToolSelectionMode(null); return; }
                 const newTpl = candidates[Math.floor(Math.random() * candidates.length)];
                 const newItem = {
                     ...newTpl,
                     uid: Math.random().toString(36).substr(2, 9),
-                    poolName: sourcePool.name,
                     rarity: item.rarity,
                     sterile: item.sterile,
                     decay: item.decay,
@@ -996,7 +1041,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 newInventory[itemIndex] = newItem;
                 newInventory[toolIndex] = null;
                 setInventory(newInventory.filter(i => i !== null));
-                // 名称变了 → 退回背包（清除 assignment）
                 removeAssignmentByUid(item.uid);
                 showToast(`${t("万象棱镜")}：${t(item.name)} → ${t(newTpl.name)}`, 'success');
             }
@@ -1138,15 +1182,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 if (isAssignedToOrder) updateAssignmentUid(oldUid, newUid);
                 showToast(`${t("命运熔炉")}：${t(clickedItem.name)} → ${t(newRarity.name)}`, 'success');
             } else if (effectType === 'transmute_left') {
-                const sourcePool = config.pools.find(p => p.items.some(pi => pi.name === clickedItem.name));
-                if (!sourcePool) { showToast(t("找不到对应的奖池！"), 'error'); setToolSelectionMode(null); return; }
-                const candidates = sourcePool.items.filter(pi => pi.name !== clickedItem.name);
-                if (candidates.length === 0) { showToast(t("同奖池中没有其他物品！"), 'error'); setToolSelectionMode(null); return; }
+                const candidates = allNormalItems.filter(i => i.name !== clickedItem.name);
+                if (candidates.length === 0) { showToast(t("没有其他物品可变换！"), 'error'); setToolSelectionMode(null); return; }
                 const newTpl = candidates[Math.floor(Math.random() * candidates.length)];
                 const newItem = {
                     ...newTpl,
                     uid: Math.random().toString(36).substr(2, 9),
-                    poolName: sourcePool.name,
                     rarity: clickedItem.rarity,
                     sterile: clickedItem.sterile,
                     decay: clickedItem.decay,
@@ -1216,8 +1257,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             // No intermediate setInventory needed, handleIncomingItems will set it.
 
-            let candidates = pool.items.filter(i => i.name !== consumedItem.name);
-            if (candidates.length === 0) candidates = pool.items;
+            let candidates = allNormalItems.filter(i => i.name !== consumedItem.name);
+            if (candidates.length === 0) candidates = allNormalItems;
 
             const tpl = candidates[Math.floor(Math.random() * candidates.length)];
             const rarityConfig = config.rarity;
@@ -1238,7 +1279,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const newItem = {
                 ...tpl,
                 uid: Math.random().toString(36).substr(2, 9),
-                poolName: pool.name,
                 rarity: newRarity,
                 sterile: consumedItem.sterile,
                 decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 40) : undefined
@@ -1910,8 +1950,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         order1.isEmergency = true;
         order1.difficulty = newDifficulty;
 
-        const usedPoolIds = new Set(order1.requirements.map(r => r.poolId));
-        const availableForSecond = allNormalItems.filter(i => !usedPoolIds.has(i.poolId));
+        const usedNames = new Set(order1.requirements.map(r => r.name));
+        const availableForSecond = allNormalItems.filter(i => !usedNames.has(i.name));
         const itemsForOrder2 = availableForSecond.length >= (config.emergency?.reqCountMin || 1) ? availableForSecond : allNormalItems;
 
         const order2 = generateOrder(itemsForOrder2, config, hasSkill, currentStageConfig, true, newDifficulty);
@@ -1974,7 +2014,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             currentStageConfig,
             maxInventorySize,
             drawCount,
-            matrix, gravityEvent, lastDraw, isDrawing, explodingCells, goldFlash,
+            matrix, gravityEvent, lastDraw, isDrawing, drawAnimation, explodingCells, goldFlash,
             orders,
             orderRefreshCount,
             REFRESH_MAX,
@@ -2005,6 +2045,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleSkillSelect,
             handleSkillReplace,
             selectRowOrColumn,
+            onDrawAnimationComplete,
             handleCloseModal,
             handleSelectionSelect,
             handleSelectionCancel,

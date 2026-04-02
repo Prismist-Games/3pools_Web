@@ -34,7 +34,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
     const {
         gold, score, currentStageConfig, maxInventorySize,
-        drawCount, matrix, gravityEvent, lastDraw, isDrawing, explodingCells, goldFlash, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
+        drawCount, matrix, gravityEvent, lastDraw, isDrawing, drawAnimation, explodingCells, goldFlash, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
         hoveredItemName, hoveredSlotIndex,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
@@ -59,6 +59,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         toggleSubmitMode,
         toggleRecycleMode,
         selectRowOrColumn,
+        onDrawAnimationComplete,
         handleSelectionSelect,
         handleSelectionCancel,
         handleConfirmRecycle,
@@ -634,7 +635,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     ref={matrixRef}
                                     matrix={matrix}
                                     gravityEvent={gravityEvent}
-                                    pickingCell={isDrawing && lastDraw ? { row: lastDraw.row, col: lastDraw.col } : null}
+                                    pickingCell={isDrawing && !drawAnimation && lastDraw ? { row: lastDraw.row, col: lastDraw.col } : null}
                                     explodingCells={explodingCells}
                                     onSelectRow={(rowIdx) => selectRowOrColumn('row', rowIdx)}
                                     onSelectCol={(colIdx) => selectRowOrColumn('col', colIdx)}
@@ -642,6 +643,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     orders={orders}
                                     emergencyOrders={emergencyOrders}
                                     inventory={inventory}
+                                    drawAnimation={drawAnimation}
+                                    onDrawAnimationComplete={onDrawAnimationComplete}
                                 />
                             </div>
 

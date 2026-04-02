@@ -1,12 +1,8 @@
 // helpers.js - utility functions for game logic
 
-export const getAllNormalItems = (pools, currentStageConfig) => {
-    // 修正：限制池子类型（allowedPoolCount）和池内物品数量（poolSize）
-    const allowedPools = pools.slice(0, currentStageConfig.allowedPoolCount);
-
-    return allowedPools.flatMap(pool =>
-        pool.items.slice(0, currentStageConfig.poolSize).map(item => ({ ...item, poolId: pool.id, poolName: pool.name }))
-    );
+export const getAllNormalItems = (catalog) => {
+    // 从大物品目录返回所有物品，每个物品以自身 name 作为唯一标识
+    return catalog.map(item => ({ ...item, poolId: item.name, poolName: item.name }));
 };
 
 export const getRandomAffix = (affixes) => {
@@ -85,21 +81,9 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
     // 检查是否有精确的难度需求配置（优先级最高）
     const difficultyRequirements = isEmergency && config.emergency?.difficultyRequirements?.[emergencyDifficulty];
 
-    // Helper: Get unique pool items
-    const getUniquePoolItems = (sourceItems, num) => {
-        const poolGroups = {};
-        sourceItems.forEach(item => {
-            if (!poolGroups[item.poolId]) poolGroups[item.poolId] = [];
-            poolGroups[item.poolId].push(item);
-        });
-
-        const availablePoolIds = Object.keys(poolGroups);
-        const selectedPoolIds = getRandomItems(availablePoolIds, Math.min(num, availablePoolIds.length));
-
-        return selectedPoolIds.map(pid => {
-            const itemsInPool = poolGroups[pid];
-            return itemsInPool[Math.floor(Math.random() * itemsInPool.length)];
-        });
+    // Helper: Get N unique items (no duplicate names)
+    const getUniqueItems = (sourceItems, num) => {
+        return getRandomItems(sourceItems, Math.min(num, sourceItems.length));
     };
 
     let count;
@@ -111,7 +95,7 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
 
         // 如果是紧急订单，限制数量为可用池子数量，保证种类唯一
         if (isEmergency) {
-            const availablePoolCount = new Set(allNormalItems.map(i => i.poolId)).size;
+            const availablePoolCount = allNormalItems.length;
             if (count > availablePoolCount) {
                 count = availablePoolCount;
                 // 需调整 difficultyRequirements 以匹配新数量 (简单截断)
@@ -123,7 +107,7 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
         // 随机选择物品
         let rawRequirements;
         if (isEmergency) {
-            rawRequirements = getUniquePoolItems(allNormalItems, count);
+            rawRequirements = getUniqueItems(allNormalItems, count);
         } else {
             rawRequirements = getRandomItems(allNormalItems, count);
         }
@@ -211,13 +195,13 @@ export const generateOrder = (allNormalItems, config, hasSkill = () => false, cu
 
         // Enforce unique pools for emergency orders
         if (isEmergency) {
-            const availablePoolCount = new Set(allNormalItems.map(i => i.poolId)).size;
+            const availablePoolCount = allNormalItems.length;
             if (count > availablePoolCount) count = availablePoolCount;
         }
 
         let rawRequirements;
         if (isEmergency) {
-            rawRequirements = getUniquePoolItems(allNormalItems, count);
+            rawRequirements = getUniqueItems(allNormalItems, count);
         } else {
             rawRequirements = getRandomItems(allNormalItems, count);
         }

@@ -40,7 +40,12 @@
       "Bash(npx vite:*)",
       "Bash(curl -s \"https://store.steampowered.com/search/?term=Sol+Cesto\")",
       "Bash(npx eslint:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(claude mcp:*)",
+      "mcp__plugin_miro_miro__board_list_items",
+      "mcp__miro__context_explore",
+      "mcp__miro__context_get",
+      "mcp__miro__board_list_items"
     ]
   }
 }

@@ -1,51 +1,61 @@
 /**
- * matrixHelpers.js v3
+ * matrixHelpers.js v5
  * 4×4 item matrix with row/column selection, gravity, random refill.
+ * 50% order-needed items, 50% filler items.
  */
 
 import { MATRIX_CONFIG } from '../data/matrixConfig';
+import { FILLER_ITEMS } from '../data/constants';
 import { rollRarity } from './helpers';
 
 const { gridSize } = MATRIX_CONFIG;
 
 // ---------------------------------------------------------------------------
-// Helper: random int in [min, max]
-// ---------------------------------------------------------------------------
-const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
-
-// ---------------------------------------------------------------------------
-// 1. generateNormalCell — always creates a normal item cell
+// generateCell — 50% order item, 50% filler
 // ---------------------------------------------------------------------------
 
-const generateNormalCell = (allNormalItems, config, currentStageConfig) => {
-  const item = allNormalItems[Math.floor(Math.random() * allNormalItems.length)];
-  const rarity = rollRarity(config, null, 0, () => false, {}, currentStageConfig);
-  return {
-    type: 'normal',
-    item: { name: item.name, icon: item.icon, poolId: item.poolId, poolName: item.poolName },
-    rarity,
-    uid: Math.random().toString(36).substr(2, 9),
-  };
+const generateCell = (config, currentStageConfig, orderNeededItems = []) => {
+  if (orderNeededItems.length > 0 && Math.random() < 0.5) {
+    // 有用物品：从订单需求中随机选一个
+    const item = orderNeededItems[Math.floor(Math.random() * orderNeededItems.length)];
+    const rarity = rollRarity(config, null, 0, () => false, {}, currentStageConfig);
+    return {
+      type: 'normal',
+      item: { name: item.name, icon: item.icon, poolId: item.poolId || item.name, poolName: item.poolName || item.name },
+      rarity,
+      uid: Math.random().toString(36).substr(2, 9),
+    };
+  } else {
+    // 填充物品：从 FILLER_ITEMS 中等概率选一个
+    const filler = FILLER_ITEMS[Math.floor(Math.random() * FILLER_ITEMS.length)];
+    const rarity = rollRarity(config, null, 0, () => false, {}, currentStageConfig);
+    return {
+      type: 'filler',
+      item: { name: filler.name, icon: filler.icon },
+      rarity,
+      uid: Math.random().toString(36).substr(2, 9),
+    };
+  }
 };
 
 // ---------------------------------------------------------------------------
-// 2. generateRandomCell — for gravity refill: always normal
+// generateRandomCell — for gravity refill
 // ---------------------------------------------------------------------------
 
-export const generateRandomCell = (allNormalItems, config, currentStageConfig) => {
-  return generateNormalCell(allNormalItems, config, currentStageConfig);
+export const generateRandomCell = (allNormalItems, config, currentStageConfig, orderNeededItems = []) => {
+  return generateCell(config, currentStageConfig, orderNeededItems);
 };
 
 // ---------------------------------------------------------------------------
-// 3. generateItemMatrix — fill entire grid with normal items
+// generateItemMatrix — fill entire grid
 // ---------------------------------------------------------------------------
 
-export const generateItemMatrix = (allNormalItems, config, currentStageConfig) => {
+export const generateItemMatrix = (allNormalItems, config, currentStageConfig, orderNeededItems = []) => {
   const matrix = [];
   for (let r = 0; r < gridSize; r++) {
     const row = [];
     for (let c = 0; c < gridSize; c++) {
-      row.push(generateNormalCell(allNormalItems, config, currentStageConfig));
+      row.push(generateCell(config, currentStageConfig, orderNeededItems));
     }
     matrix.push(row);
   }
@@ -53,18 +63,17 @@ export const generateItemMatrix = (allNormalItems, config, currentStageConfig) =
 };
 
 // ---------------------------------------------------------------------------
-// 4. applyGravity — after removing a cell at (row, col), drop items above down
-//    and fill the top with a new random item
+// applyGravity — after removing a cell, drop items above and fill top
 // ---------------------------------------------------------------------------
 
-export const applyGravity = (matrix, row, col, allNormalItems, config, currentStageConfig) => {
+export const applyGravity = (matrix, row, col, allNormalItems, config, currentStageConfig, orderNeededItems = []) => {
   const newMatrix = matrix.map(r => [...r]);
 
   for (let r = row; r > 0; r--) {
     newMatrix[r][col] = newMatrix[r - 1][col];
   }
 
-  newMatrix[0][col] = generateRandomCell(allNormalItems, config, currentStageConfig);
+  newMatrix[0][col] = generateRandomCell(allNormalItems, config, currentStageConfig, orderNeededItems);
 
   return newMatrix;
 };

@@ -12,7 +12,7 @@ const RARITY_BG = {
     mythic: 'bg-red-50 border-red-400',
 };
 
-const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, orders = [], emergencyOrders = [], inventory = [] }, ref) => {
+const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, orders = [], emergencyOrders = [], inventory = [], drawAnimation, onDrawAnimationComplete }, ref) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -21,6 +21,107 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
     const [animatingCells, setAnimatingCells] = useState(new Set());
     const [newTopCells, setNewTopCells] = useState(new Set());
     const lastTickRef = useRef(null);
+
+    // Draw cycling animation state
+    const [cyclingHighlight, setCyclingHighlight] = useState(null); // { row, col } of currently highlighted cell
+    const [cyclingLine, setCyclingLine] = useState(null); // { type: 'row'|'col', index } of selected line
+    const [cyclingPulse, setCyclingPulse] = useState(null); // { row, col } of final cell during pulse
+    const animTickRef = useRef(null);
+    const animTimersRef = useRef([]);
+
+    // Cleanup animation timers on unmount
+    useEffect(() => {
+        return () => {
+            animTimersRef.current.forEach(t => clearTimeout(t));
+        };
+    }, []);
+
+    // Draw cycling animation effect
+    useEffect(() => {
+        if (!drawAnimation || drawAnimation.tick === animTickRef.current) return;
+        animTickRef.current = drawAnimation.tick;
+
+        // Clear any previous animation timers
+        animTimersRef.current.forEach(t => clearTimeout(t));
+        animTimersRef.current = [];
+
+        const { type, index, targetIdx } = drawAnimation;
+
+        // Set the line highlight (subtle highlight for all cells in the row/col)
+        setCyclingLine({ type, index });
+        setCyclingPulse(null);
+
+        // Build the sequence of cells to cycle through
+        // For rows: columns 0,1,2,3,0,1,2,3,... ; for cols: rows 0,1,2,3,0,1,2,3,...
+        // We'll do ~3 full cycles then approach the target
+        const fullCycles = 3;
+        const sequence = [];
+        for (let cycle = 0; cycle < fullCycles; cycle++) {
+            for (let i = 0; i < GRID_SIZE; i++) {
+                sequence.push(i);
+            }
+        }
+        // After the full cycles, continue from 0 up to and including the target
+        for (let i = 0; i <= targetIdx; i++) {
+            sequence.push(i);
+        }
+
+        // Calculate delays: start fast (~80ms), gradually slow to ~250ms
+        // Use an easing curve: each step is slightly slower than the last
+        const totalSteps = sequence.length;
+        const minDelay = 60;
+        const maxDelay = 280;
+        const delays = [];
+        for (let i = 0; i < totalSteps; i++) {
+            // Ease-in curve: slow at the end
+            const progress = i / (totalSteps - 1);
+            // Use cubic easing for a natural deceleration feel
+            const eased = progress * progress * progress;
+            delays.push(Math.round(minDelay + (maxDelay - minDelay) * eased));
+        }
+
+        // Schedule each highlight step
+        let cumulativeDelay = 0;
+        for (let step = 0; step < totalSteps; step++) {
+            const cellIdx = sequence[step];
+            const delay = delays[step];
+            cumulativeDelay += delay;
+
+            const timer = setTimeout(() => {
+                if (type === 'row') {
+                    setCyclingHighlight({ row: index, col: cellIdx });
+                } else {
+                    setCyclingHighlight({ row: cellIdx, col: index });
+                }
+            }, cumulativeDelay);
+            animTimersRef.current.push(timer);
+        }
+
+        // After the last step, wait a beat, then pulse, then complete
+        const pauseBeforePulse = 200;
+        const pulseDuration = 400;
+        const pauseAfterPulse = 150;
+
+        const pulseTimer = setTimeout(() => {
+            // Set the pulse effect on the final cell
+            if (type === 'row') {
+                setCyclingPulse({ row: index, col: targetIdx });
+            } else {
+                setCyclingPulse({ row: targetIdx, col: index });
+            }
+        }, cumulativeDelay + pauseBeforePulse);
+        animTimersRef.current.push(pulseTimer);
+
+        const completeTimer = setTimeout(() => {
+            // Clean up animation state and notify completion
+            setCyclingHighlight(null);
+            setCyclingLine(null);
+            setCyclingPulse(null);
+            onDrawAnimationComplete?.();
+        }, cumulativeDelay + pauseBeforePulse + pulseDuration + pauseAfterPulse);
+        animTimersRef.current.push(completeTimer);
+
+    }, [drawAnimation, onDrawAnimationComplete]);
 
     useEffect(() => {
         if (!gravityEvent || gravityEvent.tick === lastTickRef.current) return;
@@ -52,18 +153,6 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
 
         return () => clearTimeout(timer);
     }, [gravityEvent]);
-
-    // All item names that appear in any active order's requirements
-    const orderItemNames = useMemo(() => {
-        const names = new Set();
-        for (const order of orders.filter(Boolean)) {
-            for (const req of order.requirements) names.add(req.name);
-        }
-        for (const order of emergencyOrders.filter(Boolean)) {
-            for (const req of order.requirements) names.add(req.name);
-        }
-        return names;
-    }, [orders, emergencyOrders]);
 
     // Needed items from orders (unsatisfied) — for dot indicator
     const neededItemMap = useMemo(() => {
@@ -142,6 +231,15 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                 .anim-drop { animation: gravity-drop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
                 .anim-new-top { animation: fade-in-top 0.3s ease-out forwards; }
 
+                @keyframes cycling-pulse {
+                    0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7); }
+                    50% { box-shadow: 0 0 16px 6px rgba(250, 204, 21, 0.5); }
+                    100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+                }
+                .anim-cycling-pulse {
+                    animation: cycling-pulse 0.4s ease-out forwards;
+                }
+
             `}</style>
 
             <div className="matrix-unified" ref={ref}>
@@ -199,13 +297,21 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                             const isPicking = pickingCell && pickingCell.row === r && pickingCell.col === c;
                             const isHighlighted = (hoveredRow === r || hoveredCol === c) && !disabled;
                             const cellType = cell.type || 'normal';
-                            const isBlank = cellType === 'normal' && !orderItemNames.has(cell.item.name);
-                            const bgClass = isBlank
-                                ? 'bg-slate-50 border-slate-200'
+                            const isFiller = cellType === 'filler';
+                            const bgClass = isFiller
+                                ? 'bg-slate-100 border-slate-300'
                                 : (RARITY_BG[cell.rarity.id] || RARITY_BG.common);
-                            const neededInfo = cellType === 'normal' && !isBlank ? neededItemMap[cell.item.name] : null;
+                            const neededInfo = !isFiller ? neededItemMap[cell.item.name] : null;
                             const isDropping = animatingCells.has(cellKey) && !newTopCells.has(cellKey);
                             const isNewTop = newTopCells.has(cellKey);
+
+                            // Cycling animation highlights
+                            const isCyclingTarget = cyclingHighlight && cyclingHighlight.row === r && cyclingHighlight.col === c;
+                            const isInCyclingLine = cyclingLine && (
+                                (cyclingLine.type === 'row' && cyclingLine.index === r) ||
+                                (cyclingLine.type === 'col' && cyclingLine.index === c)
+                            );
+                            const isPulsing = cyclingPulse && cyclingPulse.row === r && cyclingPulse.col === c;
 
                             return (
                                 <div
@@ -214,20 +320,25 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                                         relative flex flex-col items-center justify-center
                                         rounded-lg border-2 select-none
                                         ${isPicking ? 'bg-slate-200 border-slate-300' : bgClass}
-                                        ${isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
+                                        ${isCyclingTarget ? 'ring-4 ring-yellow-400 ring-offset-1 z-20 scale-110 border-yellow-500' : ''}
+                                        ${!isCyclingTarget && isInCyclingLine && !isPicking ? 'ring-2 ring-amber-200 ring-offset-1 z-10' : ''}
+                                        ${isPulsing ? 'anim-cycling-pulse ring-4 ring-yellow-400 ring-offset-1 z-20 scale-110 border-yellow-500' : ''}
+                                        ${!isCyclingTarget && !isInCyclingLine && !isPulsing && isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
                                         ${isDropping ? 'anim-drop' : ''}
                                         ${isNewTop ? 'anim-new-top' : ''}
                                         ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
                                     `}
                                 >
-                                    {!isPicking && !isBlank && (
-                                        <div className="flex flex-col items-center justify-center">
+                                    {!isPicking && (
+                                        <div className={`flex flex-col items-center justify-center ${isFiller ? 'opacity-40' : ''}`}>
                                             <span className="text-lg md:text-xl lg:text-2xl leading-none filter drop-shadow-sm">
                                                 {cell.item.icon}
                                             </span>
-                                            <span className="text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center text-slate-600 mt-0.5 px-0.5">
-                                                {t(cell.item.name)}
-                                            </span>
+                                            {!isFiller && (
+                                                <span className="text-[8px] md:text-[9px] font-bold leading-none truncate max-w-full text-center text-slate-600 mt-0.5 px-0.5">
+                                                    {t(cell.item.name)}
+                                                </span>
+                                            )}
                                         </div>
                                     )}
 

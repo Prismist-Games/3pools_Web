@@ -349,137 +349,195 @@ export const INITIAL_RARITY_CONFIG = [
     { id: 'mythic', name: '神话', color: 'border-rose-500 bg-rose-50 text-rose-700', dotColor: 'bg-rose-500', starColor: 'text-rose-600', shadow: 'shadow-rose-200', bonus: 2.0, recycleValue: 10 }
 ];
 
-export const INITIAL_POOLS_DATA = [
-    {
-        "id": "fruit",
-        "name": "水果",
-        "type": "normal",
-        "currency": "gold",
-        "color": "bg-green-100 text-green-800 border-green-200",
-        "icon": "🍎",
-        "items": [
-            {
-                "name": "西瓜",
-                "icon": "🍉"
-            },
-            {
-                "name": "柠檬",
-                "icon": "🍋"
-            },
-            {
-                "name": "芒果",
-                "icon": "🥭"
-            },
-            {
-                "name": "苹果",
-                "icon": "🍎"
-            }
-        ]
-    },
-    {
-        "id": "medicine",
-        "name": "药物",
-        "type": "normal",
-        "currency": "gold",
-        "color": "bg-red-100 text-red-800 border-red-200",
-        "icon": "💊",
-        "items": [
-            {
-                "name": "冲剂",
-                "icon": "🍵"
-            },
-            {
-                "name": "滴眼液",
-                "icon": "💧"
-            },
-            {
-                "name": "注射器",
-                "icon": "💉"
-            },
-            {
-                "name": "胶囊",
-                "icon": "💊"
-            }
-        ]
-    },
-    {
-        "id": "stationery",
-        "name": "文具",
-        "type": "normal",
-        "currency": "gold",
-        "color": "bg-yellow-100 text-yellow-800 border-yellow-200",
-        "icon": "✏️",
-        "items": [
-            {
-                "name": "铅笔",
-                "icon": "✏️"
-            },
-            {
-                "name": "橡皮",
-                "icon": "🧼"
-            },
-            {
-                "name": "订书机",
-                "icon": "📎"
-            },
-            {
-                "name": "笔记本",
-                "icon": "📒"
-            }
-        ]
-    },
-    {
-        "id": "kitchenware",
-        "name": "厨具",
-        "type": "normal",
-        "currency": "gold",
-        "color": "bg-orange-100 text-orange-800 border-orange-200",
-        "icon": "🍳",
-        "items": [
-            {
-                "name": "平底锅",
-                "icon": "🍳"
-            },
-            {
-                "name": "菜刀",
-                "icon": "🔪"
-            },
-            {
-                "name": "砧板",
-                "icon": "🪵"
-            },
-            {
-                "name": "汤勺",
-                "icon": "🥄"
-            }
-        ]
-    },
-    {
-        "id": "electronics",
-        "name": "电器",
-        "type": "normal",
-        "currency": "gold",
-        "color": "bg-blue-100 text-blue-800 border-blue-200",
-        "icon": "⚡️",
-        "items": [
-            {
-                "name": "手机",
-                "icon": "📱"
-            },
-            {
-                "name": "耳机",
-                "icon": "🎧"
-            },
-            {
-                "name": "空调",
-                "icon": "❄️"
-            },
-            {
-                "name": "电脑",
-                "icon": "💻"
-            }
-        ]
-    }
+// --- 填充物品：不属于任何订单，占据矩阵空位 ---
+export const FILLER_ITEMS = [
+    { name: '临时符号1', icon: '？' },
+    { name: '临时符号2', icon: '？' },
+    { name: '临时符号3', icon: '？' },
+];
+
+// --- 大物品目录：所有可能出现的物品 ---
+export const ITEM_CATALOG = [
+    // 水果
+    { name: '西瓜', icon: '🍉' },
+    { name: '柠檬', icon: '🍋' },
+    { name: '芒果', icon: '🥭' },
+    { name: '苹果', icon: '🍎' },
+    { name: '葡萄', icon: '🍇' },
+    { name: '樱桃', icon: '🍒' },
+    { name: '草莓', icon: '🍓' },
+    { name: '桃子', icon: '🍑' },
+    { name: '梨', icon: '🍐' },
+    { name: '香蕉', icon: '🍌' },
+    { name: '菠萝', icon: '🍍' },
+    { name: '椰子', icon: '🥥' },
+    { name: '猕猴桃', icon: '🥝' },
+    { name: '蓝莓', icon: '🫐' },
+    // 蔬菜
+    { name: '玉米', icon: '🌽' },
+    { name: '辣椒', icon: '🌶️' },
+    { name: '胡萝卜', icon: '🥕' },
+    { name: '西兰花', icon: '🥦' },
+    { name: '蘑菇', icon: '🍄' },
+    { name: '大蒜', icon: '🧄' },
+    { name: '洋葱', icon: '🧅' },
+    { name: '茄子', icon: '🍆' },
+    { name: '番茄', icon: '🍅' },
+    { name: '土豆', icon: '🥔' },
+    // 食物
+    { name: '面包', icon: '🍞' },
+    { name: '奶酪', icon: '🧀' },
+    { name: '鸡蛋', icon: '🥚' },
+    { name: '培根', icon: '🥓' },
+    { name: '汉堡', icon: '🍔' },
+    { name: '披萨', icon: '🍕' },
+    { name: '热狗', icon: '🌭' },
+    { name: '三明治', icon: '🥪' },
+    { name: '煎蛋', icon: '🍳' },
+    { name: '饺子', icon: '🥟' },
+    { name: '寿司', icon: '🍣' },
+    { name: '拉面', icon: '🍜' },
+    { name: '曲奇', icon: '🍪' },
+    { name: '蛋糕', icon: '🎂' },
+    { name: '冰淇淋', icon: '🍦' },
+    { name: '甜甜圈', icon: '🍩' },
+    { name: '巧克力', icon: '🍫' },
+    { name: '糖果', icon: '🍬' },
+    { name: '棒棒糖', icon: '🍭' },
+    { name: '蜂蜜', icon: '🍯' },
+    { name: '爆米花', icon: '🍿' },
+    { name: '年糕', icon: '🍡' },
+    { name: '仙贝', icon: '🍘' },
+    // 饮品
+    { name: '咖啡', icon: '☕' },
+    { name: '绿茶', icon: '🍵' },
+    { name: '奶茶', icon: '🧋' },
+    { name: '果汁', icon: '🧃' },
+    { name: '啤酒', icon: '🍺' },
+    { name: '红酒', icon: '🍷' },
+    { name: '鸡尾酒', icon: '🍸' },
+    // 动物
+    { name: '猫咪', icon: '🐱' },
+    { name: '小狗', icon: '🐶' },
+    { name: '兔子', icon: '🐰' },
+    { name: '熊猫', icon: '🐼' },
+    { name: '狐狸', icon: '🦊' },
+    { name: '独角兽', icon: '🦄' },
+    { name: '龙', icon: '🐲' },
+    { name: '蝴蝶', icon: '🦋' },
+    { name: '海豚', icon: '🐬' },
+    { name: '企鹅', icon: '🐧' },
+    { name: '猫头鹰', icon: '🦉' },
+    { name: '鲸鱼', icon: '🐋' },
+    { name: '章鱼', icon: '🐙' },
+    { name: '螃蟹', icon: '🦀' },
+    { name: '乌龟', icon: '🐢' },
+    { name: '蜗牛', icon: '🐌' },
+    { name: '瓢虫', icon: '🐞' },
+    { name: '松鼠', icon: '🐿️' },
+    { name: '刺猬', icon: '🦔' },
+    { name: '鹦鹉', icon: '🦜' },
+    { name: '火烈鸟', icon: '🦩' },
+    { name: '河马', icon: '🦛' },
+    // 自然
+    { name: '向日葵', icon: '🌻' },
+    { name: '玫瑰', icon: '🌹' },
+    { name: '樱花', icon: '🌸' },
+    { name: '四叶草', icon: '🍀' },
+    { name: '仙人掌', icon: '🌵' },
+    { name: '枫叶', icon: '🍁' },
+    { name: '栗子', icon: '🌰' },
+    { name: '雪花', icon: '❄️' },
+    { name: '彩虹', icon: '🌈' },
+    { name: '闪电', icon: '⚡' },
+    { name: '火焰', icon: '🔥' },
+    { name: '水滴', icon: '💧' },
+    { name: '星星', icon: '⭐' },
+    { name: '月亮', icon: '🌙' },
+    { name: '太阳', icon: '☀️' },
+    { name: '贝壳', icon: '🐚' },
+    { name: '珊瑚', icon: '🪸' },
+    // 宝物与奇物
+    { name: '钥匙', icon: '🔑' },
+    { name: '灯泡', icon: '💡' },
+    { name: '望远镜', icon: '🔭' },
+    { name: '指南针', icon: '🧭' },
+    { name: '沙漏', icon: '⏳' },
+    { name: '船锚', icon: '⚓' },
+    { name: '宝石', icon: '💎' },
+    { name: '皇冠', icon: '👑' },
+    { name: '魔法棒', icon: '🪄' },
+    { name: '水晶球', icon: '🔮' },
+    { name: '地图', icon: '🗺️' },
+    { name: '羽毛', icon: '🪶' },
+    { name: '蜡烛', icon: '🕯️' },
+    { name: '铃铛', icon: '🔔' },
+    { name: '骰子', icon: '🎲' },
+    { name: '调色板', icon: '🎨' },
+    { name: '齿轮', icon: '⚙️' },
+    { name: '盾牌', icon: '🛡️' },
+    { name: '卷轴', icon: '📜' },
+    { name: '试管', icon: '🧪' },
+    { name: '磁铁', icon: '🧲' },
+    { name: '梯子', icon: '🪜' },
+    { name: '镜子', icon: '🪞' },
+    { name: '线团', icon: '🧶' },
+    // 乐器与玩具
+    { name: '吉他', icon: '🎸' },
+    { name: '小提琴', icon: '🎻' },
+    { name: '鼓', icon: '🥁' },
+    { name: '喇叭', icon: '📯' },
+    { name: '风筝', icon: '🪁' },
+    { name: '气球', icon: '🎈' },
+    { name: '礼物', icon: '🎁' },
+    { name: '泰迪熊', icon: '🧸' },
+    { name: '弹珠', icon: '🔵' },
+    // 现代物品
+    { name: '手机', icon: '📱' },
+    { name: '耳机', icon: '🎧' },
+    { name: '电脑', icon: '💻' },
+    { name: '相机', icon: '📷' },
+    { name: '手表', icon: '⌚' },
+    { name: '电池', icon: '🔋' },
+    { name: '卫星', icon: '🛰️' },
+    { name: '火箭', icon: '🚀' },
+    { name: '机器人', icon: '🤖' },
+    // 文具与书
+    { name: '铅笔', icon: '✏️' },
+    { name: '笔记本', icon: '📒' },
+    { name: '红宝书', icon: '📕' },
+    { name: '剪刀', icon: '✂️' },
+    // 医疗与科学
+    { name: '显微镜', icon: '🔬' },
+    { name: '胶囊', icon: '💊' },
+    { name: '注射器', icon: '💉' },
+    { name: 'DNA', icon: '🧬' },
+    // 运动
+    { name: '足球', icon: '⚽' },
+    { name: '篮球', icon: '🏀' },
+    { name: '乒乓球拍', icon: '🏓' },
+    { name: '奖杯', icon: '🏆' },
+    // 厨具
+    { name: '菜刀', icon: '🔪' },
+    { name: '汤勺', icon: '🥄' },
+    // 交通
+    { name: '帆船', icon: '⛵' },
+    { name: '自行车', icon: '🚲' },
+    // 其他奇物
+    { name: '锤子', icon: '🔨' },
+    { name: '信封', icon: '✉️' },
+    { name: '放大镜', icon: '🔍' },
+    { name: '手电筒', icon: '🔦' },
+    { name: '雨伞', icon: '☂️' },
+    { name: '王冠', icon: '♟️' },
+    { name: '回形针', icon: '📎' },
+    { name: '图钉', icon: '📌' },
+    { name: '锁', icon: '🔒' },
+    { name: '鞭炮', icon: '🧨' },
+    { name: '灯笼', icon: '🏮' },
+    { name: '扇子', icon: '🪭' },
+    { name: '陶罐', icon: '🏺' },
+    { name: '念珠', icon: '📿' },
 ];
 
 // --- 撤离订单配置 ---
@@ -564,7 +622,7 @@ export const SCORE_PROGRESS_CONFIG = {
 export const INITIAL_GAME_CONFIG = {
     affixes: INITIAL_AFFIXES_CONFIG,
     rarity: INITIAL_RARITY_CONFIG,
-    pools: INITIAL_POOLS_DATA,
+    catalog: ITEM_CATALOG,
     stages: INITIAL_STAGE_CONFIG,
     progress: SCORE_PROGRESS_CONFIG,
     emergency: EMERGENCY_ORDER_CONFIG,

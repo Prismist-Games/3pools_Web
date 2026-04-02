@@ -21,8 +21,7 @@ export default function App() {
     const [initialStage, setInitialStage] = useState(0);
 
     // Item Spawn State
-    const [selectedSpawnPoolId, setSelectedSpawnPoolId] = useState(config.pools[0]?.id);
-    const [selectedSpawnItemName, setSelectedSpawnItemName] = useState(config.pools[0]?.items[0]?.name);
+    const [selectedSpawnItemName, setSelectedSpawnItemName] = useState(config.catalog?.[0]?.name);
     const [selectedSpawnRarityId, setSelectedSpawnRarityId] = useState('common');
     const [debugAddItemPulse, setDebugAddItemPulse] = useState(null);
 
@@ -139,9 +138,7 @@ export default function App() {
         });
     };
 
-    const spawnItemsPool = useMemo(() => {
-        return config.pools.find(p => p.id === selectedSpawnPoolId) || config.pools[0];
-    }, [config.pools, selectedSpawnPoolId]);
+    const spawnCatalog = config.catalog || [];
 
     return (
         <>
@@ -199,29 +196,14 @@ export default function App() {
                                     <Zap size={20} /> 实时调试：直接获取物品
                                 </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-red-600">选择奖池</label>
-                                        <select
-                                            className="p-2 border rounded bg-white"
-                                            value={selectedSpawnPoolId}
-                                            onChange={(e) => {
-                                                const pid = e.target.value;
-                                                setSelectedSpawnPoolId(pid);
-                                                const pool = config.pools.find(p => p.id === pid);
-                                                if (pool) setSelectedSpawnItemName(pool.items[0]?.name);
-                                            }}
-                                        >
-                                            {config.pools.map(p => <option key={p.id} value={p.id}>{p.icon} {p.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
+                                    <div className="flex flex-col gap-1 md:col-span-2">
                                         <label className="text-xs font-bold text-red-600">选择物品</label>
                                         <select
                                             className="p-2 border rounded bg-white"
                                             value={selectedSpawnItemName}
                                             onChange={(e) => setSelectedSpawnItemName(e.target.value)}
                                         >
-                                            {spawnItemsPool?.items.map(item => <option key={item.name} value={item.name}>{item.icon} {item.name}</option>)}
+                                            {spawnCatalog.map(item => <option key={item.name} value={item.name}>{item.icon} {item.name}</option>)}
                                         </select>
                                     </div>
                                     <div className="flex flex-col gap-1">
