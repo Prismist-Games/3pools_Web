@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
     getAllNormalItems,
+    generateOrder,
     rollRarity,
     getNextRarity,
     getRandomAffix,
@@ -8,8 +9,6 @@ import {
 } from '../utils/helpers';
 import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
-import { generateMilestone } from '../utils/gridGenerator.js';
-import { TASK_GOLD_REWARD } from '../data/gridConstants.js';
 import { generateItemMap, getFrameCoverage, refreshCoveredCells, randomCell, computeClusterSizes } from '../utils/spatialPoolHelpers.js';
 import { DEFAULT_DRAW, EFFECT_ITEM_ICONS } from '../data/spatialConstants.js';
 
@@ -23,14 +22,21 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // Gold System
     const [gold, setGold] = useState(config.global?.initialGold || 30);
 
+    const [emergencyDifficulty, setEmergencyDifficulty] = useState(config.emergency?.difficulty?.initial || 1);
+
+    const [orderRefreshCount, setOrderRefreshCount] = useState(config.global?.initialRefreshCount ?? 4);
+    const REFRESH_MAX = config.global?.maxRefreshCount ?? 4;
+
     const [drawCount, setDrawCount] = useState(0);
 
     const [itemMap, setItemMap] = useState(() => generateItemMap(null));
 
-    // Milestone grid system
-    const [milestone, setMilestone] = useState(null);
-    const [milestoneNumber, setMilestoneNumber] = useState(1);
-
+    const [orders, setOrders] = useState([]);
+    const [emergencyOrders, setEmergencyOrders] = useState([]);
+    const [isEvacuationMode, setIsEvacuationMode] = useState(false);
+    const [orderCandidates, setOrderCandidates] = useState(null);
+    const [orderCandidateQueue, setOrderCandidateQueue] = useState([]);
+    const [orderSlotAssignments, setOrderSlotAssignments] = useState({});
 
     const [inventory, setInventory] = useState([]);
 
@@ -88,35 +94,54 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [initialSkills]);
 
-    // Needed item names from current milestone (unfilled cells)
-    // All item names in the milestone (including already filled) — keeps pool stable
+    // Needed item names from current orders (for spatial map filtering)
     const neededNames = useMemo(() => {
-        if (!milestone) return null;
         const names = new Set();
-        for (const cell of milestone.cells) {
-            names.add(cell.itemName);
-        }
+        orders.forEach(order => {
+            if (!order) return;
+            order.requirements.forEach(req => names.add(req.name));
+        });
+        emergencyOrders.forEach(order => {
+            if (!order) return;
+            order.requirements.forEach(req => names.add(req.name));
+        });
         return names.size > 0 ? names : null;
-    }, [milestone]);
+    }, [orders, emergencyOrders]);
 
-    // Initialize milestone when null (game start or after milestone completion)
+    // Initialize orders
     useEffect(() => {
-        if (!milestone && allNormalItems.length > 0) {
-            const newMilestone = generateMilestone(
-                allNormalItems,
-                config.rarity,
-                milestoneNumber
-            );
-            setMilestone(newMilestone);
+        if (orders.length < currentStageConfig.orderSlots) {
+            const needed = currentStageConfig.orderSlots - orders.length;
+            const newOrders = [...orders, ...Array(needed).fill(null).map(() => generateOrder(allNormalItems, config, hasSkill, currentStageConfig))];
+            setOrders(newOrders);
+        } else if (orders.length === 0) {
+            setOrders(Array(currentStageConfig.orderSlots).fill(null).map(() => generateOrder(allNormalItems, config, hasSkill, currentStageConfig)));
         }
-    }, [milestone, allNormalItems]);
 
-    // Regenerate map when milestone is created or replaced
+        // Initialize Emergency Orders if none
+        if (emergencyOrders.length === 0) {
+            const order1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, emergencyDifficulty);
+            order1.isEmergency = true;
+            order1.difficulty = emergencyDifficulty;
+
+            const usedPoolIds = new Set(order1.requirements.map(r => r.poolId));
+            const availableForSecond = allNormalItems.filter(i => !usedPoolIds.has(i.poolId));
+            const itemsForOrder2 = availableForSecond.length >= (config.emergency?.reqCountMin || 1) ? availableForSecond : allNormalItems;
+
+            const order2 = generateOrder(itemsForOrder2, config, hasSkill, currentStageConfig, true, emergencyDifficulty);
+            order2.isEmergency = true;
+            order2.difficulty = emergencyDifficulty;
+
+            setEmergencyOrders([order1, order2]);
+        }
+    }, [config, allNormalItems, currentStageConfig.orderSlots, orders.length, emergencyOrders.length, emergencyDifficulty]);
+
+    // Regenerate map when orders change
     useEffect(() => {
         if (neededNames) {
             setItemMap(generateItemMap(neededNames));
         }
-    }, [milestoneNumber, !!milestone]);
+    }, [neededNames]);
 
     const applyEntropy = (inv) => {
         if (!currentStageConfig.mechanics.entropy) return inv;
@@ -198,38 +223,301 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         showToast(`${t("替换技能：")}${t(newSkill.name)}`);
     };
 
-    // Cell matching: for each unfilled cell, find inventory items that can fill it
-    const cellMatches = useMemo(() => {
-        if (!milestone) return {};
-        const matches = {};
-        milestone.cells.forEach((cell) => {
-            if (cell.filledItem) return;
-            const matchingItems = inventory
-                .map((item, idx) => ({ item, idx }))
-                .filter(({ item }) =>
-                    item &&
-                    item.name === cell.itemName &&
-                    config.rarity.findIndex(r => r.id === item.rarity.id) >=
-                    config.rarity.findIndex(r => r.id === cell.requiredRarity)
-                );
-            if (matchingItems.length > 0) {
-                matches[cell.id] = matchingItems.map(m => m.idx);
+    const debugGetOrderItems = (orderIndex) => {
+        let order;
+        if (orderIndex >= 998) {
+            order = emergencyOrders[orderIndex - 998];
+        } else {
+            order = orders[orderIndex];
+        }
+
+        if (!order) return;
+
+        const itemsToAdd = order.requirements.map(req => {
+            const allItems = getAllNormalItems(config.pools, currentStageConfig);
+            const baseItem = allItems.find(i => i.name === req.name);
+            return {
+                ...baseItem,
+                id: Math.random().toString(36).substr(2, 9),
+                uid: Math.random().toString(36).substr(2, 9),
+                rarity: req.requiredRarity,
+                obtainCount: drawCount
+            };
+        });
+
+        setInventory(prev => {
+            const newInv = [...prev];
+            itemsToAdd.forEach(item => {
+                if (newInv.length < maxInventorySize) {
+                    newInv.push(item);
+                }
+            });
+            return newInv;
+        });
+        showToast(t("调试：已获取订单所需物品"), 'success');
+    };
+
+    const maxRequirementRarityMap = useMemo(() => {
+        const map = {};
+        const allOrders = [...orders];
+
+        allOrders.forEach(order => {
+            if (!order) return;
+            order.requirements.forEach(req => {
+                const currentMax = map[req.name] || -1;
+                if (req.requiredRarity.bonus > currentMax) {
+                    map[req.name] = req.requiredRarity.bonus;
+                }
+            });
+        });
+        return map;
+    }, [orders]);
+
+    // === 订单槽位系统：派生状态 ===
+
+    // 已分配到订单的物品 uid 集合
+    const assignedItemUids = useMemo(() => new Set(Object.values(orderSlotAssignments)), [orderSlotAssignments]);
+
+    // 幻影标记：某个普通订单的需求被其他普通订单的同名需求已分配了物品
+    // 返回 { "orderIndex-reqIndex": { item, sourceKey } }
+    const phantomMarks = useMemo(() => {
+        const result = {};
+        // 按类别分别收集已分配的物品名称 -> 实际物品
+        const assignedNormal = {}; // 普通订单的分配
+        const assignedEmergency = {}; // 撤离订单的分配
+        Object.entries(orderSlotAssignments).forEach(([key, uid]) => {
+            const item = inventory.find(i => i && i.uid === uid);
+            if (!item) return;
+            const orderIdx = parseInt(key.split('-')[0]);
+            const target = orderIdx >= 998 ? assignedEmergency : assignedNormal;
+            if (!target[item.name]) target[item.name] = [];
+            target[item.name].push({ key, item });
+        });
+
+        // 普通订单之间产生幻影
+        orders.forEach((order, orderIdx) => {
+            if (!order) return;
+            order.requirements.forEach((req, reqIdx) => {
+                const myKey = `${orderIdx}-${reqIdx}`;
+                if (orderSlotAssignments[myKey]) return;
+                const sources = assignedNormal[req.name];
+                if (sources && sources.length > 0) {
+                    result[myKey] = { item: sources[0].item, sourceKey: sources[0].key };
+                }
+            });
+        });
+
+        // 撤离订单之间产生幻影
+        emergencyOrders.forEach((order, idx) => {
+            if (!order) return;
+            const orderIdx = 998 + idx;
+            order.requirements.forEach((req, reqIdx) => {
+                const myKey = `${orderIdx}-${reqIdx}`;
+                if (orderSlotAssignments[myKey]) return;
+                const sources = assignedEmergency[req.name];
+                if (sources && sources.length > 0) {
+                    result[myKey] = { item: sources[0].item, sourceKey: sources[0].key };
+                }
+            });
+        });
+
+        return result;
+    }, [orders, emergencyOrders, orderSlotAssignments, inventory]);
+
+    // 清除指定订单索引的所有槽位分配
+    const clearAssignmentsForOrders = (indices) => {
+        setOrderSlotAssignments(prev => {
+            const newAssignments = { ...prev };
+            Object.keys(newAssignments).forEach(key => {
+                const orderIdx = parseInt(key.split('-')[0]);
+                if (indices.includes(orderIdx)) delete newAssignments[key];
+            });
+            return newAssignments;
+        });
+    };
+
+    // 辅助：更新 assignment 中的 uid（合成/工具操作后物品 uid 变化时）
+    const updateAssignmentUid = (oldUid, newUid) => {
+        setOrderSlotAssignments(prev => {
+            const newAssignments = { ...prev };
+            let changed = false;
+            Object.keys(newAssignments).forEach(key => {
+                if (newAssignments[key] === oldUid) {
+                    newAssignments[key] = newUid;
+                    changed = true;
+                }
+            });
+            return changed ? newAssignments : prev;
+        });
+    };
+
+    // 辅助：移除 assignment 中的 uid（物品被消耗/回收/万象棱镜替换后）
+    const removeAssignmentByUid = (uid) => {
+        setOrderSlotAssignments(prev => {
+            const newAssignments = { ...prev };
+            let changed = false;
+            Object.keys(newAssignments).forEach(key => {
+                if (newAssignments[key] === uid) {
+                    delete newAssignments[key];
+                    changed = true;
+                }
+            });
+            return changed ? newAssignments : prev;
+        });
+    };
+
+    const satisfiableOrders = useMemo(() => {
+        if ((!isSubmitMode && !isEvacuationMode) || selectedIndices.length === 0) return [];
+        const selectedItems = selectedIndices.map(idx => inventory[idx]).filter(Boolean);
+        const handGroups = {};
+        selectedItems.forEach(item => {
+            if (!handGroups[item.name]) handGroups[item.name] = [];
+            handGroups[item.name].push(item);
+        });
+        Object.keys(handGroups).forEach(k => {
+            handGroups[k].sort((a, b) => b.rarity.bonus - a.rarity.bonus);
+        });
+
+        const checkOrder = (order, idx, isMain) => {
+            if (!order) return null;
+            const tempHand = JSON.parse(JSON.stringify(handGroups));
+            let isSatisfied = true;
+            let totalSubmitBonus = 0;
+
+            const allReqs = order.requirements;
+            let isSameType = false;
+            if (hasSkill('ocd') && allReqs.length > 1) {
+                const firstPool = allReqs[0].poolId;
+                isSameType = allReqs.every(r => r.poolId === firstPool);
+            }
+
+            for (const req of order.requirements) {
+                const availableItems = tempHand[req.name];
+                if (!availableItems || availableItems.length === 0) {
+                    isSatisfied = false;
+                    break;
+                }
+                const matchIndex = availableItems.findIndex(item => (item.rarity.bonus >= req.requiredRarity.bonus && (!item.decay || item.decay > 0)));
+                if (matchIndex === -1) {
+                    isSatisfied = false;
+                    break;
+                }
+                const matchedItem = availableItems[matchIndex];
+                totalSubmitBonus += matchedItem.rarity.bonus;
+                availableItems.splice(matchIndex, 1);
+            }
+            if (!isSatisfied) return null;
+
+            let multiplier = 1 + totalSubmitBonus;
+            if (isSameType) multiplier *= 2;
+
+            const finalScoreReward = Math.ceil(order.baseScoreReward * multiplier);
+
+            return {
+                index: idx,
+                finalScoreReward,
+                isScoreOrder: isMain,
+                reqCount: order.requirements.length,
+                requirements: order.requirements
+            };
+        };
+
+        const results = [];
+        // Normal Orders
+        if (!isEvacuationMode) {
+            orders.forEach((o, i) => {
+                const res = checkOrder(o, i, true);
+                if (res) results.push(res);
+            });
+        }
+
+        // Emergency Orders
+        if (isEvacuationMode) {
+            emergencyOrders.forEach((order, idx) => {
+                if (order) {
+                    const res = checkOrder(order, 998 + idx, false);
+                    if (res) results.push(res);
+                }
+            });
+        }
+
+        return results;
+    }, [orders, emergencyOrders, isSubmitMode, isEvacuationMode, selectedIndices, inventory, hasSkill, skills]);
+
+    // Preview Potential Rewards (Calculate using BEST items from inventory)
+    const potentialSatisfiableOrders = useMemo(() => {
+        const handGroups = {};
+        inventory.forEach(item => {
+            if (item) {
+                if (!handGroups[item.name]) handGroups[item.name] = [];
+                handGroups[item.name].push(item);
             }
         });
-        return matches;
-    }, [milestone, inventory, config.rarity]);
+        Object.keys(handGroups).forEach(k => {
+            handGroups[k].sort((a, b) => b.rarity.bonus - a.rarity.bonus);
+        });
 
-    const fillableCellIds = useMemo(() => Object.keys(cellMatches), [cellMatches]);
+        const checkOrder = (order, idx, isMain) => {
+            const tempHand = JSON.parse(JSON.stringify(handGroups));
+            let isSatisfied = true;
+            let totalSubmitBonus = 0;
 
-    // Which pools have items needed by unfilled cells (for pool highlighting)
-    const relevantPoolIds = useMemo(() => {
-        if (!milestone) return new Set();
-        return new Set(
-            milestone.cells
-                .filter(c => !c.filledItem)
-                .map(c => c.poolId)
-        );
-    }, [milestone]);
+            const allReqs = order.requirements;
+            let isSameType = false;
+            if (hasSkill('ocd') && allReqs.length > 1) {
+                const firstPool = allReqs[0].poolId;
+                isSameType = allReqs.every(r => r.poolId === firstPool);
+            }
+
+            for (const req of order.requirements) {
+                const availableItems = tempHand[req.name];
+                if (!availableItems || availableItems.length === 0) {
+                    isSatisfied = false;
+                    break;
+                }
+                const matchIndex = availableItems.findIndex(item => (item.rarity.bonus >= req.requiredRarity.bonus && (!item.decay || item.decay > 0)));
+                if (matchIndex === -1) {
+                    isSatisfied = false;
+                    break;
+                }
+                const matchedItem = availableItems[matchIndex];
+                totalSubmitBonus += matchedItem.rarity.bonus;
+                availableItems.splice(matchIndex, 1);
+            }
+            if (!isSatisfied) return null;
+
+            let multiplier = 1 + totalSubmitBonus;
+            if (isSameType) multiplier *= 2;
+
+            const finalScoreReward = Math.ceil(order.baseScoreReward * multiplier);
+
+            return {
+                index: idx,
+                finalScoreReward,
+                isScoreOrder: isMain,
+                reqCount: order.requirements.length,
+                requirements: order.requirements
+            };
+        };
+
+        const results = [];
+        orders.forEach((order, idx) => {
+            if (order) {
+                const res = checkOrder(order, idx, true);
+                if (res) results.push(res);
+            }
+        });
+
+        // Emergency Orders
+        emergencyOrders.forEach((order, idx) => {
+            if (order) {
+                const res = checkOrder(order, 998 + idx, false);
+                if (res) results.push(res);
+            }
+        });
+
+        return results;
+    }, [inventory, orders, skills, emergencyOrders]);
 
     const totalRecycleValue = useMemo(() => {
         if (!isRecycleMode || selectedIndices.length === 0) return 0;
@@ -240,9 +528,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     }, [isRecycleMode, selectedIndices, inventory]);
 
     const selectedItemNames = useMemo(() => {
-        if (!isSubmitMode) return [];
+        if (!isSubmitMode && !isEvacuationMode) return [];
         return selectedIndices.map(idx => inventory[idx]?.name).filter(Boolean);
-    }, [isSubmitMode, selectedIndices, inventory]);
+    }, [isSubmitMode, isEvacuationMode, selectedIndices, inventory]);
 
     // Fate dice in inventory
 
@@ -279,6 +567,15 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         }
     }, [pendingItem, pendingQueue, inventory, maxInventorySize, currentStageConfig]);
 
+    // 候选订单队列处理：当前选择完毕后自动弹出下一个
+    useEffect(() => {
+        if (!orderCandidates && orderCandidateQueue.length > 0) {
+            const [next, ...rest] = orderCandidateQueue;
+            setOrderCandidates(next);
+            setOrderCandidateQueue(rest);
+        }
+    }, [orderCandidates, orderCandidateQueue]);
+
     // Cluster size → minimum rarity mapping
     const CLUSTER_MIN_RARITY = { 1: null, 2: 'uncommon', 3: 'rare', 4: 'epic', 5: 'legendary' };
 
@@ -308,6 +605,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
 
     const handleIncomingItems = (newItems, overrideInventory = null) => {
+        // Negotiator Skill Check
+        if (hasSkill('negotiator')) {
+            let triggered = false;
+            newItems.forEach(item => {
+                if (item.rarity.bonus >= 0.4) triggered = true;
+            });
+            if (triggered) {
+                setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + 1));
+                showToast(t("【谈判专家】触发：订单刷新次数+1"));
+            }
+        }
+
         let currentInventory = overrideInventory ? [...overrideInventory] : [...inventory];
         // Local state tracking for the loop
         let localPendingItem = pendingItem;
@@ -546,7 +855,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!item || !item.isToolItem) return;
 
         // 不允许在特殊模式中使用
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || toolSelectionMode) {
+        if (pendingItem || isSubmitMode || isRecycleMode || isEvacuationMode || selectionMode || toolSelectionMode) {
             showToast(t("当前状态下无法使用工具物品"), 'error');
             return;
         }
@@ -921,6 +1230,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const handleSlotClick = (index) => {
         const clickedItem = inventory[index];
+        const isAssignedToOrder = clickedItem && assignedItemUids.has(clickedItem.uid);
 
         // 工具选择模式：点击背包物品作为工具目标
         if (toolSelectionMode) {
@@ -943,6 +1253,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 newInventory[index] = { ...clickedItem, rarity: newRarity, uid: newUid };
                 newInventory[toolIndex] = null;
                 setInventory(newInventory.filter(i => i !== null));
+                if (isAssignedToOrder) updateAssignmentUid(oldUid, newUid);
                 showToast(`${t("命运熔炉")}：${t(clickedItem.name)} → ${t(newRarity.name)}`, 'success');
             } else if (effectType === 'transmute_left') {
                 const sourcePool = config.pools.find(p => p.items.some(pi => pi.name === clickedItem.name));
@@ -962,10 +1273,37 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 newInventory[index] = newItem;
                 newInventory[toolIndex] = null;
                 setInventory(newInventory.filter(i => i !== null));
+                // 名称变了，如果在订单上则退回背包（清除 assignment）
+                if (isAssignedToOrder) removeAssignmentByUid(clickedItem.uid);
                 showToast(`${t("万象棱镜")}：${t(clickedItem.name)} → ${t(newTpl.name)}`, 'success');
             }
             setToolSelectionMode(null);
             return;
+        }
+
+        // 已分配到订单的物品：只允许特定操作通过，阻止选中/交换位置
+        if (isAssignedToOrder) {
+            // 允许以旧换新
+            if (selectionMode?.type === 'trade_in') { /* fall through to trade_in logic below */ }
+            // 允许回收模式
+            else if (isRecycleMode) { /* fall through to recycle logic below */ }
+            // 允许 pendingItem 合成和 overload
+            else if (pendingItem) { /* fall through to pending logic below */ }
+            // 允许 selectedSlot 合成
+            else if (selectedSlot !== null) {
+                const sourceItem = inventory[selectedSlot];
+                if (sourceItem && clickedItem && !clickedItem.sterile && !sourceItem.sterile &&
+                    sourceItem.name === clickedItem.name &&
+                    sourceItem.rarity.id === clickedItem.rarity.id &&
+                    sourceItem.rarity.id !== 'mythic' &&
+                    (!clickedItem.decay || clickedItem.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0)) {
+                    // 合成：fall through
+                } else {
+                    return; // 不可合成，阻止
+                }
+            }
+            // 其他情况（尝试选中等）阻止
+            else { return; }
         }
 
         if (selectionMode?.type === 'trade_in') {
@@ -991,6 +1329,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             // Apply Entropy (Time passes)
             const decayedInv = currentStageConfig.mechanics.entropy ? applyEntropy(inventory) : [...inventory];
+
+            // 如果消耗的物品在订单槽位上，清除 assignment
+            if (assignedItemUids.has(consumedItem.uid)) removeAssignmentByUid(consumedItem.uid);
 
             // Remove item (set to null) from DECAYED inventory
             decayedInv[index] = null;
@@ -1049,7 +1390,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
-        if (isSubmitMode || isRecycleMode) {
+        if (isSubmitMode || isRecycleMode || isEvacuationMode) {
             if (!inventory[index]) return;
             if (selectedIndices.includes(index)) {
                 setSelectedIndices(prev => prev.filter(i => i !== index));
@@ -1074,6 +1415,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 const newInventory = [...inventory];
                 newInventory[index] = upgradedItem;
                 setInventory(newInventory);
+                // 如果目标物品在订单槽位上，更新 uid
+                if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
                 setPendingItem(null);
                 return;
             }
@@ -1085,7 +1428,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 }
 
                 const targetName = targetItem.name;
+                // 清除被替换物品的订单槽位分配
                 const clearedItems = inventory.filter(i => i && i.name === targetName);
+                clearedItems.forEach(i => {
+                    if (assignedItemUids.has(i.uid)) removeAssignmentByUid(i.uid);
+                });
                 const newInventory = inventory.filter(i => i && i.name !== targetName);
                 const recycleValue = clearedItems.reduce((acc, i) => acc + (i.rarity.recycleValue || 0), 0);
                 if (recycleValue > 0) setGold(prev => prev + recycleValue);
@@ -1111,6 +1458,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
             const recycleGain = targetItem.rarity.recycleValue;
             if (recycleGain > 0) setGold(prev => prev + recycleGain);
+            // 如果被替换的物品在订单槽位上，更新 assignment uid 为新物品
+            if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, pendingItem.uid);
 
             const newInventory = [...inventory];
             newInventory[index] = pendingItem;
@@ -1146,6 +1495,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 newInventory[index] = upgradedItem;
                 newInventory[selectedSlot] = null;
                 setInventory(newInventory.filter(item => item !== null));
+                // 如果目标物品在订单槽位上，更新 uid
+                if (assignedItemUids.has(targetItem.uid)) updateAssignmentUid(targetItem.uid, upgradedItem.uid);
                 setSelectedSlot(null);
                 return;
             }
@@ -1194,6 +1545,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         setGold(prev => prev + baseValue + extraGold);
 
+        // 清除被回收物品的订单槽位分配
+        selectedIndices.forEach(idx => {
+            const item = inventory[idx];
+            if (item && assignedItemUids.has(item.uid)) {
+                removeAssignmentByUid(item.uid);
+            }
+        });
+
         const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
         setInventory(newInventory);
         setIsRecycleMode(false);
@@ -1208,7 +1567,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         } else {
             setIsSubmitMode(true);
             setIsRecycleMode(false);
-            setIsDiceSubmitMode(false);
+            setIsEvacuationMode(false);
             setSelectedSlot(null);
         }
     };
@@ -1221,14 +1580,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         } else {
             setIsRecycleMode(true);
             setIsSubmitMode(false);
-            setIsDiceSubmitMode(false);
+            setIsEvacuationMode(false);
             setSelectedSlot(null);
         }
     };
 
 
     const handleSortInventory = () => {
-        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode) return;
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode) return;
 
         setInventory(prev => {
             const validItems = prev.filter(i => i !== null);
@@ -1266,121 +1625,638 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setHoveredPoolItemNames([]);
     };
 
-    const handleFillCell = (cellId) => {
-        if (!milestone) return;
+    // === 订单槽位系统：操作函数 ===
 
-        const cellIndex = milestone.cells.findIndex(c => c.id === cellId);
-        const cell = milestone.cells[cellIndex];
-        if (!cell || cell.filledItem) return;
-
-        const matchingIndices = cellMatches[cellId];
-        if (!matchingIndices || matchingIndices.length === 0) return;
-
-        // Use the first matching item (lowest index)
-        const invIdx = matchingIndices[0];
-        const item = inventory[invIdx];
-
-        // Fill the cell
-        const updatedCells = milestone.cells.map((c, i) =>
-            i === cellIndex ? { ...c, filledItem: item } : c
-        );
-
-        // Check task completions
-        const updatedTasks = milestone.tasks.map(task => {
-            if (task.isCompleted) return task;
-            const allFilled = task.cellIndices.every(idx => updatedCells[idx].filledItem !== null);
-            return allFilled ? { ...task, isCompleted: true } : task;
-        });
-
-        // Calculate rewards for newly completed tasks
-        const newlyCompleted = updatedTasks.filter(
-            (task, idx) => task.isCompleted && !milestone.tasks[idx].isCompleted
-        );
-
-        let scoreGain = 0;
-        let goldGain = 0;
-
-        for (const task of newlyCompleted) {
-            const taskScore = task.cellIndices.reduce(
-                (sum, idx) => sum + updatedCells[idx].scoreReward, 0
-            );
-            scoreGain += Math.ceil(taskScore);
-        }
-
-        // Remove consumed item from inventory
-        const newInventory = [...inventory];
-        newInventory[invIdx] = null;
-
-        // Check if evacuation becomes available:
-        // A task covering the evacuation cell was just completed
-        const evacCellIdx = updatedCells.findIndex(c => c.isEvacuation);
-        let evacuationAvailable = milestone.evacuationAvailable || false;
-        if (evacCellIdx >= 0) {
-            evacuationAvailable = updatedTasks.some(
-                task => task.isCompleted && task.cellIndices.includes(evacCellIdx)
-            );
-        }
-
-        // Apply state updates
-        setMilestone({
-            ...milestone,
-            cells: updatedCells,
-            tasks: updatedTasks,
-            evacuationAvailable,
-        });
-        setInventory(newInventory);
+    const handleAssignToOrder = (orderIndex, reqIndex) => {
+        const item = inventory[selectedSlot];
+        if (!item) return;
+        const key = `${orderIndex}-${reqIndex}`;
+        setOrderSlotAssignments(prev => ({ ...prev, [key]: item.uid }));
         setSelectedSlot(null);
-        setSelectedIndices([]);
-        if (scoreGain > 0) setScore(prev => prev + scoreGain);
-        if (goldGain > 0) setGold(prev => prev + goldGain);
+    };
 
-        if (newlyCompleted.length > 0) {
-            showToast(
-                `${t('任务完成')}! +${scoreGain} ${t('积分')} +${goldGain} ${t('金币')}`,
-                'epic'
-            );
+    const handleUnassignFromOrder = (orderIndex, reqIndex) => {
+        const key = `${orderIndex}-${reqIndex}`;
+        setOrderSlotAssignments(prev => {
+            const newAssignments = { ...prev };
+            delete newAssignments[key];
+            return newAssignments;
+        });
+    };
+
+    // === 订单槽位点击统一入口 ===
+    const handleOrderSlotClick = (orderIndex, reqIndex) => {
+        const key = `${orderIndex}-${reqIndex}`;
+        const assignedUid = orderSlotAssignments[key];
+        if (!assignedUid) return;
+        const itemIndex = inventory.findIndex(i => i && i.uid === assignedUid);
+        if (itemIndex === -1) return;
+        const item = inventory[itemIndex];
+
+        // 工具选择模式：对订单槽位物品使用工具
+        if (toolSelectionMode) {
+            if (item.isToolItem) {
+                showToast(t("无法对工具物品使用！"), 'error');
+                return;
+            }
+            const { toolIndex, effectType } = toolSelectionMode;
+            const toolItem = inventory[toolIndex];
+            if (!toolItem) { setToolSelectionMode(null); return; }
+
+            if (effectType === 'reforge_left') {
+                const reforgeWeights = config.toolItems?.reforgeRarityWeights || {};
+                const newRarity = rollWeightedRarity(reforgeWeights);
+                if (!newRarity) { setToolSelectionMode(null); return; }
+                const newUid = Math.random().toString(36).substr(2, 9);
+                const newInventory = [...inventory];
+                newInventory[itemIndex] = { ...item, rarity: newRarity, uid: newUid };
+                newInventory[toolIndex] = null;
+                setInventory(newInventory.filter(i => i !== null));
+                updateAssignmentUid(item.uid, newUid);
+                showToast(`${t("命运熔炉")}：${t(item.name)} → ${t(newRarity.name)}`, 'success');
+            } else if (effectType === 'transmute_left') {
+                const sourcePool = config.pools.find(p => p.items.some(pi => pi.name === item.name));
+                if (!sourcePool) { showToast(t("找不到对应的奖池！"), 'error'); setToolSelectionMode(null); return; }
+                const candidates = sourcePool.items.filter(pi => pi.name !== item.name);
+                if (candidates.length === 0) { showToast(t("同奖池中没有其他物品！"), 'error'); setToolSelectionMode(null); return; }
+                const newTpl = candidates[Math.floor(Math.random() * candidates.length)];
+                const newItem = {
+                    ...newTpl,
+                    uid: Math.random().toString(36).substr(2, 9),
+                    poolName: sourcePool.name,
+                    rarity: item.rarity,
+                    sterile: item.sterile,
+                    decay: item.decay,
+                };
+                const newInventory = [...inventory];
+                newInventory[itemIndex] = newItem;
+                newInventory[toolIndex] = null;
+                setInventory(newInventory.filter(i => i !== null));
+                // 名称变了 → 退回背包（清除 assignment）
+                removeAssignmentByUid(item.uid);
+                showToast(`${t("万象棱镜")}：${t(item.name)} → ${t(newTpl.name)}`, 'success');
+            }
+            setToolSelectionMode(null);
+            return;
+        }
+
+        // 以旧换新：消耗订单槽位物品
+        if (selectionMode?.type === 'trade_in') {
+            if (item.isScoreItem) {
+                showToast(t("主线道具无法用于以旧换新！"), "error");
+                return;
+            }
+            if (item.isToolItem) {
+                showToast(t("工具道具无法用于以旧换新！"), "error");
+                return;
+            }
+            // 复用背包的 trade_in 逻辑，通过背包 index 调用
+            removeAssignmentByUid(item.uid);
+            handleSlotClick(itemIndex);
+            return;
+        }
+
+        // 回收模式：选中/取消订单槽位物品
+        if (isRecycleMode) {
+            if (selectedIndices.includes(itemIndex)) {
+                setSelectedIndices(prev => prev.filter(i => i !== itemIndex));
+            } else {
+                setSelectedIndices(prev => [...prev, itemIndex]);
+            }
+            return;
+        }
+
+        // 提交模式 / 撤离模式：选中/取消
+        if (isSubmitMode || isEvacuationMode) {
+            if (selectedIndices.includes(itemIndex)) {
+                setSelectedIndices(prev => prev.filter(i => i !== itemIndex));
+            } else {
+                setSelectedIndices(prev => [...prev, itemIndex]);
+            }
+            return;
+        }
+
+        // PendingItem 合成
+        if (pendingItem) {
+            if (!item.sterile && !pendingItem.sterile &&
+                pendingItem.name === item.name &&
+                pendingItem.rarity.id === item.rarity.id &&
+                pendingItem.rarity.id !== 'mythic') {
+                const nextRarity = getNextRarity(item.rarity.id, config);
+                const upgradedItem = { ...item, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const newInventory = [...inventory];
+                newInventory[itemIndex] = upgradedItem;
+                setInventory(newInventory);
+                updateAssignmentUid(item.uid, upgradedItem.uid);
+                setPendingItem(null);
+                return;
+            }
+
+            // Overload 替换订单槽位物品
+            if (pendingItem.isOverload) {
+                const targetName = item.name;
+                const clearedItems = inventory.filter(i => i && i.name === targetName);
+                clearedItems.forEach(i => {
+                    if (assignedItemUids.has(i.uid)) removeAssignmentByUid(i.uid);
+                });
+                const newInventory = inventory.filter(i => i && i.name !== targetName);
+                const recycleValue = clearedItems.reduce((acc, i) => acc + (i.rarity.recycleValue || 0), 0);
+                if (recycleValue > 0) setGold(prev => prev + recycleValue);
+                const itemToAdd = { ...pendingItem };
+                delete itemToAdd.isOverload;
+                newInventory.push(itemToAdd);
+                setInventory(newInventory);
+                setPendingItem(null);
+                return;
+            }
+
+            // 背包满替换订单槽位物品：回收旧物品，新物品放入背包（不继承订单分配）
+            const recycleGain = item.rarity.recycleValue;
+            if (recycleGain > 0) setGold(prev => prev + recycleGain);
+            removeAssignmentByUid(item.uid);
+            const newInventory = [...inventory];
+            newInventory[itemIndex] = pendingItem;
+            setInventory(newInventory);
+            setPendingItem(null);
+            return;
+        }
+
+        // SelectedSlot 合成
+        if (selectedSlot !== null) {
+            const sourceItem = inventory[selectedSlot];
+            if (sourceItem && !item.sterile && !sourceItem.sterile &&
+                sourceItem.name === item.name &&
+                sourceItem.rarity.id === item.rarity.id &&
+                sourceItem.rarity.id !== 'mythic' &&
+                (!item.decay || item.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0)) {
+                const nextRarity = getNextRarity(sourceItem.rarity.id, config);
+                const upgradedItem = { ...item, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+                const newInventory = [...inventory];
+                newInventory[itemIndex] = upgradedItem;
+                newInventory[selectedSlot] = null;
+                setInventory(newInventory.filter(i => i !== null));
+                updateAssignmentUid(item.uid, upgradedItem.uid);
+                setSelectedSlot(null);
+                return;
+            }
+            return; // 不可合成，不做任何操作
+        }
+
+        // 默认：点击订单槽位取消分配
+        handleUnassignFromOrder(orderIndex, reqIndex);
+    };
+
+    const handleRefreshAllOrders = () => {
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode || orderCandidates) return;
+        if (!currentStageConfig.mechanics.refresh) {
+            showToast(t("当前时代尚未解锁订单刷新技术！"), "error");
+            return;
+        }
+
+        // 刷新所有订单前，清除所有槽位分配
+        const allIndices = Array.from({ length: currentStageConfig.orderSlots }, (_, i) => i);
+        clearAssignmentsForOrders(allIndices);
+
+        // 为每个槽位生成2个候选订单，逐个让玩家选择
+        const allCandidates = [];
+        for (let i = 0; i < currentStageConfig.orderSlots; i++) {
+            const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+            allCandidates.push({ slotIndex: i, candidates: [candidate1, candidate2] });
+        }
+
+        if (allCandidates.length > 0) {
+            setOrderCandidates(allCandidates[0]);
+            if (allCandidates.length > 1) {
+                setOrderCandidateQueue(allCandidates.slice(1));
+            }
         }
     };
 
+    const handleRefreshSingleOrder = (index) => {
+        if (pendingItem || isSubmitMode || isRecycleMode || selectionMode || isEvacuationMode || orderCandidates) return;
+
+        if (!currentStageConfig.mechanics.refresh) {
+            showToast(t("当前时代尚未解锁订单刷新技术！"), "error");
+            return;
+        }
+
+        const currentOrder = orders[index];
+        if (orderRefreshCount <= 0) return;
+
+        let usedRefresh = true;
+        if (hasSkill('time_freeze') && Math.random() < 0.20) {
+            usedRefresh = false;
+            showToast(t("【时间冻结】触发：刷新次数未消耗！"));
+        }
+
+        if (usedRefresh) {
+            setOrderRefreshCount(prev => Math.max(0, prev - 1));
+        }
+
+        // 刷新单个订单前，清除该订单的槽位分配
+        clearAssignmentsForOrders([index]);
+
+        // 生成2个候选订单，让玩家选择
+        const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+        const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+
+        setOrderCandidates({ slotIndex: index, candidates: [candidate1, candidate2] });
+    };
+
+    const handleSelectOrderCandidate = (candidateIndex) => {
+        if (!orderCandidates) return;
+        const { slotIndex, candidates } = orderCandidates;
+        const selectedOrder = candidates[candidateIndex];
+
+        const newOrders = [...orders];
+        newOrders[slotIndex] = selectedOrder;
+
+        setOrders(newOrders);
+
+        setOrderCandidates(null);
+        // 队列中的下一个候选由 useEffect 自动处理
+    };
+
+    const handleOrderClick = (orderIndex) => {
+        // 新增：如果有 selectedSlot，尝试将选中物品放入订单槽位
+        if (selectedSlot !== null && !isSubmitMode && !isRecycleMode && !isEvacuationMode && !pendingItem && !selectionMode) {
+            const item = inventory[selectedSlot];
+            if (item && !item.isToolItem && !item.isScoreItem && !assignedItemUids.has(item.uid)) {
+                // 根据 orderIndex 查找对应订单
+                const order = orderIndex >= 998
+                    ? emergencyOrders[orderIndex - 998]
+                    : orders[orderIndex];
+                if (order) {
+                    // 找到第一个名称匹配且未被直接分配的需求
+                    const reqIdx = order.requirements.findIndex((req, rIdx) => {
+                        const key = `${orderIndex}-${rIdx}`;
+                        return req.name === item.name && !orderSlotAssignments[key];
+                    });
+                    if (reqIdx !== -1) {
+                        handleAssignToOrder(orderIndex, reqIdx);
+                        return;
+                    } else {
+                        showToast(t("该订单不需要此物品，或对应槽位已有物品"), "info");
+                    }
+                }
+            }
+            setSelectedSlot(null);
+            return;
+        }
+
+        // Handle Emergency Orders click (Evacuation Mode)
+        if (orderIndex >= 998) {
+            if (!isEvacuationMode) {
+                return;
+            }
+            const order = emergencyOrders[orderIndex - 998];
+            if (!order) return;
+
+            let canSatisfyAny = false;
+            for (const req of order.requirements) {
+                if (inventory.some(item => item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus)) {
+                    canSatisfyAny = true;
+                    break;
+                }
+            }
+            if (!canSatisfyAny) {
+                showToast(t("库存中没有满足该离开关卡需求的物品"), "error");
+                return;
+            }
+
+            const finalIndicesToAdd = [];
+            const usedInThisSearch = new Set(selectedIndices);
+
+            order.requirements.forEach(req => {
+                const candidates = inventory
+                    .map((item, idx) => ({ item, idx }))
+                    .filter(({ item, idx }) =>
+                        item &&
+                        !usedInThisSearch.has(idx) &&
+                        item.name === req.name &&
+                        item.rarity.bonus >= req.requiredRarity.bonus
+                    );
+                candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus);
+                if (candidates.length > 0) {
+                    finalIndicesToAdd.push(candidates[0].idx);
+                    usedInThisSearch.add(candidates[0].idx);
+                }
+            });
+
+            if (finalIndicesToAdd.length > 0) {
+                setSelectedIndices(prev => {
+                    const newIndices = finalIndicesToAdd.filter(idx => !prev.includes(idx));
+                    return [...prev, ...newIndices];
+                });
+            }
+
+            return;
+        }
+
+        // Normal Orders Logic
+        if (isEvacuationMode) return;
+
+        const order = orders[orderIndex];
+        if (!order) return;
+
+        const requirements = [...order.requirements];
+        let canSatisfyAny = false;
+
+        for (const req of requirements) {
+            const hasMatchingItem = inventory.some(item =>
+                item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus
+            );
+            if (hasMatchingItem) {
+                canSatisfyAny = true;
+                break;
+            }
+        }
+
+        if (!canSatisfyAny) {
+            showToast(t("库存中没有满足该订单条件的物品"), "error");
+            return;
+        }
+
+        // Auto-enter submit mode if not active
+        if (!isSubmitMode) {
+            setIsSubmitMode(true);
+            setIsRecycleMode(false);
+            setSelectedSlot(null);
+        }
+
+        // Check which items are currently satisfying THIS specific order
+        const currentMatchesIdx = [];
+        const tempSelected = [...selectedIndices];
+
+        for (const req of requirements) {
+            const matchIdx = tempSelected.findIndex(idx => {
+                const item = inventory[idx];
+                return item && item.name === req.name && item.rarity.bonus >= req.requiredRarity.bonus;
+            });
+            if (matchIdx !== -1) {
+                currentMatchesIdx.push(tempSelected[matchIdx]);
+                tempSelected.splice(matchIdx, 1);
+            }
+        }
+
+        const isFullySatisfied = currentMatchesIdx.length === requirements.length;
+
+        if (isFullySatisfied) {
+            setSelectedIndices(prev => prev.filter(idx => !currentMatchesIdx.includes(idx)));
+        } else {
+            const finalIndicesToAdd = [];
+            const usedInThisSearch = new Set(selectedIndices);
+
+            requirements.forEach((req, rIdx) => {
+                // 1. 优先使用已分配到该订单槽位的物品
+                const slotKey = `${orderIndex}-${rIdx}`;
+                const assignedUid = orderSlotAssignments[slotKey];
+                if (assignedUid) {
+                    const assignedIdx = inventory.findIndex(i => i && i.uid === assignedUid);
+                    if (assignedIdx !== -1 && !usedInThisSearch.has(assignedIdx) &&
+                        inventory[assignedIdx].rarity.bonus >= req.requiredRarity.bonus &&
+                        (!inventory[assignedIdx].decay || inventory[assignedIdx].decay > 0)) {
+                        finalIndicesToAdd.push(assignedIdx);
+                        usedInThisSearch.add(assignedIdx);
+                        return;
+                    }
+                }
+
+                // 2. 回退：从背包搜索最优候选
+                const candidates = inventory
+                    .map((item, idx) => ({ item, idx }))
+                    .filter(({ item, idx }) =>
+                        item &&
+                        !usedInThisSearch.has(idx) &&
+                        item.name === req.name &&
+                        item.rarity.bonus >= req.requiredRarity.bonus
+                    );
+                candidates.sort((a, b) => b.item.rarity.bonus - a.item.rarity.bonus);
+                if (candidates.length > 0) {
+                    finalIndicesToAdd.push(candidates[0].idx);
+                    usedInThisSearch.add(candidates[0].idx);
+                }
+            });
+
+            if (finalIndicesToAdd.length > 0) {
+                setSelectedIndices(prev => [...prev, ...finalIndicesToAdd]);
+            } else if (!isFullySatisfied && !isSubmitMode) {
+                showToast(t("库存中没有满足该订单条件的物品"), "info");
+            }
+        }
+    };
+
+    const handleConfirmSubmission = () => {
+        if (satisfiableOrders.length === 0) {
+            showToast(t("请至少完成一个任务才能提交！"), "error");
+            return;
+        }
+
+        let gainedScore = 0;
+        const newOrders = [...orders];
+        const completedIndices = [];
+
+        let completedEmergencyOrder = false;
+        let completedScoreCount = 0;
+
+        const nextSkillState = { ...skillState };
+
+        satisfiableOrders.forEach(({ index, finalScoreReward, reqCount, requirements, isScoreOrder }) => {
+            gainedScore += finalScoreReward;
+
+            if (hasSkill('big_order_expert') && reqCount === 4) {
+                showToast(t("【大订单专家】触发：+5金币"));
+            }
+
+            if (hasSkill('hard_order_expert')) {
+                const hasHardReq = requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
+                if (hasHardReq) {
+                    showToast(t("【困难订单专家】触发：+10金币"));
+                }
+            }
+
+            if (hasSkill('auto_restock')) nextSkillState.nextDrawExtraItem = true;
+            if (hasSkill('turn_fortune')) nextSkillState.nextDrawGuaranteedRare = true;
+
+            if (index >= 998) {
+                completedEmergencyOrder = true;
+            }
+
+            if (isScoreOrder) completedScoreCount++;
+
+            completedIndices.push(index);
+        });
+
+        setSkillState(nextSkillState);
+
+        setScore(prev => prev + gainedScore);
+
+        // 每次完成订单，增加刷新次数
+        if (completedIndices.length > 0) {
+            setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + completedIndices.length));
+        }
+
+        // 完成积分订单后，降低撤离订单难度
+        if (completedScoreCount > 0) {
+            const difficultyConfig = config.emergency?.difficulty;
+            if (difficultyConfig) {
+                const decreaseAmountBase = difficultyConfig.decreaseOnScoreOrder !== undefined ? difficultyConfig.decreaseOnScoreOrder : 1;
+                const decreaseAmount = decreaseAmountBase * completedScoreCount;
+                const minDifficulty = difficultyConfig.minDifficulty || 1;
+                if (decreaseAmount > 0) {
+                    setEmergencyDifficulty(prev => {
+                        const newDiff = Math.max(minDifficulty, prev - decreaseAmount);
+                        if (newDiff < prev) {
+                            showToast(`${t("积分订单达成，离开关卡需求难度降低至")} ${newDiff}！`, "success");
+                        }
+                        return newDiff;
+                    });
+                } else if (decreaseAmountBase === 0) {
+                    showToast(t("积分订单达成！"), "success");
+                }
+            }
+        }
+
+        // 为已完成的普通订单槽位生成候选订单，让玩家选择
+        const normalCompletedIndices = completedIndices.filter(idx => idx < 998);
+        if (normalCompletedIndices.length > 0) {
+            clearAssignmentsForOrders(normalCompletedIndices);
+        }
+
+        const candidateQueue = [];
+        completedIndices.forEach(idx => {
+            if (idx >= 998) {
+                // Emergency orders handled via Evacuate button now
+            } else {
+                const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+                const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
+                candidateQueue.push({ slotIndex: idx, candidates: [candidate1, candidate2] });
+            }
+        });
+
+        // 启动候选订单选择队列
+        if (candidateQueue.length > 0) {
+            setOrderCandidates(candidateQueue[0]);
+            if (candidateQueue.length > 1) {
+                setOrderCandidateQueue(candidateQueue.slice(1));
+            }
+        }
+
+        const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
+        setInventory(newInventory);
+
+        setIsSubmitMode(false);
+        setSelectedIndices([]);
+    };
+
+    const toggleEvacuationMode = () => {
+        const nextState = !isEvacuationMode;
+        setIsEvacuationMode(nextState);
+        setIsSubmitMode(false);
+        setIsRecycleMode(false);
+        setSelectedIndices([]);
+    };
+
     const handleEvacuate = () => {
-        if (!milestone?.evacuationAvailable) return;
+        toggleEvacuationMode();
+    };
 
-        // Reset gold
-        setGold(config.global?.initialGold || currentStageConfig.initialGold);
+    const handleEvacuationContinue = () => {
+        // 1. Increase Difficulty
+        const difficultyConfig = config.emergency?.difficulty;
+        const increaseOnEvacuation = difficultyConfig?.increaseOnNewOrder || 1;
+        const maxDifficulty = difficultyConfig?.maxDifficulty || 10;
+        const newDifficulty = Math.min(maxDifficulty, emergencyDifficulty + increaseOnEvacuation);
+        setEmergencyDifficulty(newDifficulty);
 
-        showToast(t('撤离成功！金币已重置'), 'epic');
-        setTimeout(() => {
-            setMilestoneNumber(prev => prev + 1);
-            setMilestone(null);
-        }, 800);
+        // 2. Generate New Orders
+        const order1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig, true, newDifficulty);
+        order1.isEmergency = true;
+        order1.difficulty = newDifficulty;
+
+        const usedPoolIds = new Set(order1.requirements.map(r => r.poolId));
+        const availableForSecond = allNormalItems.filter(i => !usedPoolIds.has(i.poolId));
+        const itemsForOrder2 = availableForSecond.length >= (config.emergency?.reqCountMin || 1) ? availableForSecond : allNormalItems;
+
+        const order2 = generateOrder(itemsForOrder2, config, hasSkill, currentStageConfig, true, newDifficulty);
+        order2.isEmergency = true;
+        order2.difficulty = newDifficulty;
+
+        setEmergencyOrders([order1, order2]);
+
+        // 3. Reset Gold
+        const initialGold = config.global?.initialGold || 30;
+        setGold(initialGold);
+
+        // 4. Consume Items
+        const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
+        setInventory(newInventory);
+
+        showToast(`${t("离开此关卡成功！金币已重置为")} ${initialGold}`, "success");
+
+        setIsEvacuationMode(false);
+        setSelectedIndices([]);
+        setModalContent(null);
+    };
+
+    const handleEvacuationExtract = () => {
+        setModalContent({
+            type: 'victory',
+            score: score,
+            title: t("离开关卡成功"),
+            message: t("你带着战利品成功离开了此关卡！")
+        });
+    };
+
+    const handleConfirmEvacuation = () => {
+        if (emergencyOrders.length === 0) return;
+
+        const satisfied = satisfiableOrders.filter(o => o.index >= 998);
+
+        if (satisfied.length === 0) {
+            showToast(t("所选物品不足以完成离开关卡需求！"), "error");
+            return;
+        }
+
+        setModalContent({
+            type: 'evacuation_success',
+            score: score
+        });
     };
 
     return {
         state: {
             gold,
+            emergencyOrders,
+            emergencyDifficulty,
             score,
             currentStageConfig,
             maxInventorySize,
             drawCount,
             itemMap,
             drawAnimInfo,
-            milestone,
-            milestoneNumber,
-            cellMatches,
-            fillableCellIds,
-            relevantPoolIds,
+            orders,
+            orderRefreshCount,
+            REFRESH_MAX,
+            orderCandidates, orderCandidateQueue,
             inventory,
             pendingItem, pendingQueue,
             selectedSlot,
             hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
             setHoveredPoolId, setHoveredItemName, setHoveredSlotIndex, setHoveredPoolItemNames,
-            isSubmitMode, isRecycleMode, selectedIndices,
+            isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
             modalContent, selectionMode,
             skills, skillSelectionCandidates,
             toast,
+            satisfiableOrders,
+            potentialSatisfiableOrders,
             totalRecycleValue,
             selectedItemNames,
             skillState,
+            orderSlotAssignments,
+            assignedItemUids,
+            phantomMarks,
             toolSelectionMode,
             activeEffect,
         },
@@ -1396,20 +2272,30 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleSelectionCancel,
             handleSlotClick,
             handleDiscardNew,
-            handleFillCell,
-
+            handleRefreshAllOrders,
+            handleRefreshSingleOrder,
+            handleSelectOrderCandidate,
+            handleOrderClick,
+            toggleEvacuationMode,
+            handleConfirmEvacuation,
+            handleConfirmSubmission,
             handleConfirmRecycle,
             toggleSubmitMode,
             toggleRecycleMode,
             handleSortInventory,
             handlePoolHover,
             handlePoolLeave,
-            refreshPools,
+            handleEvacuate,
             addInventoryItem,
+            handleEvacuationContinue,
+            handleEvacuationExtract,
+            debugGetOrderItems,
             handleToolItemUse,
             handleEffectItemUse,
+            handleUnassignFromOrder,
+            handleOrderSlotClick,
             handleCancelToolSelection,
-            handleEvacuate,
+            refreshPools,
             handleRefreshMap: () => {
                 if (gold < 1) return;
                 setGold(prev => prev - 1);
