@@ -13,12 +13,12 @@ import { OrderCard } from './components/game/OrderCard';
 import { SKILL_DEFINITIONS } from './data/constants';
 import { EFFECT_ITEM_ICONS } from './data/spatialConstants';
 
-const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled }) => {
+const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMode, onReset, initialSkills = [], initialScore = 0, debugAddItem, onDebugAddItemHandled, lotteryAnimEnabled = true }) => {
     const { t, language, toggleLanguage } = useLanguage();
     const [isSkillsCollapsed, setIsSkillsCollapsed] = useState(true);
 
     // Initialize Logic Hook
-    const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialScore);
+    const { state, actions, helpers } = useGameLogic(config, initialSkills, onReset, initialScore, { lotteryAnimEnabled });
 
     // Debug: Handle direct item addition from Config Tool
     useEffect(() => {

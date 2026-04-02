@@ -21,6 +21,9 @@ export default function App() {
     const [initialSkills, setInitialSkills] = useState([]);
     const [initialStage, setInitialStage] = useState(0);
 
+    // Lottery animation toggle
+    const [lotteryAnimEnabled, setLotteryAnimEnabled] = useState(true);
+
     // Map size state (mirrors spatialConstants, applied on confirm)
     const [mapRows, setMapRows] = useState(MAP_ROWS);
     const [mapCols, setMapCols] = useState(MAP_COLS);
@@ -185,6 +188,7 @@ export default function App() {
                     onReset={() => setResetConfirmOpen(true)}
                     debugAddItem={debugAddItemPulse}
                     onDebugAddItemHandled={() => setDebugAddItemPulse(null)}
+                    lotteryAnimEnabled={lotteryAnimEnabled}
                 />
             </ErrorBoundary>
 
@@ -258,6 +262,24 @@ export default function App() {
                                     </button>
                                     <span className="text-xs text-slate-400">当前: {MAP_ROWS}×{MAP_COLS}</span>
                                 </div>
+                            </section>
+
+                            {/* 0.5 抽奖动画开关 */}
+                            <section className="bg-indigo-50 p-4 rounded-xl border-2 border-indigo-100">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-lg font-bold flex items-center gap-2 text-indigo-700">
+                                        🎰 抽奖动画
+                                    </h4>
+                                    <button
+                                        onClick={() => setLotteryAnimEnabled(prev => !prev)}
+                                        className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${lotteryAnimEnabled ? 'bg-indigo-500' : 'bg-slate-300'}`}
+                                    >
+                                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${lotteryAnimEnabled ? 'translate-x-6' : ''}`} />
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-2">
+                                    {lotteryAnimEnabled ? '开启：抽取时高亮框在格子间旋转滚动后选中目标' : '关闭：抽取时直接高亮选中目标'}
+                                </p>
                             </section>
 
                             {/* 1. 开发者工具：实时添加物品 */}

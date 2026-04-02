@@ -202,6 +202,7 @@ function ItemMap({ itemMap, drawAnimInfo, orders, emergencyOrders, rarityConfig,
 
   const phase = drawAnimInfo?.phase;
   const drawnKey = drawAnimInfo?.drawnKey;
+  const spinKey = drawAnimInfo?.spinKey;
   const coveredKeysAnim = drawAnimInfo?.coveredKeys;
 
   return (
@@ -235,7 +236,16 @@ function ItemMap({ itemMap, drawAnimInfo, orders, emergencyOrders, rarityConfig,
           let iconClass = '';
           let textVisible = true;
 
-          if (isEffectCell && (phase === 'exit' || phase === 'enter') && isCoveredAnim) {
+          if ((phase === 'spinning' || phase === 'pulse') && isCoveredAnim) {
+            const isSpinTarget = spinKey === cellKey;
+            if (isSpinTarget) {
+              if (phase === 'pulse') {
+                bgClass = 'bg-amber-100 border-yellow-500 ring-4 ring-yellow-400 scale-110 z-20 shadow-[0_0_16px_6px_rgba(250,204,21,0.5)] animate-[lotteryPulse_0.4s_ease-out]';
+              } else {
+                bgClass = 'bg-amber-100 border-amber-400 ring-4 ring-yellow-400 scale-110 z-20 shadow-lg shadow-amber-200/60';
+              }
+            }
+          } else if (isEffectCell && (phase === 'exit' || phase === 'enter') && isCoveredAnim) {
             // Effect cell stays visible and stable during animation
             bgClass = 'bg-white border-slate-200';
             iconClass = '';
@@ -296,7 +306,7 @@ function ItemMap({ itemMap, drawAnimInfo, orders, emergencyOrders, rarityConfig,
               className={`
                 relative flex flex-col items-center justify-center
                 w-24 h-24 border-2 border-solid select-none
-                transition-all duration-300
+                ${(phase === 'spinning' || phase === 'pulse') ? 'transition-all duration-75' : 'transition-all duration-300'}
                 ${adj ? '' : 'rounded-md'}
                 ${bgClass}
                 ${!disabled && !isAnimating ? 'cursor-crosshair' : 'cursor-default'}

@@ -12,7 +12,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { generateItemMap, getFrameCoverage, refreshCoveredCells, randomCell, computeClusterSizes } from '../utils/spatialPoolHelpers.js';
 import { DEFAULT_DRAW, EFFECT_ITEM_ICONS } from '../data/spatialConstants.js';
 
-export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
+export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0, options = {}) => {
+    const { lotteryAnimEnabled = true } = options;
     const { t } = useLanguage();
     const [score, setScore] = useState(initialScore);
 
@@ -1076,51 +1077,99 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             };
         };
 
-        // Phase 1: highlight the drawn cell (300ms)
-        setDrawAnimInfo({
-            drawnKey: `${drawnCell.row},${drawnCell.col}`,
-            coveredKeys,
-            phase: 'highlight',
-        });
-
-        setTimeout(() => {
-            // Phase 2: drawn item flies to inventory (500ms)
-            setDrawAnimInfo(prev => prev ? { ...prev, phase: 'fly' } : null);
+        // Existing animation phases (highlight → fly → exit → enter)
+        const runDrawAnimation = () => {
+            // Phase 1: highlight the drawn cell (300ms)
+            setDrawAnimInfo({
+                drawnKey: `${drawnCell.row},${drawnCell.col}`,
+                coveredKeys,
+                phase: 'highlight',
+            });
 
             setTimeout(() => {
-                // Phase 3: execute draw + other cells fade out (400ms)
-                // Gold already checked upfront in handleMapPlace
-                // Fragmented always goes through handleDraw for 3 items
-                if (affixKey === 'fragmented') {
-                    handleDraw(makePool());
-                } else if (drawnIsEffect) {
-                    setGold(prev => prev - cost);
-                    setDrawCount(prev => prev + 1);
-                    // Consume active effect (no quality applies, but effect is spent)
-                    let baseInv = undefined;
-                    if (activeEffect) {
-                        baseInv = inventory.filter(i => i?.uid !== activeEffect.itemUid);
-                        setActiveEffect(null);
-                    }
-                    const effectItem = createEffectItem(drawnCell.item.effect);
-                    handleIncomingItems([effectItem], baseInv);
-                    showToast(`${t("获得效果")}：${t(drawnCell.item.effect.name)}`, 'info');
-                } else {
-                    handleDraw(makePool());
-                }
-                setDrawAnimInfo(prev => prev ? { ...prev, phase: 'exit' } : null);
+                // Phase 2: drawn item flies to inventory (500ms)
+                setDrawAnimInfo(prev => prev ? { ...prev, phase: 'fly' } : null);
 
                 setTimeout(() => {
-                    // Phase 4: refresh cells, new items enter (350ms)
-                    setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
-                    setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol, neededNames));
+                    // Phase 3: execute draw + other cells fade out (400ms)
+                    if (affixKey === 'fragmented') {
+                        handleDraw(makePool());
+                    } else if (drawnIsEffect) {
+                        setGold(prev => prev - cost);
+                        setDrawCount(prev => prev + 1);
+                        let baseInv = undefined;
+                        if (activeEffect) {
+                            baseInv = inventory.filter(i => i?.uid !== activeEffect.itemUid);
+                            setActiveEffect(null);
+                        }
+                        const effectItem = createEffectItem(drawnCell.item.effect);
+                        handleIncomingItems([effectItem], baseInv);
+                        showToast(`${t("获得效果")}：${t(drawnCell.item.effect.name)}`, 'info');
+                    } else {
+                        handleDraw(makePool());
+                    }
+                    setDrawAnimInfo(prev => prev ? { ...prev, phase: 'exit' } : null);
 
                     setTimeout(() => {
-                        setDrawAnimInfo(null);
-                    }, 350);
-                }, 400);
-            }, 500);
-        }, 300);
+                        // Phase 4: refresh cells, new items enter (350ms)
+                        setDrawAnimInfo(prev => prev ? { ...prev, phase: 'enter' } : null);
+                        setItemMap(prev => refreshCoveredCells(prev, anchorRow, anchorCol, neededNames));
+
+                        setTimeout(() => {
+                            setDrawAnimInfo(null);
+                        }, 350);
+                    }, 400);
+                }, 500);
+            }, 300);
+        };
+
+        if (lotteryAnimEnabled && drawableCells.length > 1) {
+            // Lottery spin animation: highlight cycles through cells, decelerating
+            // Z-order: top-left → top-right → bottom-right → bottom-left
+            const sorted = [...drawableCells].sort((a, b) => a.row - b.row || a.col - b.col);
+            const zOrder = sorted.length === 4 ? [sorted[0], sorted[1], sorted[3], sorted[2]] : sorted;
+            const cellKeys = zOrder.map(c => `${c.row},${c.col}`);
+            const winnerKey = `${drawnCell.row},${drawnCell.col}`;
+            const winnerIdx = cellKeys.indexOf(winnerKey);
+            // Total steps: 3 full cycles + land on winner
+            const fullCycles = 3;
+            const totalSteps = fullCycles * cellKeys.length + winnerIdx;
+            const minDelay = 60;
+            const maxDelay = 280;
+
+            // Pre-compute all delays with cubic easing
+            const delays = [];
+            for (let i = 0; i < totalSteps + 1; i++) {
+                const progress = i / totalSteps;
+                const eased = progress * progress * progress;
+                delays.push(Math.round(minDelay + (maxDelay - minDelay) * eased));
+            }
+
+            let step = 0;
+            const spin = () => {
+                const currentKey = cellKeys[step % cellKeys.length];
+                setDrawAnimInfo({
+                    spinKey: currentKey,
+                    coveredKeys,
+                    phase: 'spinning',
+                });
+                step++;
+                if (step <= totalSteps) {
+                    setTimeout(spin, delays[step]);
+                } else {
+                    // Pulse on winner, then continue
+                    setDrawAnimInfo({
+                        spinKey: winnerKey,
+                        coveredKeys,
+                        phase: 'pulse',
+                    });
+                    setTimeout(runDrawAnimation, 500);
+                }
+            };
+            spin();
+        } else {
+            runDrawAnimation();
+        }
     };
 
     const handleDraw = (pool) => {
