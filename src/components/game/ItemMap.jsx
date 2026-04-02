@@ -62,7 +62,7 @@ function FlyingItem({ icon, startRect }) {
  *   'exit'      — draw executes, other 3 cells fade out
  *   'enter'     — 4 new items scale in
  */
-function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHoverCoverage, disabled, activeEffect }) {
+function ItemMap({ itemMap, drawAnimInfo, orders, emergencyOrders, rarityConfig, onPlace, onHoverCoverage, disabled, activeEffect }) {
   const { t } = useLanguage();
   const [hoverAnchor, setHoverAnchor] = useState(null);
   const [flyingItem, setFlyingItem] = useState(null);
@@ -87,22 +87,26 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
   }, [drawAnimInfo?.phase, drawAnimInfo?.drawnKey]);
 
   const neededItems = useMemo(() => {
-    if (!milestone || !rarityConfig) return new Map();
+    if (!rarityConfig) return new Map();
+    const allOrders = [...(orders || []).filter(Boolean), ...(emergencyOrders || [])];
+    if (allOrders.length === 0) return new Map();
     const rarityOrder = rarityConfig.map(r => r.id);
     const needs = new Map();
-    for (const cell of milestone.cells) {
-      if (cell.filledItem) continue;
-      const existing = needs.get(cell.itemName);
-      if (!existing) {
-        needs.set(cell.itemName, cell.requiredRarity);
-      } else {
-        const existingIdx = rarityOrder.indexOf(existing);
-        const newIdx = rarityOrder.indexOf(cell.requiredRarity);
-        if (newIdx > existingIdx) needs.set(cell.itemName, cell.requiredRarity);
+    for (const order of allOrders) {
+      for (const req of order.requirements) {
+        const reqRarityId = req.requiredRarity?.id || 'common';
+        const existing = needs.get(req.name);
+        if (!existing) {
+          needs.set(req.name, reqRarityId);
+        } else {
+          const existingIdx = rarityOrder.indexOf(existing);
+          const newIdx = rarityOrder.indexOf(reqRarityId);
+          if (newIdx > existingIdx) needs.set(req.name, reqRarityId);
+        }
       }
     }
     return needs;
-  }, [milestone, rarityConfig]);
+  }, [orders, emergencyOrders, rarityConfig]);
 
   const isTargetedMode = activeEffect?.effectId === 'targeted';
 
@@ -291,7 +295,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
               ref={el => { cellRefs.current[cellKey] = el; }}
               className={`
                 relative flex flex-col items-center justify-center
-                w-16 h-16 border-2 border-solid select-none
+                w-24 h-24 border-2 border-solid select-none
                 transition-all duration-300
                 ${adj ? '' : 'rounded-md'}
                 ${bgClass}
@@ -303,10 +307,10 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
             >
               {isEffectCell ? (
                 <>
-                  <span className={`text-xl leading-none transition-all duration-300 ${iconClass}`}>
+                  <span className={`text-3xl leading-none transition-all duration-300 ${iconClass}`}>
                     {EFFECT_ITEM_ICONS[item.effect.id] || '✨'}
                   </span>
-                  <span className={`text-[10px] font-bold text-slate-600 mt-0.5 truncate max-w-[56px] transition-all duration-300 ${
+                  <span className={`text-xs font-bold text-slate-600 mt-1 truncate max-w-[88px] transition-all duration-300 ${
                     textVisible ? '' : 'opacity-0'
                   }`}>
                     {t(item.effect.name)}
@@ -314,16 +318,16 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
                 </>
               ) : (
                 <>
-                  <span className={`text-xl leading-none transition-all duration-300 ${iconClass}`}>
+                  <span className={`text-3xl leading-none transition-all duration-300 ${iconClass}`}>
                     {item.icon}
                   </span>
-                  <span className={`text-[10px] text-slate-500 mt-0.5 truncate max-w-[56px] transition-all duration-300 ${
+                  <span className={`text-xs text-slate-500 mt-1 truncate max-w-[88px] transition-all duration-300 ${
                     textVisible ? '' : 'opacity-0'
                   }`}>
                     {t(item.name)}
                   </span>
                   {neededRarity && textVisible && (
-                    <span className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full border border-white shadow-sm ${RARITY_DOT_COLOR[neededRarity] || 'bg-slate-400'}`} />
+                    <span className={`absolute top-1.5 right-1.5 w-3.5 h-3.5 rounded-full border border-white shadow-sm ${RARITY_DOT_COLOR[neededRarity] || 'bg-slate-400'}`} />
                   )}
                 </>
               )}

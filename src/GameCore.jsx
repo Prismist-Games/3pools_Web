@@ -546,7 +546,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     <ItemMap
                                         itemMap={itemMap}
                                         drawAnimInfo={drawAnimInfo}
-                                        milestone={null}
+                                        orders={orders}
+                                        emergencyOrders={emergencyOrders}
                                         rarityConfig={config.rarity}
                                         onPlace={handleMapPlace}
                                         activeEffect={activeEffect}
