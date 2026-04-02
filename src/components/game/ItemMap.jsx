@@ -131,7 +131,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
     if (isTargetedMode) {
       setHoverAnchor({ row, col });
       const cell = itemMap[row]?.[col];
-      if (onHoverCoverage) onHoverCoverage(cell && !cell.isEffect ? [cell.name] : []);
+      if (onHoverCoverage) onHoverCoverage(cell && !cell.isEffect && !cell.isEvacuation ? [cell.name] : []);
       return;
     }
 
@@ -144,7 +144,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
       const names = FIXED_SHAPE.cells
         .map(([dr, dc]) => {
           const cell = itemMap[anchor.row + dr]?.[anchor.col + dc];
-          return cell && !cell.isEffect ? cell.name : null;
+          return cell && !cell.isEffect && !cell.isEvacuation ? cell.name : null;
         })
         .filter(Boolean);
       onHoverCoverage(names);
@@ -182,7 +182,7 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
     const getName = (r, c) => {
       if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) return null;
       const item = itemMap[r][c];
-      if (!item || item.isEffect) return null;
+      if (!item || item.isEffect || item.isEvacuation) return null;
       return item.name;
     };
     for (let r = 0; r < MAP_ROWS; r++) {
@@ -239,11 +239,12 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           const col = i % MAP_COLS;
           const item = itemMap[row][col];
           const isEffectCell = item.isEffect;
+          const isEvacCell = item.isEvacuation;
           const cellKey = `${row},${col}`;
           const isCovered = coveredCells.has(cellKey);
 
-          // For effect cells, no rarity highlighting from orders
-          const neededRarity = isEffectCell ? null : neededItems.get(item.name);
+          // For effect/evacuation cells, no rarity highlighting from orders
+          const neededRarity = (isEffectCell || isEvacCell) ? null : neededItems.get(item.name);
 
           const isDrawn = drawnKey === cellKey;
           const isCoveredAnim = coveredKeysAnim?.has(cellKey);
@@ -254,7 +255,10 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
           let iconClass = '';
           let textVisible = true;
 
-          if (isEffectCell && (phase === 'exit' || phase === 'enter') && isCoveredAnim) {
+          if (isEvacCell) {
+            // Evacuation cell always has its own fixed style, ignores animations
+            bgClass = 'bg-indigo-50 border-indigo-300';
+          } else if (isEffectCell && (phase === 'exit' || phase === 'enter') && isCoveredAnim) {
             // Effect cell stays visible and stable during animation
             bgClass = 'bg-white border-slate-200';
             iconClass = '';
@@ -324,7 +328,14 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
               onMouseEnter={() => handleCellHover(row, col)}
               onClick={() => handleCellClick(row, col)}
             >
-              {isEffectCell ? (
+              {isEvacCell ? (
+                <>
+                  <span className="text-2xl leading-none">🚀</span>
+                  <span className="text-[10px] font-bold text-indigo-600 mt-0.5">
+                    {t('撤离点')}
+                  </span>
+                </>
+              ) : isEffectCell ? (
                 <>
                   <span className={`text-xl leading-none transition-all duration-300 ${iconClass}`}>
                     {EFFECT_ITEM_ICONS[item.effect.id] || '✨'}
@@ -374,20 +385,24 @@ function ItemMap({ itemMap, drawAnimInfo, milestone, rarityConfig, onPlace, onHo
             {/* Corner dot — position marker */}
             <div className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-cyan-400 border-2 border-white shadow-sm" />
 
-            {/* Direction arrows — visible when interactable */}
+            {/* Direction arrows — 8 directions, visible when interactable */}
             {!isAnimating && !disabled && validDirs.map(({ direction }) => {
               const pos = {
-                topLeft:     { top: '-18px', left: '-18px',  arrow: '↖' },
-                topRight:    { top: '-18px', right: '-18px', arrow: '↗' },
-                bottomLeft:  { bottom: '-18px', left: '-18px',  arrow: '↙' },
-                bottomRight: { bottom: '-18px', right: '-18px', arrow: '↘' },
+                upLeft:    { top: '-18px', left: '12px',   arrow: '↑' },
+                upRight:   { top: '-18px', right: '12px',  arrow: '↑' },
+                rightUp:   { top: '12px',  right: '-18px', arrow: '→' },
+                rightDown: { bottom: '12px', right: '-18px', arrow: '→' },
+                downRight: { bottom: '-18px', right: '12px', arrow: '↓' },
+                downLeft:  { bottom: '-18px', left: '12px',  arrow: '↓' },
+                leftDown:  { bottom: '12px', left: '-18px',  arrow: '←' },
+                leftUp:    { top: '12px',  left: '-18px',  arrow: '←' },
               }[direction];
               if (!pos) return null;
               const { arrow, ...style } = pos;
               return (
                 <div
                   key={direction}
-                  className="absolute w-5 h-5 flex items-center justify-center rounded-full bg-cyan-500/20 text-cyan-600 text-xs font-bold leading-none"
+                  className="absolute w-4 h-4 flex items-center justify-center rounded-full bg-cyan-500/20 text-cyan-600 text-[10px] font-bold leading-none"
                   style={style}
                 >
                   {arrow}

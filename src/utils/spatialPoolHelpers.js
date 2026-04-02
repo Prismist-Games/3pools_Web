@@ -26,9 +26,17 @@ export function randomCell(neededNames = null) {
 
 // --- Item map generation ---
 
+/** The evacuation cell object placed on the map. */
+export const EVACUATION_CELL = {
+  name: '撤离点',
+  icon: '🚀',
+  isEvacuation: true,
+};
+
 /**
  * Generate the item map grid.
  * Only needed items appear if neededNames is provided.
+ * Places one fixed evacuation cell at a random position.
  */
 export function generateItemMap(neededNames = null) {
   const grid = [];
@@ -39,6 +47,14 @@ export function generateItemMap(neededNames = null) {
     }
     grid.push(row);
   }
+  // Place evacuation cell at a random position (avoid center where avatar spawns)
+  const center = getDefaultAvatarPos();
+  let er, ec;
+  do {
+    er = Math.floor(Math.random() * MAP_ROWS);
+    ec = Math.floor(Math.random() * MAP_COLS);
+  } while (er === center.row && ec === center.col);
+  grid[er][ec] = { ...EVACUATION_CELL };
   return grid;
 }
 
@@ -51,6 +67,7 @@ export function refreshCoveredCells(itemMap, anchorRow, anchorCol, neededNames =
     const r = anchorRow + dr;
     const c = anchorCol + dc;
     if (r < 0 || r >= MAP_ROWS || c < 0 || c >= MAP_COLS) continue;
+    if (newMap[r][c]?.isEvacuation) continue; // never refresh evacuation cell
     newMap[r][c] = randomCell(neededNames);
   }
   return newMap;
@@ -71,7 +88,7 @@ export function computeClusterSizes(itemMap) {
 
   const getName = (r, c) => {
     const item = itemMap[r][c];
-    if (!item || item.isEffect) return null;
+    if (!item || item.isEffect || item.isEvacuation) return null;
     return item.name;
   };
 
@@ -114,7 +131,7 @@ export function getClusterCells(itemMap, row, col) {
   const rows = itemMap.length;
   const cols = itemMap[0].length;
   const item = itemMap[row]?.[col];
-  if (!item || item.isEffect) return [[row, col]];
+  if (!item || item.isEffect || item.isEvacuation) return [[row, col]];
 
   const name = item.name;
   const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
@@ -129,7 +146,7 @@ export function getClusterCells(itemMap, row, col) {
       const nr = cr + dr, nc = cc + dc;
       if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc]) {
         const nItem = itemMap[nr][nc];
-        if (nItem && !nItem.isEffect && nItem.name === name) {
+        if (nItem && !nItem.isEffect && !nItem.isEvacuation && nItem.name === name) {
           visited[nr][nc] = true;
           queue.push([nr, nc]);
         }
@@ -164,6 +181,7 @@ export function refreshWithClusters(itemMap, clusterSeeds, extraCells = [], need
   for (const key of toRefresh) {
     const [r, c] = key.split(',').map(Number);
     if (r >= 0 && r < MAP_ROWS && c >= 0 && c < MAP_COLS) {
+      if (newMap[r][c]?.isEvacuation) continue; // never refresh evacuation cell
       newMap[r][c] = randomCell(neededNames);
     }
   }
@@ -204,42 +222,59 @@ export function isValidPlacement(anchorRow, anchorCol) {
 }
 
 /**
+ * 8-direction anchor offsets from avatar position.
+ * The 2×2 block never includes the avatar cell itself.
+ *
+ *   上左  上右          ↑↑
+ *   左上       右上    ←← [A] →→
+ *   左下       右下     ↓↓
+ *   下左  下右
+ */
+const DIRECTION_ANCHORS = [
+  { dr: -2, dc: -1, direction: 'upLeft' },     // 上左
+  { dr: -2, dc:  0, direction: 'upRight' },    // 上右
+  { dr: -1, dc:  1, direction: 'rightUp' },    // 右上
+  { dr:  0, dc:  1, direction: 'rightDown' },  // 右下
+  { dr:  1, dc:  0, direction: 'downRight' },  // 下右
+  { dr:  1, dc: -1, direction: 'downLeft' },   // 下左
+  { dr:  0, dc: -2, direction: 'leftDown' },   // 左下
+  { dr: -1, dc: -2, direction: 'leftUp' },     // 左上
+];
+
+/**
  * Given a hovered cell and the avatar position, determine the valid 2×2 anchor.
- * The avatar is always included in the 2×2. The hovered cell's position relative
- * to the avatar determines the exploration direction (one of 4 diagonals).
+ * Uses 8 directions — the avatar cell is never part of the 2×2.
  * Returns { row, col } anchor or null if no valid placement exists.
  */
 export function getDirectionAnchor(cellRow, cellCol, avatarRow, avatarCol) {
-  // Hovering the avatar cell itself doesn't select a direction
   if (cellRow === avatarRow && cellCol === avatarCol) return null;
 
-  // Determine anchor based on which quadrant the cell is in relative to avatar
-  const anchorRow = cellRow < avatarRow ? avatarRow - 1 : avatarRow;
-  const anchorCol = cellCol < avatarCol ? avatarCol - 1 : avatarCol;
+  for (const { dr, dc } of DIRECTION_ANCHORS) {
+    const anchorRow = avatarRow + dr;
+    const anchorCol = avatarCol + dc;
+    if (!isValidPlacement(anchorRow, anchorCol)) continue;
 
-  if (!isValidPlacement(anchorRow, anchorCol)) return null;
+    const inRange = FIXED_SHAPE.cells.some(([sdr, sdc]) =>
+      anchorRow + sdr === cellRow && anchorCol + sdc === cellCol
+    );
+    if (inRange) return { row: anchorRow, col: anchorCol };
+  }
 
-  // Verify the hovered cell is actually within this 2×2
-  const inRange = FIXED_SHAPE.cells.some(([dr, dc]) =>
-    anchorRow + dr === cellRow && anchorCol + dc === cellCol
-  );
-  if (!inRange) return null;
-
-  return { row: anchorRow, col: anchorCol };
+  return null;
 }
 
 /**
- * Get all valid 2×2 anchors reachable from the avatar position.
+ * Get all valid 2×2 anchors reachable from the avatar position (8 directions).
  * Returns array of { row, col, direction } objects.
  */
 export function getValidAvatarAnchors(avatarRow, avatarCol) {
-  const candidates = [
-    { row: avatarRow - 1, col: avatarCol - 1, direction: 'topLeft' },
-    { row: avatarRow - 1, col: avatarCol, direction: 'topRight' },
-    { row: avatarRow, col: avatarCol - 1, direction: 'bottomLeft' },
-    { row: avatarRow, col: avatarCol, direction: 'bottomRight' },
-  ];
-  return candidates.filter(c => isValidPlacement(c.row, c.col));
+  return DIRECTION_ANCHORS
+    .map(({ dr, dc, direction }) => ({
+      row: avatarRow + dr,
+      col: avatarCol + dc,
+      direction,
+    }))
+    .filter(c => isValidPlacement(c.row, c.col));
 }
 
 /** Default avatar starting position (center of grid). Computed dynamically for mutable MAP_ROWS/MAP_COLS. */

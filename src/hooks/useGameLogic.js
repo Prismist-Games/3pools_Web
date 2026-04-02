@@ -657,6 +657,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (activeEffect && activeEffect.effectId === 'targeted') {
             if (anchorRow < 0 || anchorRow >= itemMap.length || anchorCol < 0 || anchorCol >= itemMap[0].length) return;
             const cell = itemMap[anchorRow][anchorCol];
+            if (cell.isEvacuation) return; // can't draw from evacuation cell
             const cost = DEFAULT_DRAW.cost + activeEffect.effectConfig.cost;
             if (gold < cost) {
                 showToast(t("金币不足！"), "error");
@@ -693,8 +694,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!coverage) return;
 
         // Separate cell types in coverage
-        const itemCells = coverage.filter(c => !c.item.isEffect);
+        const itemCells = coverage.filter(c => !c.item.isEffect && !c.item.isEvacuation);
         const effectCells = coverage.filter(c => c.item.isEffect);
+        const evacCells = coverage.filter(c => c.item.isEvacuation);
 
         // Use activeEffect (from inventory) for quality, NOT frame coverage
         const affixConfig = activeEffect ? activeEffect.effectConfig : null;
@@ -740,13 +742,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Compute cluster sizes for quality bonus
         const clusterSizes = computeClusterSizes(itemMap);
 
-        // ALL cells participate in the draw lottery (items + effects + fate dice)
-        const drawableCells = [...itemCells, ...effectCells];
+        // ALL cells participate in the draw lottery (items + effects + evacuation)
+        const drawableCells = [...itemCells, ...effectCells, ...evacCells];
         if (drawableCells.length === 0) return;
 
         const drawnIndex = Math.floor(Math.random() * drawableCells.length);
         const drawnCell = drawableCells[drawnIndex];
         const drawnIsEffect = !!drawnCell.item.isEffect;
+        const drawnIsEvac = !!drawnCell.item.isEvacuation;
         const drawnClusterSize = clusterSizes[drawnCell.row][drawnCell.col];
 
         // Expand animation keys to include drawn cell's full cluster
@@ -796,8 +799,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             setTimeout(() => {
                 // Phase 3: execute draw + other cells fade out (400ms)
                 // Gold already checked upfront in handleMapPlace
-                // Fragmented always goes through handleDraw for 3 items
-                if (affixKey === 'fragmented') {
+                if (drawnIsEvac) {
+                    // Evacuation cell drawn — just pay cost, move avatar, no item
+                    setGold(prev => prev - cost);
+                    setDrawCount(prev => prev + 1);
+                    if (activeEffect) {
+                        setInventory(prev => prev.filter(i => i?.uid !== activeEffect.itemUid));
+                        setActiveEffect(null);
+                    }
+                } else if (affixKey === 'fragmented') {
+                    // Fragmented always goes through handleDraw for 3 items
                     handleDraw(makePool());
                 } else if (drawnIsEffect) {
                     setGold(prev => prev - cost);
@@ -1337,22 +1348,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const newInventory = [...inventory];
         newInventory[invIdx] = null;
 
-        // Check if evacuation becomes available:
-        // A task covering the evacuation cell was just completed
-        const evacCellIdx = updatedCells.findIndex(c => c.isEvacuation);
-        let evacuationAvailable = milestone.evacuationAvailable || false;
-        if (evacCellIdx >= 0) {
-            evacuationAvailable = updatedTasks.some(
-                task => task.isCompleted && task.cellIndices.includes(evacCellIdx)
-            );
-        }
-
         // Apply state updates
         setMilestone({
             ...milestone,
             cells: updatedCells,
             tasks: updatedTasks,
-            evacuationAvailable,
         });
         setInventory(newInventory);
         setSelectedSlot(null);
@@ -1366,19 +1366,30 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 'epic'
             );
         }
+
+        // All tasks completed → advance to next milestone
+        const allDone = updatedTasks.every(t => t.isCompleted);
+        if (allDone) {
+            showToast(t('里程碑完成！进入下一个里程碑'), 'epic');
+            setTimeout(() => {
+                setMilestoneNumber(prev => prev + 1);
+                setMilestone(null);
+            }, 800);
+        }
     };
 
-    const handleEvacuate = () => {
-        if (!milestone?.evacuationAvailable) return;
+    // Evacuation is available when avatar is standing on an evacuation cell
+    const evacuationAvailable = avatarPos && itemMap?.[avatarPos.row]?.[avatarPos.col]?.isEvacuation;
 
+    const handleEvacuate = () => {
+        if (!evacuationAvailable) return;
         // Reset gold
         setGold(config.global?.initialGold || currentStageConfig.initialGold);
+        // Refresh map (new items + new evacuation position), keep inventory & milestone
+        setItemMap(generateItemMap(neededNames));
+        setAvatarPos(getDefaultAvatarPos());
 
         showToast(t('撤离成功！金币已重置'), 'epic');
-        setTimeout(() => {
-            setMilestoneNumber(prev => prev + 1);
-            setMilestone(null);
-        }, 800);
     };
 
     return {
@@ -1410,6 +1421,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             skillState,
             toolSelectionMode,
             activeEffect,
+            evacuationAvailable,
         },
         actions: {
             showToast,
@@ -1441,6 +1453,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 if (gold < 1) return;
                 setGold(prev => prev - 1);
                 setItemMap(generateItemMap(neededNames));
+                setAvatarPos(getDefaultAvatarPos());
             },
             handleMapPlace,
         },

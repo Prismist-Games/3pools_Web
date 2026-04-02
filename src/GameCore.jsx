@@ -41,7 +41,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         skills, skillSelectionCandidates, skillState,
         toast, totalRecycleValue, selectedItemNames,
         toolSelectionMode,
-        activeEffect
+        activeEffect,
+        evacuationAvailable
     } = state;
 
     const {
@@ -578,7 +579,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         </button>
                                     )}
 
-                                    {milestone?.evacuationAvailable && !isRecycleMode && !pendingItem && !selectionMode && (
+                                    {evacuationAvailable && !isRecycleMode && !pendingItem && !selectionMode && (
                                         <button onClick={handleEvacuate} className="w-full flex items-center justify-center gap-2 bg-indigo-500 text-white border border-indigo-600 font-bold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-600 transition-transform active:scale-95 animate-pulse">
                                             🚀 {t("撤离")}
                                         </button>

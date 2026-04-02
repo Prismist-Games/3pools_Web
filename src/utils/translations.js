@@ -298,5 +298,6 @@ export const EN_TRANSLATIONS = {
     "撤离成功！金币已重置": "Evacuation successful! Gold reset",
     "里程碑完成！进入下一个里程碑": "Milestone complete! Moving to next",
     "撤离": "Evacuate",
+    "撤离点": "Evacuation",
     "撤离点数": "Dice Points",
 };
