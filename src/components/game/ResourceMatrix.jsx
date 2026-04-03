@@ -108,12 +108,29 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     }
 
     // Highlight effects
-    const highlightClass =
-        highlight === 'settled'  ? 'ring-3 ring-yellow-400 scale-110 z-20 shadow-lg shadow-yellow-200 transition-all duration-200' :
-        highlight === 'scanning' ? 'ring-2 ring-yellow-300 z-10 transition-all duration-75' :
-        highlight === 'scan-row' ? 'ring-1 ring-blue-200 transition-all duration-75' :
-        highlight === 'hover'    ? `scale-105 shadow-md z-10 transition-all duration-150${isConnected ? '' : ' ring-2 ring-blue-400/60'}` :
-        'transition-all duration-150';
+    let highlightClass;
+    let extraShadow = undefined;
+
+    if (highlight === 'settled') {
+        highlightClass = 'ring-3 ring-yellow-400 scale-110 z-20 shadow-lg shadow-yellow-200 transition-all duration-200';
+    } else if (highlight === 'scanning') {
+        highlightClass = 'ring-2 ring-yellow-300 z-10 transition-all duration-75';
+    } else if (highlight === 'scan-row') {
+        highlightClass = 'ring-1 ring-blue-200 transition-all duration-75';
+    } else if (highlight === 'hover') {
+        highlightClass = 'scale-105 z-10 transition-all duration-150';
+        // Build directional ring only on external (non-connected) sides
+        const ringColor = 'rgba(96,165,250,0.6)';
+        const ringW = 2.5;
+        const parts = ['0 4px 6px -1px rgba(0,0,0,0.1)', '0 2px 4px -2px rgba(0,0,0,0.1)']; // shadow-md
+        if (!top) parts.push(`inset 0 ${ringW}px 0 0 ${ringColor}`);
+        if (!bottom) parts.push(`inset 0 -${ringW}px 0 0 ${ringColor}`);
+        if (!left) parts.push(`inset ${ringW}px 0 0 0 ${ringColor}`);
+        if (!right) parts.push(`inset -${ringW}px 0 0 0 ${ringColor}`);
+        extraShadow = parts.join(', ');
+    } else {
+        highlightClass = 'transition-all duration-150';
+    }
 
     return (
         <div
@@ -124,6 +141,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
                 margin: `${top ? 0 : HALF}px ${right ? 0 : HALF}px ${bottom ? 0 : HALF}px ${left ? 0 : HALF}px`,
                 width: CELL_SIZE + (left ? HALF : 0) + (right ? HALF : 0),
                 height: CELL_SIZE + (top ? HALF : 0) + (bottom ? HALF : 0),
+                boxShadow: extraShadow,
             }}
             onMouseEnter={hasTip ? () => setHovered(true) : undefined}
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
