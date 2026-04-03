@@ -696,11 +696,18 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawAnimation, setDrawAnimation] = useState(null);
     const pendingDrawRef = useRef(null); // stores captured state for animation completion
+    const [lastDrawCell, setLastDrawCell] = useState(null); // { row, col } of last drawn cell, for persistent highlight & selection constraint
 
     const selectRowOrColumn = (type, index) => {
         // Guard: block during pending states or ongoing draw animation
         if (isDrawing || pendingItem || isSubmitMode || isRecycleMode || selectionMode || pendingQueue.length > 0 || isEvacuationMode || orderCandidates || modalContent) return;
         if (!matrix) return;
+
+        // Guard: constrain selection to the row/column of the last drawn cell
+        if (lastDrawCell) {
+            if (type === 'row' && index !== lastDrawCell.row) return;
+            if (type === 'col' && index !== lastDrawCell.col) return;
+        }
 
         // Collect cells from the selected row or column
         const gridSize = MATRIX_CONFIG.gridSize;
@@ -719,6 +726,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         // Filler items don't give rewards (same as old blank behavior)
         const cellType = rawCellType === 'filler' ? 'blank' : rawCellType;
+
+        // Clear persistent highlight from previous draw (new animation starting)
+        setLastDrawCell(null);
+
+        // Deduct 1 gold per draw
+        deductGold(1);
 
         // Block further clicks immediately
         setIsDrawing(true);
@@ -744,6 +757,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const onDrawAnimationComplete = () => {
         const pending = pendingDrawRef.current;
         if (!pending) return;
+
+        // Set persistent highlight on the drawn cell before clearing animation
+        setLastDrawCell({ row: pending.picked.row, col: pending.picked.col });
+
         pendingDrawRef.current = null;
         setDrawAnimation(null);
 
@@ -1932,6 +1949,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setHoveredPoolItemNames([]);
     };
 
+    // 矩阵行/列悬浮时更新高亮物品列表
+    const handleMatrixHoverItems = (names) => {
+        setHoveredPoolItemNames(names);
+        setHoveredPoolId(names.length > 0 ? '_matrix_line' : null);
+    };
+
     // Evacuate: Trigger submission check for emergency orders
     const handleEvacuate = () => {
         toggleEvacuationMode();
@@ -2014,7 +2037,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             currentStageConfig,
             maxInventorySize,
             drawCount,
-            matrix, gravityEvent, lastDraw, isDrawing, drawAnimation, explodingCells, goldFlash,
+            matrix, gravityEvent, lastDraw, isDrawing, drawAnimation, explodingCells, goldFlash, lastDrawCell,
             orders,
             orderRefreshCount,
             REFRESH_MAX,
@@ -2064,6 +2087,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleSortInventory,
             handlePoolHover,
             handlePoolLeave,
+            handleMatrixHoverItems,
             handleEvacuate,
             addInventoryItem,
             handleEvacuationContinue,

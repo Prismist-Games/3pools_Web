@@ -34,9 +34,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
 
     const {
         gold, score, currentStageConfig, maxInventorySize,
-        drawCount, matrix, gravityEvent, lastDraw, isDrawing, drawAnimation, explodingCells, goldFlash, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
+        drawCount, matrix, gravityEvent, lastDraw, isDrawing, drawAnimation, explodingCells, goldFlash, lastDrawCell, orders, orderRefreshCount, REFRESH_MAX, orderCandidates, orderCandidateQueue, emergencyOrders, emergencyDifficulty, inventory,
         pendingItem, pendingQueue, selectedSlot,
-        hoveredItemName, hoveredSlotIndex,
+        hoveredItemName, hoveredSlotIndex, hoveredPoolId, hoveredPoolItemNames,
         isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
         modalContent, selectionMode,
         skills, skillSelectionCandidates, skillState,
@@ -73,7 +73,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleToolItemUse,
         handleUnassignFromOrder,
         handleOrderSlotClick,
-        handleCancelToolSelection
+        handleCancelToolSelection,
+        handleMatrixHoverItems,
     } = actions;
 
     const { hasSkill } = helpers;
@@ -491,9 +492,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                     inventory={inventory}
                                                     selectedIndices={selectedIndices}
                                                     hasSkill={hasSkill}
-                                                    hoveredPoolId={null}
+                                                    hoveredPoolId={hoveredPoolId}
                                                     hoveredItemName={hoveredItemName}
-                                                    hoveredPoolItemNames={[]}
+                                                    hoveredPoolItemNames={hoveredPoolItemNames}
                                                     selectedItemNames={selectedItemNames}
 
                                                     isBeingReplaced={false}
@@ -534,9 +535,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         inventory={inventory}
                                         selectedIndices={selectedIndices}
                                         hasSkill={hasSkill}
-                                        hoveredPoolId={null}
+                                        hoveredPoolId={hoveredPoolId}
                                         hoveredItemName={hoveredItemName}
-                                        hoveredPoolItemNames={[]}
+                                        hoveredPoolItemNames={hoveredPoolItemNames}
                                         selectedItemNames={selectedItemNames}
                                         isBeingReplaced={orderCandidates?.slotIndex === idx}
                                         orderSlotAssignments={orderSlotAssignments}
@@ -608,9 +609,9 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                             inventory={inventory}
                                                             selectedIndices={[]}
                                                             hasSkill={hasSkill}
-                                                            hoveredPoolId={null}
+                                                            hoveredPoolId={hoveredPoolId}
                                                             hoveredItemName={hoveredItemName}
-                                                            hoveredPoolItemNames={[]}
+                                                            hoveredPoolItemNames={hoveredPoolItemNames}
                                                             selectedItemNames={[]}
                                                             isBeingReplaced={false}
                                                             isCandidate={true}
@@ -640,11 +641,13 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     onSelectRow={(rowIdx) => selectRowOrColumn('row', rowIdx)}
                                     onSelectCol={(colIdx) => selectRowOrColumn('col', colIdx)}
                                     disabled={isDrawing || !!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || isEvacuationMode || !!orderCandidates}
+                                    lastDrawCell={lastDrawCell}
                                     orders={orders}
                                     emergencyOrders={emergencyOrders}
                                     inventory={inventory}
                                     drawAnimation={drawAnimation}
                                     onDrawAnimationComplete={onDrawAnimationComplete}
+                                    onHoveredItemsChange={handleMatrixHoverItems}
                                 />
                             </div>
 

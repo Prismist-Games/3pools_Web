@@ -12,10 +12,29 @@ const RARITY_BG = {
     mythic: 'bg-red-50 border-red-400',
 };
 
-const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, orders = [], emergencyOrders = [], inventory = [], drawAnimation, onDrawAnimationComplete }, ref) => {
+const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, explodingCells, onSelectRow, onSelectCol, disabled, lastDrawCell, orders = [], emergencyOrders = [], inventory = [], drawAnimation, onDrawAnimationComplete, onHoveredItemsChange }, ref) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
+
+    // 悬浮行/列时，收集该行/列中的物品名通知上层（用于订单高亮联动）
+    useEffect(() => {
+        if (!matrix || !onHoveredItemsChange) return;
+        const names = [];
+        const gridSize = matrix.length;
+        if (hoveredRow !== null) {
+            for (let c = 0; c < gridSize; c++) {
+                const cell = matrix[hoveredRow]?.[c];
+                if (cell?.item?.name) names.push(cell.item.name);
+            }
+        } else if (hoveredCol !== null) {
+            for (let r = 0; r < gridSize; r++) {
+                const cell = matrix[r]?.[hoveredCol];
+                if (cell?.item?.name) names.push(cell.item.name);
+            }
+        }
+        onHoveredItemsChange(names);
+    }, [hoveredRow, hoveredCol, matrix, onHoveredItemsChange]);
 
     // Gravity animation state
     const [animatingCells, setAnimatingCells] = useState(new Set());
@@ -192,13 +211,25 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
         return <div className="flex items-center justify-center py-12 text-slate-400 text-sm">{t("生成矩阵中...")}</div>;
     }
 
+    const isRowDisabled = (rowIdx) => {
+        if (disabled) return true;
+        if (lastDrawCell && rowIdx !== lastDrawCell.row) return true;
+        return false;
+    };
+
+    const isColDisabled = (colIdx) => {
+        if (disabled) return true;
+        if (lastDrawCell && colIdx !== lastDrawCell.col) return true;
+        return false;
+    };
+
     const handleRowClick = (rowIdx) => {
-        if (disabled) return;
+        if (isRowDisabled(rowIdx)) return;
         onSelectRow?.(rowIdx);
     };
 
     const handleColClick = (colIdx) => {
-        if (disabled) return;
+        if (isColDisabled(colIdx)) return;
         onSelectCol?.(colIdx);
     };
 
@@ -240,6 +271,14 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                     animation: cycling-pulse 0.4s ease-out forwards;
                 }
 
+                @keyframes last-draw-glow {
+                    0%, 100% { box-shadow: 0 0 6px 2px rgba(250, 204, 21, 0.4); }
+                    50% { box-shadow: 0 0 12px 4px rgba(250, 204, 21, 0.7); }
+                }
+                .anim-last-draw {
+                    animation: last-draw-glow 2s ease-in-out infinite;
+                }
+
             `}</style>
 
             <div className="matrix-unified" ref={ref}>
@@ -247,49 +286,67 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                 <div />
 
                 {/* [0, 1..N] column buttons */}
-                {Array.from({ length: GRID_SIZE }).map((_, c) => (
-                    <button
-                        key={`col-${c}`}
-                        onClick={() => handleColClick(c)}
-                        onMouseEnter={() => setHoveredCol(c)}
-                        onMouseLeave={() => setHoveredCol(null)}
-                        disabled={disabled}
-                        className={`
-                            flex items-center justify-center font-black text-xs
-                            transition-all duration-150 rounded-t-lg border-2 border-b-0 self-end
-                            ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105 active:scale-95'}
-                            ${hoveredCol === c && !disabled
-                                ? 'bg-blue-500 text-white border-blue-500 shadow-lg'
-                                : 'bg-white text-slate-500 border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300'
-                            }
-                        `}
-                    >
-                        {t("列")}{c + 1}
-                    </button>
-                ))}
+                {Array.from({ length: GRID_SIZE }).map((_, c) => {
+                    const colDisabled = isColDisabled(c);
+                    const colAvailable = !colDisabled && lastDrawCell && lastDrawCell.col === c;
+                    return (
+                        <button
+                            key={`col-${c}`}
+                            onClick={() => handleColClick(c)}
+                            onMouseEnter={() => setHoveredCol(c)}
+                            onMouseLeave={() => setHoveredCol(null)}
+                            disabled={colDisabled}
+                            className={`
+                                flex items-center justify-center font-black text-xs
+                                transition-all duration-150 rounded-t-lg border-2 border-b-0 self-end
+                                ${colDisabled ? 'opacity-30 cursor-not-allowed bg-slate-100 text-slate-300 border-slate-200' : 'cursor-pointer hover:scale-105 active:scale-95'}
+                                ${hoveredCol === c && !colDisabled
+                                    ? 'bg-blue-500 text-white border-blue-500 shadow-lg'
+                                    : colAvailable
+                                        ? 'bg-yellow-50 text-yellow-700 border-yellow-400 shadow-md hover:bg-yellow-100 hover:text-yellow-800 hover:border-yellow-500'
+                                        : !colDisabled
+                                            ? 'bg-white text-slate-500 border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300'
+                                            : ''
+                                }
+                            `}
+                        >
+                            {t("列")}{c + 1}
+                        </button>
+                    );
+                })}
 
                 {/* Data rows: [r+1, 0] = row button, [r+1, c+1] = cell */}
                 {matrix.map((row, r) => (
                     <React.Fragment key={`row-${r}`}>
                         {/* Row button */}
-                        <button
-                            onClick={() => handleRowClick(r)}
-                            onMouseEnter={() => setHoveredRow(r)}
-                            onMouseLeave={() => setHoveredRow(null)}
-                            disabled={disabled}
-                            className={`
-                                flex items-center justify-center font-black text-xs
-                                transition-all duration-150 rounded-l-lg border-2 border-r-0 self-center
-                                ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105 active:scale-95'}
-                                ${hoveredRow === r && !disabled
-                                    ? 'bg-blue-500 text-white border-blue-500 shadow-lg'
-                                    : 'bg-white text-slate-500 border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300'
-                                }
-                            `}
-                            style={{ height: 'var(--cell)' }}
-                        >
-                            {t("行")}{r + 1}
-                        </button>
+                        {(() => {
+                            const rowDisabled = isRowDisabled(r);
+                            const rowAvailable = !rowDisabled && lastDrawCell && lastDrawCell.row === r;
+                            return (
+                                <button
+                                    onClick={() => handleRowClick(r)}
+                                    onMouseEnter={() => setHoveredRow(r)}
+                                    onMouseLeave={() => setHoveredRow(null)}
+                                    disabled={rowDisabled}
+                                    className={`
+                                        flex items-center justify-center font-black text-xs
+                                        transition-all duration-150 rounded-l-lg border-2 border-r-0 self-center
+                                        ${rowDisabled ? 'opacity-30 cursor-not-allowed bg-slate-100 text-slate-300 border-slate-200' : 'cursor-pointer hover:scale-105 active:scale-95'}
+                                        ${hoveredRow === r && !rowDisabled
+                                            ? 'bg-blue-500 text-white border-blue-500 shadow-lg'
+                                            : rowAvailable
+                                                ? 'bg-yellow-50 text-yellow-700 border-yellow-400 shadow-md hover:bg-yellow-100 hover:text-yellow-800 hover:border-yellow-500'
+                                                : !rowDisabled
+                                                    ? 'bg-white text-slate-500 border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300'
+                                                    : ''
+                                        }
+                                    `}
+                                    style={{ height: 'var(--cell)' }}
+                                >
+                                    {t("行")}{r + 1}
+                                </button>
+                            );
+                        })()}
 
                         {/* Matrix cells for this row */}
                         {row.map((cell, c) => {
@@ -313,6 +370,11 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                             );
                             const isPulsing = cyclingPulse && cyclingPulse.row === r && cyclingPulse.col === c;
 
+                            // Persistent highlight for last drawn cell (lower priority than cycling animation)
+                            const isLastDrawCell = lastDrawCell && lastDrawCell.row === r && lastDrawCell.col === c;
+                            const hasCyclingEffect = isCyclingTarget || isInCyclingLine || isPulsing;
+                            const showLastDrawHighlight = isLastDrawCell && !hasCyclingEffect;
+
                             return (
                                 <div
                                     key={`${r}-${c}-${cell.uid}`}
@@ -323,7 +385,8 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                                         ${isCyclingTarget ? 'ring-4 ring-yellow-400 ring-offset-1 z-20 scale-110 border-yellow-500' : ''}
                                         ${!isCyclingTarget && isInCyclingLine && !isPicking ? 'ring-2 ring-amber-200 ring-offset-1 z-10' : ''}
                                         ${isPulsing ? 'anim-cycling-pulse ring-4 ring-yellow-400 ring-offset-1 z-20 scale-110 border-yellow-500' : ''}
-                                        ${!isCyclingTarget && !isInCyclingLine && !isPulsing && isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
+                                        ${showLastDrawHighlight ? 'anim-last-draw ring-3 ring-yellow-400 ring-offset-2 z-10 border-yellow-400 scale-105' : ''}
+                                        ${!isCyclingTarget && !isInCyclingLine && !isPulsing && !showLastDrawHighlight && isHighlighted ? 'ring-2 ring-blue-400 ring-offset-1 z-10 scale-105' : ''}
                                         ${isDropping ? 'anim-drop' : ''}
                                         ${isNewTop ? 'anim-new-top' : ''}
                                         ${!isDropping && !isNewTop ? 'transition-all duration-150' : ''}
