@@ -95,15 +95,13 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         bgClass = 'bg-amber-100 border-amber-400';
     } else if (cell.type === 'item') {
         const size = cell.shapeSize || 1;
-        const bg = size >= 4 ? 'bg-violet-100 border-violet-400'
-                 : size >= 3 ? 'bg-sky-100 border-sky-400'
-                 : size >= 2 ? 'bg-emerald-100 border-emerald-400'
-                 : 'bg-white border-gray-300';
-        // Internal borders match background to hide seam
-        const bT = top ? 'border-t-transparent' : '';
-        const bB = bottom ? 'border-b-transparent' : '';
-        const bL = left ? 'border-l-transparent' : '';
-        const bR = right ? 'border-r-transparent' : '';
+        const bg = size >= 4 ? 'bg-violet-100' : size >= 3 ? 'bg-sky-100' : size >= 2 ? 'bg-emerald-100' : 'bg-white';
+        const borderColor = size >= 4 ? 'border-violet-400' : size >= 3 ? 'border-sky-400' : size >= 2 ? 'border-emerald-400' : 'border-gray-300';
+        // Internal sides: no border at all
+        const bT = top ? 'border-t-0' : borderColor;
+        const bB = bottom ? 'border-b-0' : borderColor;
+        const bL = left ? 'border-l-0' : borderColor;
+        const bR = right ? 'border-r-0' : borderColor;
         bgClass = `${bg} ${bT} ${bB} ${bL} ${bR}`;
     } else {
         bgClass = 'bg-white border-gray-300';
