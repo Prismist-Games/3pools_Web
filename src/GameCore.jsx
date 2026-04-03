@@ -16,7 +16,7 @@ const GameCore = () => {
         hp, doomGrid, doomLevel, dangerCount,
         doomResolutionResult,
         inventory, maxInventorySize,
-        toast, modalContent,
+        toast, clearToast, modalContent,
         startGame, selectRow, endTurn, continueToNextTurn,
         handleEvacuate, handleReset,
     } = state;
@@ -255,7 +255,7 @@ const GameCore = () => {
                 )}
 
                 {/* Toast */}
-                {toast && <Toast key={toast.id} message={toast.message} type={toast.type} />}
+                {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
             </div>
         </div>
     );

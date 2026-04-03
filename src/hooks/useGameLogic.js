@@ -105,6 +105,9 @@ export const useGameLogic = (config) => {
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
 
+        // Clear previous doom resolution display
+        setDoomResolutionResult(null);
+
         // Get active cells in this row (not yet removed)
         const row = matrix[rowIndex];
         const activeCells = [];
@@ -190,19 +193,16 @@ export const useGameLogic = (config) => {
     // =============================================
 
     const addToInventory = (itemCell) => {
-        setInventory(prev => {
-            if (prev.length >= maxInventorySize) {
-                // Inventory full — for prototype, show toast and discard
-                showToast(t('背包已满'), 'error');
-                return prev;
-            }
-            return [...prev, {
-                name: itemCell.item.name,
-                icon: itemCell.item.icon,
-                poolId: itemCell.item.poolId,
-                uid: itemCell.uid,
-            }];
-        });
+        if (inventory.length >= maxInventorySize) {
+            showToast(t('背包已满'), 'error');
+            return;
+        }
+        setInventory(prev => [...prev, {
+            name: itemCell.item.name,
+            icon: itemCell.item.icon,
+            poolId: itemCell.item.poolId,
+            uid: itemCell.uid,
+        }]);
     };
 
     // =============================================
@@ -290,6 +290,10 @@ export const useGameLogic = (config) => {
         setToast({ message, type, id: Date.now() });
     };
 
+    const clearToast = () => {
+        setToast(null);
+    };
+
     // =============================================
     // RETURN
     // =============================================
@@ -318,6 +322,7 @@ export const useGameLogic = (config) => {
 
         // UI
         toast,
+        clearToast,
         modalContent,
 
         // Actions
