@@ -1,5 +1,10 @@
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 
+/** Generate a unique ID (fallback for environments without crypto.randomUUID) */
+function generateUID() {
+  return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+}
+
 /**
  * Get a flat list of all normal items from pool data.
  * Each item gets poolId and poolName attached.
@@ -26,7 +31,7 @@ function generateItemCell(allItems) {
   return {
     type: 'item',
     item: item,
-    uid: crypto.randomUUID(),
+    uid: generateUID(),
   };
 }
 
@@ -56,7 +61,7 @@ export function generateTurnMatrix(pools) {
           type: 'doom_resolution',
           icon: doomCells.resolution.icon,
           name: doomCells.resolution.name,
-          uid: crypto.randomUUID(),
+          uid: generateUID(),
         });
         doomCellCount.resolution++;
       } else if (upgradeRoll < doomCells.upgrade.spawnChance) {
@@ -64,7 +69,7 @@ export function generateTurnMatrix(pools) {
           type: 'doom_upgrade',
           icon: doomCells.upgrade.icon,
           name: doomCells.upgrade.name,
-          uid: crypto.randomUUID(),
+          uid: generateUID(),
         });
         doomCellCount.upgrade++;
       } else {
