@@ -24,7 +24,7 @@ export const MATRIX_CONFIG = {
   // Item shape system — Tetris-like polyominoes
   // Weights control spawn probability (higher = more common)
   itemShapes: {
-    weights: { 1: 60, 2: 25, 3: 10, 4: 5 },
+    weights: { 1: 40, 2: 30, 3: 20, 4: 10 },
     // Shapes as [row, col] offsets from origin
     shapes: {
       1: [

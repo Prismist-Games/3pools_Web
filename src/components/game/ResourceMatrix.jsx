@@ -63,19 +63,31 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
 };
 
 /** Single grid cell with optional tooltip */
-const GridCell = ({ cell, cellStyle, cellContent, t, rowIndex, colIndex }) => {
+const GridCell = ({ cell, cellStyle, cellContent, t, rowIndex, colIndex, adjacency }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade');
+
+    // Compute rounded corners — only round external corners
+    const { top, bottom, left, right } = adjacency;
+    const tl = (!top && !left) ? 'rounded-tl' : '';
+    const tr = (!top && !right) ? 'rounded-tr' : '';
+    const bl = (!bottom && !left) ? 'rounded-bl' : '';
+    const br = (!bottom && !right) ? 'rounded-br' : '';
+    const rounding = `${tl} ${tr} ${bl} ${br}`;
 
     return (
         <div
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
             className={`
-                w-14 h-14 border rounded flex flex-col items-center justify-center
-                ${cellStyle}
+                w-14 h-14 border flex flex-col items-center justify-center
+                ${rounding} ${cellStyle}
             `}
+            style={{
+                marginTop: top ? -1 : 0,
+                marginLeft: left ? -1 : 0,
+            }}
             onMouseEnter={hasTip ? () => setHovered(true) : undefined}
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
         >
@@ -156,8 +168,23 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
         return row.filter(cell => cell !== null).length;
     };
 
+    // Compute adjacency for each cell (same groupId neighbor)
+    const getAdjacency = (rowIdx, colIdx) => {
+        const cell = matrix[rowIdx]?.[colIdx];
+        if (!cell || !cell.groupId || cell.shapeSize <= 1) {
+            return { top: false, bottom: false, left: false, right: false };
+        }
+        const gid = cell.groupId;
+        return {
+            top: rowIdx > 0 && matrix[rowIdx - 1]?.[colIdx]?.groupId === gid,
+            bottom: rowIdx < matrix.length - 1 && matrix[rowIdx + 1]?.[colIdx]?.groupId === gid,
+            left: colIdx > 0 && matrix[rowIdx][colIdx - 1]?.groupId === gid,
+            right: colIdx < matrix[rowIdx].length - 1 && matrix[rowIdx][colIdx + 1]?.groupId === gid,
+        };
+    };
+
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col">
             <div className="text-center text-sm text-gray-500 mb-1">
                 {t('选择一行抽取')}
             </div>
@@ -168,13 +195,13 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
                 const rowClickable = canDraw && hasActiveCells;
 
                 return (
-                    <div key={rowIndex} className="flex items-center gap-1">
+                    <div key={rowIndex} className="flex items-center">
                         {/* Row select button */}
                         <button
                             onClick={() => rowClickable && onSelectRow(rowIndex)}
                             disabled={!rowClickable}
                             className={`
-                                w-8 h-8 rounded text-xs font-bold flex-shrink-0
+                                w-8 h-8 rounded text-xs font-bold flex-shrink-0 mr-1
                                 transition-all duration-150
                                 ${rowClickable
                                     ? 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer'
@@ -186,18 +213,22 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
                             ▶
                         </button>
 
-                        {/* Grid cells */}
-                        {row.map((cell, colIndex) => (
-                            <GridCell
-                                key={colIndex}
-                                cell={cell}
-                                cellStyle={getCellStyle(cell, rowIndex, colIndex)}
-                                cellContent={getCellContent(cell)}
-                                t={t}
-                                rowIndex={rowIndex}
-                                colIndex={colIndex}
-                            />
-                        ))}
+                        {/* Grid cells — no gap, adjacency handled by negative margins */}
+                        {row.map((cell, colIndex) => {
+                            const adj = getAdjacency(rowIndex, colIndex);
+                            return (
+                                <GridCell
+                                    key={colIndex}
+                                    cell={cell}
+                                    cellStyle={getCellStyle(cell, rowIndex, colIndex)}
+                                    cellContent={getCellContent(cell)}
+                                    t={t}
+                                    rowIndex={rowIndex}
+                                    colIndex={colIndex}
+                                    adjacency={adj}
+                                />
+                            );
+                        })}
 
                         {/* Row doom indicators */}
                         <div className="flex-shrink-0 w-16 text-xs text-gray-400 ml-1">
