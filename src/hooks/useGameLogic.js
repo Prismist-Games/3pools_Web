@@ -85,8 +85,9 @@ export const useGameLogic = (config) => {
         startNewTurn();
     };
 
-    /** End current turn, go to between-turns decision */
+    /** End current turn: resolve doom once, then go to between-turns decision */
     const endTurn = () => {
+        resolveDoom();
         setPhase('between_turns');
     };
 

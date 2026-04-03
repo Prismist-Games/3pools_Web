@@ -40,7 +40,6 @@ const GameCore = () => {
                     <div>❤️ <span className="font-bold">{hp}</span> HP</div>
                     <div>💰 <span className="font-bold">{gold}</span> {t('金币')}</div>
                     <div>📅 {t('回合')} <span className="font-bold">{turnNumber}</span></div>
-                    <div>💀 {t('厄运等级')} <span className="font-bold">{doomLevel}</span></div>
                     <div>🎒 <span className="font-bold">{inventory.length}/{maxInventorySize}</span></div>
                 </div>
 
@@ -103,7 +102,10 @@ const GameCore = () => {
                         <div className="w-64 flex flex-col gap-4">
                             {/* Doom Grid */}
                             <div className="bg-white rounded-lg shadow-sm border p-3">
-                                <h3 className="text-sm font-bold mb-2">{t('厄运网格')}</h3>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-sm font-bold">{t('厄运网格')}</h3>
+                                    <span className="text-xs text-red-500 font-bold">💀 Lv.{doomLevel}</span>
+                                </div>
                                 <div className="grid grid-cols-5 gap-1">
                                     {doomGrid.map((cell, i) => (
                                         <div
@@ -119,7 +121,7 @@ const GameCore = () => {
                                     ))}
                                 </div>
                                 <div className="text-xs text-gray-400 mt-2">
-                                    {t('危险')}: {dangerCount}/{doomGrid.length}
+                                    {t('危险')}: {dangerCount}/{doomGrid.length} | {t('结算')}: ×{doomLevel}
                                 </div>
                             </div>
 
@@ -154,7 +156,7 @@ const GameCore = () => {
                     <div className="text-center py-12">
                         <h2 className="text-xl font-bold mb-2">{t('回合')} {turnNumber} {t('结束')}</h2>
                         <p className="text-gray-500 mb-2">
-                            {t('背包')}: {inventory.length}/{maxInventorySize} | HP: {hp} | {t('厄运等级')}: {doomLevel}
+                            {t('背包')}: {inventory.length}/{maxInventorySize} | HP: {hp} | 💀 Lv.{doomLevel}
                         </p>
                         <p className="text-gray-400 text-sm mb-6">
                             {t('下回合将增加')} 1 {t('个危险格子')}
