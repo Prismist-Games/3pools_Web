@@ -40,7 +40,8 @@ const GameCore = () => {
         if (!drawAnimState) return;
         if (drawAnimState.phase === 'scanning') {
             const progress = drawAnimState.tick / drawAnimState.totalTicks;
-            const interval = 60 + progress * 140;
+            // Ease out: fast at start, slow near end
+            const interval = 50 + progress * progress * 200;
             const timer = setTimeout(tickDrawAnim, interval);
             return () => clearTimeout(timer);
         }

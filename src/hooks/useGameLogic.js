@@ -130,20 +130,25 @@ export const useGameLogic = (config) => {
         const finalColIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
         const drawnCell = row[finalColIndex];
 
-        // Start scanning animation
+        // Calculate total ticks: cycle through active cells multiple times, end on finalColIndex
+        const finalIdx = activeCols.indexOf(finalColIndex);
+        // At least 2 full passes + land on final
+        const fullPasses = 2;
+        const totalTicks = fullPasses * activeCols.length + finalIdx + 1;
+
         setDrawAnimState({
             rowIndex,
             activeCols,
             finalColIndex,
             drawnCell,
             tick: 0,
-            totalTicks: 14,
-            currentHighlight: activeCols[Math.floor(Math.random() * activeCols.length)],
+            totalTicks,
+            currentHighlight: activeCols[0],
             phase: 'scanning',
         });
     };
 
-    /** Advance draw scanning animation (called by GameCore interval) */
+    /** Advance draw scanning animation — left-to-right sequential */
     const tickDrawAnim = () => {
         setDrawAnimState(prev => {
             if (!prev || prev.phase !== 'scanning') return prev;
@@ -151,13 +156,8 @@ export const useGameLogic = (config) => {
             if (newTick >= prev.totalTicks) {
                 return { ...prev, tick: newTick, currentHighlight: prev.finalColIndex, phase: 'settled' };
             }
-            // Last 3 ticks: bias toward final cell
-            let next;
-            if (newTick >= prev.totalTicks - 3) {
-                next = Math.random() < 0.6 ? prev.finalColIndex : prev.activeCols[Math.floor(Math.random() * prev.activeCols.length)];
-            } else {
-                next = prev.activeCols[Math.floor(Math.random() * prev.activeCols.length)];
-            }
+            // Cycle through activeCols left-to-right
+            const next = prev.activeCols[newTick % prev.activeCols.length];
             return { ...prev, tick: newTick, currentHighlight: next };
         });
     };
