@@ -31,7 +31,9 @@ export const useGameLogic = (config) => {
     });
     const [doomLevel, setDoomLevel] = useState(doomConfig.initialDoomLevel);
     const [isDoomResolving, setIsDoomResolving] = useState(false);
+    const [doomAnimState, setDoomAnimState] = useState(null);
     const [doomResolutionResult, setDoomResolutionResult] = useState(null);
+    const [afterDoomAction, setAfterDoomAction] = useState(null); // null | 'end_turn'
 
     // --- Inventory State ---
     const [inventory, setInventory] = useState([]);
@@ -40,6 +42,7 @@ export const useGameLogic = (config) => {
     const [toast, setToast] = useState(null);
     const [lastDrawResult, setLastDrawResult] = useState(null);
     const [modalContent, setModalContent] = useState(null);
+    const [flyingItem, setFlyingItem] = useState(null);
 
     // --- Derived State ---
     const dangerCount = useMemo(() =>
@@ -87,8 +90,7 @@ export const useGameLogic = (config) => {
 
     /** End current turn: resolve doom once, then go to between-turns decision */
     const endTurn = () => {
-        resolveDoom();
-        setPhase('between_turns');
+        resolveDoom('end_turn');
     };
 
     /** Continue to next turn */
@@ -103,11 +105,13 @@ export const useGameLogic = (config) => {
     /** Select a row to draw from */
     const selectRow = (rowIndex) => {
         if (phase !== 'drawing') return;
+        if (isDoomResolving) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
 
-        // Clear previous doom resolution display
+        // Clear previous displays
         setDoomResolutionResult(null);
+        setFlyingItem(null);
 
         // Get active cells in this row (not yet removed)
         const row = matrix[rowIndex];
@@ -148,8 +152,15 @@ export const useGameLogic = (config) => {
             return newMatrix;
         });
 
-        // 4. Add item to inventory if obtained
+        // 4. Add item to inventory if obtained + trigger fly animation
         if (obtainedItem) {
+            setFlyingItem({
+                icon: obtainedItem.item.icon,
+                name: obtainedItem.item.name,
+                rowIndex,
+                colIndex: drawnColIndex,
+                id: Date.now(),
+            });
             addToInventory(obtainedItem);
         }
 
@@ -193,35 +204,80 @@ export const useGameLogic = (config) => {
     // DOOM RESOLUTION
     // =============================================
 
-    const resolveDoom = () => {
-        // Cursor lands on doomLevel random cells in the doom grid
-        const hits = [];
-        let hpLoss = 0;
+    /** Start animated doom resolution */
+    const resolveDoom = (action = null) => {
+        if (action) setAfterDoomAction(action);
 
+        // Pre-calculate final selections
+        const finalSelections = [];
+        let hpLoss = 0;
         for (let i = 0; i < doomLevel; i++) {
             const cellIndex = Math.floor(Math.random() * doomConfig.gridSize);
-            const cell = doomGrid[cellIndex];
-            if (cell.type === 'danger') {
-                hits.push({ index: cellIndex, result: 'danger' });
-                hpLoss++;
-            } else {
-                hits.push({ index: cellIndex, result: 'empty' });
-            }
+            const isHit = doomGrid[cellIndex].type === 'danger';
+            if (isHit) hpLoss++;
+            finalSelections.push({ index: cellIndex, isHit });
         }
 
-        // Apply HP loss
-        if (hpLoss > 0) {
-            setHp(prev => {
-                const newHp = Math.max(0, prev - hpLoss);
-                if (newHp <= 0) {
-                    handleGameOver();
-                }
-                return newHp;
+        // Start with random spinning positions
+        const spinningPositions = finalSelections.map(() =>
+            Math.floor(Math.random() * doomConfig.gridSize)
+        );
+
+        setIsDoomResolving(true);
+        setDoomAnimState({
+            phase: 'spinning',
+            tick: 0,
+            totalTicks: 20,
+            spinningPositions,
+            finalSelections,
+            hpLoss,
+        });
+    };
+
+    /** Advance doom animation by one tick (called by GameCore interval) */
+    const tickDoomResolution = () => {
+        setDoomAnimState(prev => {
+            if (!prev || prev.phase !== 'spinning') return prev;
+            const newTick = prev.tick + 1;
+
+            const newPositions = prev.spinningPositions.map((pos, i) => {
+                const settleAt = prev.totalTicks - prev.finalSelections.length + i;
+                if (newTick >= settleAt) return prev.finalSelections[i].index;
+                return Math.floor(Math.random() * doomConfig.gridSize);
             });
+
+            if (newTick >= prev.totalTicks) {
+                return { ...prev, phase: 'settled', spinningPositions: newPositions, tick: newTick };
+            }
+            return { ...prev, spinningPositions: newPositions, tick: newTick };
+        });
+    };
+
+    /** Apply doom results after animation completes */
+    const completeDoomResolution = () => {
+        if (!doomAnimState) return;
+        const { hpLoss, finalSelections } = doomAnimState;
+
+        if (hpLoss > 0) {
+            const newHp = Math.max(0, hp - hpLoss);
+            setHp(newHp);
+            if (newHp <= 0) {
+                handleGameOver();
+            }
             showToast(t('厄运命中') + ` -${hpLoss} HP`, 'error');
         }
 
-        setDoomResolutionResult({ hits, hpLoss });
+        setDoomResolutionResult({
+            hits: finalSelections.map(s => ({ index: s.index, result: s.isHit ? 'danger' : 'empty' })),
+            hpLoss,
+        });
+        setDoomAnimState(null);
+        setIsDoomResolving(false);
+
+        if (afterDoomAction === 'end_turn') {
+            setAfterDoomAction(null);
+            setPhase('between_turns');
+        }
     };
 
     // =============================================
@@ -259,11 +315,14 @@ export const useGameLogic = (config) => {
         });
         setDoomLevel(doomConfig.initialDoomLevel);
         setIsDoomResolving(false);
+        setDoomAnimState(null);
         setDoomResolutionResult(null);
+        setAfterDoomAction(null);
         setInventory([]);
         setToast(null);
         setLastDrawResult(null);
         setModalContent(null);
+        setFlyingItem(null);
     };
 
     // =============================================
@@ -298,6 +357,7 @@ export const useGameLogic = (config) => {
         doomLevel,
         dangerCount,
         isDoomResolving,
+        doomAnimState,
         doomResolutionResult,
 
         // Inventory
@@ -308,6 +368,8 @@ export const useGameLogic = (config) => {
         toast,
         clearToast,
         modalContent,
+        flyingItem,
+        setFlyingItem,
 
         // Actions
         startGame,
@@ -316,5 +378,7 @@ export const useGameLogic = (config) => {
         continueToNextTurn,
         handleEvacuate,
         handleReset,
+        tickDoomResolution,
+        completeDoomResolution,
     };
 };

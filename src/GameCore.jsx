@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
@@ -7,6 +7,7 @@ import { Toast } from './components/ui/Toast';
 
 const GameCore = () => {
     const { t } = useLanguage();
+    const inventoryRef = useRef(null);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -14,12 +15,79 @@ const GameCore = () => {
         turnNumber, gold, phase,
         matrix, lastDrawResult,
         hp, doomGrid, doomLevel, dangerCount,
-        doomResolutionResult,
+        isDoomResolving, doomAnimState, doomResolutionResult,
         inventory, maxInventorySize,
         toast, clearToast, modalContent,
+        flyingItem, setFlyingItem,
         startGame, selectRow, endTurn, continueToNextTurn,
         handleEvacuate, handleReset,
+        tickDoomResolution, completeDoomResolution,
     } = state;
+
+    // --- Doom animation interval ---
+    useEffect(() => {
+        if (!doomAnimState || doomAnimState.phase !== 'spinning') return;
+        const progress = doomAnimState.tick / doomAnimState.totalTicks;
+        const interval = 80 + progress * 160;
+        const timer = setTimeout(tickDoomResolution, interval);
+        return () => clearTimeout(timer);
+    }, [doomAnimState]);
+
+    // --- Flying item cleanup ---
+    useEffect(() => {
+        if (!flyingItem) return;
+        const timer = setTimeout(() => setFlyingItem(null), 550);
+        return () => clearTimeout(timer);
+    }, [flyingItem]);
+
+    // --- Doom grid cell style (with animation highlights) ---
+    const getDoomCellClass = (cell, cellIndex) => {
+        const base = cell.type === 'danger'
+            ? 'bg-red-100 border-red-300 text-red-600 font-bold'
+            : 'bg-gray-50 border-gray-200 text-gray-300';
+
+        if (!doomAnimState) return base;
+
+        // Count how many cursors are on this cell
+        const cursorCount = doomAnimState.spinningPositions.filter(p => p === cellIndex).length;
+        if (cursorCount === 0) return base;
+
+        if (doomAnimState.phase === 'spinning') {
+            return `${base} ring-2 ring-yellow-400 scale-110 z-10 transition-all duration-75`;
+        }
+        // Settled — check result
+        const isHit = doomAnimState.finalSelections.some(s => s.index === cellIndex && s.isHit);
+        if (isHit) {
+            return 'bg-red-200 border-red-500 text-red-700 font-bold ring-3 ring-red-400 scale-125 z-10 transition-all duration-300';
+        }
+        return 'bg-green-200 border-green-500 text-green-700 font-bold ring-3 ring-green-400 scale-125 z-10 transition-all duration-300';
+    };
+
+    // --- Cursor count bubble on doom cells ---
+    const getDoomCellCursors = (cellIndex) => {
+        if (!doomAnimState) return 0;
+        return doomAnimState.spinningPositions.filter(p => p === cellIndex).length;
+    };
+
+    // --- Compute fly animation position ---
+    const flyStyle = (() => {
+        if (!flyingItem) return null;
+        // Approximate cell position from grid layout
+        const cellEl = document.querySelector(`[data-cell="${flyingItem.rowIndex}-${flyingItem.colIndex}"]`);
+        const invEl = inventoryRef.current;
+        if (!cellEl || !invEl) return null;
+        const cellRect = cellEl.getBoundingClientRect();
+        const invRect = invEl.getBoundingClientRect();
+        return {
+            '--fly-dx': `${invRect.left + invRect.width / 2 - (cellRect.left + cellRect.width / 2)}px`,
+            '--fly-dy': `${invRect.top + 20 - (cellRect.top + cellRect.height / 2)}px`,
+            position: 'fixed',
+            left: cellRect.left + cellRect.width / 2,
+            top: cellRect.top + cellRect.height / 2,
+            zIndex: 300,
+            pointerEvents: 'none',
+        };
+    })();
 
     return (
         <div className="min-h-screen bg-gray-50 p-4">
@@ -68,10 +136,11 @@ const GameCore = () => {
                                 gold={gold}
                                 drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
                                 phase={phase}
+                                disabled={isDoomResolving}
                             />
 
                             {/* Draw result feedback */}
-                            {lastDrawResult && (
+                            {lastDrawResult && !isDoomResolving && (
                                 <div className={`mt-3 p-2 rounded text-sm ${
                                     lastDrawResult.obtained
                                         ? 'bg-green-50 text-green-700'
@@ -88,11 +157,16 @@ const GameCore = () => {
                             <div className="mt-4 flex gap-2">
                                 <button
                                     onClick={endTurn}
-                                    className="px-6 py-2 bg-gray-700 text-white rounded-lg font-bold hover:bg-gray-800 transition-colors"
+                                    disabled={isDoomResolving}
+                                    className={`px-6 py-2 rounded-lg font-bold transition-colors ${
+                                        isDoomResolving
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            : 'bg-gray-700 text-white hover:bg-gray-800'
+                                    }`}
                                 >
                                     {t('结束回合')}
                                 </button>
-                                {gold <= 0 && (
+                                {gold <= 0 && !isDoomResolving && (
                                     <span className="text-sm text-gray-400 self-center">{t('金币已用完')}</span>
                                 )}
                             </div>
@@ -107,26 +181,53 @@ const GameCore = () => {
                                     <span className="text-xs text-red-500 font-bold">💀 Lv.{doomLevel}</span>
                                 </div>
                                 <div className="grid grid-cols-5 gap-1">
-                                    {doomGrid.map((cell, i) => (
-                                        <div
-                                            key={i}
-                                            className={`w-10 h-10 rounded flex items-center justify-center text-sm border
-                                                ${cell.type === 'danger'
-                                                    ? 'bg-red-100 border-red-300 text-red-600 font-bold'
-                                                    : 'bg-gray-50 border-gray-200 text-gray-300'
-                                                }`}
-                                        >
-                                            {cell.type === 'danger' ? '☠' : '·'}
-                                        </div>
-                                    ))}
+                                    {doomGrid.map((cell, i) => {
+                                        const cursors = getDoomCellCursors(i);
+                                        return (
+                                            <div
+                                                key={i}
+                                                className={`w-10 h-10 rounded flex items-center justify-center text-sm border relative
+                                                    ${getDoomCellClass(cell, i)}`}
+                                            >
+                                                {cell.type === 'danger' ? '☠' : '·'}
+                                                {cursors > 0 && (
+                                                    <span className="absolute -top-1 -right-1 bg-yellow-400 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                                                        {cursors}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                                 <div className="text-xs text-gray-400 mt-2">
                                     {t('危险')}: {dangerCount}/{doomGrid.length} | {t('结算')}: ×{doomLevel}
                                 </div>
+
+                                {/* Doom animation result + confirm */}
+                                {doomAnimState?.phase === 'settled' && (
+                                    <div className="mt-3 pt-2 border-t border-gray-200">
+                                        <div className="flex items-center gap-1 mb-2">
+                                            {doomAnimState.finalSelections.map((s, i) => (
+                                                <span key={i} className={`text-lg ${s.isHit ? 'animate-bounce' : ''}`}>
+                                                    {s.isHit ? '💀' : '✅'}
+                                                </span>
+                                            ))}
+                                            {doomAnimState.hpLoss > 0 && (
+                                                <span className="text-red-500 font-bold text-sm ml-1">-{doomAnimState.hpLoss} HP</span>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={completeDoomResolution}
+                                            className="w-full py-1.5 bg-slate-700 text-white rounded text-sm font-bold hover:bg-slate-800 transition-colors"
+                                        >
+                                            {t('确认')}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Inventory */}
-                            <div className="bg-white rounded-lg shadow-sm border p-3">
+                            <div ref={inventoryRef} className="bg-white rounded-lg shadow-sm border p-3">
                                 <h3 className="text-sm font-bold mb-2">{t('背包')} ({inventory.length}/{maxInventorySize})</h3>
                                 <div className="grid grid-cols-5 gap-1">
                                     {Array.from({ length: maxInventorySize }).map((_, i) => {
@@ -239,8 +340,8 @@ const GameCore = () => {
                     </div>
                 )}
 
-                {/* Doom resolution result */}
-                {doomResolutionResult && (
+                {/* Doom resolution result (persistent after confirm) */}
+                {doomResolutionResult && !isDoomResolving && (
                     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-lg shadow-lg">
                         <div className="text-sm">
                             💀 {t('厄运结算')}:
@@ -253,6 +354,17 @@ const GameCore = () => {
                                 <span className="text-red-400 ml-2">-{doomResolutionResult.hpLoss} HP</span>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {/* Flying item animation */}
+                {flyingItem && flyStyle && (
+                    <div
+                        key={flyingItem.id}
+                        style={flyStyle}
+                        className="fly-to-inventory w-16 h-16 rounded-xl bg-white border-2 border-gray-300 shadow-2xl flex items-center justify-center text-2xl"
+                    >
+                        {flyingItem.icon}
                     </div>
                 )}
 

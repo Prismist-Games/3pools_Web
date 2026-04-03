@@ -63,7 +63,7 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
 };
 
 /** Single grid cell with optional tooltip */
-const GridCell = ({ cell, cellStyle, cellContent, t }) => {
+const GridCell = ({ cell, cellStyle, cellContent, t, rowIndex, colIndex }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade');
@@ -71,6 +71,7 @@ const GridCell = ({ cell, cellStyle, cellContent, t }) => {
     return (
         <div
             ref={ref}
+            data-cell={`${rowIndex}-${colIndex}`}
             className={`
                 w-14 h-14 border rounded flex flex-col items-center justify-center
                 ${cellStyle}
@@ -93,12 +94,12 @@ const GridCell = ({ cell, cellStyle, cellContent, t }) => {
  * 5×5 grid display for turn-based prototype.
  * Shows item cells and doom cells. Row-only selection.
  */
-const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }) => {
     const { t } = useLanguage();
 
     if (!matrix) return null;
 
-    const canDraw = phase === 'drawing' && gold >= drawCost;
+    const canDraw = phase === 'drawing' && gold >= drawCost && !disabled;
 
     const getCellContent = (cell) => {
         if (cell === null) {
@@ -176,6 +177,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase }) => {
                                 cellStyle={getCellStyle(cell)}
                                 cellContent={getCellContent(cell)}
                                 t={t}
+                                rowIndex={rowIndex}
+                                colIndex={colIndex}
                             />
                         ))}
 
