@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { generateTurnMatrix } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 
@@ -40,6 +40,9 @@ export const useGameLogic = (config) => {
     const [toast, setToast] = useState(null);
     const [lastDrawResult, setLastDrawResult] = useState(null);
     const [modalContent, setModalContent] = useState(null);
+
+    // --- Processing lock (prevents rapid-click double draws) ---
+    const isDrawing = useRef(false);
 
     // --- Derived State ---
     const dangerCount = useMemo(() =>
@@ -101,9 +104,14 @@ export const useGameLogic = (config) => {
 
     /** Select a row to draw from */
     const selectRow = (rowIndex) => {
+        if (isDrawing.current) return;
         if (phase !== 'drawing') return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
+
+        isDrawing.current = true;
+        // Release lock after React processes state updates
+        setTimeout(() => { isDrawing.current = false; }, 0);
 
         // Clear previous doom resolution display
         setDoomResolutionResult(null);
