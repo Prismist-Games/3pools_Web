@@ -197,7 +197,7 @@ const GameCore = () => {
                             {/* Doom Grid */}
                             <div className="bg-white rounded-lg shadow-sm border p-3">
                                 <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold">{t('厄运网格')}</h3>
+                                    <h3 className="text-sm font-bold">{t('厄运')}</h3>
                                     <span className="text-xs text-red-500 font-bold">💀 Lv.{doomLevel}</span>
                                 </div>
                                 <div className="grid grid-cols-5 gap-1">

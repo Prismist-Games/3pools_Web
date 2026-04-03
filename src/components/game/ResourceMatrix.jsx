@@ -112,7 +112,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         highlight === 'settled'  ? 'ring-3 ring-yellow-400 scale-110 z-20 shadow-lg shadow-yellow-200 transition-all duration-200' :
         highlight === 'scanning' ? 'ring-2 ring-yellow-300 z-10 transition-all duration-75' :
         highlight === 'scan-row' ? 'ring-1 ring-blue-200 transition-all duration-75' :
-        highlight === 'hover'    ? 'scale-105 shadow-md z-10 ring-2 ring-blue-400/60 transition-all duration-150' :
+        highlight === 'hover'    ? `scale-105 shadow-md z-10 transition-all duration-150${isConnected ? '' : ' ring-2 ring-blue-400/60'}` :
         'transition-all duration-150';
 
     return (
@@ -154,15 +154,6 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled, 
         if (cell === null) return <span className="text-gray-300">·</span>;
         if (cell.type === 'item') return <span className="text-xl">{cell.item.icon}</span>;
         return <span className="text-xl">{cell.icon}</span>;
-    };
-
-    const getRowDoomInfo = (row) => {
-        let resolutions = 0, upgrades = 0;
-        row.forEach(cell => {
-            if (cell?.type === 'doom_resolution') resolutions++;
-            if (cell?.type === 'doom_upgrade') upgrades++;
-        });
-        return { resolutions, upgrades };
     };
 
     const getAdjacency = (rowIdx, colIdx) => {
@@ -262,26 +253,6 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled, 
                     })()}
                 </div>
 
-                {/* Row doom indicators */}
-                <div className="flex flex-col ml-1" style={{ paddingTop: HALF }}>
-                    {matrix.map((row, rowIndex) => {
-                        const doomInfo = getRowDoomInfo(row);
-                        return (
-                            <div
-                                key={rowIndex}
-                                className="flex-shrink-0 text-xs font-bold flex items-center"
-                                style={{ height: CELL_SIZE, marginBottom: GAP, width: 70 }}
-                            >
-                                {doomInfo.resolutions > 0 && (
-                                    <span className="text-red-600">💀×{doomInfo.resolutions} </span>
-                                )}
-                                {doomInfo.upgrades > 0 && (
-                                    <span className="text-amber-600">⬆️×{doomInfo.upgrades}</span>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
             </div>
         </div>
     );
