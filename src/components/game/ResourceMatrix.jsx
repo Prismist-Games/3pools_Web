@@ -72,7 +72,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade');
-    const { top, bottom, left, right } = adjacency;
+    const { top, bottom, left, right, corners = [] } = adjacency;
 
     // Rounded corners — only on external corners
     const isConnected = top || bottom || left || right;
@@ -136,7 +136,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         <div
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
-            className={`border flex flex-col items-center justify-center ${rounding} ${bgClass} ${highlightClass}`}
+            className={`border flex flex-col items-center justify-center relative overflow-visible ${rounding} ${bgClass} ${highlightClass}`}
             style={{
                 margin: `${top ? 0 : HALF}px ${right ? 0 : HALF}px ${bottom ? 0 : HALF}px ${left ? 0 : HALF}px`,
                 width: CELL_SIZE + (left ? HALF : 0) + (right ? HALF : 0),
@@ -153,6 +153,30 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
                 </span>
             )}
             {hasTip && <CellTooltip cell={cell} anchorRef={ref} visible={hovered} t={t} />}
+            {/* Inner corner patches: fill ring gap + background at L/T/S/Z inner corners */}
+            {highlight === 'hover' && corners.map(c => {
+                const ringColor = 'rgba(96,165,250,0.6)';
+                const size = HALF + 2.5; // cover gap + ring width
+                const pos = {
+                    tr: { top: -HALF, right: -HALF },
+                    tl: { top: -HALF, left: -HALF },
+                    br: { bottom: -HALF, right: -HALF },
+                    bl: { bottom: -HALF, left: -HALF },
+                };
+                return (
+                    <div
+                        key={c}
+                        style={{
+                            position: 'absolute',
+                            width: size,
+                            height: size,
+                            background: ringColor,
+                            ...pos[c],
+                            zIndex: 5,
+                        }}
+                    />
+                );
+            })}
         </div>
     );
 };
@@ -177,15 +201,23 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled, 
     const getAdjacency = (rowIdx, colIdx) => {
         const cell = matrix[rowIdx]?.[colIdx];
         if (!cell || !cell.groupId || (cell.shapeSize || 1) <= 1) {
-            return { top: false, bottom: false, left: false, right: false };
+            return { top: false, bottom: false, left: false, right: false, corners: [] };
         }
         const gid = cell.groupId;
-        return {
-            top: rowIdx > 0 && matrix[rowIdx - 1]?.[colIdx]?.groupId === gid,
-            bottom: rowIdx < matrix.length - 1 && matrix[rowIdx + 1]?.[colIdx]?.groupId === gid,
-            left: colIdx > 0 && matrix[rowIdx][colIdx - 1]?.groupId === gid,
-            right: colIdx < matrix[rowIdx].length - 1 && matrix[rowIdx][colIdx + 1]?.groupId === gid,
-        };
+        const g = (r, c) => matrix[r]?.[c]?.groupId === gid;
+        const top = rowIdx > 0 && g(rowIdx - 1, colIdx);
+        const bottom = rowIdx < matrix.length - 1 && g(rowIdx + 1, colIdx);
+        const left = colIdx > 0 && g(rowIdx, colIdx - 1);
+        const right = colIdx < matrix[rowIdx].length - 1 && g(rowIdx, colIdx + 1);
+
+        // Detect inner corners: connected on two orthogonal sides but diagonal is NOT in group
+        const corners = [];
+        if (right && bottom && !g(rowIdx + 1, colIdx + 1)) corners.push('br');
+        if (left && bottom && !g(rowIdx + 1, colIdx - 1)) corners.push('bl');
+        if (right && top && !g(rowIdx - 1, colIdx + 1)) corners.push('tr');
+        if (left && top && !g(rowIdx - 1, colIdx - 1)) corners.push('tl');
+
+        return { top, bottom, left, right, corners };
     };
 
     return (

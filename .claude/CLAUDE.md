@@ -52,16 +52,15 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "三池物语", deployed t
 - **Config-driven**: Game balance, items, skills — all defined in `src/data/constants.js`. Edit config values, not logic.
 - **i18n**: Chinese is the source language. Wrap all UI strings with `t()` from `useLanguage()`. Add English translations to `src/utils/translations.js`. Never hardcode English in components.
 
-### Game Concepts
+### Game Concepts (Turn-Based Prototype)
 
-- **Item Matrix**: 4×4 grid of cells. Every cell is a normal item — grid is always clean, no marks or special cells. Player selects a row or column, randomly draws 1 item. Gravity drops items down, top refills randomly. During refresh: each new cell has 5% chance of adding a Danger to the Doom Grid ("loading"), and each refresh has 10% chance of triggering doom resolution ("firing"). Neither event fires on initial grid or after manual refresh. Player can spend 1 item to fully refresh the grid.
-- **Doom System**: A separate 10-cell grid (Doom Grid). Starts with 1 Danger + 9 empty. When doom resolves, a cursor lands on cells (count = doom level); hitting Danger = -1 HP. Player has 3 HP; at 0 = game over (lose half inventory). Doom level starts at 1, increases by 1 every 3 hits. All doom comes from grid refresh events — the more you draw, the more refresh, the more doom accumulates.
-- **Evacuation**: Player can leave at any time with full inventory. Core tension is push-your-luck: stay for more loot vs. rising doom threat.
-- **Inventory**: Fixed-size grid (10 slots default). Item pools and rarity system have been removed from current prototype. Items are defined by name + icon only. In-session item uses (recycling, consumption for actions) are being designed.
-- **Orders**: Currently 3 active regular orders in code. Design direction: moving all orders to meta-game (outside the session). Items drawn in-session are brought out for use outside.
-- **Stages** (`INITIAL_STAGE_CONFIG`): 4 stages with escalating mechanics. Currently `useGameLogic` always uses `stages[0]` — stage progression not active.
-- **Skills**: Passive bonuses defined in `SKILL_DEFINITIONS`. Not active in current version.
-- **Tool Items**: Special items (`tool_reforge`, `tool_transmute`, `tool_enhance`) activated via right-click in inventory. Currently not dropping from draws.
+- **Turn Structure**: Game is turn-based. Each turn: generate fresh 5×5 grid → player draws using gold (5 gold/turn, 1 per draw) → turn ends → doom accumulates → player chooses to continue or evacuate.
+- **Grid**: 5×5 grid with three cell types: item cells (name + icon), 💀 doom resolution cells (10% spawn per position), ⬆️ doom upgrade cells (10% spawn per position). Doom cells are independent (not items). Player selects a row; all doom cells in that row auto-trigger and disappear, then one random cell in the row is drawn (item cell = get item, doom cell = nothing). No gravity, no refill within a turn.
+- **Doom System**: Separate 10-cell Doom Grid. Starts with 1 Danger + 9 empty. Each turn auto-adds +1 Danger. Doom resolution (triggered by 💀 cells on grid): cursor hits N cells on Doom Grid (N = doom level); hitting Danger = -1 HP. Doom level starts at 1, increases when ⬆️ cells are triggered. HP = 5; at 0 = lose half inventory, forced evacuation.
+- **Evacuation**: Player can evacuate between turns with full inventory. Core tension: turn-level push-your-luck (play another turn with more doom, or leave now).
+- **Inventory**: Fixed-size grid (10 slots). Items defined by name + icon only.
+- **Orders**: Design direction: moving all orders to meta-game (outside the session). Not active in turn-based prototype.
+- **Planned systems (not in prototype)**: Functional cells (shop, etc.), 3-choose-1 grid selection between turns, item attributes/abilities, irregular-shaped functional cells, multi-dimensional doom, evacuation expansion.
 
 ### Workflow Rules
 
