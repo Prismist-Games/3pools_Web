@@ -81,12 +81,12 @@ const GridCell = ({ cell, cellStyle, cellContent, t, rowIndex, colIndex, adjacen
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
             className={`
-                w-14 h-14 border flex flex-col items-center justify-center
+                w-14 h-14 border-2 flex flex-col items-center justify-center
                 ${rounding} ${cellStyle}
             `}
             style={{
-                marginTop: top ? -1 : 0,
-                marginLeft: left ? -1 : 0,
+                marginTop: top ? -2 : 2,
+                marginLeft: left ? -2 : 2,
             }}
             onMouseEnter={hasTip ? () => setHovered(true) : undefined}
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
