@@ -565,7 +565,7 @@ export const SCORE_PROGRESS_CONFIG = {
 export const DOOM_CONFIG = {
     gridSize: 10,              // 厄运网格格子数
     initialDangerCount: 1,     // 初始"危险"格子数
-    initialHP: 5,              // 初始生命值（was 3）
+    initialHP: 5,              // 初始生命值
     initialDoomLevel: 1,       // 初始厄运等级
     dangerPerTurn: 1,          // 每回合自动增加的危险格子数
 };

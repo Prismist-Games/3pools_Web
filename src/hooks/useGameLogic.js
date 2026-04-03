@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { generateTurnMatrix } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
-import { MATRIX_CONFIG } from '../data/matrixConfig';
+
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const useGameLogic = (config) => {
