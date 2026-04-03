@@ -565,37 +565,21 @@ export const SCORE_PROGRESS_CONFIG = {
 export const DOOM_CONFIG = {
     gridSize: 10,              // 厄运网格格子数
     initialDangerCount: 1,     // 初始"危险"格子数
-    initialHP: 3,              // 初始生命值
+    initialHP: 5,              // 初始生命值（was 3）
     initialDoomLevel: 1,       // 初始厄运等级
-    hitsPerLevelUp: 3,         // 每累计命中N次，等级+1
-    triggerChance: 0.20,       // 每次刷新触发厄运结算的概率
-    triggerCooldownDraws: 1,   // 触发后冷却的抽取次数
-    initialProtectionDraws: 1, // 游戏开始时的保护抽取次数
+    dangerPerTurn: 1,          // 每回合自动增加的危险格子数
+};
+
+// --- 回合制配置 ---
+export const TURN_CONFIG = {
+    goldPerTurn: 5,            // 每回合获得金币
+    drawCost: 1,               // 每次抽取花费金币
 };
 
 export const INITIAL_GAME_CONFIG = {
-    affixes: INITIAL_AFFIXES_CONFIG,
-    rarity: INITIAL_RARITY_CONFIG,
     pools: INITIAL_POOLS_DATA,
     stages: INITIAL_STAGE_CONFIG,
-    progress: SCORE_PROGRESS_CONFIG,
-    emergency: EMERGENCY_ORDER_CONFIG,
-    toolItems: TOOL_ITEM_CONFIG,
     doom: DOOM_CONFIG,
-    enabledSkillIds: [
-        // Gold-dependent skills disabled: poverty_relief, lucky_7, alchemy, vip_discount, big_order_expert, hard_order_expert
-        "negotiator",
-        "consolation_prize",
-        "cut_corners",
-        "time_freeze",
-        "ocd",
-        "auto_restock",
-        "turn_fortune",
-    ],
-    global: {
-        "refreshCost": 5,
-        "initialRefreshCount": 3,
-        "maxRefreshCount": 3
-    }
+    turn: TURN_CONFIG,
 };
 
