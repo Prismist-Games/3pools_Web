@@ -117,6 +117,10 @@ export const EN_TRANSLATIONS = {
     "回合后刷新": "Refreshing",
     "离开关卡（重置金币）": "Leave Stage (Reset Gold)",
     "离开此关卡成功！金币已重置为": "Stage Left! Gold reset to",
+    "分": "pts",
+    "订单已刷新，金币已重置": "Orders refreshed, gold reset",
+    "炸弹爆炸！": "Bomb exploded!",
+    "炸弹": "Bomb",
     "积分目标": "Score Target",
 
     // --- Stages & Mechanics ---

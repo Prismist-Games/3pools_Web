@@ -18,23 +18,26 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
     const [hoveredCol, setHoveredCol] = useState(null);
 
     // 悬浮行/列时，收集该行/列中的物品名通知上层（用于订单高亮联动）
+    // 排除 lastDrawCell 所在的格子（因为它不会被抽中）
     useEffect(() => {
         if (!matrix || !onHoveredItemsChange) return;
         const names = [];
         const gridSize = matrix.length;
         if (hoveredRow !== null) {
             for (let c = 0; c < gridSize; c++) {
+                if (lastDrawCell && lastDrawCell.row === hoveredRow && lastDrawCell.col === c) continue;
                 const cell = matrix[hoveredRow]?.[c];
                 if (cell?.item?.name) names.push(cell.item.name);
             }
         } else if (hoveredCol !== null) {
             for (let r = 0; r < gridSize; r++) {
+                if (lastDrawCell && lastDrawCell.row === r && lastDrawCell.col === hoveredCol) continue;
                 const cell = matrix[r]?.[hoveredCol];
                 if (cell?.item?.name) names.push(cell.item.name);
             }
         }
         onHoveredItemsChange(names);
-    }, [hoveredRow, hoveredCol, matrix, onHoveredItemsChange]);
+    }, [hoveredRow, hoveredCol, matrix, onHoveredItemsChange, lastDrawCell]);
 
     // Gravity animation state
     const [animatingCells, setAnimatingCells] = useState(new Set());
@@ -64,25 +67,30 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
         animTimersRef.current.forEach(t => clearTimeout(t));
         animTimersRef.current = [];
 
-        const { type, index, targetIdx } = drawAnimation;
+        const { type, index, targetIdx, excludeIdx } = drawAnimation;
 
         // Set the line highlight (subtle highlight for all cells in the row/col)
         setCyclingLine({ type, index });
         setCyclingPulse(null);
 
-        // Build the sequence of cells to cycle through
-        // For rows: columns 0,1,2,3,0,1,2,3,... ; for cols: rows 0,1,2,3,0,1,2,3,...
-        // We'll do ~3 full cycles then approach the target
+        // Build the list of eligible indices (skip excludeIdx if set)
+        const eligible = [];
+        for (let i = 0; i < GRID_SIZE; i++) {
+            if (i !== excludeIdx) eligible.push(i);
+        }
+
+        // Build the sequence of cells to cycle through using only eligible indices
         const fullCycles = 3;
         const sequence = [];
         for (let cycle = 0; cycle < fullCycles; cycle++) {
-            for (let i = 0; i < GRID_SIZE; i++) {
-                sequence.push(i);
+            for (const idx of eligible) {
+                sequence.push(idx);
             }
         }
-        // After the full cycles, continue from 0 up to and including the target
-        for (let i = 0; i <= targetIdx; i++) {
-            sequence.push(i);
+        // After the full cycles, continue through eligible up to and including the target
+        for (const idx of eligible) {
+            sequence.push(idx);
+            if (idx === targetIdx) break;
         }
 
         // Calculate delays: start fast (~80ms), gradually slow to ~250ms
@@ -271,6 +279,14 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                     animation: cycling-pulse 0.4s ease-out forwards;
                 }
 
+                @keyframes explode-flash {
+                    0% { background-color: rgba(239, 68, 68, 0.7); transform: scale(1.15); }
+                    100% { background-color: rgba(239, 68, 68, 0); transform: scale(0.8); opacity: 0; }
+                }
+                .anim-explode {
+                    animation: explode-flash 0.4s ease-out forwards;
+                }
+
                 @keyframes last-draw-glow {
                     0%, 100% { box-shadow: 0 0 6px 2px rgba(250, 204, 21, 0.4); }
                     50% { box-shadow: 0 0 12px 4px rgba(250, 204, 21, 0.7); }
@@ -375,13 +391,17 @@ const ResourceMatrix = React.forwardRef(({ matrix, gravityEvent, pickingCell, ex
                             const hasCyclingEffect = isCyclingTarget || isInCyclingLine || isPulsing;
                             const showLastDrawHighlight = isLastDrawCell && !hasCyclingEffect;
 
+                            // Explosion animation
+                            const isExploding = explodingCells && explodingCells.has(cellKey);
+
                             return (
                                 <div
                                     key={`${r}-${c}-${cell.uid}`}
                                     className={`
                                         relative flex flex-col items-center justify-center
                                         rounded-lg border-2 select-none
-                                        ${isPicking ? 'bg-slate-200 border-slate-300' : bgClass}
+                                        ${isExploding ? 'anim-explode border-red-500' : ''}
+                                        ${!isExploding && isPicking ? 'bg-slate-200 border-slate-300' : !isExploding ? bgClass : ''}
                                         ${isCyclingTarget ? 'ring-4 ring-yellow-400 ring-offset-1 z-20 scale-110 border-yellow-500' : ''}
                                         ${!isCyclingTarget && isInCyclingLine && !isPicking ? 'ring-2 ring-amber-200 ring-offset-1 z-10' : ''}
                                         ${isPulsing ? 'anim-cycling-pulse ring-4 ring-yellow-400 ring-offset-1 z-20 scale-110 border-yellow-500' : ''}

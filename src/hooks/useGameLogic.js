@@ -94,7 +94,8 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     const orderNeededItems = useMemo(() => {
         const names = new Set();
         const items = [];
-        for (const order of [...orders, ...emergencyOrders].filter(Boolean)) {
+        // Only use normal orders for matrix item pool (emergency orders disabled for testing)
+        for (const order of [...orders].filter(Boolean)) {
             for (const req of order.requirements) {
                 if (!names.has(req.name)) {
                     names.add(req.name);
@@ -718,14 +719,23 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             for (let r = 0; r < gridSize; r++) cells.push({ cell: matrix[r][index], row: r, col: index });
         }
 
-        // Random pick 1
-        const pickedIdx = Math.floor(Math.random() * cells.length);
+        // Random pick 1 (exclude the lastDrawCell position so it never stays in place)
+        let eligibleIndices = cells.map((_, i) => i);
+        if (lastDrawCell) {
+            eligibleIndices = eligibleIndices.filter(i => {
+                const c = cells[i];
+                return !(c.row === lastDrawCell.row && c.col === lastDrawCell.col);
+            });
+        }
+        if (eligibleIndices.length === 0) eligibleIndices = cells.map((_, i) => i); // fallback
+        const pickedIdx = eligibleIndices[Math.floor(Math.random() * eligibleIndices.length)];
         const picked = cells[pickedIdx];
         const selectedCell = picked.cell;
         const rawCellType = selectedCell.type || 'normal';
 
-        // Filler items don't give rewards (same as old blank behavior)
-        const cellType = rawCellType === 'filler' ? 'blank' : rawCellType;
+        // Filler bombs explode; other fillers are blank
+        const isBomb = rawCellType === 'filler' && selectedCell.item.name === '炸弹';
+        const cellType = isBomb ? 'bomb' : (rawCellType === 'filler' ? 'blank' : rawCellType);
 
         // Clear persistent highlight from previous draw (new animation starting)
         setLastDrawCell(null);
@@ -744,11 +754,19 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             capturedSkillState: { ...skillState },
         };
 
+        // Determine which index in the line to exclude from cycling (the lastDrawCell position)
+        let excludeIdx = null;
+        if (lastDrawCell) {
+            if (type === 'row') excludeIdx = lastDrawCell.col;
+            else excludeIdx = lastDrawCell.row;
+        }
+
         // Signal the component to start the cycling animation
         setDrawAnimation({
             type,
             index,
             targetIdx: pickedIdx, // index within the line (0-3)
+            excludeIdx,           // index to skip during cycling (null if none)
             tick: Date.now(),
         });
     };
@@ -774,7 +792,62 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             // First: gravity for the picked cell itself
             let afterPickMatrix = applyGravity(capturedMatrix, picked.row, picked.col, allNormalItems, config, currentStageConfig, orderNeededItems);
 
-            if (cellType === 'blank') {
+            if (cellType === 'bomb') {
+                // --- Bomb: destroy surrounding 8 cells + apply gravity for affected columns ---
+                const bRow = picked.row;
+                const bCol = picked.col;
+                const destroyed = []; // track {row, col} of destroyed cells (excluding bomb itself, already gravity'd)
+
+                // Collect surrounding cells to destroy (3x3 area minus center)
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue; // bomb cell already removed by gravity above
+                        const nr = bRow + dr;
+                        const nc = bCol + dc;
+                        if (nr >= 0 && nr < MATRIX_CONFIG.gridSize && nc >= 0 && nc < MATRIX_CONFIG.gridSize) {
+                            destroyed.push({ row: nr, col: nc });
+                        }
+                    }
+                }
+
+                // Set explosion visual (cells flash before being removed)
+                const explodingSet = destroyed.map(d => `${d.row},${d.col}`);
+                setExplodingCells(new Set(explodingSet));
+
+                // After a short delay for explosion visual, apply gravity for all destroyed cells
+                setTimeout(() => {
+                    setExplodingCells(null);
+
+                    // Sort destroyed cells by column, then by row descending (process bottom-up per column)
+                    // Group by column and process each column: remove cells then gravity
+                    const byCol = {};
+                    for (const d of destroyed) {
+                        if (!byCol[d.col]) byCol[d.col] = [];
+                        byCol[d.col].push(d.row);
+                    }
+
+                    let currentMatrix = afterPickMatrix;
+                    for (const colStr of Object.keys(byCol)) {
+                        const col = parseInt(colStr);
+                        // Sort rows descending so we remove from bottom first
+                        const rows = byCol[col].sort((a, b) => b - a);
+                        for (const row of rows) {
+                            currentMatrix = applyGravity(currentMatrix, row, col, allNormalItems, config, currentStageConfig, orderNeededItems);
+                        }
+                    }
+
+                    setMatrix(currentMatrix);
+                    // Gravity event for visual animation — use bomb col as primary
+                    setGravityEvent({ col: bCol, removedRow: bRow, tick: Date.now() });
+                }, 400);
+
+                showToast("💣 " + t("炸弹爆炸！"), "warning");
+
+                setDrawCount(prev => prev + 1);
+                setIsDrawing(false);
+                return; // early return — bomb doesn't give items
+
+            } else if (cellType === 'blank') {
                 // --- Blank cell: not needed by orders, just gravity, no item ---
                 setMatrix(afterPickMatrix);
                 setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
@@ -1739,110 +1812,35 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             return;
         }
 
-        let gainedScore = 0;
-        const newOrders = [...orders];
-        const completedIndices = [];
+        // 只提交第一个可满足的订单
+        const completed = satisfiableOrders[0];
+        const { finalScoreReward } = completed;
 
-        // 追踪完成的订单类型
-        let completedEmergencyOrder = false;
-        let completedScoreCount = 0;
+        setScore(prev => prev + finalScoreReward);
 
-        const nextSkillState = { ...skillState };
+        // 重置金币
+        const initialGold = config.global?.initialGold || 30;
+        setGold(initialGold);
 
-        satisfiableOrders.forEach(({ index, finalScoreReward, reqCount, requirements, isScoreOrder }) => {
-            gainedScore += finalScoreReward;
+        // 刷新全部三个积分订单
+        const newOrders = Array(currentStageConfig.orderSlots).fill(null).map(() =>
+            generateOrder(allNormalItems, config, hasSkill, currentStageConfig)
+        );
+        setOrders(newOrders);
 
-            if (hasSkill('big_order_expert') && reqCount === 4) {
-                showToast(t("【大订单专家】触发：+5金币"));
-            }
+        // 清空所有订单槽位分配
+        setOrderSlotAssignments({});
 
-            if (hasSkill('hard_order_expert')) {
-                const hasHardReq = requirements.some(req => req.requiredRarity.id === 'epic' || req.requiredRarity.id === 'legendary');
-                if (hasHardReq) {
-                    showToast(t("【困难订单专家】触发：+10金币"));
-                }
-            }
+        // 清空背包
+        setInventory([]);
 
-            if (hasSkill('auto_restock')) nextSkillState.nextDrawExtraItem = true;
-            if (hasSkill('turn_fortune')) nextSkillState.nextDrawGuaranteedRare = true;
-
-            // 追踪订单类型
-            if (index >= 998) {
-                completedEmergencyOrder = true;
-            }
-
-            // 积分订单的奖励通常更高，这里将其视为所有非撤离订单都能获得积分
-            if (isScoreOrder) completedScoreCount++;
-
-            completedIndices.push(index);
-        });
-
-        setSkillState(nextSkillState);
-
-        setScore(prev => prev + gainedScore);
-
-        // 每次完成订单，增加刷新次数
-        if (completedIndices.length > 0) {
-            setOrderRefreshCount(prev => Math.min(REFRESH_MAX, prev + completedIndices.length));
-        }
-
-        // 只有手动“离开关卡”会提升难度，因此这里删除了完成订单时的难度提升逻辑
-
-        // 完成积分订单后，降低撤离订单难度
-        if (completedScoreCount > 0) {
-            const difficultyConfig = config.emergency?.difficulty;
-            if (difficultyConfig) {
-                const decreaseAmountBase = difficultyConfig.decreaseOnScoreOrder !== undefined ? difficultyConfig.decreaseOnScoreOrder : 1;
-                const decreaseAmount = decreaseAmountBase * completedScoreCount;
-                const minDifficulty = difficultyConfig.minDifficulty || 1;
-                if (decreaseAmount > 0) {
-                    setEmergencyDifficulty(prev => {
-                        const newDiff = Math.max(minDifficulty, prev - decreaseAmount);
-                        if (newDiff < prev) {
-                            showToast(`${t("积分订单达成，离开关卡需求难度降低至")} ${newDiff}！`, "success");
-                        }
-                        return newDiff;
-                    });
-                } else if (decreaseAmountBase === 0) {
-                    showToast(t("积分订单达成！"), "success");
-                }
-            }
-        }
-
-        // 为已完成的普通订单槽位生成候选订单，让玩家选择
-        // 先清除这些订单的槽位分配
-        const normalCompletedIndices = completedIndices.filter(idx => idx < 998);
-        if (normalCompletedIndices.length > 0) {
-            clearAssignmentsForOrders(normalCompletedIndices);
-        }
-
-        const candidateQueue = [];
-        completedIndices.forEach(idx => {
-            if (idx >= 998) {
-                // Emergency orders handled via Evacuate button now
-            } else {
-                // 保留旧订单显示，直到玩家选择新订单后再替换
-                const candidate1 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
-                const candidate2 = generateOrder(allNormalItems, config, hasSkill, currentStageConfig);
-                candidateQueue.push({ slotIndex: idx, candidates: [candidate1, candidate2] });
-            }
-        });
-
-        // 不立即更新订单数组，等选择完成后再更新
-
-        // 启动候选订单选择队列
-        if (candidateQueue.length > 0) {
-            setOrderCandidates(candidateQueue[0]);
-            if (candidateQueue.length > 1) {
-                setOrderCandidateQueue(candidateQueue.slice(1));
-            }
-        }
-
-        const newInventory = inventory.filter((_, idx) => !selectedIndices.includes(idx));
-        setInventory(newInventory);
+        // 清空抽取位置约束
+        setLastDrawCell(null);
 
         setIsSubmitMode(false);
         setSelectedIndices([]);
+
+        showToast(`+${finalScoreReward} ${t("分")}！${t("订单已刷新，金币已重置")}`, "success");
     };
 
     const handleConfirmRecycle = () => {

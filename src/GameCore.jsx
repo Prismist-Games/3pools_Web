@@ -376,8 +376,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                 </div>
                             </div>
 
-                            {/* Difficulty Display */}
-                            {emergencyOrders.length > 0 && (
+                            {/* Difficulty Display — disabled for testing */}
+                            {/* {emergencyOrders.length > 0 && (
                                 <div className="flex flex-col gap-1 items-end">
                                     <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-orange-100">{t("离开关卡难度")}</span>
                                     <div className="flex items-center gap-2 text-orange-400">
@@ -385,7 +385,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <span className="text-3xl font-black font-mono tracking-tighter leading-none">LV.{emergencyDifficulty}</span>
                                     </div>
                                 </div>
-                            )}
+                            )} */}
                         </div>
 
                         {/* Stage Info (Compact) */}
@@ -424,95 +424,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                             <div className="flex flex-col gap-3">
 
-                                {/* Emergency Orders */}
-                                {state.emergencyOrders && state.emergencyOrders.length > 0 && (
-                                    <div className="mb-2 relative flex flex-col gap-2 p-3 bg-orange-50/50 rounded-2xl border-2 border-orange-200 shadow-sm">
-                                        <div className="flex items-center justify-between gap-4 mb-3 flex-nowrap border-b border-orange-200/50 pb-2">
-                                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                <div className="bg-red-600 text-white p-1.5 rounded-lg shadow-lg shrink-0">
-                                                    <Timer size={14} className="animate-pulse" />
-                                                </div>
-                                                <div className="flex flex-col min-w-0">
-                                                    <h3 className="text-sm font-black text-slate-800 leading-none truncate uppercase tracking-tight">
-                                                        {t("离开关卡需求")}
-                                                    </h3>
-                                                    <span className="text-[10px] text-slate-500 font-bold leading-none mt-1 opacity-80">
-                                                        {t("(完成任意其一)")}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                {/* 离开此关卡按钮 - 嵌入在需求区域 (放大版) */}
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleEvacuate(); }}
-                                                    disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!orderCandidates}
-                                                    className={`
-                                                        flex items-center justify-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-black transition-all duration-200 text-[10px] sm:text-sm shadow-lg border-2 whitespace-nowrap
-                                                        ${isEvacuationMode
-                                                            ? 'bg-orange-600 text-white ring-4 ring-orange-300 border-orange-400 animate-pulse scale-105'
-                                                            : (pendingItem || isSubmitMode || isRecycleMode || selectionMode || orderCandidates
-                                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200'
-                                                                : 'bg-orange-500 text-white hover:bg-orange-600 border-orange-600 hover:scale-110 active:scale-95')
-                                                        }
-                                                    `}
-                                                >
-                                                    {isEvacuationMode ? <Check size={14} className="sm:size-[18px]" /> : <Truck size={14} className="sm:size-[18px]" />}
-                                                    <span>{isEvacuationMode ? t("选择中...") : t("离开关卡")}</span>
-                                                </button>
-
-                                                {/* 放弃按钮 - 嵌入在需求区域 (放大版) */}
-                                                {!isEvacuationMode && !isSubmitMode && !isRecycleMode && !selectionMode && !orderCandidates && (
-                                                    <button
-                                                        onClick={onReset}
-                                                        className="flex items-center justify-center gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl font-black transition-all duration-200 text-[10px] sm:text-xs shadow-md bg-red-50 text-red-600 border-2 border-red-200 hover:bg-red-500 hover:text-white hover:border-red-600 hover:scale-105 active:scale-95 whitespace-nowrap"
-                                                    >
-                                                        <AlertCircle size={14} className="sm:size-[16px]" />
-                                                        <span>{t("放弃")}</span>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col gap-2">
-                                            {state.emergencyOrders.map((order, idx) => (
-                                                <OrderCard
-                                                    key={order.id}
-                                                    order={order}
-                                                    index={998 + idx}
-                                                    isScoreOrder={false}
-                                                    isEmergency={true}
-                                                    isSubmitMode={isSubmitMode}
-                                                    canSatisfy={satisfiableOrders.find(r => r.index === 998 + idx)}
-                                                    potentialSatisfy={state.potentialSatisfiableOrders.find(r => r.index === 998 + idx)}
-                                                    // Pass click handler to allow auto-selection
-                                                    onClick={handleOrderClick}
-                                                    currentStageConfig={currentStageConfig}
-                                                    config={config}
-                                                    inventory={inventory}
-                                                    selectedIndices={selectedIndices}
-                                                    hasSkill={hasSkill}
-                                                    hoveredPoolId={hoveredPoolId}
-                                                    hoveredItemName={hoveredItemName}
-                                                    hoveredPoolItemNames={hoveredPoolItemNames}
-                                                    selectedItemNames={selectedItemNames}
-
-                                                    isBeingReplaced={false}
-                                                    onDebugGetItems={debugMode ? debugGetOrderItems : null}
-                                                    orderSlotAssignments={orderSlotAssignments}
-                                                    phantomMarks={phantomMarks}
-                                                    onUnassign={handleUnassignFromOrder}
-                                                    onSlotClick={handleOrderSlotClick}
-                                                    pendingItem={pendingItem}
-                                                    selectedSlotItem={selectedSlot !== null ? inventory[selectedSlot] : null}
-                                                    toolSelectionMode={toolSelectionMode}
-                                                    isRecycleMode={isRecycleMode}
-                                                    selectionMode={selectionMode}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                                {/* Emergency Orders — disabled for testing */}
 
                                 {/* Normal Orders (no mainline) */}
                                 {orders.map((order, idx) => (

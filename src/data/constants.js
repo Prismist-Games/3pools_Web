@@ -351,9 +351,7 @@ export const INITIAL_RARITY_CONFIG = [
 
 // --- 填充物品：不属于任何订单，占据矩阵空位 ---
 export const FILLER_ITEMS = [
-    { name: '临时符号1', icon: '？' },
-    { name: '临时符号2', icon: '？' },
-    { name: '临时符号3', icon: '？' },
+    { name: '炸弹', icon: '💣' },
 ];
 
 // --- 大物品目录：所有可能出现的物品 ---
