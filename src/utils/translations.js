@@ -417,5 +417,8 @@ export const EN_TRANSLATIONS = {
     "背包已满": "Inventory Full",
     "结束": "Ended",
     "个物品": "item(s)",
-    "重置": "Reset"
+    "重置": "Reset",
+    // --- Tooltips ---
+    "抽中时触发厄运结算，不获得物品": "Triggers doom resolution when drawn, no item obtained",
+    "抽中时厄运等级+1，不获得物品": "Doom level +1 when drawn, no item obtained"
 };
