@@ -68,7 +68,7 @@ const HALF = GAP / 2;
 const TRACK = CELL_SIZE + GAP;
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency }) => {
+const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlight }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade');
@@ -109,15 +109,21 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency }) => {
         bgClass = 'bg-white border-gray-300';
     }
 
+    // Highlight ring effects
+    const highlightClass =
+        highlight === 'settled'  ? 'ring-3 ring-yellow-400 scale-110 z-20 transition-all duration-200' :
+        highlight === 'scanning' ? 'ring-2 ring-yellow-300 z-10 transition-all duration-75' :
+        highlight === 'scan-row' ? 'ring-1 ring-blue-200 transition-all duration-75' :
+        highlight === 'hover'    ? 'ring-2 ring-blue-400/60 transition-all duration-150' :
+        '';
+
     return (
         <div
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
-            className={`border flex flex-col items-center justify-center ${rounding} ${bgClass}`}
+            className={`border flex flex-col items-center justify-center ${rounding} ${bgClass} ${highlightClass}`}
             style={{
-                // Margin creates visual gaps; connected sides = 0 margin → cells truly touch
                 margin: `${top ? 0 : HALF}px ${right ? 0 : HALF}px ${bottom ? 0 : HALF}px ${left ? 0 : HALF}px`,
-                // Fill remaining space in the track
                 width: CELL_SIZE + (left ? HALF : 0) + (right ? HALF : 0),
                 height: CELL_SIZE + (top ? HALF : 0) + (bottom ? HALF : 0),
             }}
@@ -138,8 +144,9 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency }) => {
 /**
  * 5×5 grid display for turn-based prototype.
  */
-const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled, drawAnimState }) => {
     const { t } = useLanguage();
+    const [hoveredRow, setHoveredRow] = useState(null);
 
     if (!matrix) return null;
 
@@ -189,6 +196,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
                             <button
                                 key={rowIndex}
                                 onClick={() => rowClickable && onSelectRow(rowIndex)}
+                                onMouseEnter={() => rowClickable && setHoveredRow(rowIndex)}
+                                onMouseLeave={() => setHoveredRow(null)}
                                 disabled={!rowClickable}
                                 className={`
                                     rounded-lg text-xs font-black flex-shrink-0
@@ -218,17 +227,27 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
                     }}
                 >
                     {matrix.flatMap((row, rowIndex) =>
-                        row.map((cell, colIndex) => (
-                            <GridCell
-                                key={`${rowIndex}-${colIndex}`}
-                                cell={cell}
-                                cellContent={getCellContent(cell)}
-                                t={t}
-                                rowIndex={rowIndex}
-                                colIndex={colIndex}
-                                adjacency={getAdjacency(rowIndex, colIndex)}
-                            />
-                        ))
+                        row.map((cell, colIndex) => {
+                            // Hover highlight: all active cells in hovered row glow equally
+                            const isRowHovered = hoveredRow === rowIndex && cell !== null;
+                            // Draw animation highlight
+                            const isScanning = drawAnimState?.rowIndex === rowIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === colIndex;
+                            const isSettled = drawAnimState?.rowIndex === rowIndex && drawAnimState.phase === 'settled' && drawAnimState.finalColIndex === colIndex;
+                            const isScanRow = drawAnimState?.rowIndex === rowIndex && cell !== null && drawAnimState.phase === 'scanning';
+
+                            return (
+                                <GridCell
+                                    key={`${rowIndex}-${colIndex}`}
+                                    cell={cell}
+                                    cellContent={getCellContent(cell)}
+                                    t={t}
+                                    rowIndex={rowIndex}
+                                    colIndex={colIndex}
+                                    adjacency={getAdjacency(rowIndex, colIndex)}
+                                    highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanRow ? 'scan-row' : isRowHovered ? 'hover' : null}
+                                />
+                            );
+                        })
                     )}
                 </div>
 

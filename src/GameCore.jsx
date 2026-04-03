@@ -19,9 +19,11 @@ const GameCore = () => {
         inventory, maxInventorySize,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
+        drawAnimState, isDrawAnimating,
         startGame, selectRow, endTurn, continueToNextTurn,
         handleEvacuate, handleReset,
         tickDoomResolution, completeDoomResolution,
+        tickDrawAnim, completeDrawAnim,
     } = state;
 
     // --- Doom animation interval ---
@@ -32,6 +34,22 @@ const GameCore = () => {
         const timer = setTimeout(tickDoomResolution, interval);
         return () => clearTimeout(timer);
     }, [doomAnimState]);
+
+    // --- Draw scanning animation interval ---
+    useEffect(() => {
+        if (!drawAnimState) return;
+        if (drawAnimState.phase === 'scanning') {
+            const progress = drawAnimState.tick / drawAnimState.totalTicks;
+            const interval = 60 + progress * 140;
+            const timer = setTimeout(tickDrawAnim, interval);
+            return () => clearTimeout(timer);
+        }
+        if (drawAnimState.phase === 'settled') {
+            // Brief pause on result, then auto-complete
+            const timer = setTimeout(completeDrawAnim, 400);
+            return () => clearTimeout(timer);
+        }
+    }, [drawAnimState]);
 
     // --- Flying item cleanup ---
     useEffect(() => {
@@ -136,11 +154,12 @@ const GameCore = () => {
                                 gold={gold}
                                 drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
                                 phase={phase}
-                                disabled={isDoomResolving}
+                                disabled={isDoomResolving || isDrawAnimating}
+                                drawAnimState={drawAnimState}
                             />
 
                             {/* Draw result feedback */}
-                            {lastDrawResult && !isDoomResolving && (
+                            {lastDrawResult && !isDoomResolving && !isDrawAnimating && (
                                 <div className={`mt-3 p-2 rounded text-sm ${
                                     lastDrawResult.obtained
                                         ? 'bg-green-50 text-green-700'
@@ -157,9 +176,9 @@ const GameCore = () => {
                             <div className="mt-4 flex gap-2">
                                 <button
                                     onClick={endTurn}
-                                    disabled={isDoomResolving}
+                                    disabled={isDoomResolving || isDrawAnimating}
                                     className={`px-6 py-2 rounded-lg font-bold transition-colors ${
-                                        isDoomResolving
+                                        isDoomResolving || isDrawAnimating
                                             ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                             : 'bg-gray-700 text-white hover:bg-gray-800'
                                     }`}

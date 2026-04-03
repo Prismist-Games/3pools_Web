@@ -43,6 +43,8 @@ export const useGameLogic = (config) => {
     const [lastDrawResult, setLastDrawResult] = useState(null);
     const [modalContent, setModalContent] = useState(null);
     const [flyingItem, setFlyingItem] = useState(null);
+    const [drawAnimState, setDrawAnimState] = useState(null);
+    // { rowIndex, activeCols, finalColIndex, drawnCell, tick, totalTicks, currentHighlight, phase: 'scanning'|'settled' }
 
     // --- Derived State ---
     const dangerCount = useMemo(() =>
@@ -102,38 +104,69 @@ export const useGameLogic = (config) => {
     // DRAW MECHANIC
     // =============================================
 
-    /** Select a row to draw from */
+    const isDrawAnimating = drawAnimState !== null;
+
+    /** Select a row — starts scanning animation, then resolves */
     const selectRow = (rowIndex) => {
         if (phase !== 'drawing') return;
-        if (isDoomResolving) return;
+        if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
 
-        // Clear previous displays
         setDoomResolutionResult(null);
         setFlyingItem(null);
+        setLastDrawResult(null);
 
-        // Get active cells in this row (not yet removed)
         const row = matrix[rowIndex];
-        const activeCells = [];
+        const activeCols = [];
         row.forEach((cell, colIndex) => {
-            if (cell !== null) {
-                activeCells.push({ cell, colIndex });
-            }
+            if (cell !== null) activeCols.push(colIndex);
         });
+        if (activeCols.length === 0) return;
 
-        if (activeCells.length === 0) return;
-
-        // Spend gold
         setGold(prev => prev - turnConfig.drawCost);
 
-        // 1. Random draw from active cells
-        const randomIndex = Math.floor(Math.random() * activeCells.length);
-        const drawnEntry = activeCells[randomIndex];
-        const drawnCell = drawnEntry.cell;
-        const drawnColIndex = drawnEntry.colIndex;
+        // Pre-determine result
+        const finalColIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
+        const drawnCell = row[finalColIndex];
 
-        // 2. Process draw result based on cell type
+        // Start scanning animation
+        setDrawAnimState({
+            rowIndex,
+            activeCols,
+            finalColIndex,
+            drawnCell,
+            tick: 0,
+            totalTicks: 14,
+            currentHighlight: activeCols[Math.floor(Math.random() * activeCols.length)],
+            phase: 'scanning',
+        });
+    };
+
+    /** Advance draw scanning animation (called by GameCore interval) */
+    const tickDrawAnim = () => {
+        setDrawAnimState(prev => {
+            if (!prev || prev.phase !== 'scanning') return prev;
+            const newTick = prev.tick + 1;
+            if (newTick >= prev.totalTicks) {
+                return { ...prev, tick: newTick, currentHighlight: prev.finalColIndex, phase: 'settled' };
+            }
+            // Last 3 ticks: bias toward final cell
+            let next;
+            if (newTick >= prev.totalTicks - 3) {
+                next = Math.random() < 0.6 ? prev.finalColIndex : prev.activeCols[Math.floor(Math.random() * prev.activeCols.length)];
+            } else {
+                next = prev.activeCols[Math.floor(Math.random() * prev.activeCols.length)];
+            }
+            return { ...prev, tick: newTick, currentHighlight: next };
+        });
+    };
+
+    /** Apply draw result after animation settles */
+    const completeDrawAnim = () => {
+        if (!drawAnimState) return;
+        const { rowIndex, finalColIndex, drawnCell } = drawAnimState;
+
         let obtainedItem = null;
         const doomEffects = { resolutions: 0, upgrades: 0 };
 
@@ -145,8 +178,7 @@ export const useGameLogic = (config) => {
             doomEffects.upgrades = 1;
         }
 
-        // 3. Remove drawn cell(s) from matrix
-        //    For multi-cell items, remove ALL cells with the same groupId
+        // Remove drawn cell(s)
         setMatrix(prev => {
             const newMatrix = prev.map(r => [...r]);
             if (drawnCell.groupId) {
@@ -158,25 +190,23 @@ export const useGameLogic = (config) => {
                     }
                 }
             } else {
-                newMatrix[rowIndex][drawnColIndex] = null;
+                newMatrix[rowIndex][finalColIndex] = null;
             }
             return newMatrix;
         });
 
-        // 4. Add item to inventory if obtained + trigger fly animation
         if (obtainedItem) {
             setFlyingItem({
                 icon: obtainedItem.item.icon,
                 name: obtainedItem.item.name,
                 shapeSize: obtainedItem.shapeSize || 1,
                 rowIndex,
-                colIndex: drawnColIndex,
+                colIndex: finalColIndex,
                 id: Date.now(),
             });
             addToInventory(obtainedItem);
         }
 
-        // 5. Apply doom effects (only if drawn)
         if (doomEffects.upgrades > 0) {
             setDoomLevel(prev => prev + doomEffects.upgrades);
             showToast(t('厄运升级') + ` +${doomEffects.upgrades}`, 'warning');
@@ -186,13 +216,13 @@ export const useGameLogic = (config) => {
             resolveDoom();
         }
 
-        // 6. Set draw result for UI feedback
         setLastDrawResult({
             rowIndex,
-            colIndex: drawnColIndex,
+            colIndex: finalColIndex,
             obtained: obtainedItem,
             doomEffects,
         });
+        setDrawAnimState(null);
     };
 
     // =============================================
@@ -335,6 +365,7 @@ export const useGameLogic = (config) => {
         setLastDrawResult(null);
         setModalContent(null);
         setFlyingItem(null);
+        setDrawAnimState(null);
     };
 
     // =============================================
@@ -382,6 +413,8 @@ export const useGameLogic = (config) => {
         modalContent,
         flyingItem,
         setFlyingItem,
+        drawAnimState,
+        isDrawAnimating,
 
         // Actions
         startGame,
@@ -392,5 +425,7 @@ export const useGameLogic = (config) => {
         handleReset,
         tickDoomResolution,
         completeDoomResolution,
+        tickDrawAnim,
+        completeDrawAnim,
     };
 };
