@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { generateTurnMatrix } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 
@@ -40,9 +40,6 @@ export const useGameLogic = (config) => {
     const [toast, setToast] = useState(null);
     const [lastDrawResult, setLastDrawResult] = useState(null);
     const [modalContent, setModalContent] = useState(null);
-
-    // --- Processing lock (prevents rapid-click double draws) ---
-    const isDrawing = useRef(false);
 
     // --- Derived State ---
     const dangerCount = useMemo(() =>
@@ -104,14 +101,9 @@ export const useGameLogic = (config) => {
 
     /** Select a row to draw from */
     const selectRow = (rowIndex) => {
-        if (isDrawing.current) return;
         if (phase !== 'drawing') return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
-
-        isDrawing.current = true;
-        // Release lock after React processes state updates
-        setTimeout(() => { isDrawing.current = false; }, 0);
 
         // Clear previous doom resolution display
         setDoomResolutionResult(null);
@@ -130,64 +122,47 @@ export const useGameLogic = (config) => {
         // Spend gold
         setGold(prev => prev - turnConfig.drawCost);
 
-        // 1. Auto-trigger all doom cells in the row
-        const doomEffects = { resolutions: 0, upgrades: 0 };
-        const doomCellIndices = [];
-
-        activeCells.forEach(({ cell, colIndex }) => {
-            if (cell.type === 'doom_resolution') {
-                doomEffects.resolutions++;
-                doomCellIndices.push(colIndex);
-            } else if (cell.type === 'doom_upgrade') {
-                doomEffects.upgrades++;
-                doomCellIndices.push(colIndex);
-            }
-        });
-
-        // 2. Random draw from ALL active cells
+        // 1. Random draw from active cells
         const randomIndex = Math.floor(Math.random() * activeCells.length);
         const drawnEntry = activeCells[randomIndex];
         const drawnCell = drawnEntry.cell;
         const drawnColIndex = drawnEntry.colIndex;
 
-        // 3. Process draw result
+        // 2. Process draw result based on cell type
         let obtainedItem = null;
+        const doomEffects = { resolutions: 0, upgrades: 0 };
+
         if (drawnCell.type === 'item') {
             obtainedItem = drawnCell;
+        } else if (drawnCell.type === 'doom_resolution') {
+            doomEffects.resolutions = 1;
+        } else if (drawnCell.type === 'doom_upgrade') {
+            doomEffects.upgrades = 1;
         }
-        // If drawn cell is a doom cell, no item obtained
 
-        // 4. Remove drawn cell + all triggered doom cells from matrix
+        // 3. Remove drawn cell from matrix
         setMatrix(prev => {
             const newMatrix = prev.map(r => [...r]);
-            // Remove the drawn cell
             newMatrix[rowIndex][drawnColIndex] = null;
-            // Remove triggered doom cells
-            doomCellIndices.forEach(colIdx => {
-                newMatrix[rowIndex][colIdx] = null;
-            });
             return newMatrix;
         });
 
-        // 5. Add item to inventory if obtained
+        // 4. Add item to inventory if obtained
         if (obtainedItem) {
             addToInventory(obtainedItem);
         }
 
-        // 6. Apply doom effects
+        // 5. Apply doom effects (only if drawn)
         if (doomEffects.upgrades > 0) {
             setDoomLevel(prev => prev + doomEffects.upgrades);
             showToast(t('厄运升级') + ` +${doomEffects.upgrades}`, 'warning');
         }
 
         if (doomEffects.resolutions > 0) {
-            // Queue doom resolutions
-            for (let i = 0; i < doomEffects.resolutions; i++) {
-                resolveDoom();
-            }
+            resolveDoom();
         }
 
-        // 7. Set draw result for UI feedback
+        // 6. Set draw result for UI feedback
         setLastDrawResult({
             rowIndex,
             colIndex: drawnColIndex,
