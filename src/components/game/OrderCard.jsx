@@ -252,7 +252,7 @@ const OrderCardBase = ({
                             const hasItem = !!matchedItem;
                             const isQualitySatisfied = matchedItem && matchedItem.rarity.bonus >= req.requiredRarity.bonus;
 
-                            const isPoolHighlighted = hoveredPoolId && !req.isScoreItem && hoveredPoolItemNames && hoveredPoolItemNames.includes(req.name);
+                            const isPoolHighlighted = !req.isScoreItem && hoveredPoolItemNames && hoveredPoolItemNames.length > 0 && hoveredPoolItemNames.includes(req.name);
                             const isItemHighlighted = hoveredItemName && req.name === hoveredItemName;
 
                             const borderStyle = hasItem ? 'border-solid' : 'border-dashed';
