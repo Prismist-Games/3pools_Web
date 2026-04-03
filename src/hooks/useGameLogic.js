@@ -145,10 +145,21 @@ export const useGameLogic = (config) => {
             doomEffects.upgrades = 1;
         }
 
-        // 3. Remove drawn cell from matrix
+        // 3. Remove drawn cell(s) from matrix
+        //    For multi-cell items, remove ALL cells with the same groupId
         setMatrix(prev => {
             const newMatrix = prev.map(r => [...r]);
-            newMatrix[rowIndex][drawnColIndex] = null;
+            if (drawnCell.groupId) {
+                for (let r = 0; r < newMatrix.length; r++) {
+                    for (let c = 0; c < newMatrix[r].length; c++) {
+                        if (newMatrix[r][c]?.groupId === drawnCell.groupId) {
+                            newMatrix[r][c] = null;
+                        }
+                    }
+                }
+            } else {
+                newMatrix[rowIndex][drawnColIndex] = null;
+            }
             return newMatrix;
         });
 
@@ -157,6 +168,7 @@ export const useGameLogic = (config) => {
             setFlyingItem({
                 icon: obtainedItem.item.icon,
                 name: obtainedItem.item.name,
+                shapeSize: obtainedItem.shapeSize || 1,
                 rowIndex,
                 colIndex: drawnColIndex,
                 id: Date.now(),

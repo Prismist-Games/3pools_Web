@@ -117,12 +117,29 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
         return null;
     };
 
-    const getCellStyle = (cell) => {
+    const getCellStyle = (cell, rowIdx, colIdx) => {
         if (cell === null) return 'bg-gray-100 border-gray-200';
-        if (cell.type === 'item') return 'bg-white border-gray-300';
         if (cell.type === 'doom_resolution') return 'bg-red-50 border-red-300';
         if (cell.type === 'doom_upgrade') return 'bg-orange-50 border-orange-300';
-        return 'bg-white border-gray-300';
+        if (cell.type !== 'item') return 'bg-white border-gray-300';
+
+        // Multi-cell items: tint by size, remove borders between connected cells
+        const size = cell.shapeSize || 1;
+        const gid = cell.groupId;
+        const bg = size >= 4 ? 'bg-purple-50' : size >= 3 ? 'bg-blue-50' : size >= 2 ? 'bg-green-50' : 'bg-white';
+
+        // Check adjacency to remove internal borders
+        const top = rowIdx > 0 && matrix[rowIdx - 1]?.[colIdx]?.groupId === gid;
+        const bottom = rowIdx < matrix.length - 1 && matrix[rowIdx + 1]?.[colIdx]?.groupId === gid;
+        const left = colIdx > 0 && matrix[rowIdx][colIdx - 1]?.groupId === gid;
+        const right = colIdx < matrix[rowIdx].length - 1 && matrix[rowIdx][colIdx + 1]?.groupId === gid;
+
+        const borderT = top ? 'border-t-transparent' : 'border-t-gray-300';
+        const borderB = bottom ? 'border-b-transparent' : 'border-b-gray-300';
+        const borderL = left ? 'border-l-transparent' : 'border-l-gray-300';
+        const borderR = right ? 'border-r-transparent' : 'border-r-gray-300';
+
+        return `${bg} ${borderT} ${borderB} ${borderL} ${borderR}`;
     };
 
     const getRowDoomInfo = (row) => {
@@ -174,7 +191,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
                             <GridCell
                                 key={colIndex}
                                 cell={cell}
-                                cellStyle={getCellStyle(cell)}
+                                cellStyle={getCellStyle(cell, rowIndex, colIndex)}
                                 cellContent={getCellContent(cell)}
                                 t={t}
                                 rowIndex={rowIndex}
