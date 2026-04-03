@@ -62,31 +62,73 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
     );
 };
 
+// Background colors by item shape size (for box-shadow bridges)
+const SIZE_BG = { 1: null, 2: '#f0fdf4', 3: '#eff6ff', 4: '#faf5ff' };
+const CELL_SIZE = 56; // w-14 = 56px
+const GAP = 6;        // gap between cells in px
+
 /** Single grid cell with optional tooltip */
-const GridCell = ({ cell, cellStyle, cellContent, t, rowIndex, colIndex, adjacency }) => {
+const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade');
 
-    // Compute rounded corners — only round external corners
+    // Compute rounded corners — only round external corners of multi-cell items
     const { top, bottom, left, right } = adjacency;
-    const tl = (!top && !left) ? 'rounded-tl' : '';
-    const tr = (!top && !right) ? 'rounded-tr' : '';
-    const bl = (!bottom && !left) ? 'rounded-bl' : '';
-    const br = (!bottom && !right) ? 'rounded-br' : '';
-    const rounding = `${tl} ${tr} ${bl} ${br}`;
+    const isConnected = top || bottom || left || right;
+    const rounding = isConnected
+        ? [
+            (!top && !left) ? 'rounded-tl-lg' : '',
+            (!top && !right) ? 'rounded-tr-lg' : '',
+            (!bottom && !left) ? 'rounded-bl-lg' : '',
+            (!bottom && !right) ? 'rounded-br-lg' : '',
+          ].join(' ')
+        : 'rounded-lg';
+
+    // Box-shadow to fill gaps between connected cells
+    const shadows = [];
+    const color = cell?.type === 'item' ? SIZE_BG[cell.shapeSize || 1] : null;
+    if (color) {
+        const half = GAP / 2;
+        if (right) shadows.push(`${half}px 0 0 0 ${color}`);
+        if (bottom) shadows.push(`0 ${half}px 0 0 ${color}`);
+        if (right && bottom) {
+            // Check diagonal — fill corner if both right and bottom neighbors are same group
+            shadows.push(`${half}px ${half}px 0 0 ${color}`);
+        }
+    }
+
+    // Cell background class
+    let bgClass;
+    if (cell === null) {
+        bgClass = 'bg-gray-100 border-gray-200';
+    } else if (cell.type === 'doom_resolution') {
+        bgClass = 'bg-red-50 border-red-300';
+    } else if (cell.type === 'doom_upgrade') {
+        bgClass = 'bg-orange-50 border-orange-300';
+    } else if (cell.type === 'item') {
+        const size = cell.shapeSize || 1;
+        const bg = size >= 4 ? 'bg-purple-50' : size >= 3 ? 'bg-blue-50' : size >= 2 ? 'bg-green-50' : 'bg-white';
+        // Internal borders transparent, external borders gray
+        const bT = top ? 'border-t-transparent' : 'border-t-gray-300';
+        const bB = bottom ? 'border-b-transparent' : 'border-b-gray-300';
+        const bL = left ? 'border-l-transparent' : 'border-l-gray-300';
+        const bR = right ? 'border-r-transparent' : 'border-r-gray-300';
+        bgClass = `${bg} ${bT} ${bB} ${bL} ${bR}`;
+    } else {
+        bgClass = 'bg-white border-gray-300';
+    }
 
     return (
         <div
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
-            className={`
-                w-14 h-14 border-2 flex flex-col items-center justify-center
-                ${rounding} ${cellStyle}
-            `}
+            className={`border flex flex-col items-center justify-center relative ${rounding} ${bgClass}`}
             style={{
-                marginTop: top ? -2 : 2,
-                marginLeft: left ? -2 : 2,
+                width: CELL_SIZE,
+                height: CELL_SIZE,
+                boxShadow: shadows.length > 0 ? shadows.join(', ') : undefined,
+                zIndex: isConnected ? 1 : 0,
             }}
             onMouseEnter={hasTip ? () => setHovered(true) : undefined}
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
@@ -129,31 +171,6 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
         return null;
     };
 
-    const getCellStyle = (cell, rowIdx, colIdx) => {
-        if (cell === null) return 'bg-gray-100 border-gray-200';
-        if (cell.type === 'doom_resolution') return 'bg-red-50 border-red-300';
-        if (cell.type === 'doom_upgrade') return 'bg-orange-50 border-orange-300';
-        if (cell.type !== 'item') return 'bg-white border-gray-300';
-
-        // Multi-cell items: tint by size, remove borders between connected cells
-        const size = cell.shapeSize || 1;
-        const gid = cell.groupId;
-        const bg = size >= 4 ? 'bg-purple-50' : size >= 3 ? 'bg-blue-50' : size >= 2 ? 'bg-green-50' : 'bg-white';
-
-        // Check adjacency to remove internal borders
-        const top = rowIdx > 0 && matrix[rowIdx - 1]?.[colIdx]?.groupId === gid;
-        const bottom = rowIdx < matrix.length - 1 && matrix[rowIdx + 1]?.[colIdx]?.groupId === gid;
-        const left = colIdx > 0 && matrix[rowIdx][colIdx - 1]?.groupId === gid;
-        const right = colIdx < matrix[rowIdx].length - 1 && matrix[rowIdx][colIdx + 1]?.groupId === gid;
-
-        const borderT = top ? 'border-t-transparent' : 'border-t-gray-300';
-        const borderB = bottom ? 'border-b-transparent' : 'border-b-gray-300';
-        const borderL = left ? 'border-l-transparent' : 'border-l-gray-300';
-        const borderR = right ? 'border-r-transparent' : 'border-r-gray-300';
-
-        return `${bg} ${borderT} ${borderB} ${borderL} ${borderR}`;
-    };
-
     const getRowDoomInfo = (row) => {
         let resolutions = 0;
         let upgrades = 0;
@@ -168,10 +185,10 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
         return row.filter(cell => cell !== null).length;
     };
 
-    // Compute adjacency for each cell (same groupId neighbor)
+    // Compute adjacency for a cell (same groupId neighbor)
     const getAdjacency = (rowIdx, colIdx) => {
         const cell = matrix[rowIdx]?.[colIdx];
-        if (!cell || !cell.groupId || cell.shapeSize <= 1) {
+        if (!cell || !cell.groupId || (cell.shapeSize || 1) <= 1) {
             return { top: false, bottom: false, left: false, right: false };
         }
         const gid = cell.groupId;
@@ -184,64 +201,84 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
     };
 
     return (
-        <div className="flex flex-col">
-            <div className="text-center text-sm text-gray-500 mb-1">
+        <div>
+            <div className="text-center text-sm text-gray-500 mb-2">
                 {t('选择一行抽取')}
             </div>
-            {matrix.map((row, rowIndex) => {
-                const doomInfo = getRowDoomInfo(row);
-                const activeCount = getRowActiveCount(row);
-                const hasActiveCells = activeCount > 0;
-                const rowClickable = canDraw && hasActiveCells;
+            <div className="flex items-start gap-2">
+                {/* Row buttons column */}
+                <div className="flex flex-col" style={{ gap: GAP }}>
+                    {matrix.map((row, rowIndex) => {
+                        const activeCount = getRowActiveCount(row);
+                        const hasActiveCells = activeCount > 0;
+                        const rowClickable = canDraw && hasActiveCells;
+                        return (
+                            <button
+                                key={rowIndex}
+                                onClick={() => rowClickable && onSelectRow(rowIndex)}
+                                disabled={!rowClickable}
+                                className={`
+                                    rounded text-xs font-bold flex-shrink-0
+                                    transition-all duration-150 flex items-center justify-center
+                                    ${rowClickable
+                                        ? 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer'
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                    }
+                                `}
+                                style={{ width: 32, height: CELL_SIZE }}
+                                title={rowClickable ? t('抽取此行') : t('无法抽取')}
+                            >
+                                ▶
+                            </button>
+                        );
+                    })}
+                </div>
 
-                return (
-                    <div key={rowIndex} className="flex items-center">
-                        {/* Row select button */}
-                        <button
-                            onClick={() => rowClickable && onSelectRow(rowIndex)}
-                            disabled={!rowClickable}
-                            className={`
-                                w-8 h-8 rounded text-xs font-bold flex-shrink-0 mr-1
-                                transition-all duration-150
-                                ${rowClickable
-                                    ? 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer'
-                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                }
-                            `}
-                            title={rowClickable ? t('抽取此行') : t('无法抽取')}
-                        >
-                            ▶
-                        </button>
+                {/* 5×5 grid — single CSS Grid for perfect alignment */}
+                <div
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(5, ${CELL_SIZE}px)`,
+                        gridTemplateRows: `repeat(5, ${CELL_SIZE}px)`,
+                        gap: GAP,
+                    }}
+                >
+                    {matrix.flatMap((row, rowIndex) =>
+                        row.map((cell, colIndex) => (
+                            <GridCell
+                                key={`${rowIndex}-${colIndex}`}
+                                cell={cell}
+                                cellContent={getCellContent(cell)}
+                                t={t}
+                                rowIndex={rowIndex}
+                                colIndex={colIndex}
+                                adjacency={getAdjacency(rowIndex, colIndex)}
+                            />
+                        ))
+                    )}
+                </div>
 
-                        {/* Grid cells — no gap, adjacency handled by negative margins */}
-                        {row.map((cell, colIndex) => {
-                            const adj = getAdjacency(rowIndex, colIndex);
-                            return (
-                                <GridCell
-                                    key={colIndex}
-                                    cell={cell}
-                                    cellStyle={getCellStyle(cell, rowIndex, colIndex)}
-                                    cellContent={getCellContent(cell)}
-                                    t={t}
-                                    rowIndex={rowIndex}
-                                    colIndex={colIndex}
-                                    adjacency={adj}
-                                />
-                            );
-                        })}
-
-                        {/* Row doom indicators */}
-                        <div className="flex-shrink-0 w-16 text-xs text-gray-400 ml-1">
-                            {doomInfo.resolutions > 0 && (
-                                <span className="text-red-500">💀×{doomInfo.resolutions} </span>
-                            )}
-                            {doomInfo.upgrades > 0 && (
-                                <span className="text-orange-500">⬆️×{doomInfo.upgrades}</span>
-                            )}
-                        </div>
-                    </div>
-                );
-            })}
+                {/* Row doom indicators column */}
+                <div className="flex flex-col" style={{ gap: GAP }}>
+                    {matrix.map((row, rowIndex) => {
+                        const doomInfo = getRowDoomInfo(row);
+                        return (
+                            <div
+                                key={rowIndex}
+                                className="flex-shrink-0 text-xs text-gray-400 flex items-center"
+                                style={{ height: CELL_SIZE, width: 64 }}
+                            >
+                                {doomInfo.resolutions > 0 && (
+                                    <span className="text-red-500">💀×{doomInfo.resolutions} </span>
+                                )}
+                                {doomInfo.upgrades > 0 && (
+                                    <span className="text-orange-500">⬆️×{doomInfo.upgrades}</span>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
     );
 };
