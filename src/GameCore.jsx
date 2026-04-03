@@ -90,7 +90,7 @@ const GameCore = () => {
     })();
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4">
+        <div className="min-h-screen bg-slate-100 p-4">
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
@@ -104,11 +104,11 @@ const GameCore = () => {
                 </div>
 
                 {/* Status Bar */}
-                <div className="flex gap-4 mb-4 p-3 bg-white rounded-lg shadow-sm border text-sm">
-                    <div>❤️ <span className="font-bold">{hp}</span> HP</div>
-                    <div>💰 <span className="font-bold">{gold}</span> {t('金币')}</div>
-                    <div>📅 {t('回合')} <span className="font-bold">{turnNumber}</span></div>
-                    <div>🎒 <span className="font-bold">{inventory.length}/{maxInventorySize}</span></div>
+                <div className="flex gap-4 mb-4 p-3 bg-white rounded-xl shadow-md border border-gray-200 text-sm font-bold">
+                    <div className="text-rose-600">❤️ {hp} HP</div>
+                    <div className="text-amber-600">💰 {gold} {t('金币')}</div>
+                    <div className="text-indigo-600">📅 {t('回合')} {turnNumber}</div>
+                    <div className="text-teal-600">🎒 {inventory.length}/{maxInventorySize}</div>
                 </div>
 
                 {/* Pre-game state */}

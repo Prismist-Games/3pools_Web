@@ -62,19 +62,19 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
     );
 };
 
-// Background colors by item shape size (for box-shadow bridges)
-const SIZE_BG = { 1: null, 2: '#f0fdf4', 3: '#eff6ff', 4: '#faf5ff' };
-const CELL_SIZE = 56; // w-14 = 56px
-const GAP = 6;        // gap between cells in px
+const CELL_SIZE = 56;
+const GAP = 6;
+const HALF = GAP / 2;
+const TRACK = CELL_SIZE + GAP;
 
-/** Single grid cell with optional tooltip */
+/** Single grid cell */
 const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade');
-
-    // Compute rounded corners — only round external corners of multi-cell items
     const { top, bottom, left, right } = adjacency;
+
+    // Rounded corners — only on external corners
     const isConnected = top || bottom || left || right;
     const rounding = isConnected
         ? [
@@ -85,35 +85,25 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency }) => {
           ].join(' ')
         : 'rounded-lg';
 
-    // Box-shadow to fill gaps between connected cells
-    const shadows = [];
-    const color = cell?.type === 'item' ? SIZE_BG[cell.shapeSize || 1] : null;
-    if (color) {
-        const half = GAP / 2;
-        if (right) shadows.push(`${half}px 0 0 0 ${color}`);
-        if (bottom) shadows.push(`0 ${half}px 0 0 ${color}`);
-        if (right && bottom) {
-            // Check diagonal — fill corner if both right and bottom neighbors are same group
-            shadows.push(`${half}px ${half}px 0 0 ${color}`);
-        }
-    }
-
-    // Cell background class
+    // Cell background
     let bgClass;
     if (cell === null) {
         bgClass = 'bg-gray-100 border-gray-200';
     } else if (cell.type === 'doom_resolution') {
-        bgClass = 'bg-red-50 border-red-300';
+        bgClass = 'bg-red-100 border-red-400';
     } else if (cell.type === 'doom_upgrade') {
-        bgClass = 'bg-orange-50 border-orange-300';
+        bgClass = 'bg-amber-100 border-amber-400';
     } else if (cell.type === 'item') {
         const size = cell.shapeSize || 1;
-        const bg = size >= 4 ? 'bg-purple-50' : size >= 3 ? 'bg-blue-50' : size >= 2 ? 'bg-green-50' : 'bg-white';
-        // Internal borders transparent, external borders gray
-        const bT = top ? 'border-t-transparent' : 'border-t-gray-300';
-        const bB = bottom ? 'border-b-transparent' : 'border-b-gray-300';
-        const bL = left ? 'border-l-transparent' : 'border-l-gray-300';
-        const bR = right ? 'border-r-transparent' : 'border-r-gray-300';
+        const bg = size >= 4 ? 'bg-violet-100 border-violet-400'
+                 : size >= 3 ? 'bg-sky-100 border-sky-400'
+                 : size >= 2 ? 'bg-emerald-100 border-emerald-400'
+                 : 'bg-white border-gray-300';
+        // Internal borders match background to hide seam
+        const bT = top ? 'border-t-transparent' : '';
+        const bB = bottom ? 'border-b-transparent' : '';
+        const bL = left ? 'border-l-transparent' : '';
+        const bR = right ? 'border-r-transparent' : '';
         bgClass = `${bg} ${bT} ${bB} ${bL} ${bR}`;
     } else {
         bgClass = 'bg-white border-gray-300';
@@ -123,19 +113,20 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency }) => {
         <div
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
-            className={`border flex flex-col items-center justify-center relative ${rounding} ${bgClass}`}
+            className={`border flex flex-col items-center justify-center ${rounding} ${bgClass}`}
             style={{
-                width: CELL_SIZE,
-                height: CELL_SIZE,
-                boxShadow: shadows.length > 0 ? shadows.join(', ') : undefined,
-                zIndex: isConnected ? 1 : 0,
+                // Margin creates visual gaps; connected sides = 0 margin → cells truly touch
+                margin: `${top ? 0 : HALF}px ${right ? 0 : HALF}px ${bottom ? 0 : HALF}px ${left ? 0 : HALF}px`,
+                // Fill remaining space in the track
+                width: CELL_SIZE + (left ? HALF : 0) + (right ? HALF : 0),
+                height: CELL_SIZE + (top ? HALF : 0) + (bottom ? HALF : 0),
             }}
             onMouseEnter={hasTip ? () => setHovered(true) : undefined}
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
         >
             {cellContent}
             {cell !== null && cell.type === 'item' && (
-                <span className="text-[9px] text-gray-500 leading-none mt-0.5 truncate max-w-[48px]">
+                <span className="text-[9px] text-gray-600 leading-none mt-0.5 truncate max-w-[48px] font-medium">
                     {cell.item.name}
                 </span>
             )}
@@ -146,7 +137,6 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency }) => {
 
 /**
  * 5×5 grid display for turn-based prototype.
- * Shows item cells and doom cells. Row-only selection.
  */
 const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }) => {
     const { t } = useLanguage();
@@ -156,24 +146,13 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
     const canDraw = phase === 'drawing' && gold >= drawCost && !disabled;
 
     const getCellContent = (cell) => {
-        if (cell === null) {
-            return <span className="text-gray-300">·</span>;
-        }
-        if (cell.type === 'item') {
-            return <span className="text-xl">{cell.item.icon}</span>;
-        }
-        if (cell.type === 'doom_resolution') {
-            return <span className="text-xl">{cell.icon}</span>;
-        }
-        if (cell.type === 'doom_upgrade') {
-            return <span className="text-xl">{cell.icon}</span>;
-        }
-        return null;
+        if (cell === null) return <span className="text-gray-300">·</span>;
+        if (cell.type === 'item') return <span className="text-xl">{cell.item.icon}</span>;
+        return <span className="text-xl">{cell.icon}</span>;
     };
 
     const getRowDoomInfo = (row) => {
-        let resolutions = 0;
-        let upgrades = 0;
+        let resolutions = 0, upgrades = 0;
         row.forEach(cell => {
             if (cell?.type === 'doom_resolution') resolutions++;
             if (cell?.type === 'doom_upgrade') upgrades++;
@@ -181,11 +160,6 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
         return { resolutions, upgrades };
     };
 
-    const getRowActiveCount = (row) => {
-        return row.filter(cell => cell !== null).length;
-    };
-
-    // Compute adjacency for a cell (same groupId neighbor)
     const getAdjacency = (rowIdx, colIdx) => {
         const cell = matrix[rowIdx]?.[colIdx];
         if (!cell || !cell.groupId || (cell.shapeSize || 1) <= 1) {
@@ -202,30 +176,30 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
 
     return (
         <div>
-            <div className="text-center text-sm text-gray-500 mb-2">
+            <div className="text-center text-sm text-gray-500 mb-2 font-bold">
                 {t('选择一行抽取')}
             </div>
-            <div className="flex items-start gap-2">
-                {/* Row buttons column */}
-                <div className="flex flex-col" style={{ gap: GAP }}>
+            <div className="flex items-start">
+                {/* Row buttons */}
+                <div className="flex flex-col mr-2" style={{ paddingTop: HALF }}>
                     {matrix.map((row, rowIndex) => {
-                        const activeCount = getRowActiveCount(row);
-                        const hasActiveCells = activeCount > 0;
-                        const rowClickable = canDraw && hasActiveCells;
+                        const hasActive = row.some(c => c !== null);
+                        const rowClickable = canDraw && hasActive;
                         return (
                             <button
                                 key={rowIndex}
                                 onClick={() => rowClickable && onSelectRow(rowIndex)}
                                 disabled={!rowClickable}
                                 className={`
-                                    rounded text-xs font-bold flex-shrink-0
-                                    transition-all duration-150 flex items-center justify-center
+                                    rounded-lg text-xs font-black flex-shrink-0
+                                    flex items-center justify-center
+                                    transition-all duration-150 shadow-sm
                                     ${rowClickable
-                                        ? 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer'
-                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 cursor-pointer'
+                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                     }
                                 `}
-                                style={{ width: 32, height: CELL_SIZE }}
+                                style={{ width: 36, height: CELL_SIZE, marginBottom: GAP }}
                                 title={rowClickable ? t('抽取此行') : t('无法抽取')}
                             >
                                 ▶
@@ -234,13 +208,13 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
                     })}
                 </div>
 
-                {/* 5×5 grid — single CSS Grid for perfect alignment */}
+                {/* 5×5 grid — zero-gap CSS Grid, margins create visual spacing */}
                 <div
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: `repeat(5, ${CELL_SIZE}px)`,
-                        gridTemplateRows: `repeat(5, ${CELL_SIZE}px)`,
-                        gap: GAP,
+                        gridTemplateColumns: `repeat(5, ${TRACK}px)`,
+                        gridTemplateRows: `repeat(5, ${TRACK}px)`,
+                        /* no gap — margins on cells handle spacing */
                     }}
                 >
                     {matrix.flatMap((row, rowIndex) =>
@@ -258,21 +232,21 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled }
                     )}
                 </div>
 
-                {/* Row doom indicators column */}
-                <div className="flex flex-col" style={{ gap: GAP }}>
+                {/* Row doom indicators */}
+                <div className="flex flex-col ml-1" style={{ paddingTop: HALF }}>
                     {matrix.map((row, rowIndex) => {
                         const doomInfo = getRowDoomInfo(row);
                         return (
                             <div
                                 key={rowIndex}
-                                className="flex-shrink-0 text-xs text-gray-400 flex items-center"
-                                style={{ height: CELL_SIZE, width: 64 }}
+                                className="flex-shrink-0 text-xs font-bold flex items-center"
+                                style={{ height: CELL_SIZE, marginBottom: GAP, width: 70 }}
                             >
                                 {doomInfo.resolutions > 0 && (
-                                    <span className="text-red-500">💀×{doomInfo.resolutions} </span>
+                                    <span className="text-red-600">💀×{doomInfo.resolutions} </span>
                                 )}
                                 {doomInfo.upgrades > 0 && (
-                                    <span className="text-orange-500">⬆️×{doomInfo.upgrades}</span>
+                                    <span className="text-amber-600">⬆️×{doomInfo.upgrades}</span>
                                 )}
                             </div>
                         );
