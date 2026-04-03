@@ -109,13 +109,13 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         bgClass = 'bg-white border-gray-300';
     }
 
-    // Highlight ring effects
+    // Highlight effects
     const highlightClass =
-        highlight === 'settled'  ? 'ring-3 ring-yellow-400 scale-110 z-20 transition-all duration-200' :
+        highlight === 'settled'  ? 'ring-3 ring-yellow-400 scale-110 z-20 shadow-lg shadow-yellow-200 transition-all duration-200' :
         highlight === 'scanning' ? 'ring-2 ring-yellow-300 z-10 transition-all duration-75' :
         highlight === 'scan-row' ? 'ring-1 ring-blue-200 transition-all duration-75' :
-        highlight === 'hover'    ? 'ring-2 ring-blue-400/60 transition-all duration-150' :
-        '';
+        highlight === 'hover'    ? 'scale-105 shadow-md z-10 ring-2 ring-blue-400/60 transition-all duration-150' :
+        'transition-all duration-150';
 
     return (
         <div
@@ -226,29 +226,42 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled, 
                         /* no gap — margins on cells handle spacing */
                     }}
                 >
-                    {matrix.flatMap((row, rowIndex) =>
-                        row.map((cell, colIndex) => {
-                            // Hover highlight: all active cells in hovered row glow equally
-                            const isRowHovered = hoveredRow === rowIndex && cell !== null;
-                            // Draw animation highlight
-                            const isScanning = drawAnimState?.rowIndex === rowIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === colIndex;
-                            const isSettled = drawAnimState?.rowIndex === rowIndex && drawAnimState.phase === 'settled' && drawAnimState.finalColIndex === colIndex;
-                            const isScanRow = drawAnimState?.rowIndex === rowIndex && cell !== null && drawAnimState.phase === 'scanning';
+                    {(() => {
+                        // Compute groupIds that touch the hovered row — whole group pops out
+                        const hoveredGroupIds = new Set();
+                        if (hoveredRow !== null) {
+                            matrix[hoveredRow]?.forEach(cell => {
+                                if (cell?.groupId) hoveredGroupIds.add(cell.groupId);
+                            });
+                        }
 
-                            return (
-                                <GridCell
-                                    key={`${rowIndex}-${colIndex}`}
-                                    cell={cell}
-                                    cellContent={getCellContent(cell)}
-                                    t={t}
-                                    rowIndex={rowIndex}
-                                    colIndex={colIndex}
-                                    adjacency={getAdjacency(rowIndex, colIndex)}
-                                    highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanRow ? 'scan-row' : isRowHovered ? 'hover' : null}
-                                />
-                            );
-                        })
-                    )}
+                        return matrix.flatMap((row, rowIndex) =>
+                            row.map((cell, colIndex) => {
+                                // Hover: cell is in hovered row, OR belongs to a group in hovered row
+                                const isRowHovered = hoveredRow === rowIndex && cell !== null;
+                                const isGroupHovered = cell?.groupId && hoveredGroupIds.has(cell.groupId);
+                                const showHover = isRowHovered || isGroupHovered;
+
+                                // Draw animation highlight
+                                const isScanning = drawAnimState?.rowIndex === rowIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === colIndex;
+                                const isSettled = drawAnimState?.rowIndex === rowIndex && drawAnimState.phase === 'settled' && drawAnimState.finalColIndex === colIndex;
+                                const isScanRow = drawAnimState?.rowIndex === rowIndex && cell !== null && drawAnimState.phase === 'scanning';
+
+                                return (
+                                    <GridCell
+                                        key={`${rowIndex}-${colIndex}`}
+                                        cell={cell}
+                                        cellContent={getCellContent(cell)}
+                                        t={t}
+                                        rowIndex={rowIndex}
+                                        colIndex={colIndex}
+                                        adjacency={getAdjacency(rowIndex, colIndex)}
+                                        highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanRow ? 'scan-row' : showHover ? 'hover' : null}
+                                    />
+                                );
+                            })
+                        );
+                    })()}
                 </div>
 
                 {/* Row doom indicators */}
