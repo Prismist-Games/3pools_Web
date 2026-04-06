@@ -72,7 +72,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade');
-    const { top, bottom, left, right, corners = [] } = adjacency;
+    const { top, bottom, left, right } = adjacency;
 
     // Rounded corners — only on external corners
     const isConnected = top || bottom || left || right;
@@ -136,7 +136,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         <div
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
-            className={`border flex flex-col items-center justify-center relative overflow-visible ${rounding} ${bgClass} ${highlightClass}`}
+            className={`border flex flex-col items-center justify-center ${rounding} ${bgClass} ${highlightClass}`}
             style={{
                 margin: `${top ? 0 : HALF}px ${right ? 0 : HALF}px ${bottom ? 0 : HALF}px ${left ? 0 : HALF}px`,
                 width: CELL_SIZE + (left ? HALF : 0) + (right ? HALF : 0),
@@ -153,30 +153,6 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
                 </span>
             )}
             {hasTip && <CellTooltip cell={cell} anchorRef={ref} visible={hovered} t={t} />}
-            {/* Inner corner patches: fill ring gap + background at L/T/S/Z inner corners */}
-            {highlight === 'hover' && corners.map(c => {
-                const ringColor = 'rgba(96,165,250,0.6)';
-                const size = HALF + 2.5; // cover gap + ring width
-                const pos = {
-                    tr: { top: -HALF, right: -HALF },
-                    tl: { top: -HALF, left: -HALF },
-                    br: { bottom: -HALF, right: -HALF },
-                    bl: { bottom: -HALF, left: -HALF },
-                };
-                return (
-                    <div
-                        key={c}
-                        style={{
-                            position: 'absolute',
-                            width: size,
-                            height: size,
-                            background: ringColor,
-                            ...pos[c],
-                            zIndex: 5,
-                        }}
-                    />
-                );
-            })}
         </div>
     );
 };
@@ -184,9 +160,10 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
 /**
  * 5×5 grid display for turn-based prototype.
  */
-const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled, drawAnimState }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState }) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
+    const [hoveredCol, setHoveredCol] = useState(null);
 
     if (!matrix) return null;
 
@@ -201,30 +178,57 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled, 
     const getAdjacency = (rowIdx, colIdx) => {
         const cell = matrix[rowIdx]?.[colIdx];
         if (!cell || !cell.groupId || (cell.shapeSize || 1) <= 1) {
-            return { top: false, bottom: false, left: false, right: false, corners: [] };
+            return { top: false, bottom: false, left: false, right: false };
         }
         const gid = cell.groupId;
-        const g = (r, c) => matrix[r]?.[c]?.groupId === gid;
-        const top = rowIdx > 0 && g(rowIdx - 1, colIdx);
-        const bottom = rowIdx < matrix.length - 1 && g(rowIdx + 1, colIdx);
-        const left = colIdx > 0 && g(rowIdx, colIdx - 1);
-        const right = colIdx < matrix[rowIdx].length - 1 && g(rowIdx, colIdx + 1);
-
-        // Detect inner corners: connected on two orthogonal sides but diagonal is NOT in group
-        const corners = [];
-        if (right && bottom && !g(rowIdx + 1, colIdx + 1)) corners.push('br');
-        if (left && bottom && !g(rowIdx + 1, colIdx - 1)) corners.push('bl');
-        if (right && top && !g(rowIdx - 1, colIdx + 1)) corners.push('tr');
-        if (left && top && !g(rowIdx - 1, colIdx - 1)) corners.push('tl');
-
-        return { top, bottom, left, right, corners };
+        return {
+            top: rowIdx > 0 && matrix[rowIdx - 1]?.[colIdx]?.groupId === gid,
+            bottom: rowIdx < matrix.length - 1 && matrix[rowIdx + 1]?.[colIdx]?.groupId === gid,
+            left: colIdx > 0 && matrix[rowIdx][colIdx - 1]?.groupId === gid,
+            right: colIdx < matrix[rowIdx].length - 1 && matrix[rowIdx][colIdx + 1]?.groupId === gid,
+        };
     };
+
+    // Row button width
+    const ROW_BTN_WIDTH = 36;
+    const ROW_BTN_MARGIN = 8; // mr-2
 
     return (
         <div>
             <div className="text-center text-sm text-gray-500 mb-2 font-bold">
-                {t('选择一行抽取')}
+                {t('选择行或列抽取')}
             </div>
+
+            {/* Column buttons row — offset by row-button area */}
+            <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
+                {Array.from({ length: 5 }, (_, colIndex) => {
+                    const hasActive = matrix.some(row => row[colIndex] !== null);
+                    const colClickable = canDraw && hasActive;
+                    return (
+                        <button
+                            key={colIndex}
+                            onClick={() => colClickable && onSelectColumn(colIndex)}
+                            onMouseEnter={() => colClickable && setHoveredCol(colIndex)}
+                            onMouseLeave={() => setHoveredCol(null)}
+                            disabled={!colClickable}
+                            className={`
+                                rounded-lg text-xs font-black flex-shrink-0
+                                flex items-center justify-center
+                                transition-all duration-150 shadow-sm
+                                ${colClickable
+                                    ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 cursor-pointer'
+                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                }
+                            `}
+                            style={{ width: CELL_SIZE, height: 24, marginRight: GAP }}
+                            title={colClickable ? t('抽取此列') : t('无法抽取')}
+                        >
+                            ▼
+                        </button>
+                    );
+                })}
+            </div>
+
             <div className="flex items-start">
                 {/* Row buttons */}
                 <div className="flex flex-col mr-2" style={{ paddingTop: HALF }}>
@@ -266,25 +270,41 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled, 
                     }}
                 >
                     {(() => {
-                        // Compute groupIds that touch the hovered row — whole group pops out
+                        // Compute groupIds that touch the hovered row or hovered column
                         const hoveredGroupIds = new Set();
                         if (hoveredRow !== null) {
                             matrix[hoveredRow]?.forEach(cell => {
                                 if (cell?.groupId) hoveredGroupIds.add(cell.groupId);
                             });
                         }
+                        if (hoveredCol !== null) {
+                            matrix.forEach(row => {
+                                const cell = row[hoveredCol];
+                                if (cell?.groupId) hoveredGroupIds.add(cell.groupId);
+                            });
+                        }
 
                         return matrix.flatMap((row, rowIndex) =>
                             row.map((cell, colIndex) => {
-                                // Hover: cell is in hovered row, OR belongs to a group in hovered row
+                                // Hover: cell is in hovered row/col, OR belongs to a group in hovered row/col
                                 const isRowHovered = hoveredRow === rowIndex && cell !== null;
+                                const isColHovered = hoveredCol === colIndex && cell !== null;
                                 const isGroupHovered = cell?.groupId && hoveredGroupIds.has(cell.groupId);
-                                const showHover = isRowHovered || isGroupHovered;
+                                const showHover = isRowHovered || isColHovered || isGroupHovered;
 
-                                // Draw animation highlight
-                                const isScanning = drawAnimState?.rowIndex === rowIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === colIndex;
-                                const isSettled = drawAnimState?.rowIndex === rowIndex && drawAnimState.phase === 'settled' && drawAnimState.finalColIndex === colIndex;
-                                const isScanRow = drawAnimState?.rowIndex === rowIndex && cell !== null && drawAnimState.phase === 'scanning';
+                                // Draw animation highlight — row mode
+                                const isRowScanning = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === colIndex;
+                                const isRowSettled = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'settled' && drawAnimState.finalColIndex === colIndex;
+                                const isScanRow = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && cell !== null && drawAnimState.phase === 'scanning';
+
+                                // Draw animation highlight — column mode
+                                const isColScanning = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === rowIndex;
+                                const isColSettled = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'settled' && drawAnimState.finalRowIndex === rowIndex;
+                                const isScanCol = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && cell !== null && drawAnimState.phase === 'scanning';
+
+                                const isScanning = isRowScanning || isColScanning;
+                                const isSettled = isRowSettled || isColSettled;
+                                const isScanLine = isScanRow || isScanCol;
 
                                 return (
                                     <GridCell
@@ -295,7 +315,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, gold, drawCost, phase, disabled, 
                                         rowIndex={rowIndex}
                                         colIndex={colIndex}
                                         adjacency={getAdjacency(rowIndex, colIndex)}
-                                        highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanRow ? 'scan-row' : showHover ? 'hover' : null}
+                                        highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanLine ? 'scan-row' : showHover ? 'hover' : null}
                                     />
                                 );
                             })

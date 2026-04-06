@@ -38,13 +38,16 @@ export const useGameLogic = (config) => {
     // --- Inventory State ---
     const [inventory, setInventory] = useState([]);
 
+    // --- Inventory Pending ---
+    const [pendingItem, setPendingItem] = useState(null); // item awaiting replacement when inventory full
+
     // --- UI State ---
     const [toast, setToast] = useState(null);
     const [lastDrawResult, setLastDrawResult] = useState(null);
     const [modalContent, setModalContent] = useState(null);
     const [flyingItem, setFlyingItem] = useState(null);
     const [drawAnimState, setDrawAnimState] = useState(null);
-    // { rowIndex, activeCols, finalColIndex, drawnCell, tick, totalTicks, currentHighlight, phase: 'scanning'|'settled' }
+    // { direction: 'row'|'column', rowIndex, colIndex, activeCols, finalColIndex, finalRowIndex, finalHighlight, drawnCell, tick, totalTicks, currentHighlight, phase: 'scanning'|'settled' }
 
     // --- Derived State ---
     const dangerCount = useMemo(() =>
@@ -133,13 +136,17 @@ export const useGameLogic = (config) => {
         // Calculate total ticks: cycle through active cells multiple times, end on finalColIndex
         const finalIdx = activeCols.indexOf(finalColIndex);
         // At least 2 full passes + land on final
-        const fullPasses = 2;
+        const fullPasses = 1;
         const totalTicks = fullPasses * activeCols.length + finalIdx + 1;
 
         setDrawAnimState({
+            direction: 'row',
             rowIndex,
+            colIndex: null,
             activeCols,
             finalColIndex,
+            finalRowIndex: rowIndex,
+            finalHighlight: finalColIndex,
             drawnCell,
             tick: 0,
             totalTicks,
@@ -148,15 +155,60 @@ export const useGameLogic = (config) => {
         });
     };
 
-    /** Advance draw scanning animation — left-to-right sequential */
+    /** Select a column — starts scanning animation top-to-bottom, then resolves */
+    const selectColumn = (colIndex) => {
+        if (phase !== 'drawing') return;
+        if (isDoomResolving || isDrawAnimating) return;
+        if (gold < turnConfig.drawCost) return;
+        if (!matrix) return;
+
+        setDoomResolutionResult(null);
+        setFlyingItem(null);
+        setLastDrawResult(null);
+
+        // activeCols here are actually active row indices for this column
+        const activeCols = [];
+        matrix.forEach((row, rowIndex) => {
+            if (row[colIndex] !== null) activeCols.push(rowIndex);
+        });
+        if (activeCols.length === 0) return;
+
+        setGold(prev => prev - turnConfig.drawCost);
+
+        // Pre-determine result: pick a random row from active rows
+        const finalRowIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
+        const drawnCell = matrix[finalRowIndex][colIndex];
+
+        // Calculate total ticks: 1 full pass + landing on finalRowIndex
+        const finalIdx = activeCols.indexOf(finalRowIndex);
+        const fullPasses = 1;
+        const totalTicks = fullPasses * activeCols.length + finalIdx + 1;
+
+        setDrawAnimState({
+            direction: 'column',
+            rowIndex: null,
+            colIndex,
+            activeCols,
+            finalColIndex: colIndex,
+            finalRowIndex,
+            finalHighlight: finalRowIndex,
+            drawnCell,
+            tick: 0,
+            totalTicks,
+            currentHighlight: activeCols[0],
+            phase: 'scanning',
+        });
+    };
+
+    /** Advance draw scanning animation — sequential through active cells */
     const tickDrawAnim = () => {
         setDrawAnimState(prev => {
             if (!prev || prev.phase !== 'scanning') return prev;
             const newTick = prev.tick + 1;
             if (newTick >= prev.totalTicks) {
-                return { ...prev, tick: newTick, currentHighlight: prev.finalColIndex, phase: 'settled' };
+                return { ...prev, tick: newTick, currentHighlight: prev.finalHighlight, phase: 'settled' };
             }
-            // Cycle through activeCols left-to-right
+            // Cycle through activeCols
             const next = prev.activeCols[newTick % prev.activeCols.length];
             return { ...prev, tick: newTick, currentHighlight: next };
         });
@@ -165,7 +217,7 @@ export const useGameLogic = (config) => {
     /** Apply draw result after animation settles */
     const completeDrawAnim = () => {
         if (!drawAnimState) return;
-        const { rowIndex, finalColIndex, drawnCell } = drawAnimState;
+        const { finalRowIndex, finalColIndex, drawnCell } = drawAnimState;
 
         let obtainedItem = null;
         const doomEffects = { resolutions: 0, upgrades: 0 };
@@ -190,7 +242,7 @@ export const useGameLogic = (config) => {
                     }
                 }
             } else {
-                newMatrix[rowIndex][finalColIndex] = null;
+                newMatrix[finalRowIndex][finalColIndex] = null;
             }
             return newMatrix;
         });
@@ -200,7 +252,7 @@ export const useGameLogic = (config) => {
                 icon: obtainedItem.item.icon,
                 name: obtainedItem.item.name,
                 shapeSize: obtainedItem.shapeSize || 1,
-                rowIndex,
+                rowIndex: finalRowIndex,
                 colIndex: finalColIndex,
                 id: Date.now(),
             });
@@ -217,7 +269,7 @@ export const useGameLogic = (config) => {
         }
 
         setLastDrawResult({
-            rowIndex,
+            rowIndex: finalRowIndex,
             colIndex: finalColIndex,
             obtained: obtainedItem,
             doomEffects,
@@ -230,16 +282,31 @@ export const useGameLogic = (config) => {
     // =============================================
 
     const addToInventory = (itemCell) => {
-        if (inventory.length >= maxInventorySize) {
-            showToast(t('背包已满'), 'error');
-            return;
-        }
-        setInventory(prev => [...prev, {
+        const newItem = {
             name: itemCell.item.name,
             icon: itemCell.item.icon,
             poolId: itemCell.item.poolId,
             uid: itemCell.uid,
-        }]);
+        };
+        if (inventory.length >= maxInventorySize) {
+            setPendingItem(newItem);
+            return;
+        }
+        setInventory(prev => [...prev, newItem]);
+    };
+
+    const replaceInventoryItem = (index) => {
+        if (!pendingItem) return;
+        setInventory(prev => {
+            const next = [...prev];
+            next[index] = pendingItem;
+            return next;
+        });
+        setPendingItem(null);
+    };
+
+    const discardPendingItem = () => {
+        setPendingItem(null);
     };
 
     // =============================================
@@ -269,7 +336,7 @@ export const useGameLogic = (config) => {
         setDoomAnimState({
             phase: 'spinning',
             tick: 0,
-            totalTicks: 20,
+            totalTicks: 12,
             spinningPositions,
             finalSelections,
             hpLoss,
@@ -366,6 +433,7 @@ export const useGameLogic = (config) => {
         setModalContent(null);
         setFlyingItem(null);
         setDrawAnimState(null);
+        setPendingItem(null);
     };
 
     // =============================================
@@ -406,6 +474,7 @@ export const useGameLogic = (config) => {
         // Inventory
         inventory,
         maxInventorySize,
+        pendingItem,
 
         // UI
         toast,
@@ -419,6 +488,7 @@ export const useGameLogic = (config) => {
         // Actions
         startGame,
         selectRow,
+        selectColumn,
         endTurn,
         continueToNextTurn,
         handleEvacuate,
@@ -427,5 +497,7 @@ export const useGameLogic = (config) => {
         completeDoomResolution,
         tickDrawAnim,
         completeDrawAnim,
+        replaceInventoryItem,
+        discardPendingItem,
     };
 };

@@ -16,21 +16,22 @@ const GameCore = () => {
         matrix, lastDrawResult,
         hp, doomGrid, doomLevel, dangerCount,
         isDoomResolving, doomAnimState, doomResolutionResult,
-        inventory, maxInventorySize,
+        inventory, maxInventorySize, pendingItem,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating,
-        startGame, selectRow, endTurn, continueToNextTurn,
+        startGame, selectRow, selectColumn, endTurn, continueToNextTurn,
         handleEvacuate, handleReset,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
+        replaceInventoryItem, discardPendingItem,
     } = state;
 
     // --- Doom animation interval ---
     useEffect(() => {
         if (!doomAnimState || doomAnimState.phase !== 'spinning') return;
         const progress = doomAnimState.tick / doomAnimState.totalTicks;
-        const interval = 80 + progress * 160;
+        const interval = 60 + progress * 120;
         const timer = setTimeout(tickDoomResolution, interval);
         return () => clearTimeout(timer);
     }, [doomAnimState]);
@@ -47,7 +48,7 @@ const GameCore = () => {
         }
         if (drawAnimState.phase === 'settled') {
             // Brief pause on result, then auto-complete
-            const timer = setTimeout(completeDrawAnim, 400);
+            const timer = setTimeout(completeDrawAnim, 300);
             return () => clearTimeout(timer);
         }
     }, [drawAnimState]);
@@ -152,6 +153,7 @@ const GameCore = () => {
                             <ResourceMatrix
                                 matrix={matrix}
                                 onSelectRow={selectRow}
+                                onSelectColumn={selectColumn}
                                 gold={gold}
                                 drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
                                 phase={phase}
@@ -249,18 +251,37 @@ const GameCore = () => {
                             {/* Inventory */}
                             <div ref={inventoryRef} className="bg-white rounded-lg shadow-sm border p-3">
                                 <h3 className="text-sm font-bold mb-2">{t('背包')} ({inventory.length}/{maxInventorySize})</h3>
+                                {pendingItem && (
+                                    <div className="mb-2 p-2 bg-amber-50 border border-amber-300 rounded-lg">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <span className="text-lg">{pendingItem.icon}</span>
+                                            <span className="text-xs font-bold text-amber-700">{pendingItem.name}</span>
+                                        </div>
+                                        <p className="text-[11px] text-amber-600 mb-1.5">{t('背包已满，点击下方物品替换')}</p>
+                                        <button
+                                            onClick={discardPendingItem}
+                                            className="text-[11px] text-gray-400 hover:text-red-500 transition-colors"
+                                        >
+                                            {t('丢弃新物品')}
+                                        </button>
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-5 gap-1">
                                     {Array.from({ length: maxInventorySize }).map((_, i) => {
                                         const item = inventory[i];
+                                        const canReplace = pendingItem && item;
                                         return (
                                             <div
                                                 key={i}
+                                                onClick={() => canReplace && replaceInventoryItem(i)}
                                                 className={`w-10 h-10 rounded flex items-center justify-center text-lg border
                                                     ${item
-                                                        ? 'bg-white border-gray-300'
+                                                        ? canReplace
+                                                            ? 'bg-white border-amber-400 cursor-pointer hover:bg-red-50 hover:border-red-400 hover:scale-110 transition-all duration-150'
+                                                            : 'bg-white border-gray-300'
                                                         : 'bg-gray-50 border-gray-200'
                                                     }`}
-                                                title={item?.name || ''}
+                                                title={canReplace ? `${t('替换')}: ${item.name}` : (item?.name || '')}
                                             >
                                                 {item ? item.icon : ''}
                                             </div>
