@@ -41,6 +41,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         icon = cell.icon;
         name = cell.name;
         desc = t('抽中时直接获得局外物品');
+    } else if (cell.type === 'bomb') {
+        icon = cell.icon;
+        name = cell.name;
+        desc = t('抽中时爆炸，摧毁周围所有格子');
     } else {
         return null;
     }
@@ -84,7 +88,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
-        || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game');
+        || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb');
     const { top, bottom, left, right } = adjacency;
 
     // Rounded corners — only on external corners
@@ -107,20 +111,23 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     } else if (cell.type === 'doom_upgrade') {
         bgClass = 'bg-amber-100 border-amber-400';
     } else if (cell.type === 'item' || cell.type === 'sticker') {
-        const size = cell.shapeSize || 1;
-        const bg = size >= 4 ? 'bg-violet-100' : size >= 3 ? 'bg-sky-100' : size >= 2 ? 'bg-emerald-100' : 'bg-white';
-        const borderColor = size >= 4 ? 'border-violet-400' : size >= 3 ? 'border-sky-400' : size >= 2 ? 'border-emerald-400' : 'border-gray-300';
+        // Stickers are always white
+        const borderColor = 'border-gray-300';
         const bT = top ? 'border-t-0' : borderColor;
         const bB = bottom ? 'border-b-0' : borderColor;
         const bL = left ? 'border-l-0' : borderColor;
         const bR = right ? 'border-r-0' : borderColor;
-        bgClass = `${bg} ${bT} ${bB} ${bL} ${bR}`;
+        bgClass = `bg-white ${bT} ${bB} ${bL} ${bR}`;
     } else if (cell.type === 'gold') {
         bgClass = 'bg-yellow-100 border-yellow-400';
     } else if (cell.type === 'order_cell') {
         bgClass = 'bg-blue-50 border-blue-300';
     } else if (cell.type === 'out_of_game') {
-        bgClass = 'bg-pink-100 border-pink-400';
+        // Score-based colors matching order reward cards
+        const sc = { 1: 'bg-green-50 border-green-400', 2: 'bg-blue-50 border-blue-400', 3: 'bg-purple-50 border-purple-400', 5: 'bg-orange-50 border-orange-400' };
+        bgClass = sc[cell.item?.score] || 'bg-pink-100 border-pink-400';
+    } else if (cell.type === 'bomb') {
+        bgClass = 'bg-gray-800 border-gray-900';
     } else {
         bgClass = 'bg-white border-gray-300';
     }
@@ -178,10 +185,28 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
 /**
  * 5×5 grid display for turn-based prototype.
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap }) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
+
+    // Report hovered sticker IDs to parent
+    const reportHover = (row, col) => {
+        if (!onHoverStickerIds) return;
+        const ids = new Set();
+        if (row !== null) {
+            matrix[row]?.forEach(cell => {
+                if (cell?.type === 'sticker' && cell.item?.id) ids.add(cell.item.id);
+            });
+        }
+        if (col !== null) {
+            matrix.forEach(r => {
+                const cell = r[col];
+                if (cell?.type === 'sticker' && cell.item?.id) ids.add(cell.item.id);
+            });
+        }
+        onHoverStickerIds(ids.size > 0 ? ids : null);
+    };
 
     if (!matrix) return null;
 
@@ -193,10 +218,41 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         if (cell.hidden) {
             return <span className="text-xl">❓</span>;
         }
-        if (cell.type === 'item' || cell.type === 'sticker' || cell.type === 'out_of_game') {
+        if (cell.type === 'item' || cell.type === 'sticker') {
             return (
                 <>
                     <span className="text-xl">{cell.item?.icon || cell.icon}</span>
+                    {cell.multiplier && cell.multiplier > 1 && (
+                        <span className="absolute -top-1 -right-1 bg-amber-400 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10">×{cell.multiplier}</span>
+                    )}
+                </>
+            );
+        }
+        if (cell.type === 'out_of_game') {
+            const badgeColor = { 1: 'bg-green-500', 2: 'bg-blue-500', 3: 'bg-purple-500', 5: 'bg-orange-500' };
+            const bonusVal = bonusItemMap?.get(cell.item?.id);
+            return (
+                <>
+                    <span className="text-xl">{cell.item?.icon || cell.icon}</span>
+                    <span className={`absolute -bottom-1 -right-1 ${badgeColor[cell.item?.score] || 'bg-amber-500'} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10`}>
+                        {cell.item?.score}
+                    </span>
+                    {bonusVal && (
+                        <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusVal}</span>
+                    )}
+                    {cell.multiplier && cell.multiplier > 1 && !bonusVal && (
+                        <span className="absolute -top-1 -right-1 bg-amber-400 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10">×{cell.multiplier}</span>
+                    )}
+                </>
+            );
+        }
+        if (cell.type === 'gold') {
+            return (
+                <>
+                    <span className="text-xl">{cell.icon}</span>
+                    <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 bg-yellow-500 text-white text-[8px] font-black px-1 rounded shadow z-10">
+                        +{cell.goldAmount}
+                    </span>
                     {cell.multiplier && cell.multiplier > 1 && (
                         <span className="absolute -top-1 -right-1 bg-amber-400 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10">×{cell.multiplier}</span>
                     )}
@@ -233,12 +289,14 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
 
     return (
         <div>
-            <div className="text-center text-sm text-gray-500 mb-2 font-bold">
-                {wallType && wallType.id !== 'basic' && (
-                    <span className="text-xs text-indigo-600 mr-2">{wallType.icon} {t(wallType.name)}</span>
-                )}
-                {t('选择行或列抽取')}
-            </div>
+            {wallType && (
+                <div className="text-center mb-2">
+                    <span className="text-sm font-bold">{wallType.icon} {t(wallType.name)}</span>
+                    {wallType.id !== 'basic' && (
+                        <p className="text-[11px] text-gray-400 mt-0.5">{t(wallType.desc)}</p>
+                    )}
+                </div>
+            )}
 
             {/* Column buttons row — offset by row-button area */}
             <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
@@ -250,8 +308,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                         <button
                             key={colIndex}
                             onClick={() => colClickable && onSelectColumn(colIndex)}
-                            onMouseEnter={() => colClickable && setHoveredCol(colIndex)}
-                            onMouseLeave={() => setHoveredCol(null)}
+                            onMouseEnter={() => { if (colClickable) { setHoveredCol(colIndex); reportHover(null, colIndex); } }}
+                            onMouseLeave={() => { setHoveredCol(null); reportHover(null, null); }}
                             disabled={!colClickable}
                             className={`
                                 rounded-lg text-xs font-black flex-shrink-0
@@ -282,8 +340,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             <button
                                 key={rowIndex}
                                 onClick={() => rowClickable && onSelectRow(rowIndex)}
-                                onMouseEnter={() => rowClickable && setHoveredRow(rowIndex)}
-                                onMouseLeave={() => setHoveredRow(null)}
+                                onMouseEnter={() => { if (rowClickable) { setHoveredRow(rowIndex); reportHover(rowIndex, null); } }}
+                                onMouseLeave={() => { setHoveredRow(null); reportHover(null, null); }}
                                 disabled={!rowClickable}
                                 className={`
                                     rounded-lg text-xs font-black flex-shrink-0

@@ -112,8 +112,8 @@ export const useGameLogic = (config) => {
     // --- Inventory State ---
     const [inventory, setInventory] = useState([]);
 
-    // --- Inventory Pending ---
-    const [pendingItem, setPendingItem] = useState(null); // item awaiting replacement when inventory full
+    // --- Inventory Pending Queue ---
+    const [pendingItems, setPendingItems] = useState([]); // queue of items awaiting placement when inventory full
 
     // --- Order State ---
     const [bulletinBoard, setBulletinBoard] = useState([]);
@@ -166,13 +166,17 @@ export const useGameLogic = (config) => {
         // Reset draw direction for alternating wall
         setLastDrawDirection(null);
 
-        // 3-choose-1 wall selection (every turn including first)
-        const candidates = [0, 1, 2].map(() => {
+        // 3-choose-1 wall selection — no duplicate wall types
+        const candidates = [];
+        const usedTypeIds = new Set();
+        while (candidates.length < 3) {
+            const wallType = pickWallType();
+            if (usedTypeIds.has(wallType.id)) continue;
+            usedTypeIds.add(wallType.id);
             const stickers = pickWallStickers(STICKER_TYPES);
             const { grid, doomCellCount } = generateWall(stickers);
-            const wallType = pickWallType();
-            return { stickers, grid, doomCellCount, wallType };
-        });
+            candidates.push({ stickers, grid, doomCellCount, wallType });
+        }
         setWallCandidates(candidates);
         setPhase('wall_choice');
     };
@@ -182,7 +186,8 @@ export const useGameLogic = (config) => {
         // Pick bonus items on first expedition of a new game
         if (expeditionNumber === 0) {
             const shuffled = [...OUT_OF_GAME_ITEMS].sort(() => Math.random() - 0.5);
-            setBonusItems(shuffled.slice(0, 3));
+            const bonusValues = [1, 2, 3];
+            setBonusItems(shuffled.slice(0, 3).map((item, i) => ({ ...item, bonusValue: bonusValues[i] })));
         }
         setExpeditionNumber(prev => prev + 1);
         // Seed initial bulletin with unique reward combinations
@@ -208,9 +213,10 @@ export const useGameLogic = (config) => {
         resolveDoom('end_turn');
     };
 
-    /** Continue to next turn */
+    /** Continue to next turn — show incoming order first, then wall choice */
     const continueToNextTurn = () => {
-        startNewTurn();
+        setIncomingOrder(generateOrder());
+        setPhase('incoming_order');
     };
 
     /** Select one of the wall candidates to play with */
@@ -224,13 +230,28 @@ export const useGameLogic = (config) => {
         const grid = chosen.grid.map(r => r.map(c => c ? { ...c } : null));
 
         if (wallType.id === 'hidden') {
-            // Mark ~30% of sticker cells as hidden
+            // Mark ~30% of groups/single cells as hidden (whole group hides together)
             const ratio = wallType.hiddenRatio || 0.3;
+            const hiddenGroups = new Set();
             for (let r = 0; r < grid.length; r++) {
                 for (let c = 0; c < grid[r].length; c++) {
                     const cell = grid[r][c];
-                    if (cell && (cell.type === 'sticker' || cell.type === 'item') && Math.random() < ratio) {
-                        cell.hidden = true;
+                    if (!cell || (cell.type !== 'sticker' && cell.type !== 'item')) continue;
+                    if (cell.groupId && hiddenGroups.has(cell.groupId)) continue; // already decided
+                    if (Math.random() < ratio) {
+                        if (cell.groupId) {
+                            hiddenGroups.add(cell.groupId);
+                        } else {
+                            cell.hidden = true;
+                        }
+                    }
+                }
+            }
+            // Apply group hiding
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < grid[r].length; c++) {
+                    if (grid[r][c]?.groupId && hiddenGroups.has(grid[r][c].groupId)) {
+                        grid[r][c].hidden = true;
                     }
                 }
             }
@@ -392,6 +413,8 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'order_cell') {
             addBulletinOrder();
             showToast(t('获得新订单'), 'info');
+        } else if (drawnCell.type === 'bomb') {
+            // Bomb: mark for adjacent destruction (handled in matrix update below)
         }
 
         // Remove drawn cell(s) + hidden reveal + drift shuffle
@@ -411,15 +434,59 @@ export const useGameLogic = (config) => {
                 newMatrix[finalRowIndex][finalColIndex] = null;
             }
 
-            // Hidden wall: reveal adjacent hidden cells
+            // Bomb: destroy all adjacent cells (8 directions)
+            if (drawnCell.type === 'bomb') {
+                const bombDirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+                const destroyGroups = new Set();
+                for (const [dr, dc] of bombDirs) {
+                    const nr = finalRowIndex + dr;
+                    const nc = finalColIndex + dc;
+                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length && newMatrix[nr][nc]) {
+                        if (newMatrix[nr][nc].groupId) {
+                            destroyGroups.add(newMatrix[nr][nc].groupId);
+                        } else {
+                            newMatrix[nr][nc] = null;
+                        }
+                    }
+                }
+                // Destroy entire groups touched by explosion
+                if (destroyGroups.size > 0) {
+                    for (let r = 0; r < newMatrix.length; r++) {
+                        for (let c = 0; c < newMatrix[r].length; c++) {
+                            if (newMatrix[r][c]?.groupId && destroyGroups.has(newMatrix[r][c].groupId)) {
+                                newMatrix[r][c] = null;
+                            }
+                        }
+                    }
+                }
+                showToast('💣 ' + t('炸弹爆炸！'), 'warning');
+            }
+
+            // Hidden wall: reveal adjacent hidden cells (whole group reveals together)
             if (currentWallType?.id === 'hidden') {
+                const revealGroups = new Set();
                 const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
                 for (const [dr, dc] of dirs) {
                     const nr = finalRowIndex + dr;
                     const nc = finalColIndex + dc;
                     if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length) {
-                        if (newMatrix[nr][nc]?.hidden) {
-                            newMatrix[nr][nc].hidden = false;
+                        const neighbor = newMatrix[nr][nc];
+                        if (neighbor?.hidden) {
+                            if (neighbor.groupId) {
+                                revealGroups.add(neighbor.groupId);
+                            } else {
+                                neighbor.hidden = false;
+                            }
+                        }
+                    }
+                }
+                // Reveal entire groups
+                if (revealGroups.size > 0) {
+                    for (let r = 0; r < newMatrix.length; r++) {
+                        for (let c = 0; c < newMatrix[r].length; c++) {
+                            if (newMatrix[r][c]?.groupId && revealGroups.has(newMatrix[r][c].groupId)) {
+                                newMatrix[r][c].hidden = false;
+                            }
                         }
                     }
                 }
@@ -523,6 +590,7 @@ export const useGameLogic = (config) => {
             };
         } else if (itemCell.type === 'out_of_game') {
             newItem = {
+                id: itemCell.item.id,
                 name: itemCell.item.name,
                 icon: itemCell.item.icon,
                 score: itemCell.item.score,
@@ -539,11 +607,14 @@ export const useGameLogic = (config) => {
             };
         }
         if (inventory.length >= maxInventorySize) {
-            setPendingItem(newItem);
+            setPendingItems(prev => [...prev, newItem]);
             return;
         }
         setInventory(prev => [...prev, newItem]);
     };
+
+    // Current pending item is the first in queue
+    const pendingItem = pendingItems.length > 0 ? pendingItems[0] : null;
 
     const replaceInventoryItem = (index) => {
         if (!pendingItem) return;
@@ -552,41 +623,56 @@ export const useGameLogic = (config) => {
             next[index] = pendingItem;
             return next;
         });
-        setPendingItem(null);
+        setPendingItems(prev => prev.slice(1));
     };
 
     const discardPendingItem = () => {
-        setPendingItem(null);
+        setPendingItems(prev => prev.slice(1));
+    };
+
+    const discardInventoryItem = (indices) => {
+        const idxSet = new Set(Array.isArray(indices) ? indices : [indices]);
+        setInventory(prev => prev.filter((_, i) => !idxSet.has(i)));
     };
 
     // =============================================
     // ORDER SYSTEM
     // =============================================
 
-    /** Add a random order to the bulletin board (shifts oldest if at capacity) */
+    /** Queue a new order as incoming (player must manually accept/discard) */
     const addBulletinOrder = () => {
-        setBulletinBoard(prev => {
-            const newBoard = [...prev];
-            if (newBoard.length >= orderConfig.bulletinCapacity) {
-                newBoard.shift(); // remove oldest
-            }
-            newBoard.push(generateOrder());
-            return newBoard;
-        });
+        setIncomingOrder(generateOrder());
     };
 
-    /** Land the incoming order into the bulletin board */
+    /** Resolve incoming order and proceed to wall choice */
+    const resolveIncomingAndProceed = () => {
+        setIncomingOrder(null);
+        if (phase === 'incoming_order') {
+            startNewTurn();
+        }
+    };
+
+    /** Accept the incoming order into the bulletin board */
     const confirmIncomingOrder = () => {
         if (!incomingOrder) return;
-        setBulletinBoard(prev => {
-            const newBoard = [...prev];
-            if (newBoard.length >= orderConfig.bulletinCapacity) {
-                newBoard.shift();
-            }
-            newBoard.push(incomingOrder);
-            return newBoard;
-        });
-        setIncomingOrder(null);
+        if (bulletinBoard.length >= orderConfig.bulletinCapacity) {
+            // Bulletin full — need to replace, handled by replaceBulletinOrder
+            return;
+        }
+        setBulletinBoard(prev => [...prev, incomingOrder]);
+        resolveIncomingAndProceed();
+    };
+
+    /** Replace a bulletin order with the incoming one (when bulletin is full) */
+    const replaceBulletinOrder = (orderId) => {
+        if (!incomingOrder) return;
+        setBulletinBoard(prev => prev.map(o => o.id === orderId ? incomingOrder : o));
+        resolveIncomingAndProceed();
+    };
+
+    /** Discard the incoming order */
+    const discardIncomingOrder = () => {
+        resolveIncomingAndProceed();
     };
 
     // --- Pending accept for replace flow ---
@@ -661,6 +747,7 @@ export const useGameLogic = (config) => {
             // Add all reward items
             for (const reward of order.rewards) {
                 remaining.push({
+                    id: reward.id,
                     name: reward.name,
                     icon: reward.icon,
                     score: reward.score,
@@ -737,10 +824,14 @@ export const useGameLogic = (config) => {
         if (hpLoss > 0) {
             const newHp = Math.max(0, hp - hpLoss);
             setHp(newHp);
-            if (newHp <= 0) {
-                handleGameOver();
-            }
             showToast(t('厄运命中') + ` -${hpLoss} HP`, 'error');
+            if (newHp <= 0) {
+                setDoomAnimState(null);
+                setIsDoomResolving(false);
+                setAfterDoomAction(null);
+                handleGameOver();
+                return;
+            }
         }
 
         setDoomResolutionResult({
@@ -752,8 +843,6 @@ export const useGameLogic = (config) => {
 
         if (afterDoomAction === 'end_turn') {
             setAfterDoomAction(null);
-            // Generate incoming order to show animation
-            setIncomingOrder(generateOrder());
             setPhase('between_turns');
         }
     };
@@ -764,9 +853,9 @@ export const useGameLogic = (config) => {
 
     const handleEvacuate = () => {
         const outOfGameItems = inventory.filter(i => i.isOutOfGame);
-        const bonusIds = new Set(bonusItems.map(b => b.id));
+        const bonusMap = new Map(bonusItems.map(b => [b.id, b.bonusValue || 2]));
         const baseScore = outOfGameItems.reduce((sum, item) => sum + (item.score || 0), 0);
-        const bonusScore = outOfGameItems.filter(item => bonusIds.has(item.id)).length * 2; // +2 per bonus item
+        const bonusScore = outOfGameItems.reduce((sum, item) => sum + (bonusMap.get(item.id) || 0), 0);
         const score = baseScore + bonusScore;
         setExpeditionScores(prev => [...prev, { score, baseScore, bonusScore, items: outOfGameItems }]);
         setTotalScore(prev => prev + score);
@@ -812,7 +901,7 @@ export const useGameLogic = (config) => {
         setModalContent(null);
         setFlyingItem(null);
         setDrawAnimState(null);
-        setPendingItem(null);
+        setPendingItems([]);
         setExpeditionNumber(0);
         setExpeditionScores([]);
         setTotalScore(0);
@@ -846,7 +935,7 @@ export const useGameLogic = (config) => {
         setModalContent(null);
         setFlyingItem(null);
         setDrawAnimState(null);
-        setPendingItem(null);
+        setPendingItems([]);
         setBulletinBoard([]);
         setActiveOrders([]);
         setPendingAcceptOrder(null);
@@ -902,6 +991,7 @@ export const useGameLogic = (config) => {
         inventory,
         maxInventorySize,
         pendingItem,
+        pendingItemCount: pendingItems.length,
 
         // Orders
         bulletinBoard,
@@ -931,12 +1021,15 @@ export const useGameLogic = (config) => {
         tickDrawAnim,
         completeDrawAnim,
         replaceInventoryItem,
+        discardInventoryItem,
         discardPendingItem,
         acceptOrder,
         submitOrder,
         canSubmitOrder,
         incomingOrder,
         confirmIncomingOrder,
+        discardIncomingOrder,
+        replaceBulletinOrder,
         pendingAcceptOrder,
         confirmReplaceOrder,
         cancelReplaceOrder,

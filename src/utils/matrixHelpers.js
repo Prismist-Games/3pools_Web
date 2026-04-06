@@ -45,7 +45,7 @@ function tryPlaceShape(shape, startRow, startCol, grid, gridSize) {
 /**
  * Randomly pick min–max sticker types from the full sticker array.
  */
-export function pickWallStickers(allStickers, min = 2, max = 3) {
+export function pickWallStickers(allStickers, min = 3, max = 4) {
   const count = min + Math.floor(Math.random() * (max - min + 1));
   const shuffled = [...allStickers].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
@@ -67,28 +67,41 @@ export function generateWall(wallStickers) {
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
   const doomCellCount = { resolution: 0, upgrade: 0 };
 
-  // Phase 1: Roll doom cells
-  for (let row = 0; row < gridSize; row++) {
-    for (let col = 0; col < gridSize; col++) {
-      const resRoll = Math.random();
-      const upgRoll = Math.random();
-      if (resRoll < doomCells.resolution.spawnChance) {
-        grid[row][col] = {
-          type: 'doom_resolution',
-          icon: doomCells.resolution.icon,
-          name: doomCells.resolution.name,
-          uid: generateUID(),
-        };
-        doomCellCount.resolution++;
-      } else if (upgRoll < doomCells.upgrade.spawnChance) {
-        grid[row][col] = {
-          type: 'doom_upgrade',
-          icon: doomCells.upgrade.icon,
-          name: doomCells.upgrade.name,
-          uid: generateUID(),
-        };
-        doomCellCount.upgrade++;
-      }
+  // Phase 1: Roll doom cells — normal distribution, median ~5
+  // Box-Muller approximation for normal distribution
+  const u1 = Math.random();
+  const u2 = Math.random();
+  const normalSample = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  const totalDoom = Math.max(1, Math.min(9, Math.round(5 + normalSample * 1.5)));
+  // Split between resolution (~55%) and upgrade (~45%)
+  const resCount = Math.max(0, Math.min(totalDoom, Math.round(totalDoom * (0.5 + (Math.random() - 0.5) * 0.3))));
+  const upgCount = totalDoom - resCount;
+  // Collect all positions, shuffle, place doom cells
+  const allPositions = [];
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      allPositions.push([r, c]);
+    }
+  }
+  allPositions.sort(() => Math.random() - 0.5);
+  for (let i = 0; i < totalDoom && i < allPositions.length; i++) {
+    const [r, c] = allPositions[i];
+    if (i < resCount) {
+      grid[r][c] = {
+        type: 'doom_resolution',
+        icon: doomCells.resolution.icon,
+        name: doomCells.resolution.name,
+        uid: generateUID(),
+      };
+      doomCellCount.resolution++;
+    } else {
+      grid[r][c] = {
+        type: 'doom_upgrade',
+        icon: doomCells.upgrade.icon,
+        name: doomCells.upgrade.name,
+        uid: generateUID(),
+      };
+      doomCellCount.upgrade++;
     }
   }
 
@@ -102,6 +115,7 @@ export function generateWall(wallStickers) {
       const goldChance = specialCells.gold.spawnChance;
       const orderChance = goldChance + specialCells.order.spawnChance;
       const outOfGameChance = orderChance + specialCells.outOfGame.spawnChance;
+      const bombChance = outOfGameChance + (specialCells.bomb?.spawnChance || 0);
 
       if (roll < goldChance) {
         const [min, max] = specialCells.gold.goldRange;
@@ -127,6 +141,13 @@ export function generateWall(wallStickers) {
           icon: item.icon,
           name: item.name,
           item: { ...item },
+          uid: generateUID(),
+        };
+      } else if (roll < bombChance) {
+        grid[row][col] = {
+          type: 'bomb',
+          icon: specialCells.bomb.icon,
+          name: specialCells.bomb.name,
           uid: generateUID(),
         };
       }

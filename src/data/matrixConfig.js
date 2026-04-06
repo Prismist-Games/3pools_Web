@@ -39,6 +39,11 @@ export const MATRIX_CONFIG = {
       icon: '🎁',
       name: '出口物品',
     },
+    bomb: {
+      spawnChance: 0.04,  // 4% per cell position
+      icon: '💣',
+      name: '炸弹',
+    },
   },
 
   // Item shape system — Tetris-like polyominoes

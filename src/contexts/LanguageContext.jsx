@@ -15,7 +15,7 @@ export const LanguageProvider = ({ children }) => {
 
     // Update document title based on language
     useEffect(() => {
-        document.title = language === 'zh' ? '三池物语' : 'Three Pools';
+        document.title = language === 'zh' ? '幸运之墙' : 'Wall of Fortune';
     }, [language]);
 
     // The translation function

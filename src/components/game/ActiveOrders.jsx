@@ -1,47 +1,101 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { RewardCard, DIFFICULTY_STYLE } from './BulletinBoard';
 
-const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder }) => {
+const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcceptOrder, onConfirmReplace, onCancelReplace, hoveredStickerIds, bonusItemMap }) => {
     const { t } = useLanguage();
-    if (orders.length === 0) return null;
+
     return (
-        <div className="bg-white rounded-lg shadow-sm border p-3">
-            <h3 className="text-sm font-bold mb-2">{t('已接订单')} ({orders.length}/3)</h3>
-            <div className="flex flex-col gap-2">
-                {orders.map(order => {
-                    const submittable = canSubmitOrder(order.id);
-                    return (
-                        <div key={order.id} className={`p-2 rounded-lg border ${submittable ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
-                            <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-lg">{order.reward.icon}</span>
-                                    <span className="text-xs font-bold">{order.reward.name}</span>
-                                    <span className="text-[10px] text-gray-400">+{order.reward.score}{t('分')}</span>
-                                </div>
-                                <button
-                                    onClick={() => onSubmit(order.id)}
-                                    disabled={!submittable}
-                                    className={`text-xs px-2 py-1 rounded font-bold transition-colors
-                                        ${submittable ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-                                >
-                                    {t('提交')}
-                                </button>
-                            </div>
-                            <div className="flex gap-2 flex-wrap">
-                                {order.requirements.map((req, i) => {
-                                    const owned = inventory.filter(item => item.stickerId === req.stickerId).length;
-                                    const enough = owned >= req.count;
-                                    return (
-                                        <div key={i} className={`flex items-center gap-0.5 text-xs ${enough ? 'text-green-600' : 'text-gray-500'}`}>
-                                            <span>{req.icon}</span>
-                                            <span className="font-bold">{owned}/{req.count}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+        <div className="bg-white rounded-lg shadow-sm border">
+            {/* Panel header */}
+            <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('已接订单')}</h3>
+                <span className="text-[10px] text-gray-300 font-medium">{orders.length}/3</span>
+            </div>
+
+            <div className="p-2">
+                {/* Replace mode hint */}
+                {pendingAcceptOrder && (
+                    <div className="mb-2 p-2.5 bg-amber-50 border-2 border-amber-300 rounded-lg">
+                        <div className="text-[11px] font-bold text-amber-600 mb-1.5">{t('选择要替换的订单')}</div>
+                        <div className="flex items-center gap-1 mb-2">
+                            {pendingAcceptOrder.rewards.map((r, i) => (
+                                <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                            ))}
                         </div>
-                    );
-                })}
+                        <button onClick={onCancelReplace} className="text-[10px] text-gray-400 hover:text-red-500 transition-colors">
+                            {t('取消')}
+                        </button>
+                    </div>
+                )}
+
+                {orders.length === 0 && !pendingAcceptOrder && (
+                    <p className="text-[11px] text-gray-300 text-center py-3">{t('暂无已接订单')}</p>
+                )}
+
+                <div className="flex flex-col gap-1.5">
+                    {orders.map(order => {
+                        const submittable = canSubmitOrder(order.id);
+                        const ds = DIFFICULTY_STYLE[order.difficulty] || DIFFICULTY_STYLE.easy;
+                        return (
+                            <div
+                                key={order.id}
+                                onClick={() => pendingAcceptOrder && onConfirmReplace(order.id)}
+                                className={`p-2 rounded-lg border ${
+                                    pendingAcceptOrder
+                                        ? 'border-amber-400 bg-amber-50 cursor-pointer hover:bg-red-50 hover:border-red-400 transition-colors'
+                                        : submittable ? 'border-green-300 bg-green-50/50' : 'border-gray-100 bg-gray-50/50'
+                                }`}
+                            >
+                                {/* Row 1: difficulty + rewards + action */}
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[9px] text-gray-300">{t('难度')}</span>
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>
+                                            {t(order.difficulty)}
+                                        </span>
+                                        <div className="flex gap-0.5">
+                                            {order.rewards.map((r, i) => (
+                                                <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {!pendingAcceptOrder && (
+                                        <button
+                                            onClick={() => onSubmit(order.id)}
+                                            disabled={!submittable}
+                                            className={`text-[10px] px-2 py-0.5 rounded-md font-bold transition-colors
+                                                ${submittable ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                                        >
+                                            {t('提交')}
+                                        </button>
+                                    )}
+                                </div>
+                                {/* Row 2: sticker requirements */}
+                                <div className="flex gap-1.5 flex-wrap items-center">
+                                    <span className="text-[9px] text-gray-300 uppercase tracking-wide">{t('需要')}</span>
+                                    {order.requirements.map((req, i) => {
+                                        const owned = inventory.filter(item => item.stickerId === req.stickerId).length;
+                                        const enough = owned >= req.count;
+                                        const isHovered = hoveredStickerIds?.has(req.stickerId);
+                                        return (
+                                            <div key={i} className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
+                                                <div className={`w-7 h-7 rounded border ${
+                                                    isHovered ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-300'
+                                                    : enough ? 'border-green-400 bg-green-50'
+                                                    : 'border-gray-300 bg-white'
+                                                } flex items-center justify-center text-sm shadow-sm`}>
+                                                    {req.icon}
+                                                </div>
+                                                <span className={`text-[10px] font-bold ${isHovered ? 'text-blue-600' : enough ? 'text-green-600' : 'text-gray-400'}`}>{owned}<span className="font-normal text-gray-300">/{req.count}</span></span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

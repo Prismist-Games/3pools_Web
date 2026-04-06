@@ -3,7 +3,7 @@ import { useGameLogic } from './hooks/useGameLogic';
 import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
 import WallPicker from './components/game/WallPicker';
-import BulletinBoard, { SCORE_STYLE } from './components/game/BulletinBoard';
+import BulletinBoard, { SCORE_STYLE, RewardCard, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
 import ActiveOrders from './components/game/ActiveOrders';
 import ScoreBoard from './components/game/ScoreBoard';
 import { useLanguage } from './contexts/LanguageContext';
@@ -14,12 +14,15 @@ const GameCore = () => {
     const inventoryRef = useRef(null);
     const bulletinRef = useRef(null);
     const [hoveredStickerIds, setHoveredStickerIds] = useState(null);
+    const [recycleMode, setRecycleMode] = useState(false);
+    const [recycleSelected, setRecycleSelected] = useState(new Set());
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
     // Compute bonus item IDs as a Set (stable reference via useMemo)
-    const bonusItemIds = React.useMemo(
-        () => new Set(state.bonusItems?.map(b => b.id) || []),
+    // Map of item ID → bonus value
+    const bonusItemMap = React.useMemo(
+        () => new Map(state.bonusItems?.map(b => [b.id, b.bonusValue || 2]) || []),
         [state.bonusItems]
     );
 
@@ -29,7 +32,7 @@ const GameCore = () => {
         matrix, wallCandidates, lastDrawResult, currentWallType, lastDrawDirection,
         hp, doomGrid, doomLevel, dangerCount,
         isDoomResolving, doomAnimState, doomResolutionResult,
-        inventory, maxInventorySize, pendingItem,
+        inventory, maxInventorySize, pendingItem, pendingItemCount,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating,
@@ -37,7 +40,7 @@ const GameCore = () => {
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
-        replaceInventoryItem, discardPendingItem,
+        replaceInventoryItem, discardInventoryItem, discardPendingItem,
         bulletinBoard, activeOrders,
         acceptOrder, submitOrder, canSubmitOrder,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
@@ -198,7 +201,7 @@ const GameCore = () => {
                                     onConfirmIncoming={confirmIncomingOrder}
                                     onDiscardIncoming={discardIncomingOrder}
                                     onReplaceIncoming={replaceBulletinOrder}
-                                    bonusItemIds={bonusItemIds}
+                                    bonusItemMap={bonusItemMap}
                                 />
                             )}
                             {activeOrders && (
@@ -211,7 +214,7 @@ const GameCore = () => {
                                     onConfirmReplace={confirmReplaceOrder}
                                     onCancelReplace={cancelReplaceOrder}
                                     hoveredStickerIds={hoveredStickerIds}
-                                    bonusItemIds={bonusItemIds}
+                                    bonusItemMap={bonusItemMap}
                                 />
                             )}
                         </div>
@@ -257,16 +260,25 @@ const GameCore = () => {
                                         ) : (
                                             <div>
                                                 <p className="text-xs text-amber-600 mb-3">{t('公告牌已满，选择一个替换')}</p>
-                                                <div className="flex flex-col gap-1.5 mb-3 text-left">
-                                                    {bulletinBoard.map(order => (
-                                                        <button key={order.id} onClick={() => replaceBulletinOrder(order.id)}
-                                                            className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-400 transition-colors w-full">
-                                                            <div className="flex gap-0.5">
-                                                                {order.rewards.map((r, i) => <span key={i} className="text-base">{r.icon}</span>)}
-                                                            </div>
-                                                            <span className="text-[10px] text-gray-500">+{order.totalScore}{t('分')}</span>
-                                                        </button>
-                                                    ))}
+                                                <div className="flex flex-wrap gap-2 mb-3 text-left">
+                                                    {bulletinBoard.map(order => {
+                                                        const ds = DIFFICULTY_STYLE[order.difficulty] || DIFFICULTY_STYLE.easy;
+                                                        return (
+                                                            <button key={order.id} onClick={() => replaceBulletinOrder(order.id)}
+                                                                className="p-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-400 transition-colors text-left">
+                                                                <div className="flex items-center gap-1.5 mb-1">
+                                                                    <span className="text-[9px] text-gray-300">{t('难度')}</span>
+                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(order.difficulty)}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-[9px] text-gray-300 uppercase tracking-wide mr-0.5">{t('奖励')}</span>
+                                                                    {order.rewards.map((r, i) => (
+                                                                        <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                                                                    ))}
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                                 <button onClick={discardIncomingOrder}
                                                     className="px-5 py-2 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-300 transition-colors">
@@ -285,7 +297,7 @@ const GameCore = () => {
 
                             {/* Drawing phase */}
                             {phase === 'drawing' && matrix && (
-                                <div>
+                                <div className="flex flex-col items-center">
                                     <ResourceMatrix
                                         matrix={matrix}
                                         onSelectRow={selectRow}
@@ -298,7 +310,7 @@ const GameCore = () => {
                                         wallType={currentWallType}
                                         lastDrawDirection={lastDrawDirection}
                                         onHoverStickerIds={setHoveredStickerIds}
-                                        bonusItemIds={bonusItemIds}
+                                        bonusItemMap={bonusItemMap}
                                     />
 
                                     {/* Draw result feedback */}
@@ -436,36 +448,76 @@ const GameCore = () => {
                                     <span className="text-[10px] text-gray-300 font-medium">{inventory.length}/{maxInventorySize}</span>
                                 </div>
                                 <div className="p-2">
-                                    {pendingItem && (
+                                    {/* Recycle card — always visible */}
+                                    {recycleMode ? (
+                                        <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                                            <p className="text-[11px] text-red-600 mb-1.5">{t('点击选择要回收的物品')}</p>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => {
+                                                    if (recycleSelected.size > 0) {
+                                                        discardInventoryItem([...recycleSelected]);
+                                                    }
+                                                    setRecycleMode(false); setRecycleSelected(new Set());
+                                                }}
+                                                    disabled={recycleSelected.size === 0}
+                                                    className={`text-[10px] px-2 py-1 rounded-md font-bold transition-colors ${recycleSelected.size > 0 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                                                    {t('确认回收')} {recycleSelected.size > 0 && `(${recycleSelected.size})`}
+                                                </button>
+                                                <button onClick={() => { setRecycleMode(false); setRecycleSelected(new Set()); }}
+                                                    className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors">{t('取消')}</button>
+                                            </div>
+                                        </div>
+                                    ) : !pendingItem && (
+                                        <div className="mb-2 p-2 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+                                            <span className="text-[11px] text-gray-400">{t('回收不需要的物品')}</span>
+                                            <button onClick={() => { setRecycleMode(true); setRecycleSelected(new Set()); }}
+                                                className="text-[10px] px-2 py-1 rounded-md font-bold text-gray-500 bg-gray-200 hover:bg-red-100 hover:text-red-500 transition-colors">{t('回收')}</button>
+                                        </div>
+                                    )}
+                                    {/* Pending item */}
+                                    {pendingItem && !recycleMode && (
                                         <div className="mb-2 p-2 bg-amber-50 border border-amber-300 rounded-lg">
-                                            <div className="flex items-center gap-2 mb-1.5">
-                                                <span className="text-lg">{pendingItem.icon}</span>
-                                                <span className="text-xs font-bold text-amber-700">{pendingItem.name}</span>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-lg">{pendingItem.icon}</span>
+                                                    <span className="text-xs font-bold text-amber-700">{pendingItem.name}</span>
+                                                </div>
+                                                {pendingItemCount > 1 && (
+                                                    <span className="text-[10px] font-bold text-amber-500 bg-amber-200 px-1.5 py-0.5 rounded-full">{pendingItemCount}</span>
+                                                )}
                                             </div>
                                             <p className="text-[11px] text-amber-600 mb-1.5">{t('背包已满，点击下方物品替换')}</p>
-                                            <button
-                                                onClick={discardPendingItem}
-                                                className="text-[11px] text-gray-400 hover:text-red-500 transition-colors"
-                                            >
-                                                {t('丢弃新物品')}
-                                            </button>
+                                            <button onClick={discardPendingItem} className="text-[11px] text-gray-400 hover:text-red-500 transition-colors">{t('丢弃新物品')}</button>
                                         </div>
                                     )}
                                     <div className="grid grid-cols-5 gap-1">
                                         {Array.from({ length: maxInventorySize }).map((_, i) => {
                                             const item = inventory[i];
-                                            const canReplace = pendingItem && item;
+                                            const canReplace = pendingItem && item && !recycleMode;
+                                            const isRecycleSelected = recycleMode && recycleSelected.has(i);
                                             const sc = item?.isOutOfGame ? (SCORE_STYLE[item.score] || SCORE_STYLE[1]) : null;
                                             return (
                                                 <div
                                                     key={i}
-                                                    onClick={() => canReplace && replaceInventoryItem(i)}
-                                                    className={`w-10 h-10 rounded flex items-center justify-center text-lg border-2 relative
-                                                        ${!item ? 'bg-gray-50 border-gray-200'
+                                                    onClick={() => {
+                                                        if (recycleMode && item) {
+                                                            setRecycleSelected(prev => {
+                                                                const next = new Set(prev);
+                                                                next.has(i) ? next.delete(i) : next.add(i);
+                                                                return next;
+                                                            });
+                                                        } else if (canReplace) {
+                                                            replaceInventoryItem(i);
+                                                        }
+                                                    }}
+                                                    className={`w-10 h-10 rounded flex items-center justify-center text-lg border-2 relative transition-all duration-150
+                                                        ${isRecycleSelected ? 'bg-red-100 border-red-400 scale-95 opacity-60'
+                                                            : !item ? 'bg-gray-50 border-gray-200'
                                                             : sc ? `bg-gradient-to-b ${sc.bg} ${sc.border}`
                                                             : 'bg-white border-gray-300'}
-                                                        ${canReplace ? 'cursor-pointer hover:bg-red-50 hover:border-red-400 hover:scale-110 transition-all duration-150' : ''}`}
-                                                    title={item ? `${item.name}${item.score ? ` (+${item.score})` : ''}` : ''}
+                                                        ${canReplace ? 'cursor-pointer hover:bg-red-50 hover:border-red-400 hover:scale-110'
+                                                            : recycleMode && item ? 'cursor-pointer hover:border-red-400' : ''}`}
+                                                    title={item ? item.name : ''}
                                                 >
                                                     {item ? item.icon : ''}
                                                     {sc && (
@@ -473,8 +525,8 @@ const GameCore = () => {
                                                             {item.score}
                                                         </span>
                                                     )}
-                                                    {item?.isOutOfGame && bonusItemIds.has(item.id) && (
-                                                        <span className="absolute -top-1.5 -left-1 bg-yellow-400 text-black text-[6px] font-black px-1 rounded-full shadow">+2</span>
+                                                    {item?.isOutOfGame && bonusItemMap.has(item.id) && (
+                                                        <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusItemMap.get(item.id)}</span>
                                                     )}
                                                 </div>
                                             );

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-We are a 3-person indie game dev team building a PC game for Steam. The game — "三池物语" — is a light-medium strategy game capturing strategic fun amid uncertainty in a way that's accessible to a broad audience.
+We are a 3-person indie game dev team building a PC game for Steam. The game — "幸运之墙 Wall of Fortune" — is a light-medium strategy game capturing strategic fun amid uncertainty in a way that's accessible to a broad audience.
 
 This repo is separate from the main Godot project. It serves as a Web prototype for rapid gameplay validation and design iteration, following a "try fast, iterate fast" approach.
 
@@ -44,7 +44,7 @@ No test suite exists in this project.
 
 ## Architecture Overview
 
-React 18 + Vite 6 + Tailwind CSS 3 browser-based game "三池物语", deployed to GitHub Pages at `/3pools_Web/`.
+React 18 + Vite 6 + Tailwind CSS 3 browser-based game "幸运之墙 Wall of Fortune", deployed to GitHub Pages at `/3pools_Web/`.
 
 ### Development Rules
 
@@ -52,15 +52,19 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "三池物语", deployed t
 - **Config-driven**: Game balance, items, skills — all defined in `src/data/constants.js`. Edit config values, not logic.
 - **i18n**: Chinese is the source language. Wrap all UI strings with `t()` from `useLanguage()`. Add English translations to `src/utils/translations.js`. Never hardcode English in components.
 
-### Game Concepts (Turn-Based Prototype)
+### Game Concepts (Turn-Based Prototype v2)
 
-- **Turn Structure**: Game is turn-based. Each turn: generate fresh 5×5 grid → player draws using gold (5 gold/turn, 1 per draw) → turn ends → doom accumulates → player chooses to continue or evacuate.
-- **Grid**: 5×5 grid with three cell types: item cells (name + icon), 💀 doom resolution cells (10% spawn per position), ⬆️ doom upgrade cells (10% spawn per position). Doom cells are independent (not items). Player selects a row; all doom cells in that row auto-trigger and disappear, then one random cell in the row is drawn (item cell = get item, doom cell = nothing). No gravity, no refill within a turn.
-- **Doom System**: Separate 10-cell Doom Grid. Starts with 1 Danger + 9 empty. Each turn auto-adds +1 Danger. Doom resolution (triggered by 💀 cells on grid): cursor hits N cells on Doom Grid (N = doom level); hitting Danger = -1 HP. Doom level starts at 1, increases when ⬆️ cells are triggered. HP = 5; at 0 = lose half inventory, forced evacuation.
-- **Evacuation**: Player can evacuate between turns with full inventory. Core tension: turn-level push-your-luck (play another turn with more doom, or leave now).
-- **Inventory**: Fixed-size grid (10 slots). Items defined by name + icon only.
-- **Orders**: Design direction: moving all orders to meta-game (outside the session). Not active in turn-based prototype.
-- **Planned systems (not in prototype)**: Functional cells (shop, etc.), 3-choose-1 grid selection between turns, item attributes/abilities, irregular-shaped functional cells, multi-dimensional doom, evacuation expansion.
+- **Setting**: TV game show. Player faces a Prize Wall (奖品墙) each turn.
+- **Game Structure**: 3 expeditions per game. Each expedition: multiple turns of drawing → evacuate. Victory: ≥30 points across 3 evacuations.
+- **Turn Structure**: Prize Wall ready → draw using gold (5/turn, 1 per draw) → doom accumulates → bulletin board adds order → 3-choose-1 next wall → continue or evacuate.
+- **Prize Wall**: 5×5 wall, player selects row OR column, random draw 1 cell. Cell types: stickers (main), 💀 doom resolution, ⬆️ doom upgrade, export items (rare), order cells, gold cells. Hidden cells revealed by drawing adjacent cells. All items have Tetris-like shapes.
+- **Stickers**: 8 types of local-only materials (⭐🌸⚡🔥🌙🍀🎵🦋). Each wall has 2-3 types. Consumed when submitting orders.
+- **Orders**: Bulletin board shows 5 orders (reward + difficulty only). Accept to reveal requirements. Max 3 held. Orders need specific sticker types/quantities. Submit anytime, no cost.
+- **Export Items**: Score items from completing orders (1/2/3/5 pts, 3 items per tier). Also rarely appear on wall. Evacuate to convert to score.
+- **Doom System**: 10-cell Doom Grid, +1 danger/turn. 💀 triggers resolution (cursor hits N cells, N = doom level). ⬆️ increases doom level. HP = 5; at 0 = lose entire backpack, forced evacuation.
+- **Backpack**: 15 slots shared by stickers and export items.
+- **Wall Types**: Basic, Hidden (many hidden cells), Drift (cells shift after draw), Multiplier (visible multiplier markers), Alternating (must alternate row/column).
+- **Planned systems (not in prototype)**: Sticker exchange system, functional wall types (shop), item abilities, doom expansion, evacuation expansion.
 
 ### Workflow Rules
 
