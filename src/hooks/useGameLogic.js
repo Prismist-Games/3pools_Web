@@ -1,8 +1,47 @@
 import { useState, useMemo } from 'react';
 import { generateTurnMatrix } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
+import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_DIFFICULTY_TEMPLATES, ORDER_DIFFICULTY_WEIGHTS } from '../data/v2Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
+
+// =============================================
+// HELPER FUNCTIONS
+// =============================================
+
+function generateUID() {
+    return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+}
+
+function weightedRandom(weights) {
+    const entries = Object.entries(weights);
+    const total = entries.reduce((sum, [, w]) => sum + w, 0);
+    let roll = Math.random() * total;
+    for (const [key, weight] of entries) {
+        roll -= weight;
+        if (roll <= 0) return key;
+    }
+    return entries[entries.length - 1][0];
+}
+
+function generateOrder() {
+    const difficulty = weightedRandom(ORDER_DIFFICULTY_WEIGHTS);
+    const template = ORDER_DIFFICULTY_TEMPLATES[difficulty];
+    const matchingItems = OUT_OF_GAME_ITEMS.filter(i => i.score === template.score);
+    const reward = matchingItems[Math.floor(Math.random() * matchingItems.length)];
+    const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
+    const selectedTypes = shuffledStickers.slice(0, template.stickerTypes);
+    const requirements = [];
+    let remaining = template.totalStickers;
+    for (let i = 0; i < selectedTypes.length; i++) {
+        const count = i === selectedTypes.length - 1
+            ? remaining
+            : 1 + Math.floor(Math.random() * (remaining - (selectedTypes.length - i - 1)));
+        requirements.push({ stickerId: selectedTypes[i].id, icon: selectedTypes[i].icon, name: selectedTypes[i].name, count });
+        remaining -= count;
+    }
+    return { id: generateUID(), difficulty, reward: { ...reward }, requirements };
+}
 
 export const useGameLogic = (config) => {
     const { t } = useLanguage();
@@ -10,7 +49,8 @@ export const useGameLogic = (config) => {
     // --- Configuration ---
     const doomConfig = config.doom || DOOM_CONFIG;
     const turnConfig = config.turn || TURN_CONFIG;
-    const maxInventorySize = config.stages[0].inventorySize;
+    const orderConfig = config.order || { bulletinCapacity: 5, maxActive: 3, newPerTurn: 1, initialCount: 2 };
+    const maxInventorySize = config.inventorySize || config.stages[0].inventorySize;
 
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
@@ -40,6 +80,10 @@ export const useGameLogic = (config) => {
 
     // --- Inventory Pending ---
     const [pendingItem, setPendingItem] = useState(null); // item awaiting replacement when inventory full
+
+    // --- Order State ---
+    const [bulletinBoard, setBulletinBoard] = useState([]);
+    const [activeOrders, setActiveOrders] = useState([]);
 
     // --- UI State ---
     const [toast, setToast] = useState(null);
@@ -83,6 +127,9 @@ export const useGameLogic = (config) => {
                 }
                 return newGrid;
             });
+
+            // Add new order to bulletin board each turn (after first)
+            addBulletinOrder();
         }
 
         setPhase('drawing');
@@ -90,6 +137,11 @@ export const useGameLogic = (config) => {
 
     /** Start the game (first turn) */
     const startGame = () => {
+        const initial = [];
+        for (let i = 0; i < orderConfig.initialCount; i++) {
+            initial.push(generateOrder());
+        }
+        setBulletinBoard(initial);
         startNewTurn();
     };
 
@@ -222,12 +274,18 @@ export const useGameLogic = (config) => {
         let obtainedItem = null;
         const doomEffects = { resolutions: 0, upgrades: 0 };
 
-        if (drawnCell.type === 'item') {
+        if (drawnCell.type === 'item' || drawnCell.type === 'sticker' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
         } else if (drawnCell.type === 'doom_resolution') {
             doomEffects.resolutions = 1;
         } else if (drawnCell.type === 'doom_upgrade') {
             doomEffects.upgrades = 1;
+        } else if (drawnCell.type === 'gold') {
+            setGold(prev => prev + drawnCell.goldAmount);
+            showToast(`${t('金币')} +${drawnCell.goldAmount}`, 'success');
+        } else if (drawnCell.type === 'order_cell') {
+            addBulletinOrder();
+            showToast(t('获得新订单'), 'info');
         }
 
         // Remove drawn cell(s)
@@ -282,12 +340,32 @@ export const useGameLogic = (config) => {
     // =============================================
 
     const addToInventory = (itemCell) => {
-        const newItem = {
-            name: itemCell.item.name,
-            icon: itemCell.item.icon,
-            poolId: itemCell.item.poolId,
-            uid: itemCell.uid,
-        };
+        let newItem;
+        if (itemCell.type === 'sticker') {
+            newItem = {
+                name: itemCell.item.name,
+                icon: itemCell.item.icon,
+                stickerId: itemCell.item.id,
+                isSticker: true,
+                uid: itemCell.uid,
+            };
+        } else if (itemCell.type === 'out_of_game') {
+            newItem = {
+                name: itemCell.item.name,
+                icon: itemCell.item.icon,
+                score: itemCell.item.score,
+                isOutOfGame: true,
+                uid: itemCell.uid,
+            };
+        } else {
+            // Legacy 'item' type
+            newItem = {
+                name: itemCell.item.name,
+                icon: itemCell.item.icon,
+                poolId: itemCell.item.poolId,
+                uid: itemCell.uid,
+            };
+        }
         if (inventory.length >= maxInventorySize) {
             setPendingItem(newItem);
             return;
@@ -307,6 +385,89 @@ export const useGameLogic = (config) => {
 
     const discardPendingItem = () => {
         setPendingItem(null);
+    };
+
+    // =============================================
+    // ORDER SYSTEM
+    // =============================================
+
+    /** Add a random order to the bulletin board (shifts oldest if at capacity) */
+    const addBulletinOrder = () => {
+        setBulletinBoard(prev => {
+            const newBoard = [...prev];
+            if (newBoard.length >= orderConfig.bulletinCapacity) {
+                newBoard.shift(); // remove oldest
+            }
+            newBoard.push(generateOrder());
+            return newBoard;
+        });
+    };
+
+    /** Move an order from bulletin board to active orders */
+    const acceptOrder = (orderId) => {
+        if (activeOrders.length >= orderConfig.maxActive) {
+            showToast(t('已接取的订单已满'), 'warning');
+            return;
+        }
+        const order = bulletinBoard.find(o => o.id === orderId);
+        if (!order) return;
+        setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
+        setActiveOrders(prev => [...prev, order]);
+    };
+
+    /** Check if player has required stickers to submit an order */
+    const canSubmitOrder = (orderId) => {
+        const order = activeOrders.find(o => o.id === orderId);
+        if (!order) return false;
+        const stickerCounts = {};
+        for (const item of inventory) {
+            if (item.isSticker && item.stickerId) {
+                stickerCounts[item.stickerId] = (stickerCounts[item.stickerId] || 0) + 1;
+            }
+        }
+        return order.requirements.every(req => (stickerCounts[req.stickerId] || 0) >= req.count);
+    };
+
+    /** Submit a completed order: consume stickers, add reward to inventory */
+    const submitOrder = (orderId) => {
+        const order = activeOrders.find(o => o.id === orderId);
+        if (!order) return;
+        if (!canSubmitOrder(orderId)) {
+            showToast(t('贴纸不足'), 'warning');
+            return;
+        }
+
+        // Remove required stickers from inventory
+        const toRemove = {};
+        for (const req of order.requirements) {
+            toRemove[req.stickerId] = (toRemove[req.stickerId] || 0) + req.count;
+        }
+        setInventory(prev => {
+            const remaining = [...prev];
+            for (const [stickerId, count] of Object.entries(toRemove)) {
+                let removed = 0;
+                for (let i = remaining.length - 1; i >= 0 && removed < count; i--) {
+                    if (remaining[i].isSticker && remaining[i].stickerId === stickerId) {
+                        remaining.splice(i, 1);
+                        removed++;
+                    }
+                }
+            }
+            // Add reward item
+            const rewardItem = {
+                name: order.reward.name,
+                icon: order.reward.icon,
+                score: order.reward.score,
+                isOutOfGame: true,
+                uid: generateUID(),
+            };
+            remaining.push(rewardItem);
+            return remaining;
+        });
+
+        // Remove order from active
+        setActiveOrders(prev => prev.filter(o => o.id !== orderId));
+        showToast(t('订单完成'), 'success');
     };
 
     // =============================================
@@ -428,6 +589,8 @@ export const useGameLogic = (config) => {
         setDoomResolutionResult(null);
         setAfterDoomAction(null);
         setInventory([]);
+        setBulletinBoard([]);
+        setActiveOrders([]);
         setToast(null);
         setLastDrawResult(null);
         setModalContent(null);
@@ -476,6 +639,10 @@ export const useGameLogic = (config) => {
         maxInventorySize,
         pendingItem,
 
+        // Orders
+        bulletinBoard,
+        activeOrders,
+
         // UI
         toast,
         clearToast,
@@ -499,5 +666,8 @@ export const useGameLogic = (config) => {
         completeDrawAnim,
         replaceInventoryItem,
         discardPendingItem,
+        acceptOrder,
+        submitOrder,
+        canSubmitOrder,
     };
 };
