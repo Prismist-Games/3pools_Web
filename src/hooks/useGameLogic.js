@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { generateTurnMatrix } from '../utils/matrixHelpers';
+import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_DIFFICULTY_TEMPLATES, ORDER_DIFFICULTY_WEIGHTS } from '../data/v2Config';
 
@@ -110,8 +110,9 @@ export const useGameLogic = (config) => {
         setGold(turnConfig.goldPerTurn);
         setLastDrawResult(null);
 
-        // Generate fresh grid
-        const { grid } = generateTurnMatrix(config.pools);
+        // Generate fresh grid with stickers
+        const stickers = pickWallStickers(STICKER_TYPES);
+        const { grid } = generateWall(stickers);
         setMatrix(grid);
 
         // Doom accumulation (not on first turn)
