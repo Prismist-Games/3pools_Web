@@ -21,6 +21,26 @@ export const MATRIX_CONFIG = {
     },
   },
 
+  // Special cells: gold, order, outOfGame
+  specialCells: {
+    gold: {
+      spawnChance: 0.06,  // 6% per cell position
+      icon: '💰',
+      name: '金币',
+      goldRange: [1, 2],  // random gold amount [min, max]
+    },
+    order: {
+      spawnChance: 0.04,  // 4% per cell position
+      icon: '📋',
+      name: '订单',
+    },
+    outOfGame: {
+      spawnChance: 0.02,  // 2% per cell position
+      icon: '🎁',
+      name: '出口物品',
+    },
+  },
+
   // Item shape system — Tetris-like polyominoes
   // Weights control spawn probability (higher = more common)
   itemShapes: {

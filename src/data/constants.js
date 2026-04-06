@@ -2,6 +2,7 @@
 import {
     Package, Trophy, Check, Star, ArrowLeftRight, ChevronsUp, Sparkles, Ticket, Gift, Zap, TrendingUp, Clock, ListOrdered
 } from 'lucide-react';
+import { EXPEDITION_CONFIG, ORDER_CONFIG } from './v2Config';
 
 // --- 阶段配置定义 ---
 export const INITIAL_STAGE_CONFIG = [
@@ -581,5 +582,8 @@ export const INITIAL_GAME_CONFIG = {
     stages: INITIAL_STAGE_CONFIG,
     doom: DOOM_CONFIG,
     turn: TURN_CONFIG,
+    expedition: EXPEDITION_CONFIG,
+    order: ORDER_CONFIG,
+    inventorySize: 15,
 };
 
