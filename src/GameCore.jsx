@@ -42,7 +42,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         toast, totalRecycleValue, selectedItemNames,
         toolSelectionMode,
         activeEffect,
-        evacuationAvailable
+        evacuationAvailable,
+        postDrawAction,
+        forgeSelectedSlot,
+        recycleStationIndices,
     } = state;
 
     const {
@@ -65,6 +68,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         handleEffectItemUse,
         handleCancelToolSelection,
         handleEvacuate,
+        handleForgeSlotClick,
+        handlePostDrawRecycleClick,
+        handleSkipPostDraw,
+        handleConfirmRecycleStation,
         handleRefreshMap,
         handleMapPlace,
     } = actions;
@@ -324,7 +331,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         onHoverCoverage={(names) => {
                                             state.setHoveredPoolItemNames(names);
                                         }}
-                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode}
+                                        disabled={!!pendingItem || isSubmitMode || isRecycleMode || !!selectionMode || !!postDrawAction}
                                     />
                                     <button
                                         onClick={handleRefreshMap}
@@ -391,6 +398,8 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                         ${pendingItem ? 'bg-red-50/95' : ''}
                         ${isRecycleMode ? 'bg-amber-50/95' : ''}
                         ${selectionMode?.type === 'trade_in' ? 'bg-purple-50/95' : ''}
+                        ${postDrawAction?.type === 'forge' ? 'bg-orange-50/95' : ''}
+                        ${postDrawAction?.type === 'recycle_station' ? 'bg-emerald-50/95' : ''}
                     `}>
 
                             {/* Skill Bar Area */}
@@ -465,7 +474,17 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         <Hand size={14} /> {t("整理模式")}
                                     </span>
                                 )}
-                                {isRecycleMode && (
+                                {postDrawAction?.type === 'forge' && (
+                                    <span className="text-xs font-bold text-orange-600 animate-pulse flex items-center gap-1">
+                                        🔥 {forgeSelectedSlot !== null ? t("选择第二个相同物品") : t("选择第一个物品")}
+                                    </span>
+                                )}
+                                {postDrawAction?.type === 'recycle_station' && (
+                                    <span className="text-xs font-bold text-emerald-600 animate-pulse flex items-center gap-1">
+                                        ♻️ {t("点击一个物品回收")}
+                                    </span>
+                                )}
+                                {isRecycleMode && !postDrawAction && (
                                     <span className="text-xs font-bold text-amber-600 animate-pulse flex items-center gap-1">
                                         <Trash2 size={14} /> {t("回收模式: 选择道具换取金币")}
                                     </span>
@@ -501,12 +520,21 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                         const isSourceSelf = !pendingItem && selectedSlot === idx; // Don't synth with self
 
                                         // If source existence, check synthesis
-                                        const canSynthesize = item && sourceItem && !isSourceSelf &&
+                                        // Forge mode: highlight merge-compatible items
+                                        const forgeSource = postDrawAction?.type === 'forge' && forgeSelectedSlot !== null ? inventory[forgeSelectedSlot] : null;
+                                        const canForge = postDrawAction?.type === 'forge' && forgeSource && item &&
+                                            forgeSelectedSlot !== idx &&
+                                            item.name === forgeSource.name &&
+                                            item.rarity.id === forgeSource.rarity.id &&
+                                            !item.sterile && !forgeSource.sterile &&
+                                            item.rarity.id !== 'mythic';
+
+                                        const canSynthesize = canForge || (item && sourceItem && !isSourceSelf &&
                                             item.name === sourceItem.name &&
                                             item.rarity.id === sourceItem.rarity.id &&
                                             !item.sterile && !sourceItem.sterile &&
                                             item.rarity.id !== 'mythic' &&
-                                            currentStageConfig.mechanics.synthesis;
+                                            currentStageConfig.mechanics.synthesis);
 
                                         // Badge Logic: Check if item is needed by unfilled milestone cells
                                         const neededCells = item && milestone
@@ -541,10 +569,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 key={item ? `${idx}-${item.uid}` : idx}
                                                 index={idx}
                                                 item={item}
-                                                isSelected={isSelected}
+                                                isSelected={isSelected || (postDrawAction?.type === 'forge' && forgeSelectedSlot === idx) || recycleStationIndices.includes(idx)}
                                                 isTarget={!!sourceItem && !isSourceSelf}
                                                 isSubmitMode={false}
-                                                isRecycleMode={isRecycleMode}
+                                                isRecycleMode={isRecycleMode || postDrawAction?.type === 'recycle_station'}
                                                 isSelectionMode={!!selectionMode && selectionMode.type !== 'trade_in'}
                                                 isReference={selectionMode?.type === 'trade_in' || !!toolSelectionMode}
 
@@ -554,7 +582,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                 hasUpgradePair={hasUpgradePair}
                                                 isOverloadTarget={isOverloadTarget}
 
-                                                onClick={handleSlotClick}
+                                                onClick={postDrawAction?.type === 'forge' ? handleForgeSlotClick : postDrawAction?.type === 'recycle_station' ? handlePostDrawRecycleClick : handleSlotClick}
                                                 onContextMenu={(index) => {
                                                     const item = inventory[index];
                                                     if (item?.isEffectItem) handleEffectItemUse(index);
@@ -571,28 +599,48 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     })}
                                 </div>
 
-                                {/* Action Buttons (Moved to prevent overlap) */}
+                                {/* Action Buttons */}
                                 <div className={`flex flex-col gap-2 shrink-0 justify-end pb-2 w-40 min-h-[88px] ${pendingItem ? 'hidden' : ''}`}>
-                                    {!isRecycleMode && !pendingItem && !selectionMode && (
-                                        <button onClick={toggleRecycleMode} className="w-full flex items-center justify-center gap-2 bg-amber-100 text-amber-800 border border-amber-200 font-bold py-3 px-6 rounded-xl shadow-sm hover:bg-amber-200 transition-transform active:scale-95">
-                                            <Trash2 size={18} /> {t("回收")}
-                                        </button>
-                                    )}
-
-                                    {evacuationAvailable && !isRecycleMode && !pendingItem && !selectionMode && (
+                                    {evacuationAvailable && !isRecycleMode && !pendingItem && !selectionMode && !postDrawAction && (
                                         <button onClick={handleEvacuate} className="w-full flex items-center justify-center gap-2 bg-indigo-500 text-white border border-indigo-600 font-bold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-600 transition-transform active:scale-95 animate-pulse">
                                             🚀 {t("撤离")}
                                         </button>
                                     )}
 
-                                    {isRecycleMode && (
-                                        <div className="flex flex-col gap-2">
-                                            <button onClick={handleConfirmRecycle} disabled={selectedIndices.length === 0} className={`w-full flex items-center justify-center gap-2 font-bold py-3 px-6 rounded-xl shadow-md ${selectedIndices.length > 0 ? 'bg-amber-600 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                                <Trash2 size={16} /> {t("确认回收")} (+{totalRecycleValue}🪙)
+                                    {/* Post-draw functional tile actions */}
+                                    {postDrawAction?.type === 'forge' && (
+                                        <div className="flex flex-col gap-2 animate-in fade-in">
+                                            <div className="text-xs font-bold text-orange-600 text-center bg-orange-50 border border-orange-200 rounded-lg px-2 py-1.5">
+                                                🔥 {t("熔炉：选择两个相同物品合成")}
+                                            </div>
+                                            <button onClick={handleSkipPostDraw} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50">
+                                                {t("跳过")}
                                             </button>
-                                            <button onClick={toggleRecycleMode} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
                                         </div>
                                     )}
+                                    {postDrawAction?.type === 'recycle_station' && (() => {
+                                        const recycleTotal = recycleStationIndices.reduce((sum, idx) => {
+                                            const item = inventory[idx];
+                                            return sum + (item ? item.rarity.recycleValue || 0 : 0);
+                                        }, 0);
+                                        return (
+                                            <div className="flex flex-col gap-2 animate-in fade-in">
+                                                <div className="text-xs font-bold text-emerald-600 text-center bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1.5">
+                                                    ♻️ {t("回收站：选择要回收的物品")}
+                                                </div>
+                                                <button
+                                                    onClick={handleConfirmRecycleStation}
+                                                    disabled={recycleStationIndices.length === 0}
+                                                    className={`w-full flex items-center justify-center gap-2 font-bold py-2 px-4 rounded-xl shadow-md ${recycleStationIndices.length > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
+                                                >
+                                                    <Trash2 size={14} /> {t("确认回收")} {recycleTotal > 0 && `(+${recycleTotal}🪙)`}
+                                                </button>
+                                                <button onClick={handleSkipPostDraw} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-slate-50">
+                                                    {t("跳过")}
+                                                </button>
+                                            </div>
+                                        );
+                                    })()}
 
                                     {selectionMode?.type === 'trade_in' && (
                                         <button onClick={handleSelectionCancel} className="w-full bg-white border border-slate-300 text-slate-600 font-bold py-2 px-6 rounded-xl shadow-sm hover:bg-slate-50">{t("取消")}</button>
@@ -658,7 +706,7 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                                         className="w-full flex items-center justify-center gap-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-xs font-bold py-1.5 px-2 rounded-lg transition-colors shadow-sm"
                                                     >
                                                         <X size={12} />
-                                                        {pendingItem.rarity.recycleValue > 0 ? `${t("回收")} +${pendingItem.rarity.recycleValue}` : t("丢弃")}
+                                                        {t("丢弃")}
                                                     </button>
                                                 </div>
 

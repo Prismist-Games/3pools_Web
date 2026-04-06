@@ -59,6 +59,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     // { effectId, effectConfig, itemUid }
     const [activeEffect, setActiveEffect] = useState(null);
 
+    // Post-draw functional tile action: { type: 'forge' | 'recycle_station' }
+    const [postDrawAction, setPostDrawAction] = useState(null);
+    // For forge: track first selected item index
+    const [forgeSelectedSlot, setForgeSelectedSlot] = useState(null);
+    // For recycle station: multi-select indices
+    const [recycleStationIndices, setRecycleStationIndices] = useState([]);
+
 
     const [skills, setSkills] = useState(initialSkills);
     const [skillSelectionCandidates, setSkillSelectionCandidates] = useState(null);
@@ -656,13 +663,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         const coverage = getFrameCoverage(anchorRow, anchorCol, itemMap);
         if (!coverage) return;
 
-        // Distance cost: base 1 + Manhattan gap between nearest edges of 2×2 blocks
-        const distCost = getDrawCost(avatarPos.row, avatarPos.col, anchorRow, anchorCol);
+        const distCost = getDrawCost();
 
         // Separate cell types in coverage
-        const itemCells = coverage.filter(c => !c.item.isEffect && !c.item.isEvacuation);
+        const itemCells = coverage.filter(c => !c.item.isEffect && !c.item.isEvacuation && !c.item.isFunctional);
         const effectCells = coverage.filter(c => c.item.isEffect);
         const evacCells = coverage.filter(c => c.item.isEvacuation);
+        const functionalCells = coverage.filter(c => c.item.isFunctional);
 
         // Use activeEffect (from inventory) for quality
         const affixConfig = activeEffect ? activeEffect.effectConfig : null;
@@ -706,9 +713,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Compute cluster sizes for quality bonus
         const clusterSizes = computeClusterSizes(itemMap);
 
-        // ALL cells participate in the draw lottery (items + effects + evacuation)
+        // Functional tiles do NOT participate in the draw lottery
         const drawableCells = [...itemCells, ...effectCells, ...evacCells];
         if (drawableCells.length === 0) return;
+
+        // Record functional tile for post-draw action (at most one per spacing constraint)
+        const coveredFunctional = functionalCells.length > 0 ? functionalCells[0].item : null;
 
         const drawnIndex = Math.floor(Math.random() * drawableCells.length);
         const drawnCell = drawableCells[drawnIndex];
@@ -779,6 +789,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
                     setTimeout(() => {
                         setDrawAnimInfo(null);
+                        // Offer functional tile action after draw completes
+                        if (coveredFunctional) {
+                            setPostDrawAction({ type: coveredFunctional.functionalId });
+                        }
                     }, 350);
                 }, 400);
             }, 500);
@@ -1040,22 +1054,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
         if (pendingItem) {
             const targetItem = inventory[index];
-            if (targetItem && !targetItem.sterile && !pendingItem.sterile &&
-                pendingItem.name === targetItem.name &&
-                pendingItem.rarity.id === targetItem.rarity.id &&
-                pendingItem.rarity.id !== 'mythic') {
-
-
-
-                const nextRarity = getNextRarity(targetItem.rarity.id, config);
-
-                const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
-                const newInventory = [...inventory];
-                newInventory[index] = upgradedItem;
-                setInventory(newInventory);
-                setPendingItem(null);
-                return;
-            }
 
             if (pendingItem.isOverload) {
                 // CRASH FIX: Ensure targetItem exists (it might be null if clicking empty slot in some edge case)
@@ -1088,9 +1086,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 return;
             }
 
-            const recycleGain = targetItem.rarity.recycleValue;
-            if (recycleGain > 0) setGold(prev => prev + recycleGain);
-
+            // Replace: old item is lost (no recycle gold — must use recycle station)
             const newInventory = [...inventory];
             newInventory[index] = pendingItem;
             setInventory(newInventory);
@@ -1110,24 +1106,6 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             const sourceItem = inventory[selectedSlot];
             const targetItem = inventory[index];
 
-            if (targetItem && !targetItem.sterile && !sourceItem.sterile &&
-                (!targetItem.decay || targetItem.decay > 0) && (!sourceItem.decay || sourceItem.decay > 0) &&
-                sourceItem.name === targetItem.name &&
-                sourceItem.rarity.id === targetItem.rarity.id &&
-                sourceItem.rarity.id !== 'mythic') {
-
-
-
-                const nextRarity = getNextRarity(sourceItem.rarity.id, config);
-
-                const upgradedItem = { ...targetItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
-                const newInventory = [...inventory];
-                newInventory[index] = upgradedItem;
-                newInventory[selectedSlot] = null;
-                setInventory(newInventory.filter(item => item !== null));
-                setSelectedSlot(null);
-                return;
-            }
             if (targetItem) {
                 const newInventory = [...inventory];
                 newInventory[index] = sourceItem;
@@ -1145,12 +1123,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
     };
 
     const handleDiscardNew = () => {
-        const recycleGain = pendingItem.rarity.recycleValue;
-        if (recycleGain > 0) setGold(prev => prev + recycleGain);
-
-        // Discarding does NOT consume durability (only draws do)
-        // setInventory(prev => applyEntropy(prev));
-
+        // Discard without gold — must use recycle station for gold
         setPendingItem(null);
         setSelectedSlot(null);
     };
@@ -1177,6 +1150,79 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setInventory(newInventory);
         setIsRecycleMode(false);
         setSelectedIndices([]);
+    };
+
+    // --- Post-draw functional tile handlers ---
+
+    const handleForgeSlotClick = (index) => {
+        const clickedItem = inventory[index];
+        if (!clickedItem || clickedItem.isToolItem || clickedItem.isEffectItem) return;
+
+        if (forgeSelectedSlot === null) {
+            setForgeSelectedSlot(index);
+            return;
+        }
+        if (forgeSelectedSlot === index) {
+            setForgeSelectedSlot(null);
+            return;
+        }
+        const sourceItem = inventory[forgeSelectedSlot];
+        if (!sourceItem) { setForgeSelectedSlot(null); return; }
+
+        // Check merge conditions
+        if (sourceItem.name === clickedItem.name &&
+            sourceItem.rarity.id === clickedItem.rarity.id &&
+            sourceItem.rarity.id !== 'mythic' &&
+            !sourceItem.sterile && !clickedItem.sterile &&
+            (!sourceItem.decay || sourceItem.decay > 0) &&
+            (!clickedItem.decay || clickedItem.decay > 0)) {
+            const nextRarity = getNextRarity(sourceItem.rarity.id, config);
+            const upgradedItem = { ...clickedItem, rarity: nextRarity, uid: Math.random().toString(36).substr(2, 9) };
+            const newInventory = [...inventory];
+            newInventory[index] = upgradedItem;
+            newInventory[forgeSelectedSlot] = null;
+            setInventory(newInventory.filter(item => item !== null));
+            showToast(`🔥 ${t("合成成功")}：${t(clickedItem.name)} → ${t(nextRarity.name)}`, 'success');
+            setForgeSelectedSlot(null);
+            setPostDrawAction(null);
+        } else {
+            // Not a valid merge target — switch selection
+            setForgeSelectedSlot(index);
+        }
+    };
+
+    const handlePostDrawRecycleClick = (index) => {
+        const clickedItem = inventory[index];
+        if (!clickedItem || clickedItem.isToolItem || clickedItem.isEffectItem) return;
+
+        // Toggle selection
+        setRecycleStationIndices(prev =>
+            prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+        );
+    };
+
+    const handleConfirmRecycleStation = () => {
+        if (recycleStationIndices.length === 0) return;
+
+        let totalGain = 0;
+        recycleStationIndices.forEach(idx => {
+            const item = inventory[idx];
+            if (item) totalGain += (item.rarity.recycleValue || 0);
+        });
+
+        if (totalGain > 0) setGold(prev => prev + totalGain);
+
+        const newInventory = inventory.filter((_, idx) => !recycleStationIndices.includes(idx));
+        setInventory(newInventory);
+        showToast(`♻️ ${t("回收")} +${totalGain}🪙`, 'success');
+        setRecycleStationIndices([]);
+        setPostDrawAction(null);
+    };
+
+    const handleSkipPostDraw = () => {
+        setPostDrawAction(null);
+        setForgeSelectedSlot(null);
+        setRecycleStationIndices([]);
     };
 
     const toggleSubmitMode = () => {
@@ -1367,6 +1413,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             toolSelectionMode,
             activeEffect,
             evacuationAvailable,
+            postDrawAction,
+            forgeSelectedSlot,
+            recycleStationIndices,
         },
         actions: {
             showToast,
@@ -1394,6 +1443,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             handleEffectItemUse,
             handleCancelToolSelection,
             handleEvacuate,
+            handleForgeSlotClick,
+            handlePostDrawRecycleClick,
+            handleSkipPostDraw,
+            handleConfirmRecycleStation,
             handleRefreshMap: () => {
                 if (gold < 1) return;
                 setGold(prev => prev - 1);

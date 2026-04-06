@@ -45,3 +45,12 @@ export const EFFECT_ITEM_ICONS = {
   precise: '🎯',
   targeted: '🎯',
 };
+
+// --- Functional tile definitions ---
+export const FUNCTIONAL_TILE_TYPES = [
+  { id: 'forge', name: '熔炉', icon: '🔥' },
+  { id: 'recycle_station', name: '回收站', icon: '♻️' },
+];
+
+/** Probability that randomCell produces a functional tile instead of an item */
+export const FUNCTIONAL_TILE_CHANCE = 0.15;
