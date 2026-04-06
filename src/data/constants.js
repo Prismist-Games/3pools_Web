@@ -20,9 +20,9 @@ export const INITIAL_STAGE_CONFIG = [
             4
         ],
         "orderCountWeights": {
-            "2": 20,
-            "3": 65,
-            "4": 15
+            "2": 0,
+            "3": 0,
+            "4": 100
         },
         "baseRewards": {
             "2": 15,
@@ -38,10 +38,10 @@ export const INITIAL_STAGE_CONFIG = [
             "mythic": 0
         },
         "orderRarityWeights": {
-            "common": 0.4,
-            "uncommon": 0.35,
-            "rare": 0.2,
-            "epic": 0.05,
+            "common": 0,
+            "uncommon": 0.4,
+            "rare": 0.45,
+            "epic": 0.15,
             "legendary": 0,
             "mythic": 0
         },
@@ -258,6 +258,7 @@ export const TOOL_ITEM_CONFIG = {
         legendary: 0.02,
         mythic: 0,
     },
+    enabled: false,
 };
 
 export const INITIAL_AFFIXES_CONFIG = [
@@ -343,10 +344,10 @@ export const INITIAL_AFFIXES_CONFIG = [
 export const INITIAL_RARITY_CONFIG = [
     { id: 'common', name: '普通', color: 'border-slate-300 bg-slate-50 text-slate-600', dotColor: 'bg-slate-400', starColor: 'text-slate-400', shadow: '', bonus: 0, recycleValue: 0 },
     { id: 'uncommon', name: '优秀', color: 'border-green-400 bg-green-50 text-green-700', dotColor: 'bg-green-500', starColor: 'text-green-500', shadow: 'shadow-green-200', bonus: 0.1, recycleValue: 0 },
-    { id: 'rare', name: '稀有', color: 'border-blue-400 bg-blue-50 text-blue-700', dotColor: 'bg-blue-500', starColor: 'text-blue-500', shadow: 'shadow-blue-200', bonus: 0.25, recycleValue: 1 },
-    { id: 'epic', name: '史诗', color: 'border-purple-400 bg-purple-50 text-purple-700', dotColor: 'bg-purple-500', starColor: 'text-purple-500', shadow: 'shadow-purple-200', bonus: 0.5, recycleValue: 2 },
-    { id: 'legendary', name: '传说', color: 'border-orange-400 bg-orange-50 text-orange-700', dotColor: 'bg-orange-500', starColor: 'text-orange-500', shadow: 'shadow-orange-200', bonus: 1.0, recycleValue: 4 },
-    { id: 'mythic', name: '神话', color: 'border-rose-500 bg-rose-50 text-rose-700', dotColor: 'bg-rose-500', starColor: 'text-rose-600', shadow: 'shadow-rose-200', bonus: 2.0, recycleValue: 10 }
+    { id: 'rare', name: '稀有', color: 'border-blue-400 bg-blue-50 text-blue-700', dotColor: 'bg-blue-500', starColor: 'text-blue-500', shadow: 'shadow-blue-200', bonus: 0.25, recycleValue: 0 },
+    { id: 'epic', name: '史诗', color: 'border-purple-400 bg-purple-50 text-purple-700', dotColor: 'bg-purple-500', starColor: 'text-purple-500', shadow: 'shadow-purple-200', bonus: 0.5, recycleValue: 0 },
+    { id: 'legendary', name: '传说', color: 'border-orange-400 bg-orange-50 text-orange-700', dotColor: 'bg-orange-500', starColor: 'text-orange-500', shadow: 'shadow-orange-200', bonus: 1.0, recycleValue: 0 },
+    { id: 'mythic', name: '神话', color: 'border-rose-500 bg-rose-50 text-rose-700', dotColor: 'bg-rose-500', starColor: 'text-rose-600', shadow: 'shadow-rose-200', bonus: 2.0, recycleValue: 0 }
 ];
 
 // --- 填充物品：不属于任何订单，占据矩阵空位 ---
@@ -592,13 +593,44 @@ export const EMERGENCY_ORDER_CONFIG = {
 
     // 难度等级配置：难度 -> 精确品质需求（可选，如配置则优先使用）
     // 数组中每项表示需要的品质和数量，会随机打乱后生成订单
-    // 示例: 1: [{ rarity: 'common', count: 1 }, { rarity: 'uncommon', count: 1 }] 
+    // 示例: 1: [{ rarity: 'common', count: 1 }, { rarity: 'uncommon', count: 1 }]
     // 表示难度1固定需要1个普通+1个优秀品质的物品
     difficultyRequirements: {
         1: [{ rarity: 'uncommon', count: 1 }, { rarity: 'rare', count: 1 }],
         2: [{ rarity: 'rare', count: 1 }, { rarity: 'rare', count: 1 }],
         3: [{ rarity: 'rare', count: 1 }, { rarity: 'epic', count: 1 }],
         4: [{ rarity: 'epic', count: 1 }, { rarity: 'epic', count: 1 }]
+    },
+
+    // 难度阈值：积分达到阈值时提升难度
+    difficultyThresholds: {
+        1: 7,
+        2: 10,
+        3: 13,
+        4: 16,
+        5: 19,
+        6: 22,
+        7: 25,
+        8: 28,
+        9: 31,
+        10: 34
+    },
+
+    // 撤离订单截止期限
+    deadline: 15,
+
+    // 生命值系统
+    health: {
+        enabled: true,
+        maxHealth: 1,
+        decreaseOnTimeout: 1
+    },
+
+    // 急迫度系统
+    impatience: {
+        enabled: true,
+        maxValue: 1,
+        increaseOnTimeout: 1
     }
 };
 
@@ -614,6 +646,18 @@ export const SCORE_PROGRESS_CONFIG = {
         epic: 8,
         legendary: 16,
         mythic: 32
+    },
+    starScoreMultiplier: 1.5,
+    starWeights: {
+        "0-0": 0,
+        "0-1": 1,
+        "1-2": 0,
+        "2-3": 4,
+        "3-4": 7,
+        "4-5": 10,
+        "0.5-1": 3,
+        "2-2.5": 10,
+        "2.5-3": 18
     }
 };
 
@@ -642,10 +686,10 @@ export const INITIAL_GAME_CONFIG = {
     ],
     global: {
         "refreshCost": 5,
-        "initialGold": 30,
+        "initialGold": 20,
         "initialRefreshCount": 3,
         "maxRefreshCount": 3,
-        "matrixOrderItemChance": 0.5
+        "matrixOrderItemChance": 0.85
     }
 };
 

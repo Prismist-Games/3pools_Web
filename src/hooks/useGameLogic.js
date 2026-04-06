@@ -168,20 +168,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
     const [goldFlash, setGoldFlash] = useState(false);
 
-    // Deduct gold and check game over
+    // Deduct gold — at 0 the player can no longer draw, but can still submit orders
     const deductGold = (amount = 1) => {
         setGold(prev => {
-            const newGold = prev - amount;
+            const newGold = Math.max(0, prev - amount);
             if (newGold <= 0) {
-                setModalContent({
-                    type: 'game_over',
-                    title: t("游戏结束"),
-                    item: { icon: '💀', name: t("金币耗尽") },
-                    message: t("无法继续操作！"),
-                });
-                return 0;
-            }
-            if (newGold <= 5) {
+                showToast(t("金币耗尽！请提交订单或重置游戏"), "warning");
+            } else if (newGold <= 5) {
                 showToast(`-${amount} 🪙  (${t("剩余")} ${newGold})`, "warning");
             }
             return newGold;
@@ -708,6 +701,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (lastDrawCell) {
             if (type === 'row' && index !== lastDrawCell.row) return;
             if (type === 'col' && index !== lastDrawCell.col) return;
+        }
+
+        // Block drawing when gold is 0 — player can still submit orders
+        if (gold <= 0) {
+            showToast(t("金币耗尽！请提交订单或重置游戏"), "warning");
+            return;
         }
 
         // Collect cells from the selected row or column

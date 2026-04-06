@@ -120,6 +120,7 @@ export const EN_TRANSLATIONS = {
     "分": "pts",
     "订单已刷新，金币已重置": "Orders refreshed, gold reset",
     "炸弹爆炸！": "Bomb exploded!",
+    "金币耗尽！请提交订单或重置游戏": "Out of gold! Submit an order or reset",
     "炸弹": "Bomb",
     "积分目标": "Score Target",
 
