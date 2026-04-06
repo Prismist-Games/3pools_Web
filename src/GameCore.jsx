@@ -211,8 +211,8 @@ const GameCore = () => {
                             </div>
                         </div>
 
-                        {/* Right: ScoreBoard + Doom Grid + Inventory */}
-                        <div className="w-64 flex flex-col gap-4">
+                        {/* Right: ScoreBoard + Doom Grid + Orders + Inventory */}
+                        <div className="w-72 flex flex-col gap-4">
                             {/* ScoreBoard */}
                             <ScoreBoard
                                 expeditionNumber={expeditionNumber}
@@ -314,18 +314,28 @@ const GameCore = () => {
                                     {Array.from({ length: maxInventorySize }).map((_, i) => {
                                         const item = inventory[i];
                                         const canReplace = pendingItem && item;
+                                        let borderClass = 'border-gray-200';
+                                        let bgClass = 'bg-gray-50';
+                                        if (item) {
+                                            if (item.isOutOfGame) {
+                                                borderClass = 'border-amber-400';
+                                                bgClass = 'bg-amber-50';
+                                            } else {
+                                                borderClass = 'border-gray-300';
+                                                bgClass = 'bg-white';
+                                            }
+                                        }
+                                        if (canReplace) {
+                                            borderClass = 'border-amber-400';
+                                        }
                                         return (
                                             <div
                                                 key={i}
                                                 onClick={() => canReplace && replaceInventoryItem(i)}
                                                 className={`w-10 h-10 rounded flex items-center justify-center text-lg border
-                                                    ${item
-                                                        ? canReplace
-                                                            ? 'bg-white border-amber-400 cursor-pointer hover:bg-red-50 hover:border-red-400 hover:scale-110 transition-all duration-150'
-                                                            : 'bg-white border-gray-300'
-                                                        : 'bg-gray-50 border-gray-200'
-                                                    }`}
-                                                title={canReplace ? `${t('替换')}: ${item.name}` : (item?.name || '')}
+                                                    ${bgClass} ${borderClass}
+                                                    ${canReplace ? 'cursor-pointer hover:bg-red-50 hover:border-red-400 hover:scale-110 transition-all duration-150' : ''}`}
+                                                title={item ? `${item.name}${item.score ? ` (+${item.score})` : ''}` : ''}
                                             >
                                                 {item ? item.icon : ''}
                                             </div>
