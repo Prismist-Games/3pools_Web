@@ -4,6 +4,7 @@ import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
 import BulletinBoard from './components/game/BulletinBoard';
 import ActiveOrders from './components/game/ActiveOrders';
+import ScoreBoard from './components/game/ScoreBoard';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 
@@ -14,6 +15,7 @@ const GameCore = () => {
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
     const {
+        expeditionNumber, expeditionScores, totalScore, expeditionConfig,
         turnNumber, gold, phase,
         matrix, lastDrawResult,
         hp, doomGrid, doomLevel, dangerCount,
@@ -23,7 +25,7 @@ const GameCore = () => {
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating,
         startGame, selectRow, selectColumn, endTurn, continueToNextTurn,
-        handleEvacuate, handleReset,
+        handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
         replaceInventoryItem, discardPendingItem,
@@ -129,6 +131,8 @@ const GameCore = () => {
 
                 {/* Status Bar */}
                 <div className="flex gap-4 mb-4 p-3 bg-white rounded-xl shadow-md border border-gray-200 text-sm font-bold">
+                    <div className="text-purple-600">🗺️ {t('探险')} {expeditionNumber}/{expeditionConfig.expeditionCount}</div>
+                    <div className="text-orange-600">⭐ {totalScore}{t('分')}</div>
                     <div className="text-rose-600">❤️ {hp} HP</div>
                     <div className="text-amber-600">💰 {gold} {t('金币')}</div>
                     <div className="text-indigo-600">📅 {t('回合')} {turnNumber}</div>
@@ -139,12 +143,15 @@ const GameCore = () => {
                 {phase === 'pre_game' && (
                     <div className="text-center py-20">
                         <h2 className="text-2xl font-bold mb-4">{t('三池物语')}</h2>
-                        <p className="text-gray-500 mb-8">{t('回合制原型')}</p>
+                        <p className="text-gray-500 mb-2">{t('回合制原型')} v2</p>
+                        {expeditionNumber > 0 && (
+                            <p className="text-sm text-gray-400 mb-4">{t('累计')}: {totalScore} {t('分')}</p>
+                        )}
                         <button
                             onClick={startGame}
                             className="px-8 py-3 bg-blue-500 text-white rounded-lg text-lg font-bold hover:bg-blue-600 transition-colors"
                         >
-                            {t('开始游戏')}
+                            {t('开始探险')} {expeditionNumber + 1}
                         </button>
                     </div>
                 )}
@@ -198,8 +205,16 @@ const GameCore = () => {
                             </div>
                         </div>
 
-                        {/* Right: Doom Grid + Inventory */}
+                        {/* Right: ScoreBoard + Doom Grid + Inventory */}
                         <div className="w-64 flex flex-col gap-4">
+                            {/* ScoreBoard */}
+                            <ScoreBoard
+                                expeditionNumber={expeditionNumber}
+                                expeditionScores={expeditionScores}
+                                totalScore={totalScore}
+                                victoryScore={expeditionConfig.scoreToWin}
+                            />
+
                             {/* Doom Grid */}
                             <div className="bg-white rounded-lg shadow-sm border p-3">
                                 <div className="flex items-center justify-between mb-2">
@@ -356,7 +371,7 @@ const GameCore = () => {
                                 onClick={handleEvacuate}
                                 className="px-8 py-3 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition-colors"
                             >
-                                {t('撤离')}（{inventory.length} {t('个物品')}）
+                                {t('撤离')}（{inventory.filter(i => i.isOutOfGame).reduce((s, i) => s + i.score, 0)} {t('分')}）
                             </button>
                         </div>
                     </div>
@@ -365,27 +380,31 @@ const GameCore = () => {
                 {/* Game over / Evacuated */}
                 {phase === 'game_over' && (
                     <div className="text-center py-12">
-                        <h2 className="text-2xl font-bold mb-4">
-                            {modalContent === 'evacuated' ? t('安全撤离') : t('游戏结束')}
-                        </h2>
-                        <p className="text-gray-500 mb-2">
-                            {t('回合')}: {turnNumber} | {t('收集物品')}: {inventory.length}
-                        </p>
-                        {modalContent === 'game_over' && (
-                            <p className="text-red-500 mb-4">{t('失去了一半物品')}</p>
+                        {modalContent === 'evacuated' ? (
+                            <>
+                                <h2 className="text-xl font-bold mb-2">{t('安全撤离')}</h2>
+                                <p className="text-gray-500 mb-4">
+                                    {t('探险')} {expeditionNumber} — {t('得分')}: {expeditionScores[expeditionScores.length - 1] || 0}
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h2 className="text-xl font-bold mb-2 text-red-600">{t('游戏结束')}</h2>
+                                <p className="text-red-500 mb-4">{t('失去了全部物品，本次探险得 0 分')}</p>
+                            </>
                         )}
 
-                        {/* Show inventory */}
-                        {inventory.length > 0 && (
+                        <p className="text-sm text-gray-500 mb-6">
+                            {t('累计')}: {totalScore} / {expeditionConfig.scoreToWin} {t('分')}
+                        </p>
+
+                        {/* Show kept out-of-game items */}
+                        {modalContent === 'evacuated' && inventory.filter(i => i.isOutOfGame).length > 0 && (
                             <div className="inline-block mb-6">
                                 <h3 className="text-sm text-gray-500 mb-2">{t('带出的物品')}</h3>
                                 <div className="flex flex-wrap gap-2 justify-center">
-                                    {inventory.map((item, i) => (
-                                        <div
-                                            key={i}
-                                            className="w-10 h-10 rounded border border-gray-300 bg-white flex items-center justify-center text-lg"
-                                            title={item.name}
-                                        >
+                                    {inventory.filter(i => i.isOutOfGame).map((item, i) => (
+                                        <div key={i} className="w-10 h-10 rounded border border-amber-400 bg-amber-50 flex items-center justify-center text-lg" title={`${item.name} (+${item.score})`}>
                                             {item.icon}
                                         </div>
                                     ))}
@@ -393,14 +412,27 @@ const GameCore = () => {
                             </div>
                         )}
 
-                        <div>
-                            <button
-                                onClick={handleReset}
+                        {expeditionNumber < expeditionConfig.expeditionCount ? (
+                            <button onClick={() => { startNextExpedition(); }}
                                 className="px-8 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition-colors"
                             >
-                                {t('再来一局')}
+                                {t('开始探险')} {expeditionNumber + 1}
                             </button>
-                        </div>
+                        ) : (
+                            <div>
+                                <h2 className="text-2xl font-bold mb-4">
+                                    {totalScore >= expeditionConfig.scoreToWin ? `🎉 ${t('胜利')}!` : t('挑战失败')}
+                                </h2>
+                                <p className="text-gray-500 mb-6">
+                                    {t('最终得分')}: {totalScore} / {expeditionConfig.scoreToWin}
+                                </p>
+                                <button onClick={handleReset}
+                                    className="px-8 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition-colors"
+                                >
+                                    {t('再来一局')}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 

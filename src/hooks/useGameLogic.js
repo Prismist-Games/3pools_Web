@@ -50,7 +50,13 @@ export const useGameLogic = (config) => {
     const doomConfig = config.doom || DOOM_CONFIG;
     const turnConfig = config.turn || TURN_CONFIG;
     const orderConfig = config.order || { bulletinCapacity: 5, maxActive: 3, newPerTurn: 1, initialCount: 2 };
+    const expeditionConfig = config.expedition || { expeditionCount: 3, scoreToWin: 30 };
     const maxInventorySize = config.inventorySize || config.stages[0].inventorySize;
+
+    // --- Expedition State ---
+    const [expeditionNumber, setExpeditionNumber] = useState(0);
+    const [expeditionScores, setExpeditionScores] = useState([]);
+    const [totalScore, setTotalScore] = useState(0);
 
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
@@ -138,6 +144,7 @@ export const useGameLogic = (config) => {
 
     /** Start the game (first turn) */
     const startGame = () => {
+        setExpeditionNumber(prev => prev + 1);
         const initial = [];
         for (let i = 0; i < orderConfig.initialCount; i++) {
             initial.push(generateOrder());
@@ -556,17 +563,16 @@ export const useGameLogic = (config) => {
     // =============================================
 
     const handleEvacuate = () => {
+        const score = inventory.reduce((sum, item) => sum + (item.score || 0), 0);
+        setExpeditionScores(prev => [...prev, score]);
+        setTotalScore(prev => prev + score);
         setModalContent('evacuated');
         setPhase('game_over');
     };
 
     const handleGameOver = () => {
-        // Lose half inventory
-        setInventory(prev => {
-            const count = Math.ceil(prev.length / 2);
-            const shuffled = [...prev].sort(() => Math.random() - 0.5);
-            return shuffled.slice(0, prev.length - count);
-        });
+        setInventory([]);
+        setExpeditionScores(prev => [...prev, 0]);
         setModalContent('game_over');
         setPhase('game_over');
     };
@@ -598,6 +604,39 @@ export const useGameLogic = (config) => {
         setFlyingItem(null);
         setDrawAnimState(null);
         setPendingItem(null);
+        setExpeditionNumber(0);
+        setExpeditionScores([]);
+        setTotalScore(0);
+    };
+
+    /** Reset per-expedition state but keep meta state, return to pre_game */
+    const startNextExpedition = () => {
+        setTurnNumber(0);
+        setGold(0);
+        setMatrix(null);
+        setHp(doomConfig.initialHP);
+        setDoomGrid(() => {
+            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
+                grid[i] = { type: 'danger' };
+            }
+            return grid;
+        });
+        setDoomLevel(doomConfig.initialDoomLevel);
+        setIsDoomResolving(false);
+        setDoomAnimState(null);
+        setDoomResolutionResult(null);
+        setAfterDoomAction(null);
+        setInventory([]);
+        setToast(null);
+        setLastDrawResult(null);
+        setModalContent(null);
+        setFlyingItem(null);
+        setDrawAnimState(null);
+        setPendingItem(null);
+        setBulletinBoard([]);
+        setActiveOrders([]);
+        setPhase('pre_game');
     };
 
     // =============================================
@@ -617,6 +656,12 @@ export const useGameLogic = (config) => {
     // =============================================
 
     return {
+        // Expedition state
+        expeditionNumber,
+        expeditionScores,
+        totalScore,
+        expeditionConfig,
+
         // Turn state
         turnNumber,
         gold,
@@ -661,6 +706,7 @@ export const useGameLogic = (config) => {
         continueToNextTurn,
         handleEvacuate,
         handleReset,
+        startNextExpedition,
         tickDoomResolution,
         completeDoomResolution,
         tickDrawAnim,
