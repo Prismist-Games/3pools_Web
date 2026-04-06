@@ -61,10 +61,11 @@ export const useGameLogic = (config) => {
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
     const [gold, setGold] = useState(0);
-    const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'drawing' | 'between_turns' | 'game_over'
+    const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'wall_choice' | 'drawing' | 'between_turns' | 'game_over'
 
     // --- Grid State ---
     const [matrix, setMatrix] = useState(null);
+    const [wallCandidates, setWallCandidates] = useState(null);
 
     // --- Doom State ---
     const [hp, setHp] = useState(doomConfig.initialHP);
@@ -115,11 +116,7 @@ export const useGameLogic = (config) => {
         setTurnNumber(newTurnNumber);
         setGold(turnConfig.goldPerTurn);
         setLastDrawResult(null);
-
-        // Generate fresh grid with stickers
-        const stickers = pickWallStickers(STICKER_TYPES);
-        const { grid } = generateWall(stickers);
-        setMatrix(grid);
+        setDoomResolutionResult(null);
 
         // Doom accumulation (not on first turn)
         if (newTurnNumber > 1) {
@@ -139,7 +136,22 @@ export const useGameLogic = (config) => {
             addBulletinOrder();
         }
 
-        setPhase('drawing');
+        if (newTurnNumber === 1) {
+            // First turn: generate directly
+            const stickers = pickWallStickers(STICKER_TYPES);
+            const { grid } = generateWall(stickers);
+            setMatrix(grid);
+            setPhase('drawing');
+        } else {
+            // Subsequent turns: 3-choose-1
+            const candidates = [0, 1, 2].map(() => {
+                const stickers = pickWallStickers(STICKER_TYPES);
+                const { grid, doomCellCount } = generateWall(stickers);
+                return { stickers, grid, doomCellCount };
+            });
+            setWallCandidates(candidates);
+            setPhase('wall_choice');
+        }
     };
 
     /** Start the game (first turn) */
@@ -161,6 +173,14 @@ export const useGameLogic = (config) => {
     /** Continue to next turn */
     const continueToNextTurn = () => {
         startNewTurn();
+    };
+
+    /** Select one of the wall candidates to play with */
+    const selectWall = (index) => {
+        if (!wallCandidates || !wallCandidates[index]) return;
+        setMatrix(wallCandidates[index].grid);
+        setWallCandidates(null);
+        setPhase('drawing');
     };
 
     // =============================================
@@ -582,6 +602,7 @@ export const useGameLogic = (config) => {
         setGold(0);
         setPhase('pre_game');
         setMatrix(null);
+        setWallCandidates(null);
         setHp(doomConfig.initialHP);
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
@@ -614,6 +635,7 @@ export const useGameLogic = (config) => {
         setTurnNumber(0);
         setGold(0);
         setMatrix(null);
+        setWallCandidates(null);
         setHp(doomConfig.initialHP);
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
@@ -669,6 +691,7 @@ export const useGameLogic = (config) => {
 
         // Grid
         matrix,
+        wallCandidates,
         lastDrawResult,
 
         // Doom
@@ -704,6 +727,7 @@ export const useGameLogic = (config) => {
         selectColumn,
         endTurn,
         continueToNextTurn,
+        selectWall,
         handleEvacuate,
         handleReset,
         startNextExpedition,

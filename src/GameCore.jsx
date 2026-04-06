@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
+import WallPicker from './components/game/WallPicker';
 import BulletinBoard from './components/game/BulletinBoard';
 import ActiveOrders from './components/game/ActiveOrders';
 import ScoreBoard from './components/game/ScoreBoard';
@@ -17,14 +18,14 @@ const GameCore = () => {
     const {
         expeditionNumber, expeditionScores, totalScore, expeditionConfig,
         turnNumber, gold, phase,
-        matrix, lastDrawResult,
+        matrix, wallCandidates, lastDrawResult,
         hp, doomGrid, doomLevel, dangerCount,
         isDoomResolving, doomAnimState, doomResolutionResult,
         inventory, maxInventorySize, pendingItem,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating,
-        startGame, selectRow, selectColumn, endTurn, continueToNextTurn,
+        startGame, selectRow, selectColumn, endTurn, continueToNextTurn, selectWall,
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
@@ -154,6 +155,11 @@ const GameCore = () => {
                             {t('开始探险')} {expeditionNumber + 1}
                         </button>
                     </div>
+                )}
+
+                {/* Wall choice phase */}
+                {phase === 'wall_choice' && wallCandidates && (
+                    <WallPicker candidates={wallCandidates} onSelect={selectWall} />
                 )}
 
                 {/* Drawing phase */}
