@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
-import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_DIFFICULTY_TEMPLATES, ORDER_DIFFICULTY_WEIGHTS } from '../data/v2Config';
+import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -24,11 +24,35 @@ function weightedRandom(weights) {
     return entries[entries.length - 1][0];
 }
 
+function pickWeightedTemplate() {
+    const total = ORDER_TEMPLATES.reduce((sum, t) => sum + t.weight, 0);
+    let roll = Math.random() * total;
+    for (const t of ORDER_TEMPLATES) {
+        roll -= t.weight;
+        if (roll <= 0) return t;
+    }
+    return ORDER_TEMPLATES[0];
+}
+
+function pickWallType() {
+    const total = WALL_TYPES.reduce((s, t) => s + t.weight, 0);
+    let roll = Math.random() * total;
+    for (const t of WALL_TYPES) {
+        roll -= t.weight;
+        if (roll <= 0) return t;
+    }
+    return WALL_TYPES[0];
+}
+
 function generateOrder() {
-    const difficulty = weightedRandom(ORDER_DIFFICULTY_WEIGHTS);
-    const template = ORDER_DIFFICULTY_TEMPLATES[difficulty];
-    const matchingItems = OUT_OF_GAME_ITEMS.filter(i => i.score === template.score);
-    const reward = matchingItems[Math.floor(Math.random() * matchingItems.length)];
+    const template = pickWeightedTemplate();
+    // Pick a random out-of-game item for each reward tier
+    const rewards = template.rewardTiers.map(tierScore => {
+        const matching = OUT_OF_GAME_ITEMS.filter(i => i.score === tierScore);
+        return { ...matching[Math.floor(Math.random() * matching.length)] };
+    });
+    const totalScore = rewards.reduce((s, r) => s + r.score, 0);
+    // Generate sticker requirements
     const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
     const selectedTypes = shuffledStickers.slice(0, template.stickerTypes);
     const requirements = [];
@@ -40,7 +64,7 @@ function generateOrder() {
         requirements.push({ stickerId: selectedTypes[i].id, icon: selectedTypes[i].icon, name: selectedTypes[i].name, count });
         remaining -= count;
     }
-    return { id: generateUID(), difficulty, reward: { ...reward }, requirements };
+    return { id: generateUID(), difficulty: template.difficulty, rewards, totalScore, requirements };
 }
 
 export const useGameLogic = (config) => {
@@ -57,6 +81,7 @@ export const useGameLogic = (config) => {
     const [expeditionNumber, setExpeditionNumber] = useState(0);
     const [expeditionScores, setExpeditionScores] = useState([]);
     const [totalScore, setTotalScore] = useState(0);
+    const [bonusItems, setBonusItems] = useState([]); // 3 random item IDs that give +1 bonus per game
 
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
@@ -66,6 +91,8 @@ export const useGameLogic = (config) => {
     // --- Grid State ---
     const [matrix, setMatrix] = useState(null);
     const [wallCandidates, setWallCandidates] = useState(null);
+    const [currentWallType, setCurrentWallType] = useState(null);
+    const [lastDrawDirection, setLastDrawDirection] = useState(null);
 
     // --- Doom State ---
     const [hp, setHp] = useState(doomConfig.initialHP);
@@ -91,6 +118,9 @@ export const useGameLogic = (config) => {
     // --- Order State ---
     const [bulletinBoard, setBulletinBoard] = useState([]);
     const [activeOrders, setActiveOrders] = useState([]);
+
+    // --- Incoming Order (flies to bulletin between turns) ---
+    const [incomingOrder, setIncomingOrder] = useState(null);
 
     // --- UI State ---
     const [toast, setToast] = useState(null);
@@ -131,35 +161,43 @@ export const useGameLogic = (config) => {
                 }
                 return newGrid;
             });
-
-            // Add new order to bulletin board each turn (after first)
-            addBulletinOrder();
         }
 
-        if (newTurnNumber === 1) {
-            // First turn: generate directly
+        // Reset draw direction for alternating wall
+        setLastDrawDirection(null);
+
+        // 3-choose-1 wall selection (every turn including first)
+        const candidates = [0, 1, 2].map(() => {
             const stickers = pickWallStickers(STICKER_TYPES);
-            const { grid } = generateWall(stickers);
-            setMatrix(grid);
-            setPhase('drawing');
-        } else {
-            // Subsequent turns: 3-choose-1
-            const candidates = [0, 1, 2].map(() => {
-                const stickers = pickWallStickers(STICKER_TYPES);
-                const { grid, doomCellCount } = generateWall(stickers);
-                return { stickers, grid, doomCellCount };
-            });
-            setWallCandidates(candidates);
-            setPhase('wall_choice');
-        }
+            const { grid, doomCellCount } = generateWall(stickers);
+            const wallType = pickWallType();
+            return { stickers, grid, doomCellCount, wallType };
+        });
+        setWallCandidates(candidates);
+        setPhase('wall_choice');
     };
 
     /** Start the game (first turn) */
     const startGame = () => {
+        // Pick bonus items on first expedition of a new game
+        if (expeditionNumber === 0) {
+            const shuffled = [...OUT_OF_GAME_ITEMS].sort(() => Math.random() - 0.5);
+            setBonusItems(shuffled.slice(0, 3));
+        }
         setExpeditionNumber(prev => prev + 1);
+        // Seed initial bulletin with unique reward combinations
         const initial = [];
-        for (let i = 0; i < orderConfig.initialCount; i++) {
-            initial.push(generateOrder());
+        const usedKeys = new Set();
+        const targetCount = orderConfig.initialCount;
+        let attempts = 0;
+        while (initial.length < targetCount && attempts < 50) {
+            const order = generateOrder();
+            const key = order.rewards.map(r => r.id).sort().join(',');
+            if (!usedKeys.has(key)) {
+                usedKeys.add(key);
+                initial.push(order);
+            }
+            attempts++;
         }
         setBulletinBoard(initial);
         startNewTurn();
@@ -178,7 +216,38 @@ export const useGameLogic = (config) => {
     /** Select one of the wall candidates to play with */
     const selectWall = (index) => {
         if (!wallCandidates || !wallCandidates[index]) return;
-        setMatrix(wallCandidates[index].grid);
+        const chosen = wallCandidates[index];
+        const wallType = chosen.wallType;
+        setCurrentWallType(wallType);
+
+        // Apply wall-type mutations to the grid before setting it
+        const grid = chosen.grid.map(r => r.map(c => c ? { ...c } : null));
+
+        if (wallType.id === 'hidden') {
+            // Mark ~30% of sticker cells as hidden
+            const ratio = wallType.hiddenRatio || 0.3;
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < grid[r].length; c++) {
+                    const cell = grid[r][c];
+                    if (cell && (cell.type === 'sticker' || cell.type === 'item') && Math.random() < ratio) {
+                        cell.hidden = true;
+                    }
+                }
+            }
+        } else if (wallType.id === 'multiplier') {
+            // Mark ~20% of cells with multiplier = 2
+            const ratio = wallType.multiplierRatio || 0.2;
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < grid[r].length; c++) {
+                    const cell = grid[r][c];
+                    if (cell && Math.random() < ratio) {
+                        cell.multiplier = 2;
+                    }
+                }
+            }
+        }
+
+        setMatrix(grid);
         setWallCandidates(null);
         setPhase('drawing');
     };
@@ -195,6 +264,8 @@ export const useGameLogic = (config) => {
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
+        // Alternating wall: block consecutive row draws
+        if (currentWallType?.id === 'alternating' && lastDrawDirection === 'row') return;
 
         setDoomResolutionResult(null);
         setFlyingItem(null);
@@ -241,6 +312,8 @@ export const useGameLogic = (config) => {
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix) return;
+        // Alternating wall: block consecutive column draws
+        if (currentWallType?.id === 'alternating' && lastDrawDirection === 'column') return;
 
         setDoomResolutionResult(null);
         setFlyingItem(null);
@@ -297,28 +370,35 @@ export const useGameLogic = (config) => {
     /** Apply draw result after animation settles */
     const completeDrawAnim = () => {
         if (!drawAnimState) return;
-        const { finalRowIndex, finalColIndex, drawnCell } = drawAnimState;
+        const { direction, finalRowIndex, finalColIndex, drawnCell } = drawAnimState;
 
+        // Track draw direction for alternating wall
+        setLastDrawDirection(direction);
+
+        const mult = drawnCell.multiplier || 1;
         let obtainedItem = null;
         const doomEffects = { resolutions: 0, upgrades: 0 };
 
         if (drawnCell.type === 'item' || drawnCell.type === 'sticker' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
         } else if (drawnCell.type === 'doom_resolution') {
-            doomEffects.resolutions = 1;
+            doomEffects.resolutions = 1 * mult;
         } else if (drawnCell.type === 'doom_upgrade') {
-            doomEffects.upgrades = 1;
+            doomEffects.upgrades = 1 * mult;
         } else if (drawnCell.type === 'gold') {
-            setGold(prev => prev + drawnCell.goldAmount);
-            showToast(`${t('金币')} +${drawnCell.goldAmount}`, 'success');
+            const goldGain = drawnCell.goldAmount * mult;
+            setGold(prev => prev + goldGain);
+            showToast(`${t('金币')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'order_cell') {
             addBulletinOrder();
             showToast(t('获得新订单'), 'info');
         }
 
-        // Remove drawn cell(s)
+        // Remove drawn cell(s) + hidden reveal + drift shuffle
         setMatrix(prev => {
-            const newMatrix = prev.map(r => [...r]);
+            const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
+
+            // Remove drawn cell(s)
             if (drawnCell.groupId) {
                 for (let r = 0; r < newMatrix.length; r++) {
                     for (let c = 0; c < newMatrix[r].length; c++) {
@@ -330,6 +410,61 @@ export const useGameLogic = (config) => {
             } else {
                 newMatrix[finalRowIndex][finalColIndex] = null;
             }
+
+            // Hidden wall: reveal adjacent hidden cells
+            if (currentWallType?.id === 'hidden') {
+                const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+                for (const [dr, dc] of dirs) {
+                    const nr = finalRowIndex + dr;
+                    const nc = finalColIndex + dc;
+                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length) {
+                        if (newMatrix[nr][nc]?.hidden) {
+                            newMatrix[nr][nc].hidden = false;
+                        }
+                    }
+                }
+            }
+
+            // Drift wall: shuffle remaining non-null cells to random positions
+            if (currentWallType?.id === 'drift') {
+                const cells = [];
+                const positions = [];
+                for (let r = 0; r < newMatrix.length; r++) {
+                    for (let c = 0; c < newMatrix[r].length; c++) {
+                        if (newMatrix[r][c] !== null) {
+                            cells.push(newMatrix[r][c]);
+                            positions.push([r, c]);
+                        }
+                    }
+                }
+                // Shuffle cells array
+                for (let i = cells.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [cells[i], cells[j]] = [cells[j], cells[i]];
+                }
+                // Clear all non-null positions
+                for (const [r, c] of positions) {
+                    newMatrix[r][c] = null;
+                }
+                // Redistribute: collect ALL positions (null and non-null)
+                const allPositions = [];
+                for (let r = 0; r < newMatrix.length; r++) {
+                    for (let c = 0; c < newMatrix[r].length; c++) {
+                        allPositions.push([r, c]);
+                    }
+                }
+                // Shuffle all positions
+                for (let i = allPositions.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [allPositions[i], allPositions[j]] = [allPositions[j], allPositions[i]];
+                }
+                // Place cells into first N shuffled positions
+                for (let i = 0; i < cells.length; i++) {
+                    const [r, c] = allPositions[i];
+                    newMatrix[r][c] = cells[i];
+                }
+            }
+
             return newMatrix;
         });
 
@@ -342,16 +477,25 @@ export const useGameLogic = (config) => {
                 colIndex: finalColIndex,
                 id: Date.now(),
             });
-            addToInventory(obtainedItem);
+            // Multiplier: add to inventory multiple times for stickers
+            if (mult > 1 && (obtainedItem.type === 'sticker' || obtainedItem.type === 'item')) {
+                for (let i = 0; i < mult; i++) {
+                    addToInventory({ ...obtainedItem, uid: generateUID() });
+                }
+            } else {
+                addToInventory(obtainedItem);
+            }
         }
 
         if (doomEffects.upgrades > 0) {
             setDoomLevel(prev => prev + doomEffects.upgrades);
-            showToast(t('厄运升级') + ` +${doomEffects.upgrades}`, 'warning');
+            showToast(t('厄运升级') + ` +${doomEffects.upgrades}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'warning');
         }
 
         if (doomEffects.resolutions > 0) {
-            resolveDoom();
+            for (let i = 0; i < doomEffects.resolutions; i++) {
+                resolveDoom();
+            }
         }
 
         setLastDrawResult({
@@ -431,16 +575,49 @@ export const useGameLogic = (config) => {
         });
     };
 
+    /** Land the incoming order into the bulletin board */
+    const confirmIncomingOrder = () => {
+        if (!incomingOrder) return;
+        setBulletinBoard(prev => {
+            const newBoard = [...prev];
+            if (newBoard.length >= orderConfig.bulletinCapacity) {
+                newBoard.shift();
+            }
+            newBoard.push(incomingOrder);
+            return newBoard;
+        });
+        setIncomingOrder(null);
+    };
+
+    // --- Pending accept for replace flow ---
+    const [pendingAcceptOrder, setPendingAcceptOrder] = useState(null);
+
     /** Move an order from bulletin board to active orders */
     const acceptOrder = (orderId) => {
-        if (activeOrders.length >= orderConfig.maxActive) {
-            showToast(t('已接取的订单已满'), 'warning');
-            return;
-        }
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return;
+        if (activeOrders.length >= orderConfig.maxActive) {
+            // Full — enter replace mode
+            setPendingAcceptOrder(order);
+            return;
+        }
         setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
         setActiveOrders(prev => [...prev, order]);
+    };
+
+    /** Replace an active order with the pending one */
+    const confirmReplaceOrder = (activeOrderId) => {
+        if (!pendingAcceptOrder) return;
+        setBulletinBoard(prev => prev.filter(o => o.id !== pendingAcceptOrder.id));
+        setActiveOrders(prev => prev.map(o =>
+            o.id === activeOrderId ? pendingAcceptOrder : o
+        ));
+        setPendingAcceptOrder(null);
+    };
+
+    /** Cancel the pending accept */
+    const cancelReplaceOrder = () => {
+        setPendingAcceptOrder(null);
     };
 
     /** Check if player has required stickers to submit an order */
@@ -481,15 +658,16 @@ export const useGameLogic = (config) => {
                     }
                 }
             }
-            // Add reward item
-            const rewardItem = {
-                name: order.reward.name,
-                icon: order.reward.icon,
-                score: order.reward.score,
-                isOutOfGame: true,
-                uid: generateUID(),
-            };
-            remaining.push(rewardItem);
+            // Add all reward items
+            for (const reward of order.rewards) {
+                remaining.push({
+                    name: reward.name,
+                    icon: reward.icon,
+                    score: reward.score,
+                    isOutOfGame: true,
+                    uid: generateUID(),
+                });
+            }
             return remaining;
         });
 
@@ -574,6 +752,8 @@ export const useGameLogic = (config) => {
 
         if (afterDoomAction === 'end_turn') {
             setAfterDoomAction(null);
+            // Generate incoming order to show animation
+            setIncomingOrder(generateOrder());
             setPhase('between_turns');
         }
     };
@@ -583,8 +763,12 @@ export const useGameLogic = (config) => {
     // =============================================
 
     const handleEvacuate = () => {
-        const score = inventory.reduce((sum, item) => sum + (item.score || 0), 0);
-        setExpeditionScores(prev => [...prev, score]);
+        const outOfGameItems = inventory.filter(i => i.isOutOfGame);
+        const bonusIds = new Set(bonusItems.map(b => b.id));
+        const baseScore = outOfGameItems.reduce((sum, item) => sum + (item.score || 0), 0);
+        const bonusScore = outOfGameItems.filter(item => bonusIds.has(item.id)).length * 2; // +2 per bonus item
+        const score = baseScore + bonusScore;
+        setExpeditionScores(prev => [...prev, { score, baseScore, bonusScore, items: outOfGameItems }]);
         setTotalScore(prev => prev + score);
         setModalContent('evacuated');
         setPhase('game_over');
@@ -592,7 +776,7 @@ export const useGameLogic = (config) => {
 
     const handleGameOver = () => {
         setInventory([]);
-        setExpeditionScores(prev => [...prev, 0]);
+        setExpeditionScores(prev => [...prev, { score: 0, items: [] }]);
         setModalContent('game_over');
         setPhase('game_over');
     };
@@ -603,6 +787,8 @@ export const useGameLogic = (config) => {
         setPhase('pre_game');
         setMatrix(null);
         setWallCandidates(null);
+        setCurrentWallType(null);
+        setLastDrawDirection(null);
         setHp(doomConfig.initialHP);
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
@@ -619,6 +805,8 @@ export const useGameLogic = (config) => {
         setInventory([]);
         setBulletinBoard([]);
         setActiveOrders([]);
+        setPendingAcceptOrder(null);
+        setIncomingOrder(null);
         setToast(null);
         setLastDrawResult(null);
         setModalContent(null);
@@ -628,6 +816,7 @@ export const useGameLogic = (config) => {
         setExpeditionNumber(0);
         setExpeditionScores([]);
         setTotalScore(0);
+        setBonusItems([]);
     };
 
     /** Reset per-expedition state but keep meta state, return to pre_game */
@@ -636,6 +825,8 @@ export const useGameLogic = (config) => {
         setGold(0);
         setMatrix(null);
         setWallCandidates(null);
+        setCurrentWallType(null);
+        setLastDrawDirection(null);
         setHp(doomConfig.initialHP);
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
@@ -658,6 +849,7 @@ export const useGameLogic = (config) => {
         setPendingItem(null);
         setBulletinBoard([]);
         setActiveOrders([]);
+        setPendingAcceptOrder(null);
         setPhase('pre_game');
     };
 
@@ -683,6 +875,7 @@ export const useGameLogic = (config) => {
         expeditionScores,
         totalScore,
         expeditionConfig,
+        bonusItems,
 
         // Turn state
         turnNumber,
@@ -693,6 +886,8 @@ export const useGameLogic = (config) => {
         matrix,
         wallCandidates,
         lastDrawResult,
+        currentWallType,
+        lastDrawDirection,
 
         // Doom
         hp,
@@ -740,5 +935,10 @@ export const useGameLogic = (config) => {
         acceptOrder,
         submitOrder,
         canSubmitOrder,
+        incomingOrder,
+        confirmIncomingOrder,
+        pendingAcceptOrder,
+        confirmReplaceOrder,
+        cancelReplaceOrder,
     };
 };

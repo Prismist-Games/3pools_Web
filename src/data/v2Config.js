@@ -36,74 +36,34 @@ export const OUT_OF_GAME_ITEMS = [
     { id: 'house',    icon: '🏠', name: '房产',   score: 5 },
 ];
 
-// --- 订单难度模板 ---
-// 每个难度对应分值、贴纸总数量、贴纸种类数
-export const ORDER_DIFFICULTY_TEMPLATES = {
-    easy: {
-        id: 'easy',
-        name: '容易',
-        score: 1,
-        totalStickers: 2,
-        stickerTypes: 2,
-    },
-    medium: {
-        id: 'medium',
-        name: '中等',
-        score: 2,
-        totalStickers: 3,
-        stickerTypes: 2,
-    },
-    hard: {
-        id: 'hard',
-        name: '困难',
-        score: 3,
-        totalStickers: 4,
-        stickerTypes: 3,
-    },
-    extreme: {
-        id: 'extreme',
-        name: '极难',
-        score: 5,
-        totalStickers: 6,
-        stickerTypes: 4,
-    },
-};
-
-// --- 订单难度权重 ---
-export const ORDER_DIFFICULTY_WEIGHTS = {
-    easy:    40,
-    medium:  35,
-    hard:    18,
-    extreme:  7,
-};
+// --- 订单模板 ---
+// 奖励物品 1-3 个，数量呈正态分布（2个最多，1/3个较少）
+// 同总分下，物品越少 = 占背包格子越少 = 越高效 = 越难获取
+export const ORDER_TEMPLATES = [
+    // 1 个奖励 (~25%)
+    { id: 'a', difficulty: 'easy',    rewardTiers: [1],       totalStickers: 2, stickerTypes: 1, weight: 8  },
+    { id: 'b', difficulty: 'medium',  rewardTiers: [2],       totalStickers: 3, stickerTypes: 2, weight: 7  },
+    { id: 'c', difficulty: 'hard',    rewardTiers: [3],       totalStickers: 4, stickerTypes: 3, weight: 5  },
+    { id: 'd', difficulty: 'extreme', rewardTiers: [5],       totalStickers: 6, stickerTypes: 4, weight: 3  },
+    // 2 个奖励 (~50%)
+    { id: 'e', difficulty: 'easy',    rewardTiers: [1, 1],    totalStickers: 3, stickerTypes: 1, weight: 14 },
+    { id: 'f', difficulty: 'medium',  rewardTiers: [1, 2],    totalStickers: 4, stickerTypes: 2, weight: 12 },
+    { id: 'g', difficulty: 'medium',  rewardTiers: [2, 2],    totalStickers: 4, stickerTypes: 2, weight: 10 },
+    { id: 'h', difficulty: 'hard',    rewardTiers: [2, 3],    totalStickers: 5, stickerTypes: 3, weight: 8  },
+    // 3 个奖励 (~25%)
+    { id: 'i', difficulty: 'easy',    rewardTiers: [1, 1, 1], totalStickers: 3, stickerTypes: 1, weight: 8  },
+    { id: 'j', difficulty: 'medium',  rewardTiers: [1, 1, 2], totalStickers: 4, stickerTypes: 2, weight: 7  },
+    { id: 'k', difficulty: 'hard',    rewardTiers: [1, 1, 3], totalStickers: 5, stickerTypes: 3, weight: 5  },
+    { id: 'l', difficulty: 'extreme', rewardTiers: [1, 2, 3], totalStickers: 6, stickerTypes: 3, weight: 3  },
+];
 
 // --- 墙类型定义 ---
 export const WALL_TYPES = [
-    {
-        id: 'basic',
-        name: '基础墙',
-        desc: '标准规则',
-    },
-    {
-        id: 'hidden',
-        name: '隐藏墙',
-        desc: '大量隐藏格',
-    },
-    {
-        id: 'drift',
-        name: '漂移墙',
-        desc: '抽取后格子随机移位',
-    },
-    {
-        id: 'multiplier',
-        name: '加倍墙',
-        desc: '部分格子有可见倍率标记',
-    },
-    {
-        id: 'alternating',
-        name: '交替墙',
-        desc: '行列交替选择',
-    },
+    { id: 'basic',       name: '经典赛道', icon: '🎯', desc: '标准规则，行列自由选择', weight: 30 },
+    { id: 'hidden',      name: '神秘面纱', icon: '🎭', desc: '部分格子内容隐藏，抽到相邻格时揭示', weight: 20, hiddenRatio: 0.3 },
+    { id: 'drift',       name: '乾坤大挪移', icon: '🌀', desc: '每次抽取后，剩余格子随机移位', weight: 15 },
+    { id: 'multiplier',  name: '双倍惊喜', icon: '✨', desc: '部分格子效果翻倍（贴纸×2，厄运×2）', weight: 15, multiplierRatio: 0.2 },
+    { id: 'alternating', name: '交叉问答', icon: '🔀', desc: '必须行列交替选择', weight: 20 },
 ];
 
 // --- 远征配置 ---
@@ -117,11 +77,11 @@ export const ORDER_CONFIG = {
     bulletinCapacity: 5,    // 公告板最大订单数
     maxActive: 3,           // 玩家最多持有订单数
     newPerTurn: 1,          // 每回合新增订单数
-    initialCount: 2,        // 游戏开始时的初始订单数
+    initialCount: 4,        // 游戏开始时的初始订单数
 };
 
 // --- 墙贴纸数量范围 ---
 export const WALL_STICKER_COUNT = {
-    min: 2,
-    max: 3,
+    min: 3,
+    max: 4,
 };

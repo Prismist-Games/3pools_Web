@@ -15,7 +15,8 @@ const WallPicker = ({ candidates, onSelect }) => {
                         className="w-48 p-4 bg-white rounded-xl shadow-md border-2 border-gray-200
                             hover:border-blue-400 hover:shadow-lg transition-all duration-150 text-left"
                     >
-                        <div className="text-sm font-bold mb-2">{t('奖品墙')} {idx + 1}</div>
+                        <div className="text-sm font-bold mb-2">{wall.wallType.icon} {t(wall.wallType.name)}</div>
+                        <div className="text-[11px] text-gray-500 mb-2">{t(wall.wallType.desc)}</div>
                         <div className="flex gap-1 mb-2">
                             {wall.stickers.map(s => (
                                 <span key={s.id} className="text-lg" title={s.name}>{s.icon}</span>

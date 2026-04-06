@@ -154,7 +154,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         <div
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
-            className={`border flex flex-col items-center justify-center ${rounding} ${bgClass} ${highlightClass}`}
+            className={`relative border flex flex-col items-center justify-center ${rounding} ${bgClass} ${highlightClass}`}
             style={{
                 margin: `${top ? 0 : HALF}px ${right ? 0 : HALF}px ${bottom ? 0 : HALF}px ${left ? 0 : HALF}px`,
                 width: CELL_SIZE + (left ? HALF : 0) + (right ? HALF : 0),
@@ -165,7 +165,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
         >
             {cellContent}
-            {cell !== null && (cell.type === 'item' || cell.type === 'sticker') && (
+            {cell !== null && (cell.type === 'item' || cell.type === 'sticker') && !cell.hidden && (
                 <span className="text-[9px] text-gray-600 leading-none mt-0.5 truncate max-w-[48px] font-medium">
                     {cell.item.name}
                 </span>
@@ -178,7 +178,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
 /**
  * 5×5 grid display for turn-based prototype.
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection }) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -189,10 +189,28 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
 
     const getCellContent = (cell) => {
         if (cell === null) return <span className="text-gray-300">·</span>;
-        if (cell.type === 'item' || cell.type === 'sticker' || cell.type === 'out_of_game') {
-            return <span className="text-xl">{cell.item?.icon || cell.icon}</span>;
+        // Hidden cell: show mystery icon
+        if (cell.hidden) {
+            return <span className="text-xl">❓</span>;
         }
-        return <span className="text-xl">{cell.icon}</span>;
+        if (cell.type === 'item' || cell.type === 'sticker' || cell.type === 'out_of_game') {
+            return (
+                <>
+                    <span className="text-xl">{cell.item?.icon || cell.icon}</span>
+                    {cell.multiplier && cell.multiplier > 1 && (
+                        <span className="absolute -top-1 -right-1 bg-amber-400 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10">×{cell.multiplier}</span>
+                    )}
+                </>
+            );
+        }
+        return (
+            <>
+                <span className="text-xl">{cell.icon}</span>
+                {cell.multiplier && cell.multiplier > 1 && (
+                    <span className="absolute -top-1 -right-1 bg-amber-400 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10">×{cell.multiplier}</span>
+                )}
+            </>
+        );
     };
 
     const getAdjacency = (rowIdx, colIdx) => {
@@ -216,6 +234,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     return (
         <div>
             <div className="text-center text-sm text-gray-500 mb-2 font-bold">
+                {wallType && wallType.id !== 'basic' && (
+                    <span className="text-xs text-indigo-600 mr-2">{wallType.icon} {t(wallType.name)}</span>
+                )}
                 {t('选择行或列抽取')}
             </div>
 
@@ -223,7 +244,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
                 {Array.from({ length: 5 }, (_, colIndex) => {
                     const hasActive = matrix.some(row => row[colIndex] !== null);
-                    const colClickable = canDraw && hasActive;
+                    const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
+                    const colClickable = canDraw && hasActive && !altBlocked;
                     return (
                         <button
                             key={colIndex}
@@ -254,7 +276,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 <div className="flex flex-col mr-2" style={{ paddingTop: HALF }}>
                     {matrix.map((row, rowIndex) => {
                         const hasActive = row.some(c => c !== null);
-                        const rowClickable = canDraw && hasActive;
+                        const altBlockedRow = wallType?.id === 'alternating' && lastDrawDirection === 'row';
+                        const rowClickable = canDraw && hasActive && !altBlockedRow;
                         return (
                             <button
                                 key={rowIndex}
