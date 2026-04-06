@@ -1,17 +1,20 @@
 import { MATRIX_CONFIG } from '../data/matrixConfig';
+import { OUT_OF_GAME_ITEMS } from '../data/v2Config';
 
 function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 }
 
-function getAllItemsFromPools(pools) {
-  const items = [];
-  for (const pool of pools) {
-    for (const item of pool.items) {
-      items.push({ ...item, poolId: pool.id, poolName: pool.name });
-    }
+/** Pick a key from a weights object { key: weight } */
+function weightedRandom(weights) {
+  const entries = Object.entries(weights);
+  const total = entries.reduce((sum, [, w]) => sum + w, 0);
+  let roll = Math.random() * total;
+  for (const [key, weight] of entries) {
+    roll -= weight;
+    if (roll <= 0) return key;
   }
-  return items;
+  return entries[entries.length - 1][0];
 }
 
 /** Roll a weighted random size (1-4) */
@@ -40,17 +43,27 @@ function tryPlaceShape(shape, startRow, startCol, grid, gridSize) {
 }
 
 /**
- * Generate a 5×5 matrix for one turn.
- *
- * 1. Roll doom cells per position (independent)
- * 2. Fill remaining empty cells with items of varying sizes (1-4 cells)
- *    Larger items are rarer. Uses Tetris-like polyomino shapes.
- *
- * Multi-cell items share a groupId so drawing any cell obtains the whole item.
+ * Randomly pick min–max sticker types from the full sticker array.
  */
-export function generateTurnMatrix(pools) {
-  const { gridSize, doomCells, itemShapes } = MATRIX_CONFIG;
-  const allItems = getAllItemsFromPools(pools);
+export function pickWallStickers(allStickers, min = 2, max = 3) {
+  const count = min + Math.floor(Math.random() * (max - min + 1));
+  const shuffled = [...allStickers].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
+/**
+ * Generate a 5×5 wall matrix for one turn using sticker types.
+ *
+ * Phase 1: Roll doom cells per position (independent)
+ * Phase 2: Roll special cells (gold / order / out-of-game) on remaining empty positions
+ * Phase 3: Fill remaining empty cells with sticker shapes (polyomino algorithm)
+ *
+ * Multi-cell stickers share a groupId so drawing any cell obtains the whole sticker.
+ *
+ * @param {Array} wallStickers — array of sticker type objects from STICKER_TYPES
+ */
+export function generateWall(wallStickers) {
+  const { gridSize, doomCells, itemShapes, specialCells } = MATRIX_CONFIG;
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
   const doomCellCount = { resolution: 0, upgrade: 0 };
 
@@ -79,8 +92,48 @@ export function generateTurnMatrix(pools) {
     }
   }
 
-  // Phase 2: Fill empty cells with shaped items
-  // Collect empty positions
+  // Phase 2: Roll special cells on remaining empty positions
+  // Cumulative probability check: gold → order → outOfGame
+  for (let row = 0; row < gridSize; row++) {
+    for (let col = 0; col < gridSize; col++) {
+      if (grid[row][col] !== null) continue;
+
+      const roll = Math.random();
+      const goldChance = specialCells.gold.spawnChance;
+      const orderChance = goldChance + specialCells.order.spawnChance;
+      const outOfGameChance = orderChance + specialCells.outOfGame.spawnChance;
+
+      if (roll < goldChance) {
+        const [min, max] = specialCells.gold.goldRange;
+        const goldAmount = min + Math.floor(Math.random() * (max - min + 1));
+        grid[row][col] = {
+          type: 'gold',
+          icon: specialCells.gold.icon,
+          name: specialCells.gold.name,
+          goldAmount,
+          uid: generateUID(),
+        };
+      } else if (roll < orderChance) {
+        grid[row][col] = {
+          type: 'order_cell',
+          icon: specialCells.order.icon,
+          name: specialCells.order.name,
+          uid: generateUID(),
+        };
+      } else if (roll < outOfGameChance) {
+        const item = OUT_OF_GAME_ITEMS[Math.floor(Math.random() * OUT_OF_GAME_ITEMS.length)];
+        grid[row][col] = {
+          type: 'out_of_game',
+          icon: item.icon,
+          name: item.name,
+          item: { ...item },
+          uid: generateUID(),
+        };
+      }
+    }
+  }
+
+  // Phase 3: Fill remaining empty cells with sticker shapes
   const getEmptyPositions = () => {
     const empty = [];
     for (let r = 0; r < gridSize; r++) {
@@ -102,7 +155,7 @@ export function generateTurnMatrix(pools) {
       continue;
     }
 
-    // Roll item size
+    // Roll sticker size
     let size = rollItemSize(itemShapes.weights);
     let placed = false;
 
@@ -115,13 +168,12 @@ export function generateTurnMatrix(pools) {
       for (const shape of shuffled) {
         const positions = tryPlaceShape(shape, startR, startC, grid, gridSize);
         if (positions) {
-          // Place the item
-          const item = allItems[Math.floor(Math.random() * allItems.length)];
+          const sticker = wallStickers[Math.floor(Math.random() * wallStickers.length)];
           const groupId = generateUID();
           for (const [r, c] of positions) {
             grid[r][c] = {
-              type: 'item',
-              item: { ...item },
+              type: 'sticker',
+              item: { ...sticker },
               uid: generateUID(),
               groupId,
               shapeSize: size,
@@ -136,10 +188,10 @@ export function generateTurnMatrix(pools) {
 
     // If even 1-cell didn't work (shouldn't happen since cell is empty), place single
     if (!placed) {
-      const item = allItems[Math.floor(Math.random() * allItems.length)];
+      const sticker = wallStickers[Math.floor(Math.random() * wallStickers.length)];
       grid[startR][startC] = {
-        type: 'item',
-        item: { ...item },
+        type: 'sticker',
+        item: { ...sticker },
         uid: generateUID(),
         groupId: generateUID(),
         shapeSize: 1,
@@ -149,6 +201,37 @@ export function generateTurnMatrix(pools) {
     // Refresh empty list
     empty = getEmptyPositions();
     empty.sort(() => Math.random() - 0.5);
+  }
+
+  return { grid, doomCellCount };
+}
+
+/**
+ * Legacy export — backward compatibility during migration.
+ * Derives pseudo-stickers from pool items and calls generateWall.
+ */
+export function generateTurnMatrix(pools) {
+  const pseudoStickers = [];
+  for (const pool of pools) {
+    for (const item of pool.items) {
+      pseudoStickers.push({
+        id: item.id ?? item.name,
+        icon: item.icon,
+        name: item.name,
+        poolId: pool.id,
+        poolName: pool.name,
+      });
+    }
+  }
+  const { grid, doomCellCount } = generateWall(pseudoStickers);
+
+  // Re-label sticker cells as 'item' so existing downstream code keeps working
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      if (grid[r][c] && grid[r][c].type === 'sticker') {
+        grid[r][c].type = 'item';
+      }
+    }
   }
 
   return { grid, doomCellCount };
