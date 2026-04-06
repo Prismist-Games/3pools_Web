@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
+import BulletinBoard from './components/game/BulletinBoard';
+import ActiveOrders from './components/game/ActiveOrders';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 
@@ -25,6 +27,8 @@ const GameCore = () => {
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
         replaceInventoryItem, discardPendingItem,
+        bulletinBoard, activeOrders,
+        acceptOrder, submitOrder, canSubmitOrder,
     } = state;
 
     // --- Doom animation interval ---
@@ -247,6 +251,25 @@ const GameCore = () => {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Bulletin Board */}
+                            {bulletinBoard && (
+                                <BulletinBoard
+                                    orders={bulletinBoard}
+                                    onAccept={acceptOrder}
+                                    canAccept={activeOrders.length < 3}
+                                />
+                            )}
+
+                            {/* Active Orders */}
+                            {activeOrders && (
+                                <ActiveOrders
+                                    orders={activeOrders}
+                                    inventory={inventory}
+                                    onSubmit={submitOrder}
+                                    canSubmitOrder={canSubmitOrder}
+                                />
+                            )}
 
                             {/* Inventory */}
                             <div ref={inventoryRef} className="bg-white rounded-lg shadow-sm border p-3">
