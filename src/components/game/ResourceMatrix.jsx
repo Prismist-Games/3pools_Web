@@ -29,6 +29,18 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         icon = cell.icon;
         name = cell.name;
         desc = t('抽中时厄运等级+1，不获得物品');
+    } else if (cell.type === 'gold') {
+        icon = cell.icon;
+        name = cell.name;
+        desc = t('抽中时获得金币');
+    } else if (cell.type === 'order_cell') {
+        icon = cell.icon;
+        name = cell.name;
+        desc = t('抽中时获得一个新订单');
+    } else if (cell.type === 'out_of_game') {
+        icon = cell.icon;
+        name = cell.name;
+        desc = t('抽中时直接获得局外物品');
     } else {
         return null;
     }
@@ -71,7 +83,8 @@ const TRACK = CELL_SIZE + GAP;
 const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlight }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
-    const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade');
+    const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
+        || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game');
     const { top, bottom, left, right } = adjacency;
 
     // Rounded corners — only on external corners
@@ -93,16 +106,21 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         bgClass = 'bg-red-100 border-red-400';
     } else if (cell.type === 'doom_upgrade') {
         bgClass = 'bg-amber-100 border-amber-400';
-    } else if (cell.type === 'item') {
+    } else if (cell.type === 'item' || cell.type === 'sticker') {
         const size = cell.shapeSize || 1;
         const bg = size >= 4 ? 'bg-violet-100' : size >= 3 ? 'bg-sky-100' : size >= 2 ? 'bg-emerald-100' : 'bg-white';
         const borderColor = size >= 4 ? 'border-violet-400' : size >= 3 ? 'border-sky-400' : size >= 2 ? 'border-emerald-400' : 'border-gray-300';
-        // Internal sides: no border at all
         const bT = top ? 'border-t-0' : borderColor;
         const bB = bottom ? 'border-b-0' : borderColor;
         const bL = left ? 'border-l-0' : borderColor;
         const bR = right ? 'border-r-0' : borderColor;
         bgClass = `${bg} ${bT} ${bB} ${bL} ${bR}`;
+    } else if (cell.type === 'gold') {
+        bgClass = 'bg-yellow-100 border-yellow-400';
+    } else if (cell.type === 'order_cell') {
+        bgClass = 'bg-blue-50 border-blue-300';
+    } else if (cell.type === 'out_of_game') {
+        bgClass = 'bg-pink-100 border-pink-400';
     } else {
         bgClass = 'bg-white border-gray-300';
     }
@@ -147,7 +165,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
         >
             {cellContent}
-            {cell !== null && cell.type === 'item' && (
+            {cell !== null && (cell.type === 'item' || cell.type === 'sticker') && (
                 <span className="text-[9px] text-gray-600 leading-none mt-0.5 truncate max-w-[48px] font-medium">
                     {cell.item.name}
                 </span>
@@ -171,7 +189,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
 
     const getCellContent = (cell) => {
         if (cell === null) return <span className="text-gray-300">·</span>;
-        if (cell.type === 'item') return <span className="text-xl">{cell.item.icon}</span>;
+        if (cell.type === 'item' || cell.type === 'sticker' || cell.type === 'out_of_game') {
+            return <span className="text-xl">{cell.item?.icon || cell.icon}</span>;
+        }
         return <span className="text-xl">{cell.icon}</span>;
     };
 

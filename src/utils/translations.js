@@ -425,6 +425,9 @@ export const EN_TRANSLATIONS = {
     // --- Tooltips ---
     "抽中时触发厄运结算，不获得物品": "Triggers doom resolution when drawn, no item obtained",
     "抽中时厄运等级+1，不获得物品": "Doom level +1 when drawn, no item obtained",
+    "抽中时获得金币": "Gain gold when drawn",
+    "抽中时获得一个新订单": "Gain a new order when drawn",
+    "抽中时直接获得局外物品": "Directly obtain an out-of-game item",
     "结算": "Resolution",
     "确认": "Confirm"
 };
