@@ -8,6 +8,7 @@ import ActiveOrders from './components/game/ActiveOrders';
 import ScoreBoard from './components/game/ScoreBoard';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
+import BlackjackEvent from './components/game/BlackjackEvent';
 
 const GameCore = () => {
     const { t } = useLanguage();
@@ -45,6 +46,9 @@ const GameCore = () => {
         acceptOrder, submitOrder, canSubmitOrder,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         pendingAcceptOrder, confirmReplaceOrder, cancelReplaceOrder,
+        blackjackState,
+        blackjackSelectRow, blackjackSelectColumn,
+        completeBlackjackDraw, blackjackStand, blackjackFinish,
     } = state;
 
     // --- Doom animation interval ---
@@ -68,6 +72,10 @@ const GameCore = () => {
         }
         if (drawAnimState.phase === 'settled') {
             // Brief pause on result, then auto-complete
+            if (phase === 'event_blackjack') {
+                const timer = setTimeout(completeBlackjackDraw, 550);
+                return () => clearTimeout(timer);
+            }
             const timer = setTimeout(completeDrawAnim, 300);
             return () => clearTimeout(timer);
         }
@@ -189,7 +197,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'drawing' || phase === 'between_turns') && (
+                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'drawing' || phase === 'event_blackjack' || phase === 'between_turns') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -345,6 +353,20 @@ const GameCore = () => {
                                         )}
                                     </div>
                                 </div>
+                            )}
+
+                            {/* Blackjack event phase */}
+                            {phase === 'event_blackjack' && matrix && blackjackState && (
+                                <BlackjackEvent
+                                    matrix={matrix}
+                                    blackjackState={blackjackState}
+                                    onSelectRow={blackjackSelectRow}
+                                    onSelectColumn={blackjackSelectColumn}
+                                    onStand={blackjackStand}
+                                    onFinish={blackjackFinish}
+                                    drawAnimState={drawAnimState}
+                                    isDrawAnimating={isDrawAnimating}
+                                />
                             )}
 
                             {/* Between turns */}
