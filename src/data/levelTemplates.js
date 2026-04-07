@@ -82,20 +82,48 @@ export const PROCEDURAL_WEIGHT = 60;
 
 /**
  * Pick a template based on schedule weights, or null for procedural.
+ * Respects localStorage overrides from the Level Manager.
  * @param {number} expeditionNumber — current expedition (1-based)
  */
 export function pickTemplate(expeditionNumber) {
-  const eligible = TEMPLATE_SCHEDULE.filter(
+  // Load schedule overrides from localStorage (editor saves here)
+  let schedule = [...TEMPLATE_SCHEDULE];
+  let proceduralWt = PROCEDURAL_WEIGHT;
+  try {
+    const overrides = JSON.parse(localStorage.getItem('templateSchedule') || '{}');
+    if (overrides._proceduralWeight !== undefined) proceduralWt = overrides._proceduralWeight;
+    schedule = schedule.map(s => ({ ...s, ...overrides[s.templateId] }));
+
+    // Also include custom templates from localStorage
+    const customTemplates = JSON.parse(localStorage.getItem('levelTemplates') || '[]');
+    for (const ct of customTemplates) {
+      if (!schedule.find(s => s.templateId === ct.id)) {
+        const override = overrides[ct.id] || {};
+        schedule.push({ templateId: ct.id, weight: 10, enabled: false, minExpedition: 1, ...override });
+      }
+    }
+  } catch { /* ignore parse errors */ }
+
+  const eligible = schedule.filter(
     s => s.enabled && expeditionNumber >= (s.minExpedition || 1)
   );
 
+  // Look up templates from both built-in and localStorage
+  const allTemplates = [...LEVEL_TEMPLATES];
+  try {
+    const custom = JSON.parse(localStorage.getItem('levelTemplates') || '[]');
+    allTemplates.push(...custom);
+  } catch { /* ignore */ }
+
   const entries = eligible.map(s => {
-    const template = LEVEL_TEMPLATES.find(t => t.id === s.templateId);
+    const template = allTemplates.find(t => t.id === s.templateId);
     return template ? { template, weight: s.weight } : null;
   }).filter(Boolean);
 
   const totalTemplateWeight = entries.reduce((sum, e) => sum + e.weight, 0);
-  const totalWeight = totalTemplateWeight + PROCEDURAL_WEIGHT;
+  const totalWeight = totalTemplateWeight + proceduralWt;
+
+  if (totalWeight <= 0) return null;
 
   const roll = Math.random() * totalWeight;
   let acc = 0;
@@ -104,5 +132,5 @@ export function pickTemplate(expeditionNumber) {
     if (roll < acc) return entry.template;
   }
 
-  return null; // procedural
+  return null;
 }
