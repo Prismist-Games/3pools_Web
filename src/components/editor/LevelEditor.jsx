@@ -80,14 +80,32 @@ export default function LevelEditor() {
     setTestResult(result.grid);
   };
 
-  // Save as JSON file (download to disk, then place in src/data/levels/)
-  const handleSave = () => {
+  // Save as JSON file via system save dialog (falls back to download)
+  const handleSave = async () => {
     if (!id.trim()) {
       alert('请填写关卡 ID');
       return;
     }
     const template = { id, name, description, grid, settings: buildSettings() };
     const json = JSON.stringify(template, null, 2);
+
+    // Try File System Access API (Chrome/Edge — shows save dialog, remembers last path)
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: `${id}.json`,
+          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return; // user cancelled
+      }
+    }
+
+    // Fallback: regular download
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
