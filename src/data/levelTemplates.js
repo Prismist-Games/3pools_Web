@@ -5,6 +5,8 @@
  * Object tokens = cell with extra properties (e.g. multiplier)
  */
 export const CELL_TYPES = {
+  // Structural
+  EMPTY: 'empty',                // true blank — skipped during draw, not filled by procedural
   // Fixed types
   DOOM_RESOLVE: 'doom_resolve',
   DOOM_UPGRADE: 'doom_upgrade',

@@ -104,7 +104,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
 
     // Cell background
     let bgClass;
-    if (cell === null) {
+    if (cell === null || cell.type === 'empty') {
         bgClass = 'bg-gray-100 border-gray-200';
     } else if (cell.type === 'doom_resolution') {
         bgClass = 'bg-red-100 border-red-400';

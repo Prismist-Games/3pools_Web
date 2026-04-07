@@ -2,7 +2,8 @@ import React from 'react';
 import { CELL_TYPES } from '../../data/levelTemplates';
 
 const PALETTE_ITEMS = [
-  { type: null, icon: '🚫', label: '橡皮擦', group: '工具' },
+  { type: null, icon: '🚫', label: '橡皮擦（随机填充）', group: '工具' },
+  { type: CELL_TYPES.EMPTY, icon: '⬜', label: '空白格（不填充）', group: '工具' },
   { type: CELL_TYPES.DOOM_RESOLVE, icon: '💀', label: '厄运结算', group: '厄运' },
   { type: CELL_TYPES.DOOM_UPGRADE, icon: '⬆️', label: '厄运升级', group: '厄运' },
   { type: CELL_TYPES.ANY_DOOM, icon: '💀?', label: '随机厄运', group: '厄运' },

@@ -309,7 +309,7 @@ export const useGameLogic = (config) => {
         const row = matrix[rowIndex];
         const activeCols = [];
         row.forEach((cell, colIndex) => {
-            if (cell !== null) activeCols.push(colIndex);
+            if (cell !== null && cell.type !== 'empty') activeCols.push(colIndex);
         });
         if (activeCols.length === 0) return;
 
@@ -357,7 +357,7 @@ export const useGameLogic = (config) => {
         // activeCols here are actually active row indices for this column
         const activeCols = [];
         matrix.forEach((row, rowIndex) => {
-            if (row[colIndex] !== null) activeCols.push(rowIndex);
+            if (row[colIndex] !== null && row[colIndex].type !== 'empty') activeCols.push(rowIndex);
         });
         if (activeCols.length === 0) return;
 

@@ -24,6 +24,8 @@ function resolveConstrainedCell(token, stickerBindings) {
   }
 
   switch (cellType) {
+    case CELL_TYPES.EMPTY:
+      return { type: 'empty', uid: generateUID() };
     case CELL_TYPES.DOOM_RESOLVE:
       return { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID(), ...extras };
     case CELL_TYPES.DOOM_UPGRADE:
