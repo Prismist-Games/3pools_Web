@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
+import { generateWall, pickWallStickers, generateBlackjackWall } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
-import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
+import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES, WALL_TYPES, EVENT_WALL_TYPES, BLACKJACK_CONFIG } from '../data/v2Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -34,14 +34,17 @@ function pickWeightedTemplate() {
     return ORDER_TEMPLATES[0];
 }
 
-function pickWallType() {
-    const total = WALL_TYPES.reduce((s, t) => s + t.weight, 0);
+function pickWallType(includeEvents = false) {
+    const pool = includeEvents
+        ? [...WALL_TYPES, ...EVENT_WALL_TYPES]
+        : [...WALL_TYPES];
+    const total = pool.reduce((s, t) => s + t.weight, 0);
     let roll = Math.random() * total;
-    for (const t of WALL_TYPES) {
+    for (const t of pool) {
         roll -= t.weight;
         if (roll <= 0) return t;
     }
-    return WALL_TYPES[0];
+    return pool[0];
 }
 
 function generateOrder() {
@@ -130,6 +133,10 @@ export const useGameLogic = (config) => {
     const [drawAnimState, setDrawAnimState] = useState(null);
     // { direction: 'row'|'column', rowIndex, colIndex, activeCols, finalColIndex, finalRowIndex, finalHighlight, drawnCell, tick, totalTicks, currentHighlight, phase: 'scanning'|'settled' }
 
+    // --- Blackjack Event State ---
+    const [blackjackState, setBlackjackState] = useState(null);
+    // { score: number, dealerScore: number|null, result: 'playing'|'bust'|'win'|'lose' }
+
     // --- Derived State ---
     const dangerCount = useMemo(() =>
         doomGrid.filter(cell => cell.type === 'danger').length,
@@ -166,16 +173,23 @@ export const useGameLogic = (config) => {
         // Reset draw direction for alternating wall
         setLastDrawDirection(null);
 
-        // 3-choose-1 wall selection — no duplicate wall types
+        // 3-choose-1 wall selection — no duplicate types, max 1 event wall
         const candidates = [];
         const usedTypeIds = new Set();
+        let hasEvent = false;
         while (candidates.length < 3) {
-            const wallType = pickWallType();
+            const wallType = pickWallType(!hasEvent);
             if (usedTypeIds.has(wallType.id)) continue;
             usedTypeIds.add(wallType.id);
-            const stickers = pickWallStickers(STICKER_TYPES);
-            const { grid, doomCellCount } = generateWall(stickers);
-            candidates.push({ stickers, grid, doomCellCount, wallType });
+
+            if (wallType.category === 'event') {
+                hasEvent = true;
+                candidates.push({ wallType, isEvent: true });
+            } else {
+                const stickers = pickWallStickers(STICKER_TYPES);
+                const { grid, doomCellCount } = generateWall(stickers);
+                candidates.push({ stickers, grid, doomCellCount, wallType });
+            }
         }
         setWallCandidates(candidates);
         setPhase('wall_choice');
@@ -225,6 +239,19 @@ export const useGameLogic = (config) => {
         const chosen = wallCandidates[index];
         const wallType = chosen.wallType;
         setCurrentWallType(wallType);
+
+        // --- Event wall: enter event-specific phase ---
+        if (chosen.isEvent) {
+            if (wallType.id === 'blackjack') {
+                const [min, max] = BLACKJACK_CONFIG.numberRange;
+                const { grid } = generateBlackjackWall(min, max);
+                setMatrix(grid);
+                setBlackjackState({ score: 0, dealerScore: null, result: 'playing' });
+                setWallCandidates(null);
+                setPhase('event_blackjack');
+                return;
+            }
+        }
 
         // Apply wall-type mutations to the grid before setting it
         const grid = chosen.grid.map(r => r.map(c => c ? { ...c } : null));
@@ -575,6 +602,153 @@ export const useGameLogic = (config) => {
     };
 
     // =============================================
+    // BLACKJACK EVENT
+    // =============================================
+
+    /** Draw a number from a row in blackjack */
+    const blackjackSelectRow = (rowIndex) => {
+        if (phase !== 'event_blackjack' || !blackjackState || blackjackState.result !== 'playing') return;
+        if (isDrawAnimating) return;
+        if (!matrix || !matrix[rowIndex]) return;
+
+        const row = matrix[rowIndex];
+        const activeCols = [];
+        row.forEach((cell, colIndex) => {
+            if (cell !== null) activeCols.push(colIndex);
+        });
+        if (activeCols.length === 0) return;
+
+        const finalColIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
+        const drawnCell = row[finalColIndex];
+
+        const finalIdx = activeCols.indexOf(finalColIndex);
+        const totalTicks = activeCols.length + finalIdx + 1;
+
+        setDrawAnimState({
+            direction: 'row',
+            rowIndex,
+            colIndex: null,
+            activeCols,
+            finalColIndex,
+            finalRowIndex: rowIndex,
+            finalHighlight: finalColIndex,
+            drawnCell,
+            tick: 0,
+            totalTicks,
+            currentHighlight: activeCols[0],
+            phase: 'scanning',
+        });
+    };
+
+    /** Draw a number from a column in blackjack */
+    const blackjackSelectColumn = (colIndex) => {
+        if (phase !== 'event_blackjack' || !blackjackState || blackjackState.result !== 'playing') return;
+        if (isDrawAnimating) return;
+        if (!matrix) return;
+
+        const activeCols = [];
+        matrix.forEach((row, rowIndex) => {
+            if (row[colIndex] !== null) activeCols.push(rowIndex);
+        });
+        if (activeCols.length === 0) return;
+
+        const finalRowIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
+        const drawnCell = matrix[finalRowIndex][colIndex];
+
+        const finalIdx = activeCols.indexOf(finalRowIndex);
+        const totalTicks = activeCols.length + finalIdx + 1;
+
+        setDrawAnimState({
+            direction: 'column',
+            rowIndex: null,
+            colIndex,
+            activeCols,
+            finalColIndex: colIndex,
+            finalRowIndex,
+            finalHighlight: finalRowIndex,
+            drawnCell,
+            tick: 0,
+            totalTicks,
+            currentHighlight: activeCols[0],
+            phase: 'scanning',
+        });
+    };
+
+    /** Apply blackjack draw result after animation settles */
+    const completeBlackjackDraw = () => {
+        if (!drawAnimState || phase !== 'event_blackjack') return;
+        const { finalRowIndex, finalColIndex, drawnCell } = drawAnimState;
+        const value = drawnCell.value;
+
+        // Remove drawn cell from matrix
+        setMatrix(prev => {
+            const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
+            newMatrix[finalRowIndex][finalColIndex] = null;
+            return newMatrix;
+        });
+
+        // Update score
+        const newScore = blackjackState.score + value;
+        if (newScore > BLACKJACK_CONFIG.bustThreshold) {
+            setBlackjackState(prev => ({ ...prev, score: newScore, result: 'bust' }));
+        } else {
+            setBlackjackState(prev => ({ ...prev, score: newScore }));
+        }
+
+        setDrawAnimState(null);
+    };
+
+    /** Player stands — generate dealer score and compare */
+    const blackjackStand = () => {
+        if (phase !== 'event_blackjack' || !blackjackState || blackjackState.result !== 'playing') return;
+        const [min, max] = BLACKJACK_CONFIG.dealerRange;
+        const dealerScore = min + Math.floor(Math.random() * (max - min + 1));
+        const result = blackjackState.score > dealerScore ? 'win' : 'lose';
+        setBlackjackState(prev => ({ ...prev, dealerScore, result }));
+    };
+
+    /** Finish blackjack event — apply doom effect and return to between_turns */
+    const blackjackFinish = () => {
+        if (!blackjackState) return;
+        const { result } = blackjackState;
+
+        if (result === 'win') {
+            const change = BLACKJACK_CONFIG.winReward;
+            setDoomGrid(prev => {
+                const newGrid = [...prev];
+                let toRemove = Math.abs(change);
+                for (let i = newGrid.length - 1; i >= 0 && toRemove > 0; i--) {
+                    if (newGrid[i].type === 'danger') {
+                        newGrid[i] = { type: 'empty' };
+                        toRemove--;
+                    }
+                }
+                return newGrid;
+            });
+            showToast(t('21点获胜！厄运') + ` ${change}`, 'success');
+        } else {
+            const change = BLACKJACK_CONFIG.loseOrBustPenalty;
+            setDoomGrid(prev => {
+                const newGrid = [...prev];
+                let toAdd = change;
+                for (let i = 0; i < newGrid.length && toAdd > 0; i++) {
+                    if (newGrid[i].type === 'empty') {
+                        newGrid[i] = { type: 'danger' };
+                        toAdd--;
+                    }
+                }
+                return newGrid;
+            });
+            const msg = result === 'bust' ? t('爆掉了！厄运') : t('庄家赢了！厄运');
+            showToast(`${msg} +${change}`, 'error');
+        }
+
+        setBlackjackState(null);
+        setMatrix(null);
+        setPhase('between_turns');
+    };
+
+    // =============================================
     // INVENTORY
     // =============================================
 
@@ -906,6 +1080,7 @@ export const useGameLogic = (config) => {
         setExpeditionScores([]);
         setTotalScore(0);
         setBonusItems([]);
+        setBlackjackState(null);
     };
 
     /** Reset per-expedition state but keep meta state, return to pre_game */
@@ -939,6 +1114,7 @@ export const useGameLogic = (config) => {
         setBulletinBoard([]);
         setActiveOrders([]);
         setPendingAcceptOrder(null);
+        setBlackjackState(null);
         setPhase('pre_game');
     };
 
@@ -1033,5 +1209,13 @@ export const useGameLogic = (config) => {
         pendingAcceptOrder,
         confirmReplaceOrder,
         cancelReplaceOrder,
+
+        // Blackjack event
+        blackjackState,
+        blackjackSelectRow,
+        blackjackSelectColumn,
+        completeBlackjackDraw,
+        blackjackStand,
+        blackjackFinish,
     };
 };
