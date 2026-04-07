@@ -101,7 +101,7 @@ export const EVENT_WALL_TYPES = [
 // --- 21点事件配置 ---
 export const BLACKJACK_CONFIG = {
     bustThreshold: 21,          // 爆掉阈值
-    numberRange: [1, 5],        // 每格数字范围
+    numberRange: [1, 10],       // 每格数字范围
     dealerRange: [12, 19],      // 庄家点数范围 (uniform random)
     winReward: -1,              // 赢：厄运网格减少危险格子数
     loseOrBustPenalty: 2,       // 输/爆掉：厄运网格增加危险格子数
