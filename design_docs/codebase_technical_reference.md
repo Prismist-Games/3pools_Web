@@ -74,13 +74,16 @@ npm run lint      # ESLint 检查
 │   ├── index.css                  ← Tailwind 指令 + 自定义滚动条隐藏
 │   │
 │   ├── data/
-│   │   └── constants.js           ← 所有游戏配置数据 (~20KB)
+│   │   ├── constants.js           ← 所有游戏配置数据 (~20KB)
+│   │   ├── v2Config.js            ← v2 数据：贴纸/物品/订单/墙类型/事件墙配置
+│   │   └── matrixConfig.js        ← 网格配置：尺寸/格子生成概率/形状定义
 │   │
 │   ├── hooks/
 │   │   └── useGameLogic.js        ← 游戏全部状态与逻辑 (~92KB, ~2200行)
 │   │
 │   ├── utils/
 │   │   ├── helpers.js             ← 纯函数工具 (~14KB)
+│   │   ├── matrixHelpers.js       ← 奖品墙生成：generateWall() / generateBlackjackWall()
 │   │   ├── translations.js        ← 英文翻译映射 (~15KB)
 │   │
 │   ├── contexts/
@@ -89,10 +92,17 @@ npm run lint      # ESLint 检查
 │   └── components/
 │       ├── ErrorBoundary.jsx       ← 错误边界（类组件）
 │       ├── game/
+│       │   ├── BlackjackEvent.jsx  ← 21点事件：数字网格 + 分数 + 停手/结果 UI
+│       │   ├── WallPicker.jsx      ← 3选1墙选择（普通墙+事件墙卡片）
+│       │   ├── ResourceMatrix.jsx  ← 5×5 奖品墙网格渲染
+│       │   ├── BulletinBoard.jsx   ← 公告牌订单展示
+│       │   ├── ActiveOrders.jsx    ← 玩家持有订单
 │       │   ├── InventorySlot.jsx   ← 背包格子 (~14KB)
 │       │   ├── OrderCard.jsx       ← 订单卡片 (~33KB)
-│       │   ├── PoolCard.jsx        ← 奖池卡片 (~4KB)
-│       │   ├── SkillSelectionModal.jsx ← 技能选择弹窗 (~10KB)
+│       │   ├── ScoreBoard.jsx      ← 分数/远征追踪
+│       │   ├── ActionCards.jsx     ← 抽取操作按钮
+│       │   ├── PoolCard.jsx        ← 奖池卡片（旧版）
+│       │   ├── SkillSelectionModal.jsx ← 技能选择弹窗（未启用）
 │       └── ui/
 │           ├── ConfirmDialog.jsx   ← 通用确认对话框
 │           └── Toast.jsx           ← 浮动提示
