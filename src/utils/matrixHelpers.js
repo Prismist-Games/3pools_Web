@@ -5,7 +5,6 @@ function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 }
 
-/** Pick a key from a weights object { key: weight } */
 function weightedRandom(weights) {
   const entries = Object.entries(weights);
   const total = entries.reduce((sum, [, w]) => sum + w, 0);
@@ -17,7 +16,6 @@ function weightedRandom(weights) {
   return entries[entries.length - 1][0];
 }
 
-/** Roll a weighted random size (1-4) */
 function rollItemSize(weights) {
   const entries = Object.entries(weights).map(([k, v]) => [Number(k), v]);
   const total = entries.reduce((sum, [, w]) => sum + w, 0);
@@ -29,7 +27,6 @@ function rollItemSize(weights) {
   return 1;
 }
 
-/** Try to place a shape at (startRow, startCol) on a grid. Returns cell positions or null. */
 function tryPlaceShape(shape, startRow, startCol, grid, gridSize) {
   const positions = [];
   for (const [dr, dc] of shape) {
@@ -52,65 +49,55 @@ export function pickWallStickers(allStickers, min = 3, max = 4) {
 }
 
 /**
- * Generate a 5×5 wall matrix for one turn using sticker types.
- *
- * Phase 1: Roll doom cells per position (independent)
- * Phase 2: Roll special cells (gold / order / out-of-game) on remaining empty positions
- * Phase 3: Fill remaining empty cells with sticker shapes (polyomino algorithm)
- *
- * Multi-cell stickers share a groupId so drawing any cell obtains the whole sticker.
- *
- * @param {Array} wallStickers — array of sticker type objects from STICKER_TYPES
+ * Phase 1+2: Place doom cells and special cells on empty positions.
+ * Respects constraints.maxDoomInBlank to limit doom count.
  */
-export function generateWall(wallStickers) {
-  const { gridSize, doomCells, itemShapes, specialCells } = MATRIX_CONFIG;
-  const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
+export function fillDoomAndSpecials(grid, gridSize, constraints = {}) {
+  const { doomCells, specialCells } = MATRIX_CONFIG;
   const doomCellCount = { resolution: 0, upgrade: 0 };
 
-  // Phase 1: Roll doom cells — normal distribution, median ~5
-  // Box-Muller approximation for normal distribution
   const u1 = Math.random();
   const u2 = Math.random();
   const normalSample = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  const totalDoom = Math.max(1, Math.min(9, Math.round(5 + normalSample * 1.5)));
-  // Split between resolution (~55%) and upgrade (~45%)
-  const resCount = Math.max(0, Math.min(totalDoom, Math.round(totalDoom * (0.5 + (Math.random() - 0.5) * 0.3))));
-  const upgCount = totalDoom - resCount;
-  // Collect all positions, shuffle, place doom cells
-  const allPositions = [];
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      allPositions.push([r, c]);
-    }
+  let totalDoom = Math.max(1, Math.min(9, Math.round(5 + normalSample * 1.5)));
+
+  if (constraints.maxDoomInBlank !== undefined) {
+    totalDoom = Math.min(totalDoom, constraints.maxDoomInBlank);
   }
-  allPositions.sort(() => Math.random() - 0.5);
-  for (let i = 0; i < totalDoom && i < allPositions.length; i++) {
-    const [r, c] = allPositions[i];
-    if (i < resCount) {
-      grid[r][c] = {
-        type: 'doom_resolution',
-        icon: doomCells.resolution.icon,
-        name: doomCells.resolution.name,
-        uid: generateUID(),
-      };
-      doomCellCount.resolution++;
-    } else {
-      grid[r][c] = {
-        type: 'doom_upgrade',
-        icon: doomCells.upgrade.icon,
-        name: doomCells.upgrade.name,
-        uid: generateUID(),
-      };
-      doomCellCount.upgrade++;
+
+  if (totalDoom > 0) {
+    const resCount = Math.max(0, Math.min(totalDoom, Math.round(totalDoom * (0.5 + (Math.random() - 0.5) * 0.3))));
+    const upgCount = totalDoom - resCount;
+
+    const emptyPositions = [];
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
+        if (grid[r][c] === null) emptyPositions.push([r, c]);
+      }
+    }
+    emptyPositions.sort(() => Math.random() - 0.5);
+
+    for (let i = 0; i < totalDoom && i < emptyPositions.length; i++) {
+      const [r, c] = emptyPositions[i];
+      if (i < resCount) {
+        grid[r][c] = {
+          type: 'doom_resolution', icon: doomCells.resolution.icon,
+          name: doomCells.resolution.name, uid: generateUID(),
+        };
+        doomCellCount.resolution++;
+      } else {
+        grid[r][c] = {
+          type: 'doom_upgrade', icon: doomCells.upgrade.icon,
+          name: doomCells.upgrade.name, uid: generateUID(),
+        };
+        doomCellCount.upgrade++;
+      }
     }
   }
 
-  // Phase 2: Roll special cells on remaining empty positions
-  // Cumulative probability check: gold → order → outOfGame
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
       if (grid[row][col] !== null) continue;
-
       const roll = Math.random();
       const goldChance = specialCells.gold.spawnChance;
       const orderChance = goldChance + specialCells.order.spawnChance;
@@ -121,40 +108,38 @@ export function generateWall(wallStickers) {
         const [min, max] = specialCells.gold.goldRange;
         const goldAmount = min + Math.floor(Math.random() * (max - min + 1));
         grid[row][col] = {
-          type: 'gold',
-          icon: specialCells.gold.icon,
-          name: specialCells.gold.name,
-          goldAmount,
-          uid: generateUID(),
+          type: 'gold', icon: specialCells.gold.icon,
+          name: specialCells.gold.name, goldAmount, uid: generateUID(),
         };
       } else if (roll < orderChance) {
         grid[row][col] = {
-          type: 'order_cell',
-          icon: specialCells.order.icon,
-          name: specialCells.order.name,
-          uid: generateUID(),
+          type: 'order_cell', icon: specialCells.order.icon,
+          name: specialCells.order.name, uid: generateUID(),
         };
       } else if (roll < outOfGameChance) {
         const item = OUT_OF_GAME_ITEMS[Math.floor(Math.random() * OUT_OF_GAME_ITEMS.length)];
         grid[row][col] = {
-          type: 'out_of_game',
-          icon: item.icon,
-          name: item.name,
-          item: { ...item },
-          uid: generateUID(),
+          type: 'out_of_game', icon: item.icon,
+          name: item.name, item: { ...item }, uid: generateUID(),
         };
       } else if (roll < bombChance) {
         grid[row][col] = {
-          type: 'bomb',
-          icon: specialCells.bomb.icon,
-          name: specialCells.bomb.name,
-          uid: generateUID(),
+          type: 'bomb', icon: specialCells.bomb.icon,
+          name: specialCells.bomb.name, uid: generateUID(),
         };
       }
     }
   }
 
-  // Phase 3: Fill remaining empty cells with sticker shapes
+  return doomCellCount;
+}
+
+/**
+ * Phase 3: Fill all remaining null cells with polyomino sticker shapes.
+ */
+export function fillEmptyCellsWithStickers(grid, wallStickers, gridSize) {
+  const { itemShapes } = MATRIX_CONFIG;
+
   const getEmptyPositions = () => {
     const empty = [];
     for (let r = 0; r < gridSize; r++) {
@@ -166,7 +151,6 @@ export function generateWall(wallStickers) {
   };
 
   let empty = getEmptyPositions();
-  // Shuffle to avoid placement bias
   empty.sort(() => Math.random() - 0.5);
 
   while (empty.length > 0) {
@@ -176,16 +160,12 @@ export function generateWall(wallStickers) {
       continue;
     }
 
-    // Roll sticker size
     let size = rollItemSize(itemShapes.weights);
     let placed = false;
 
-    // Try to place at this position, falling back to smaller sizes
     while (size >= 1 && !placed) {
       const shapesForSize = itemShapes.shapes[size];
-      // Shuffle shapes to randomize which one is tried
       const shuffled = [...shapesForSize].sort(() => Math.random() - 0.5);
-
       for (const shape of shuffled) {
         const positions = tryPlaceShape(shape, startR, startC, grid, gridSize);
         if (positions) {
@@ -193,11 +173,8 @@ export function generateWall(wallStickers) {
           const groupId = generateUID();
           for (const [r, c] of positions) {
             grid[r][c] = {
-              type: 'sticker',
-              item: { ...sticker },
-              uid: generateUID(),
-              groupId,
-              shapeSize: size,
+              type: 'sticker', item: { ...sticker },
+              uid: generateUID(), groupId, shapeSize: size,
             };
           }
           placed = true;
@@ -207,22 +184,28 @@ export function generateWall(wallStickers) {
       if (!placed) size--;
     }
 
-    // If even 1-cell didn't work (shouldn't happen since cell is empty), place single
     if (!placed) {
       const sticker = wallStickers[Math.floor(Math.random() * wallStickers.length)];
       grid[startR][startC] = {
-        type: 'sticker',
-        item: { ...sticker },
-        uid: generateUID(),
-        groupId: generateUID(),
-        shapeSize: 1,
+        type: 'sticker', item: { ...sticker },
+        uid: generateUID(), groupId: generateUID(), shapeSize: 1,
       };
     }
 
-    // Refresh empty list
     empty = getEmptyPositions();
     empty.sort(() => Math.random() - 0.5);
   }
+}
+
+/**
+ * Generate a fully procedural 5x5 wall (original behavior, now delegates to extracted helpers).
+ */
+export function generateWall(wallStickers) {
+  const { gridSize } = MATRIX_CONFIG;
+  const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
+
+  const doomCellCount = fillDoomAndSpecials(grid, gridSize);
+  fillEmptyCellsWithStickers(grid, wallStickers, gridSize);
 
   return { grid, doomCellCount };
 }
@@ -245,8 +228,6 @@ export function generateTurnMatrix(pools) {
     }
   }
   const { grid, doomCellCount } = generateWall(pseudoStickers);
-
-  // Re-label sticker cells as 'item' so existing downstream code keeps working
   for (let r = 0; r < grid.length; r++) {
     for (let c = 0; c < grid[r].length; c++) {
       if (grid[r][c] && grid[r][c].type === 'sticker') {
@@ -254,6 +235,5 @@ export function generateTurnMatrix(pools) {
       }
     }
   }
-
   return { grid, doomCellCount };
 }
