@@ -88,7 +88,9 @@ export function generateWallFromTemplate(template) {
     }
   }
 
-  // Step 2: Assign sticker types based on group numbers
+  // Step 2: Determine the wall's sticker type pool (respects stickerTypeRange globally)
+  const [rangeMin, rangeMax] = settings.stickerTypeRange || [3, 4];
+
   // Collect all group numbers used in the template
   const groupNumbers = new Set();
   for (let r = 0; r < gridSize; r++) {
@@ -99,20 +101,28 @@ export function generateWallFromTemplate(template) {
       }
     }
   }
+  const distinctGroupCount = groupNumbers.size;
 
-  // Shuffle sticker types and assign one per group number
+  // Total sticker types for the entire wall (groups + ungrouped + procedural all share this)
+  const totalMin = Math.max(rangeMin, distinctGroupCount);
+  const totalMax = Math.max(rangeMax, totalMin);
+  const totalTypeCount = totalMin + Math.floor(Math.random() * (totalMax - totalMin + 1));
+
+  // Shuffle and pick exactly totalTypeCount sticker types as the wall's pool
   const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
+  const wallStickerPool = shuffledStickers.slice(0, Math.min(totalTypeCount, shuffledStickers.length));
+
+  // Assign one type per group from the pool
   const groupToSticker = new Map();
   const groupToGroupId = new Map();
-  let stickerIdx = 0;
+  let poolIdx = 0;
   for (const gNum of groupNumbers) {
-    groupToSticker.set(gNum, shuffledStickers[stickerIdx % shuffledStickers.length]);
+    groupToSticker.set(gNum, wallStickerPool[poolIdx % wallStickerPool.length]);
     groupToGroupId.set(gNum, generateUID());
-    stickerIdx++;
+    poolIdx++;
   }
-  const distinctGroupTypes = groupNumbers.size;
 
-  // Apply sticker types and groupIds to all sticker cells
+  // Apply sticker types and groupIds to all template-placed sticker cells
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const cell = grid[r][c];
@@ -126,8 +136,8 @@ export function generateWallFromTemplate(template) {
         cell.item = { ...groupToSticker.get(gNum) };
         cell.groupId = groupToGroupId.get(gNum);
       } else {
-        // Ungrouped sticker: independent, random type
-        cell.item = { ...shuffledStickers[(stickerIdx++) % shuffledStickers.length] };
+        // Ungrouped sticker: independent, random type from the wall pool
+        cell.item = { ...wallStickerPool[Math.floor(Math.random() * wallStickerPool.length)] };
         cell.groupId = generateUID();
       }
     }
@@ -159,25 +169,8 @@ export function generateWallFromTemplate(template) {
   doomCellCount.resolution += proceduralDoom.resolution;
   doomCellCount.upgrade += proceduralDoom.upgrade;
 
-  // Determine how many sticker types for procedural fill
-  const [rangeMin, rangeMax] = settings.stickerTypeRange || [3, 4];
-  const totalMin = Math.max(rangeMin, distinctGroupTypes);
-  const totalMax = Math.max(rangeMax, totalMin);
-  const totalTarget = totalMin + Math.floor(Math.random() * (totalMax - totalMin + 1));
-  const proceduralTypeCount = Math.max(1, totalTarget - distinctGroupTypes);
-
-  // Pick procedural sticker types (excluding types already used by groups)
-  const usedStickerIds = new Set([...groupToSticker.values()].map(s => s.id));
-  const availableStickers = STICKER_TYPES.filter(s => !usedStickerIds.has(s.id));
-  let wallStickers;
-  if (availableStickers.length >= proceduralTypeCount) {
-    wallStickers = pickWallStickers(availableStickers, proceduralTypeCount, proceduralTypeCount);
-  } else {
-    // Not enough unique types left, use all available + some repeats
-    wallStickers = pickWallStickers(STICKER_TYPES, proceduralTypeCount, proceduralTypeCount);
-  }
-
-  fillEmptyCellsWithStickers(grid, wallStickers, gridSize);
+  // Procedural sticker fill uses the same wall pool
+  fillEmptyCellsWithStickers(grid, wallStickerPool, gridSize);
 
   // Collect all unique sticker types on the grid for preview
   const stickerMap = new Map();
