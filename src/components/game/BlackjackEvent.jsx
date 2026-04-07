@@ -20,9 +20,6 @@ const BlackjackEvent = ({
     const isPlaying = result === 'playing';
     const gridSize = matrix.length;
 
-    // Check if board is empty (all cells null)
-    const boardEmpty = matrix.every(row => row.every(cell => cell === null));
-
     return (
         <div className="flex flex-col items-center">
             {/* Score display */}
@@ -139,9 +136,6 @@ const BlackjackEvent = ({
                     >
                         {t('停手')}（{score} {t('点')}）
                     </button>
-                    {boardEmpty && (
-                        <span className="text-sm text-gray-400 self-center">{t('板上已无格子')}</span>
-                    )}
                 </div>
             )}
 

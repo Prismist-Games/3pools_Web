@@ -687,13 +687,14 @@ export const useGameLogic = (config) => {
             return newMatrix;
         });
 
-        // Update score
-        const newScore = blackjackState.score + value;
-        if (newScore > BLACKJACK_CONFIG.bustThreshold) {
-            setBlackjackState(prev => ({ ...prev, score: newScore, result: 'bust' }));
-        } else {
-            setBlackjackState(prev => ({ ...prev, score: newScore }));
-        }
+        // Update score (functional updater to avoid stale closure)
+        setBlackjackState(prev => {
+            const newScore = prev.score + value;
+            if (newScore > BLACKJACK_CONFIG.bustThreshold) {
+                return { ...prev, score: newScore, result: 'bust' };
+            }
+            return { ...prev, score: newScore };
+        });
 
         setDrawAnimState(null);
     };
