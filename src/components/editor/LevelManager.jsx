@@ -20,9 +20,10 @@ function saveScheduleOverrides(overrides) {
 
 export default function LevelManager() {
   const customTemplates = loadCustomTemplates();
+  const builtinIds = new Set(LEVEL_TEMPLATES.map(t => t.id));
   const allTemplates = [
     ...LEVEL_TEMPLATES.map(t => ({ ...t, source: 'builtin' })),
-    ...customTemplates.map(t => ({ ...t, source: 'custom' })),
+    ...customTemplates.filter(t => !builtinIds.has(t.id)).map(t => ({ ...t, source: 'custom' })),
   ];
 
   const [overrides, setOverrides] = useState(loadScheduleOverrides);

@@ -108,11 +108,12 @@ export function pickTemplate(expeditionNumber) {
     s => s.enabled && expeditionNumber >= (s.minExpedition || 1)
   );
 
-  // Look up templates from both built-in and localStorage
+  // Look up templates from both built-in and localStorage (built-in wins on ID collision)
   const allTemplates = [...LEVEL_TEMPLATES];
+  const builtinIds = new Set(LEVEL_TEMPLATES.map(t => t.id));
   try {
     const custom = JSON.parse(localStorage.getItem('levelTemplates') || '[]');
-    allTemplates.push(...custom);
+    allTemplates.push(...custom.filter(t => !builtinIds.has(t.id)));
   } catch { /* ignore */ }
 
   const entries = eligible.map(s => {

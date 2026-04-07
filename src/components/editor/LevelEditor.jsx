@@ -74,11 +74,23 @@ export default function LevelEditor() {
 
   // Save to localStorage
   const handleSave = () => {
+    if (!id.trim()) {
+      alert('请填写关卡 ID');
+      return;
+    }
     try {
       const parsedConstraints = JSON.parse(constraints);
       const template = { id, name, description, grid, constraints: parsedConstraints };
       const saved = JSON.parse(localStorage.getItem('levelTemplates') || '[]');
       const idx = saved.findIndex(t => t.id === id);
+
+      // Check for ID collision with built-in templates
+      const builtinCollision = LEVEL_TEMPLATES.find(t => t.id === id);
+      if (builtinCollision && idx < 0) {
+        alert(`ID "${id}" 与内置关卡冲突，请换一个 ID`);
+        return;
+      }
+
       if (idx >= 0) saved[idx] = template;
       else saved.push(template);
       localStorage.setItem('levelTemplates', JSON.stringify(saved));
