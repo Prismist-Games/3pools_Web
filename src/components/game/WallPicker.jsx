@@ -13,24 +13,34 @@ const WallPicker = ({ candidates, onSelect }) => {
                     <button
                         key={idx}
                         onClick={() => onSelect(idx)}
-                        className="w-52 p-4 bg-white rounded-xl shadow-md border-2 border-gray-200
-                            hover:border-blue-400 hover:shadow-lg transition-all duration-150 text-left"
+                        className={`w-52 p-4 rounded-xl shadow-md border-2 transition-all duration-150 text-left ${
+                            wall.isEvent
+                                ? 'bg-amber-50 border-amber-300 hover:border-amber-500 hover:shadow-lg'
+                                : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-lg'
+                        }`}
                     >
                         <div className="text-sm font-bold mb-1">{wall.wallType.icon} {t(wall.wallType.name)}</div>
                         <p className="text-[10px] text-gray-400 mb-3 leading-relaxed">{t(wall.wallType.desc)}</p>
 
-                        <div className="text-[9px] text-gray-300 uppercase tracking-wide mb-1">{t('贴纸')}</div>
-                        <div className="flex gap-1 mb-3">
-                            {wall.stickers.map(s => (
-                                <div key={s.id} className="w-8 h-8 rounded border border-gray-300 bg-white flex items-center justify-center text-base shadow-sm" title={s.name}>
-                                    {s.icon}
+                        {wall.isEvent ? (
+                            <div className="text-[10px] text-amber-600 font-bold">
+                                🎲 {t('事件墙')}
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-[9px] text-gray-300 uppercase tracking-wide mb-1">{t('贴纸')}</div>
+                                <div className="flex gap-1 mb-3">
+                                    {wall.stickers.map(s => (
+                                        <div key={s.id} className="w-8 h-8 rounded border border-gray-300 bg-white flex items-center justify-center text-base shadow-sm" title={s.name}>
+                                            {s.icon}
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-
-                        <div className="text-[10px] text-red-500 font-bold">
-                            💀 {wall.doomCellCount.resolution + wall.doomCellCount.upgrade} {t('厄运格')}
-                        </div>
+                                <div className="text-[10px] text-red-500 font-bold">
+                                    💀 {wall.doomCellCount.resolution + wall.doomCellCount.upgrade} {t('厄运格')}
+                                </div>
+                            </>
+                        )}
                     </button>
                 ))}
             </div>
