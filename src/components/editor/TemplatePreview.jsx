@@ -2,6 +2,7 @@ import React from 'react';
 import { MATRIX_CONFIG } from '../../data/matrixConfig';
 
 const MINI_COLORS = {
+  // Template token types
   doom_resolve: 'bg-red-700',
   doom_upgrade: 'bg-red-500',
   any_doom: 'bg-red-600',
@@ -14,6 +15,11 @@ const MINI_COLORS = {
   sticker_A: 'bg-emerald-500',
   sticker_B: 'bg-cyan-500',
   sticker_C: 'bg-indigo-500',
+  // Resolved cell types (from generateWallFromTemplate output)
+  doom_resolution: 'bg-red-700',
+  sticker: 'bg-green-600',
+  item: 'bg-green-600',
+  order_cell: 'bg-blue-600',
 };
 
 function getCellColor(cell) {

@@ -14,9 +14,10 @@ const EMPTY_GRID = () =>
 export default function LevelEditor() {
   const { templateId } = useParams();
 
-  // Load existing template or start blank
+  // Load existing template from built-in or localStorage
   const existingTemplate = templateId
     ? LEVEL_TEMPLATES.find(t => t.id === templateId)
+      ?? (() => { try { return JSON.parse(localStorage.getItem('levelTemplates') || '[]').find(t => t.id === templateId); } catch { return null; } })()
     : null;
 
   const [id, setId] = useState(existingTemplate?.id || '');
