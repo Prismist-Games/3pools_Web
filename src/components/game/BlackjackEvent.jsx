@@ -4,6 +4,10 @@ import { BLACKJACK_CONFIG } from '../../data/v2Config';
 
 const CELL_SIZE = 56;
 const GAP = 6;
+const HALF = GAP / 2;
+const TRACK = CELL_SIZE + GAP;
+const ROW_BTN_WIDTH = 36;
+const ROW_BTN_MARGIN = 8;
 
 const BlackjackEvent = ({
     matrix,
@@ -36,47 +40,57 @@ const BlackjackEvent = ({
 
             {/* 5×5 number grid */}
             {isPlaying && (
-                <div className="relative">
-                    {/* Column click areas (top) */}
-                    <div className="flex ml-[62px]" style={{ gap: GAP }}>
+                <div>
+                    {/* Column buttons — offset by row button area */}
+                    <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
                         {Array.from({ length: gridSize }, (_, c) => {
                             const hasCell = matrix.some(row => row[c] !== null);
+                            const clickable = hasCell && !isDrawAnimating;
                             return (
                                 <button
                                     key={`col-${c}`}
-                                    onClick={() => hasCell && onSelectColumn(c)}
-                                    disabled={!hasCell || isDrawAnimating}
-                                    className={`flex items-center justify-center text-[10px] font-bold rounded transition-colors ${
-                                        hasCell && !isDrawAnimating
-                                            ? 'text-blue-400 hover:bg-blue-50 cursor-pointer'
-                                            : 'text-gray-200 cursor-default'
-                                    }`}
-                                    style={{ width: CELL_SIZE, height: 20 }}
+                                    onClick={() => clickable && onSelectColumn(c)}
+                                    disabled={!clickable}
+                                    className={`
+                                        rounded-lg text-xs font-black flex-shrink-0
+                                        flex items-center justify-center
+                                        transition-all duration-150 shadow-sm
+                                        ${clickable
+                                            ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 cursor-pointer'
+                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        }
+                                    `}
+                                    style={{ width: CELL_SIZE, height: 24, marginRight: GAP }}
                                 >
-                                    {hasCell ? '▼' : ''}
+                                    ▼
                                 </button>
                             );
                         })}
                     </div>
 
-                    <div className="flex">
-                        {/* Row click areas (left) */}
-                        <div className="flex flex-col mr-1" style={{ gap: GAP }}>
+                    <div className="flex items-start">
+                        {/* Row buttons */}
+                        <div className="flex flex-col mr-2" style={{ paddingTop: HALF }}>
                             {Array.from({ length: gridSize }, (_, r) => {
                                 const hasCell = matrix[r].some(cell => cell !== null);
+                                const clickable = hasCell && !isDrawAnimating;
                                 return (
                                     <button
                                         key={`row-${r}`}
-                                        onClick={() => hasCell && onSelectRow(r)}
-                                        disabled={!hasCell || isDrawAnimating}
-                                        className={`flex items-center justify-center text-[10px] font-bold rounded transition-colors ${
-                                            hasCell && !isDrawAnimating
-                                                ? 'text-blue-400 hover:bg-blue-50 cursor-pointer'
-                                                : 'text-gray-200 cursor-default'
-                                        }`}
-                                        style={{ width: 20, height: CELL_SIZE }}
+                                        onClick={() => clickable && onSelectRow(r)}
+                                        disabled={!clickable}
+                                        className={`
+                                            rounded-lg text-xs font-black flex-shrink-0
+                                            flex items-center justify-center
+                                            transition-all duration-150 shadow-sm
+                                            ${clickable
+                                                ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 cursor-pointer'
+                                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            }
+                                        `}
+                                        style={{ width: ROW_BTN_WIDTH, height: CELL_SIZE, marginBottom: GAP }}
                                     >
-                                        {hasCell ? '▶' : ''}
+                                        ▶
                                     </button>
                                 );
                             })}
@@ -84,10 +98,10 @@ const BlackjackEvent = ({
 
                         {/* Grid */}
                         <div
-                            className="grid"
                             style={{
-                                gridTemplateColumns: `repeat(${gridSize}, ${CELL_SIZE}px)`,
-                                gap: GAP,
+                                display: 'grid',
+                                gridTemplateColumns: `repeat(${gridSize}, ${TRACK}px)`,
+                                gridTemplateRows: `repeat(${gridSize}, ${TRACK}px)`,
                             }}
                         >
                             {matrix.flat().map((cell, i) => {
@@ -111,7 +125,11 @@ const BlackjackEvent = ({
                                                         ? 'bg-blue-100 border-2 border-blue-400'
                                                         : 'bg-white border border-gray-300 shadow-sm'
                                         }`}
-                                        style={{ width: CELL_SIZE, height: CELL_SIZE }}
+                                        style={{
+                                            width: CELL_SIZE,
+                                            height: CELL_SIZE,
+                                            margin: `${HALF}px`,
+                                        }}
                                     >
                                         {cell !== null ? cell.value : ''}
                                     </div>
