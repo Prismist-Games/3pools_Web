@@ -79,3 +79,30 @@ export const TEMPLATE_SCHEDULE = [
 
 // Weight for "no template" (pure procedural wall) — so templates don't dominate
 export const PROCEDURAL_WEIGHT = 60;
+
+/**
+ * Pick a template based on schedule weights, or null for procedural.
+ * @param {number} expeditionNumber — current expedition (1-based)
+ */
+export function pickTemplate(expeditionNumber) {
+  const eligible = TEMPLATE_SCHEDULE.filter(
+    s => s.enabled && expeditionNumber >= (s.minExpedition || 1)
+  );
+
+  const entries = eligible.map(s => {
+    const template = LEVEL_TEMPLATES.find(t => t.id === s.templateId);
+    return template ? { template, weight: s.weight } : null;
+  }).filter(Boolean);
+
+  const totalTemplateWeight = entries.reduce((sum, e) => sum + e.weight, 0);
+  const totalWeight = totalTemplateWeight + PROCEDURAL_WEIGHT;
+
+  const roll = Math.random() * totalWeight;
+  let acc = 0;
+  for (const entry of entries) {
+    acc += entry.weight;
+    if (roll < acc) return entry.template;
+  }
+
+  return null; // procedural
+}

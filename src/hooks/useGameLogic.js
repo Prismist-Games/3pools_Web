@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
+import { generateWallFromTemplate } from '../utils/templateGenerator';
+import { pickTemplate } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
 
@@ -173,9 +175,21 @@ export const useGameLogic = (config) => {
             const wallType = pickWallType();
             if (usedTypeIds.has(wallType.id)) continue;
             usedTypeIds.add(wallType.id);
-            const stickers = pickWallStickers(STICKER_TYPES);
-            const { grid, doomCellCount } = generateWall(stickers);
-            candidates.push({ stickers, grid, doomCellCount, wallType });
+
+            const template = pickTemplate(expeditionNumber);
+            let stickers, grid, doomCellCount;
+
+            if (template) {
+                const result = generateWallFromTemplate(template);
+                stickers = result.stickers;
+                grid = result.grid;
+                doomCellCount = result.doomCellCount;
+            } else {
+                stickers = pickWallStickers(STICKER_TYPES);
+                ({ grid, doomCellCount } = generateWall(stickers));
+            }
+
+            candidates.push({ stickers, grid, doomCellCount, wallType, templateId: template?.id });
         }
         setWallCandidates(candidates);
         setPhase('wall_choice');
