@@ -12,16 +12,30 @@ const CELL_DISPLAY = {
   order: { icon: '📋', bg: 'bg-blue-700/60', label: '订单' },
   out_of_game: { icon: '🎁', bg: 'bg-purple-700/60', label: '出口物品' },
   any_special: { icon: '❓', bg: 'bg-gray-600/60', label: '随机特殊' },
-  any_sticker: { icon: '🏷️', bg: 'bg-green-700/40', label: '随机贴纸' },
-  sticker_A: { icon: 'A', bg: 'bg-emerald-600/60', label: '贴纸A' },
-  sticker_B: { icon: 'B', bg: 'bg-cyan-600/60', label: '贴纸B' },
-  sticker_C: { icon: 'C', bg: 'bg-indigo-600/60', label: '贴纸C' },
+  any_sticker: { icon: '🏷️', bg: 'bg-green-700/40', label: '贴纸' },
 };
+
+// Distinct colors for group borders
+const GROUP_COLORS = [
+  'border-rose-400',
+  'border-sky-400',
+  'border-amber-400',
+  'border-lime-400',
+  'border-violet-400',
+  'border-teal-400',
+  'border-orange-400',
+  'border-pink-400',
+];
 
 function getCellType(cell) {
   if (cell === null || cell === undefined) return null;
   if (typeof cell === 'string') return cell;
   return cell.type || null;
+}
+
+function getCellGroup(cell) {
+  if (typeof cell === 'object' && cell !== null) return cell.group;
+  return undefined;
 }
 
 function getCellDisplay(cell) {
@@ -30,7 +44,7 @@ function getCellDisplay(cell) {
   return CELL_DISPLAY[type] || { icon: '?', bg: 'bg-gray-500/60', label: type };
 }
 
-export default function GridPainter({ grid, onGridChange, activeBrush, brushExtras }) {
+export default function GridPainter({ grid, onGridChange, activeBrush, brushExtras, groupMode, activeGroupNumber }) {
   const [isPainting, setIsPainting] = useState(false);
   const gridSize = MATRIX_CONFIG.gridSize;
 
@@ -46,20 +60,69 @@ export default function GridPainter({ grid, onGridChange, activeBrush, brushExtr
     onGridChange(newGrid);
   }, [grid, activeBrush, brushExtras, onGridChange]);
 
+  const applyGroup = useCallback((r, c) => {
+    const cell = grid[r][c];
+    const type = getCellType(cell);
+    // Only sticker cells can be grouped
+    if (type !== 'any_sticker') return;
+
+    const newGrid = grid.map(row => [...row]);
+    const currentGroup = getCellGroup(cell);
+
+    if (currentGroup === activeGroupNumber) {
+      // Clicking same group = remove from group
+      if (typeof cell === 'object') {
+        const { group: _, ...rest } = cell;
+        // If only type remains, simplify to string
+        const keys = Object.keys(rest);
+        newGrid[r][c] = keys.length === 1 && keys[0] === 'type' ? rest.type : rest;
+      }
+    } else {
+      // Assign to active group
+      if (typeof cell === 'string') {
+        newGrid[r][c] = { type: cell, group: activeGroupNumber };
+      } else {
+        newGrid[r][c] = { ...cell, group: activeGroupNumber };
+      }
+    }
+    onGridChange(newGrid);
+  }, [grid, activeGroupNumber, onGridChange]);
+
   const handleMouseDown = (r, c, e) => {
     e.preventDefault();
     if (e.button === 2) {
-      const newGrid = grid.map(row => [...row]);
-      newGrid[r][c] = null;
-      onGridChange(newGrid);
+      // Right-click: erase in paint mode, remove group in group mode
+      if (groupMode) {
+        const cell = grid[r][c];
+        if (typeof cell === 'object' && cell?.group !== undefined) {
+          const newGrid = grid.map(row => [...row]);
+          const { group: _, ...rest } = cell;
+          const keys = Object.keys(rest);
+          newGrid[r][c] = keys.length === 1 && keys[0] === 'type' ? rest.type : rest;
+          onGridChange(newGrid);
+        }
+      } else {
+        const newGrid = grid.map(row => [...row]);
+        newGrid[r][c] = null;
+        onGridChange(newGrid);
+      }
     } else {
       setIsPainting(true);
-      applyBrush(r, c);
+      if (groupMode) {
+        applyGroup(r, c);
+      } else {
+        applyBrush(r, c);
+      }
     }
   };
 
   const handleMouseEnter = (r, c) => {
-    if (isPainting) applyBrush(r, c);
+    if (!isPainting) return;
+    if (groupMode) {
+      applyGroup(r, c);
+    } else {
+      applyBrush(r, c);
+    }
   };
 
   const handleMouseUp = () => setIsPainting(false);
@@ -76,15 +139,25 @@ export default function GridPainter({ grid, onGridChange, activeBrush, brushExtr
         row.map((cell, c) => {
           const display = getCellDisplay(cell);
           const hasMultiplier = typeof cell === 'object' && cell?.multiplier;
+          const group = getCellGroup(cell);
+          const groupColor = group !== undefined ? GROUP_COLORS[group % GROUP_COLORS.length] : null;
+
           return (
             <div
               key={`${r}-${c}`}
-              className={`w-16 h-16 ${display.bg} border border-gray-600 rounded flex flex-col items-center justify-center cursor-pointer hover:ring-2 hover:ring-white/50 transition-all relative`}
+              className={`w-16 h-16 ${display.bg} rounded flex flex-col items-center justify-center cursor-pointer hover:ring-2 hover:ring-white/50 transition-all relative
+                ${groupColor ? `border-2 ${groupColor}` : 'border border-gray-600'}
+                ${groupMode && getCellType(cell) === 'any_sticker' ? 'ring-1 ring-white/20' : ''}`}
               onMouseDown={(e) => handleMouseDown(r, c, e)}
               onMouseEnter={() => handleMouseEnter(r, c)}
-              title={`[${r},${c}] ${display.label}`}
+              title={`[${r},${c}] ${display.label}${group !== undefined ? ` (组${group})` : ''}`}
             >
               <span className="text-xl">{display.icon}</span>
+              {group !== undefined && (
+                <span className={`absolute top-0.5 left-1 text-[10px] font-bold ${groupColor ? groupColor.replace('border-', 'text-') : 'text-gray-400'}`}>
+                  G{group}
+                </span>
+              )}
               {hasMultiplier && (
                 <span className="absolute bottom-0.5 right-1 text-xs font-bold text-yellow-300">
                   x{cell.multiplier}
