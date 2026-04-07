@@ -2,7 +2,7 @@
 
 本文档是项目代码的完整技术参考，涵盖架构、数据流、每个文件的职责与实现细节、状态管理、UI 渲染逻辑和外部集成。阅读本文档后，无需再阅读源代码即可对项目做出正确修改。
 
-> **最后更新**: 2026-02-26 · 基于 `code_simplify` 分支 commit `4c22ee4`
+> **最后更新**: 2026-04-07 · 基于 `core-draw/board-type-experiments-designed-levels` 分支
 
 ---
 
@@ -68,20 +68,29 @@ npm run lint      # ESLint 检查
 ├── package.json
 │
 ├── src/
-│   ├── main.jsx                   ← ReactDOM 渲染入口
-│   ├── App.jsx                    ← 配置管理 + 设置 UI + 调试工具 (~107KB)
-│   ├── GameCore.jsx               ← 游戏布局 + 组件编排 (~74KB)
+│   ├── main.jsx                   ← ReactDOM 渲染入口（BrowserRouter）
+│   ├── App.jsx                    ← 路由配置（/ → 游戏, /editor → 编辑器, /levels → 关卡管理）
+│   ├── GameCore.jsx               ← 游戏布局 + 组件编排
 │   ├── index.css                  ← Tailwind 指令 + 自定义滚动条隐藏
 │   │
 │   ├── data/
-│   │   └── constants.js           ← 所有游戏配置数据 (~20KB)
+│   │   ├── constants.js           ← 游戏配置数据 (~20KB)
+│   │   ├── v2Config.js            ← v2 贴纸/订单/墙类型/远征配置
+│   │   ├── matrixConfig.js        ← 5×5 网格生成参数（厄运/特殊格/形状权重）
+│   │   ├── levelTemplates.js      ← 关卡系统：CELL_TYPES、glob 导入关卡、pickTemplate()
+│   │   └── levels/                ← 关卡 JSON 文件（自动导入，编辑器保存至此）
+│   │       ├── bomb_cross.json
+│   │       ├── cow_level_sticker.json
+│   │       └── select_prize.json
 │   │
 │   ├── hooks/
-│   │   └── useGameLogic.js        ← 游戏全部状态与逻辑 (~92KB, ~2200行)
+│   │   └── useGameLogic.js        ← 游戏全部状态与逻辑
 │   │
 │   ├── utils/
-│   │   ├── helpers.js             ← 纯函数工具 (~14KB)
-│   │   ├── translations.js        ← 英文翻译映射 (~15KB)
+│   │   ├── helpers.js             ← 纯函数工具
+│   │   ├── matrixHelpers.js       ← 墙生成（fillDoomAndSpecials, fillEmptyCellsWithStickers）
+│   │   ├── templateGenerator.js   ← 关卡模板解析（generateWallFromTemplate）
+│   │   ├── translations.js        ← 英文翻译映射
 │   │
 │   ├── contexts/
 │   │   └── LanguageContext.jsx     ← 语言切换 Context + t() 翻译函数
@@ -89,10 +98,20 @@ npm run lint      # ESLint 检查
 │   └── components/
 │       ├── ErrorBoundary.jsx       ← 错误边界（类组件）
 │       ├── game/
-│       │   ├── InventorySlot.jsx   ← 背包格子 (~14KB)
-│       │   ├── OrderCard.jsx       ← 订单卡片 (~33KB)
-│       │   ├── PoolCard.jsx        ← 奖池卡片 (~4KB)
-│       │   ├── SkillSelectionModal.jsx ← 技能选择弹窗 (~10KB)
+│       │   ├── ResourceMatrix.jsx  ← 5×5 奖品墙渲染
+│       │   ├── WallPicker.jsx      ← 3 选 1 墙选择界面
+│       │   ├── InventorySlot.jsx   ← 背包格子
+│       │   ├── OrderCard.jsx       ← 订单卡片
+│       │   ├── BulletinBoard.jsx   ← 公告牌
+│       │   ├── ActiveOrders.jsx    ← 已接订单
+│       │   ├── ScoreBoard.jsx      ← 分数面板
+│       │   └── ...
+│       ├── editor/
+│       │   ├── LevelEditor.jsx     ← 关卡编辑器页面（画板 + 设置 + 保存）
+│       │   ├── LevelManager.jsx    ← 关卡管理页面（浏览 + 权重配置）
+│       │   ├── GridPainter.jsx     ← 可交互 5×5 编辑网格（画笔 + 编组模式）
+│       │   ├── CellPalette.jsx     ← 格子类型画笔选择器
+│       │   └── TemplatePreview.jsx ← 关卡缩略图预览
 │       └── ui/
 │           ├── ConfirmDialog.jsx   ← 通用确认对话框
 │           └── Toast.jsx           ← 浮动提示

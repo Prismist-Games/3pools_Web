@@ -1,0 +1,84 @@
+{
+  "id": "select_prize",
+  "name": "抉择",
+  "description": "选择你的奖品，风险与机遇并存。",
+  "grid": [
+    [
+      {
+        "type": "doom_upgrade",
+        "multiplier": 5
+      },
+      "empty",
+      "empty",
+      "doom_resolve",
+      {
+        "type": "doom_upgrade",
+        "multiplier": 5
+      }
+    ],
+    [
+      {
+        "type": "doom_upgrade",
+        "multiplier": 5
+      },
+      {
+        "type": "any_sticker",
+        "multiplier": 2
+      },
+      "doom_resolve",
+      "doom_resolve",
+      {
+        "type": "doom_upgrade",
+        "multiplier": 5
+      }
+    ],
+    [
+      {
+        "type": "doom_upgrade",
+        "multiplier": 5
+      },
+      "doom_resolve",
+      {
+        "type": "any_sticker",
+        "multiplier": 4
+      },
+      "doom_resolve",
+      {
+        "type": "doom_upgrade",
+        "multiplier": 5
+      }
+    ],
+    [
+      {
+        "type": "doom_upgrade",
+        "multiplier": 5
+      },
+      "empty",
+      "doom_resolve",
+      "out_of_game",
+      {
+        "type": "doom_upgrade",
+        "multiplier": 5
+      }
+    ],
+    [
+      {
+        "type": "doom_upgrade",
+        "multiplier": 5
+      },
+      "empty",
+      "empty",
+      "doom_resolve",
+      {
+        "type": "doom_upgrade",
+        "multiplier": 5
+      }
+    ]
+  ],
+  "settings": {
+    "stickerTypeRange": [
+      2,
+      2
+    ]
+  }
+}

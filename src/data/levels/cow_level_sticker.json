@@ -1,0 +1,48 @@
+{
+  "id": "cow_level_sticker",
+  "name": "奶牛关",
+  "description": "只有好心情",
+  "grid": [
+    [
+      "gold",
+      "any_sticker",
+      "any_sticker",
+      "any_sticker",
+      "gold"
+    ],
+    [
+      "any_sticker",
+      "gold",
+      "any_sticker",
+      "gold",
+      "any_sticker"
+    ],
+    [
+      "any_sticker",
+      "any_sticker",
+      "gold",
+      "any_sticker",
+      "any_sticker"
+    ],
+    [
+      "any_sticker",
+      "gold",
+      "any_sticker",
+      "gold",
+      "any_sticker"
+    ],
+    [
+      "gold",
+      "any_sticker",
+      "any_sticker",
+      "any_sticker",
+      "gold"
+    ]
+  ],
+  "settings": {
+    "stickerTypeRange": [
+      1,
+      1
+    ]
+  }
+}

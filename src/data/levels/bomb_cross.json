@@ -1,0 +1,51 @@
+{
+  "id": "bomb_cross",
+  "name": "炸弹十字",
+  "description": "十字炸弹包围，中心高倍贴纸",
+  "grid": [
+    [
+      null,
+      null,
+      "bomb",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      "bomb",
+      null,
+      null
+    ],
+    [
+      "bomb",
+      "bomb",
+      {
+        "type": "any_sticker",
+        "multiplier": 5
+      },
+      "bomb",
+      "bomb"
+    ],
+    [
+      null,
+      null,
+      "bomb",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      "bomb",
+      null,
+      null
+    ]
+  ],
+  "settings": {
+    "stickerTypeRange": [
+      3,
+      4
+    ]
+  }
+}
