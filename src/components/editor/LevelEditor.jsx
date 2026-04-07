@@ -1,5 +1,5 @@
 // src/components/editor/LevelEditor.jsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { MATRIX_CONFIG } from '../../data/matrixConfig';
 import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
@@ -11,14 +11,28 @@ import TemplatePreview from './TemplatePreview';
 const EMPTY_GRID = () =>
   Array.from({ length: MATRIX_CONFIG.gridSize }, () => Array(MATRIX_CONFIG.gridSize).fill(null));
 
+/** Count distinct group numbers used on sticker cells in the grid */
+function countDistinctGroups(grid) {
+  const groups = new Set();
+  for (const row of grid) {
+    for (const cell of row) {
+      if (typeof cell === 'object' && cell !== null && cell.group !== undefined) {
+        groups.add(cell.group);
+      }
+    }
+  }
+  return groups.size;
+}
+
 export default function LevelEditor() {
   const { templateId } = useParams();
 
-  // Load existing template from built-in or localStorage
   const existingTemplate = templateId
     ? LEVEL_TEMPLATES.find(t => t.id === templateId)
       ?? (() => { try { return JSON.parse(localStorage.getItem('levelTemplates') || '[]').find(t => t.id === templateId); } catch { return null; } })()
     : null;
+
+  const existingSettings = existingTemplate?.settings || existingTemplate?.constraints || {};
 
   const [id, setId] = useState(existingTemplate?.id || '');
   const [name, setName] = useState(existingTemplate?.name || '');
@@ -26,50 +40,58 @@ export default function LevelEditor() {
   const [grid, setGrid] = useState(
     existingTemplate ? existingTemplate.grid.map(r => [...r]) : EMPTY_GRID()
   );
-  const [constraints, setConstraints] = useState(
-    existingTemplate?.constraints
-      ? JSON.stringify(existingTemplate.constraints, null, 2)
-      : '{}'
-  );
 
+  // Settings state (structured, not JSON)
+  const [stickerMin, setStickerMin] = useState(existingSettings.stickerTypeRange?.[0] ?? 3);
+  const [stickerMax, setStickerMax] = useState(existingSettings.stickerTypeRange?.[1] ?? 4);
+  const [maxDoomInBlank, setMaxDoomInBlank] = useState(existingSettings.maxDoomInBlank ?? -1); // -1 = no limit
+
+  // Brush state
   const [activeBrush, setActiveBrush] = useState(null);
   const [multiplier, setMultiplier] = useState(1);
 
-  // Compute brushExtras based on current state
+  // Group mode state
+  const [groupMode, setGroupMode] = useState(false);
+  const [activeGroupNumber, setActiveGroupNumber] = useState(0);
+
+  // Auto-compute lower bound for sticker types
+  const distinctGroups = useMemo(() => countDistinctGroups(grid), [grid]);
+  const effectiveMin = Math.max(stickerMin, distinctGroups);
+  const effectiveMax = Math.max(stickerMax, effectiveMin);
+
+  // Brush extras
   const brushExtras = {};
   if (multiplier > 1 && activeBrush) {
     brushExtras.multiplier = multiplier;
   }
 
-  // Test: generate a concrete wall from this template
-  const [testResult, setTestResult] = useState(null);
-  const handleTest = () => {
-    try {
-      const parsedConstraints = JSON.parse(constraints);
-      const template = { id, name, description, grid, constraints: parsedConstraints };
-      const result = generateWallFromTemplate(template);
-      setTestResult(result.grid);
-    } catch (e) {
-      alert('Constraints JSON 格式错误: ' + e.message);
-    }
+  // Build settings object
+  const buildSettings = () => {
+    const s = {};
+    s.stickerTypeRange = [effectiveMin, effectiveMax];
+    if (maxDoomInBlank >= 0) s.maxDoomInBlank = maxDoomInBlank;
+    return s;
   };
 
-  // Export as JSON
+  // Test generate
+  const [testResult, setTestResult] = useState(null);
+  const handleTest = () => {
+    const template = { id, name, description, grid, settings: buildSettings() };
+    const result = generateWallFromTemplate(template);
+    setTestResult(result.grid);
+  };
+
+  // Export JSON
   const handleExport = () => {
-    try {
-      const parsedConstraints = JSON.parse(constraints);
-      const template = { id, name, description, grid, constraints: parsedConstraints };
-      const json = JSON.stringify(template, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${id || 'template'}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert('Constraints JSON 格式错误: ' + e.message);
-    }
+    const template = { id, name, description, grid, settings: buildSettings() };
+    const json = JSON.stringify(template, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${id || 'template'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Save to localStorage
@@ -78,26 +100,20 @@ export default function LevelEditor() {
       alert('请填写关卡 ID');
       return;
     }
-    try {
-      const parsedConstraints = JSON.parse(constraints);
-      const template = { id, name, description, grid, constraints: parsedConstraints };
-      const saved = JSON.parse(localStorage.getItem('levelTemplates') || '[]');
-      const idx = saved.findIndex(t => t.id === id);
+    const template = { id, name, description, grid, settings: buildSettings() };
+    const saved = JSON.parse(localStorage.getItem('levelTemplates') || '[]');
+    const idx = saved.findIndex(t => t.id === id);
 
-      // Check for ID collision with built-in templates
-      const builtinCollision = LEVEL_TEMPLATES.find(t => t.id === id);
-      if (builtinCollision && idx < 0) {
-        alert(`ID "${id}" 与内置关卡冲突，请换一个 ID`);
-        return;
-      }
-
-      if (idx >= 0) saved[idx] = template;
-      else saved.push(template);
-      localStorage.setItem('levelTemplates', JSON.stringify(saved));
-      alert('已保存到 localStorage');
-    } catch (e) {
-      alert('保存失败: ' + e.message);
+    const builtinCollision = LEVEL_TEMPLATES.find(t => t.id === id);
+    if (builtinCollision && idx < 0) {
+      alert(`ID "${id}" 与内置关卡冲突，请换一个 ID`);
+      return;
     }
+
+    if (idx >= 0) saved[idx] = template;
+    else saved.push(template);
+    localStorage.setItem('levelTemplates', JSON.stringify(saved));
+    alert('已保存到 localStorage');
   };
 
   const handleClear = () => setGrid(EMPTY_GRID());
@@ -119,6 +135,10 @@ export default function LevelEditor() {
           onBrushChange={setActiveBrush}
           multiplier={multiplier}
           onMultiplierChange={setMultiplier}
+          groupMode={groupMode}
+          onGroupModeChange={setGroupMode}
+          activeGroupNumber={activeGroupNumber}
+          onActiveGroupNumberChange={setActiveGroupNumber}
         />
 
         {/* Center: Grid */}
@@ -128,6 +148,8 @@ export default function LevelEditor() {
             onGridChange={setGrid}
             activeBrush={activeBrush}
             brushExtras={brushExtras}
+            groupMode={groupMode}
+            activeGroupNumber={activeGroupNumber}
           />
           <div className="flex gap-2">
             <button onClick={handleClear} className="px-3 py-1.5 bg-gray-700 rounded text-sm hover:bg-gray-600">清空</button>
@@ -137,7 +159,7 @@ export default function LevelEditor() {
           </div>
         </div>
 
-        {/* Right: Metadata + Test result */}
+        {/* Right: Metadata + Settings + Test result */}
         <div className="flex flex-col gap-3 min-w-[250px]">
           <div>
             <label className="text-xs text-gray-400">ID</label>
@@ -154,11 +176,61 @@ export default function LevelEditor() {
             <textarea value={description} onChange={e => setDescription(e.target.value)}
               className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm h-16" placeholder="关卡描述..." />
           </div>
-          <div>
-            <label className="text-xs text-gray-400">约束 (JSON)</label>
-            <textarea value={constraints} onChange={e => setConstraints(e.target.value)}
-              className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm font-mono h-24"
-              placeholder='{ "maxDoomInBlank": 0 }' />
+
+          {/* Wall settings */}
+          <div className="p-3 bg-gray-900/60 rounded-lg flex flex-col gap-3">
+            <div className="text-xs text-gray-400 uppercase tracking-wider">墙设置</div>
+
+            {/* Sticker type range */}
+            <div>
+              <label className="text-xs text-gray-400">贴纸种类数</label>
+              <div className="flex items-center gap-2 mt-1">
+                <select
+                  value={effectiveMin}
+                  onChange={e => setStickerMin(Number(e.target.value))}
+                  className="bg-gray-800 border border-gray-600 rounded text-xs px-1.5 py-1"
+                >
+                  {[1,2,3,4,5,6,7,8].map(n => (
+                    <option key={n} value={n} disabled={n < distinctGroups}>
+                      {n}{n < distinctGroups ? ` (已用${distinctGroups}组)` : ''}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs text-gray-500">~</span>
+                <select
+                  value={effectiveMax}
+                  onChange={e => setStickerMax(Number(e.target.value))}
+                  className="bg-gray-800 border border-gray-600 rounded text-xs px-1.5 py-1"
+                >
+                  {[1,2,3,4,5,6,7,8].map(n => (
+                    <option key={n} value={n} disabled={n < effectiveMin}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs text-gray-500">种</span>
+              </div>
+              {distinctGroups > 0 && (
+                <p className="text-[10px] text-gray-500 mt-1">已使用 {distinctGroups} 个编组，下限自动锁定</p>
+              )}
+            </div>
+
+            {/* Max doom in blank */}
+            <div>
+              <label className="text-xs text-gray-400">空白区厄运上限</label>
+              <div className="flex items-center gap-2 mt-1">
+                <select
+                  value={maxDoomInBlank}
+                  onChange={e => setMaxDoomInBlank(Number(e.target.value))}
+                  className="bg-gray-800 border border-gray-600 rounded text-xs px-1.5 py-1"
+                >
+                  <option value={-1}>不限</option>
+                  {[0,1,2,3,4,5].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Test result preview */}
