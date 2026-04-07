@@ -148,5 +148,17 @@ export function generateWallFromTemplate(template) {
   const wallStickers = pickWallStickers(STICKER_TYPES, stickerCount, stickerCount);
   fillEmptyCellsWithStickers(grid, wallStickers, gridSize);
 
-  return { grid, doomCellCount, stickers: wallStickers };
+  // Collect all unique sticker types actually present on the grid
+  const stickerMap = new Map();
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      const cell = grid[r][c];
+      if (cell && cell.type === 'sticker' && cell.item) {
+        stickerMap.set(cell.item.id, cell.item);
+      }
+    }
+  }
+  const allStickers = [...stickerMap.values()];
+
+  return { grid, doomCellCount, stickers: allStickers };
 }
