@@ -2,7 +2,13 @@
  * Cell type tokens for template grids.
  * null = blank (procedural fill)
  * String tokens = fixed or constrained cells
- * Object tokens = cell with extra properties (e.g. multiplier)
+ * Object tokens = cell with extra properties (e.g. multiplier, group)
+ *
+ * Sticker grouping:
+ *   { type: 'any_sticker', group: 1 } — belongs to polyomino group 1
+ *   'any_sticker' or { type: 'any_sticker' } — independent 1×1 sticker
+ *   Same group number → same polyomino → same randomly-bound sticker type
+ *   Different group numbers → different polyominoes (may or may not be same type)
  */
 export const CELL_TYPES = {
   // Structural
@@ -15,12 +21,9 @@ export const CELL_TYPES = {
   ORDER: 'order',
   OUT_OF_GAME: 'out_of_game',
   // Constrained types (resolved at generation time)
-  ANY_DOOM: 'any_doom',
-  ANY_SPECIAL: 'any_special',
-  ANY_STICKER: 'any_sticker',
-  STICKER_A: 'sticker_A',
-  STICKER_B: 'sticker_B',
-  STICKER_C: 'sticker_C',
+  ANY_DOOM: 'any_doom',           // randomly doom_resolve or doom_upgrade
+  ANY_SPECIAL: 'any_special',     // randomly gold/order/out_of_game/bomb
+  ANY_STICKER: 'any_sticker',     // random sticker type, 1×1 unless grouped
 };
 
 // --- Sample templates ---
@@ -37,8 +40,8 @@ export const LEVEL_TEMPLATES = [
       ['bomb', null,   null,   null,   'bomb'],
       ['bomb', 'bomb', 'bomb', 'bomb', 'bomb'],
     ],
-    constraints: {
-      stickerTypeCount: 2,
+    settings: {
+      stickerTypeRange: [2, 2],
     },
   },
   {
@@ -52,7 +55,7 @@ export const LEVEL_TEMPLATES = [
       [null, null, 'any_doom',     null, null],
       [null, null, 'doom_resolve', null, null],
     ],
-    constraints: {
+    settings: {
       maxDoomInBlank: 0,
     },
   },
@@ -67,7 +70,7 @@ export const LEVEL_TEMPLATES = [
       [null, 'any_doom', null, 'any_doom', null],
       [{ type: 'out_of_game' }, null, null, null, { type: 'out_of_game' }],
     ],
-    constraints: {},
+    settings: {},
   },
 ];
 
