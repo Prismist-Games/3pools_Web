@@ -1,0 +1,48 @@
+{
+  "id": "order_center",
+  "name": "订单中心",
+  "description": "他们不在乎运气。他们只想要确定的东西。",
+  "grid": [
+    [
+      "order",
+      "order",
+      "order",
+      "order",
+      "order"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "order",
+      "order",
+      "order",
+      "order",
+      "order"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "order",
+      "order",
+      "order",
+      "order",
+      "order"
+    ]
+  ],
+  "settings": {
+    "stickerTypeRange": [
+      3,
+      4
+    ]
+  }
+}

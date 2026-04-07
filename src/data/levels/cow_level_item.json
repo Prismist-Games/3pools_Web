@@ -1,0 +1,48 @@
+{
+  "id": "cow_level_item",
+  "name": "自助餐",
+  "description": "丰俭由命",
+  "grid": [
+    [
+      "gold",
+      "out_of_game_1",
+      "out_of_game_1",
+      "out_of_game_1",
+      "gold"
+    ],
+    [
+      "out_of_game_1",
+      "gold",
+      "out_of_game_1",
+      "gold",
+      "out_of_game_1"
+    ],
+    [
+      "out_of_game_1",
+      "out_of_game_1",
+      "gold",
+      "out_of_game_1",
+      "out_of_game_1"
+    ],
+    [
+      "out_of_game_1",
+      "gold",
+      "out_of_game_1",
+      "gold",
+      "out_of_game_1"
+    ],
+    [
+      "gold",
+      "out_of_game_1",
+      "out_of_game_1",
+      "out_of_game_1",
+      "gold"
+    ]
+  ],
+  "settings": {
+    "stickerTypeRange": [
+      1,
+      1
+    ]
+  }
+}

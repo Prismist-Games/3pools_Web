@@ -21,10 +21,7 @@
         "type": "doom_upgrade",
         "multiplier": 5
       },
-      {
-        "type": "any_sticker",
-        "multiplier": 2
-      },
+      "out_of_game_2",
       "doom_resolve",
       "doom_resolve",
       {
@@ -38,10 +35,7 @@
         "multiplier": 5
       },
       "doom_resolve",
-      {
-        "type": "any_sticker",
-        "multiplier": 4
-      },
+      "out_of_game_3",
       "doom_resolve",
       {
         "type": "doom_upgrade",
@@ -55,7 +49,7 @@
       },
       "empty",
       "doom_resolve",
-      "out_of_game",
+      "out_of_game_5",
       {
         "type": "doom_upgrade",
         "multiplier": 5
