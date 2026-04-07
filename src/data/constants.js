@@ -504,7 +504,7 @@ export const ITEM_CATALOG = [
     // 文具与书
     { name: '铅笔', icon: '✏️' },
     { name: '笔记本', icon: '📒' },
-    { name: '红宝书', icon: '📕' },
+    { name: '童话书', icon: '📕' },
     { name: '剪刀', icon: '✂️' },
     // 医疗与科学
     { name: '显微镜', icon: '🔬' },
@@ -537,6 +537,19 @@ export const ITEM_CATALOG = [
     { name: '扇子', icon: '🪭' },
     { name: '陶罐', icon: '🏺' },
     { name: '念珠', icon: '📿' },
+];
+
+// --- 抽取效果定义 ---
+export const DRAW_EFFECTS = [
+    { id: 'shuffle', name: '洗牌', desc: '重新随机排列这条线上的物品位置', icon: '🔀', color: 'blue' },
+    { id: 'collapse', name: '坍缩', desc: '抽取后，剩余格子全部消除（炸弹不触发）', icon: '💥', color: 'red' },
+    { id: 'sweep', name: '全收', desc: '获得这条线上所有物品，但品质降为普通（炸弹会触发）', icon: '🌊', color: 'teal' },
+    { id: 'springboard', name: '跳板', desc: '本次抽取不消耗金币', icon: '🆓', color: 'green' },
+    { id: 'mutate', name: '变异', desc: '抽到的物品名字随机变为这条线上另一个物品', icon: '🎭', color: 'purple' },
+    { id: 'copy', name: '复制', desc: '抽到的物品获得两份', icon: '✨', color: 'gold' },
+    { id: 'charge', name: '充能', desc: '抽取后，另一方向所有物品品质+1（持续一回合）', icon: '⚡', color: 'amber' },
+    { id: 'unlock', name: '解放', desc: '下次抽取可自由选择任意行或列', icon: '🔓', color: 'emerald' },
+    { id: 'seal', name: '封印', desc: '冻结这条线上的物品，3次抽取内不可被抽到', icon: '❄️', color: 'cyan' },
 ];
 
 // --- 撤离订单配置 ---

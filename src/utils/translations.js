@@ -347,5 +347,29 @@ export const EN_TRANSLATIONS = {
     "金币耗尽": "Gold depleted",
     "机器无法继续运行！": "Machine cannot continue operating!",
     "运营消耗": "Operating cost",
-    "剩余": "remaining"
+    "剩余": "remaining",
+
+    // --- Draw Effects ---
+    "洗牌": "Shuffle",
+    "坍缩": "Collapse",
+    "全收": "Sweep",
+    "跳板": "Springboard",
+    "变异": "Mutate",
+    "复制": "Copy",
+    "充能": "Charge",
+    "解放": "Unlock",
+    "封印": "Seal",
+    "重新随机排列这条线上的物品位置": "Shuffle item positions in this line",
+    "抽取后，剩余格子全部消除（炸弹不触发）": "After draw, remove all remaining cells (bombs don't trigger)",
+    "获得这条线上所有物品，但品质降为普通（炸弹会触发）": "Get all items in line at common quality (bombs trigger)",
+    "本次抽取不消耗金币": "This draw costs no gold",
+    "抽到的物品名字随机变为这条线上另一个物品": "Drawn item's name randomly changes to another in line",
+    "抽到的物品获得两份": "Get two copies of the drawn item",
+    "抽取后，另一方向所有物品品质+1（持续一回合）": "After draw, +1 quality to all items in other direction (1 round)",
+    "下次抽取可自由选择任意行或列": "Next draw: freely choose any row or column",
+    "冻结这条线上的物品，3次抽取内不可被抽到": "Freeze items in line, can't be drawn for 3 draws",
+    "所有行列均被封印": "All lines are sealed",
+    "将鼠标移到行/列按钮上查看效果": "Hover over row/column buttons to see effects",
+    "充能生效：品质+1！": "Charge activated: quality +1!",
+    "下轮品质+1": "quality +1 next round"
 };

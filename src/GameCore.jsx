@@ -42,7 +42,11 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
         skills, skillSelectionCandidates, skillState,
         toast, satisfiableOrders, totalRecycleValue, selectedItemNames,
         orderSlotAssignments, assignedItemUids, phantomMarks,
-        toolSelectionMode
+        toolSelectionMode,
+        drawEffects,
+        chargeBoost,
+        unlockNextDraw,
+        sealedItems
     } = state;
 
     const {
@@ -560,6 +564,10 @@ const GameCore = ({ config, onOpenSettings, showSettings, debugMode, setDebugMod
                                     drawAnimation={drawAnimation}
                                     onDrawAnimationComplete={onDrawAnimationComplete}
                                     onHoveredItemsChange={handleMatrixHoverItems}
+                                    drawEffects={drawEffects}
+                                    chargeBoost={chargeBoost}
+                                    unlockNextDraw={unlockNextDraw}
+                                    sealedItems={sealedItems}
                                 />
                             </div>
 

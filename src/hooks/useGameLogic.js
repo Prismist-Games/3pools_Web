@@ -8,7 +8,7 @@ import {
 } from '../utils/helpers';
 import { generateItemMatrix, applyGravity } from '../utils/matrixHelpers';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { SKILL_DEFINITIONS, TOOL_ITEMS } from '../data/constants';
+import { SKILL_DEFINITIONS, TOOL_ITEMS, DRAW_EFFECTS } from '../data/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const useGameLogic = (config, initialSkills = [], onReset, initialScore = 0) => {
@@ -75,6 +75,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         nextDrawExtraItem: false,
         nextDrawEnhanced: false,
     });
+
+    // --- Draw Effects System ---
+    const [drawEffects, setDrawEffects] = useState(null); // { row: effectObj, col: effectObj } or null
+    const [chargeBoost, setChargeBoost] = useState(null); // { type: 'row'|'col', index: number } or null
+    const [unlockNextDraw, setUnlockNextDraw] = useState(false);
+    const [sealedItems, setSealedItems] = useState([]); // array of { uid: string, remainingDraws: number }
 
     const [toast, setToast] = useState(null);
 
@@ -698,35 +704,207 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         if (!matrix) return;
 
         // Guard: constrain selection to the row/column of the last drawn cell
-        if (lastDrawCell) {
+        // (skip constraint if unlockNextDraw is active)
+        if (lastDrawCell && !unlockNextDraw) {
             if (type === 'row' && index !== lastDrawCell.row) return;
             if (type === 'col' && index !== lastDrawCell.col) return;
         }
 
-        // Block drawing when gold is 0 — player can still submit orders
-        if (gold <= 0) {
+        // Determine active effect for the chosen direction
+        const activeEffect = drawEffects
+            ? (type === 'row' ? drawEffects.row : drawEffects.col)
+            : null;
+
+        // Clear drawEffects at the start of a new draw
+        setDrawEffects(null);
+
+        // Block drawing when gold is 0 — unless springboard effect is active
+        const isSpringboard = activeEffect && activeEffect.id === 'springboard';
+        if (gold <= 0 && !isSpringboard) {
             showToast(t("金币耗尽！请提交订单或重置游戏"), "warning");
             return;
         }
 
-        // Collect cells from the selected row or column
+        // Decrement sealed items countdown
+        setSealedItems(prev => {
+            const updated = prev.map(s => ({ ...s, remainingDraws: s.remainingDraws - 1 }));
+            return updated.filter(s => s.remainingDraws > 0);
+        });
+
+        // Consume unlockNextDraw
+        const wasUnlocked = unlockNextDraw;
+        if (unlockNextDraw) {
+            setUnlockNextDraw(false);
+        }
+
+        let workingMatrix = matrix;
+
+        // Apply shuffle effect: rearrange items in the line (excluding lastDrawCell position)
+        if (activeEffect && activeEffect.id === 'shuffle') {
+            const newMatrix = workingMatrix.map(r => [...r]);
+            const gridSize = MATRIX_CONFIG.gridSize;
+            const lineIndices = [];
+            if (type === 'row') {
+                for (let c = 0; c < gridSize; c++) {
+                    if (lastDrawCell && lastDrawCell.row === index && lastDrawCell.col === c) continue;
+                    lineIndices.push({ r: index, c });
+                }
+            } else {
+                for (let r = 0; r < gridSize; r++) {
+                    if (lastDrawCell && lastDrawCell.row === r && lastDrawCell.col === index) continue;
+                    lineIndices.push({ r, c: index });
+                }
+            }
+            // Collect cell contents and shuffle
+            const contents = lineIndices.map(pos => newMatrix[pos.r][pos.c]);
+            for (let i = contents.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [contents[i], contents[j]] = [contents[j], contents[i]];
+            }
+            lineIndices.forEach((pos, idx) => {
+                newMatrix[pos.r][pos.c] = contents[idx];
+            });
+            workingMatrix = newMatrix;
+            setMatrix(newMatrix);
+        }
+
+        // Collect cells from the selected row or column (using potentially modified matrix)
         const gridSize = MATRIX_CONFIG.gridSize;
         const cells = [];
         if (type === 'row') {
-            for (let c = 0; c < gridSize; c++) cells.push({ cell: matrix[index][c], row: index, col: c });
+            for (let c = 0; c < gridSize; c++) cells.push({ cell: workingMatrix[index][c], row: index, col: c });
         } else {
-            for (let r = 0; r < gridSize; r++) cells.push({ cell: matrix[r][index], row: r, col: index });
+            for (let r = 0; r < gridSize; r++) cells.push({ cell: workingMatrix[r][index], row: r, col: index });
         }
 
-        // Random pick 1 (exclude the lastDrawCell position so it never stays in place)
+        // === SWEEP EFFECT: get all items, skip cycling animation ===
+        if (activeEffect && activeEffect.id === 'sweep') {
+            // Clear persistent highlight from previous draw
+            setLastDrawCell(null);
+
+            // Deduct gold (unless springboard, which can't co-occur but just in case)
+            if (!isSpringboard) {
+                deductGold(1);
+            }
+
+            setIsDrawing(true);
+
+            // Process all eligible cells (excluding lastDrawCell position)
+            let eligibleCells = cells;
+            if (lastDrawCell && !wasUnlocked) {
+                eligibleCells = cells.filter(c => !(c.row === lastDrawCell.row && c.col === lastDrawCell.col));
+            }
+
+            const commonRarity = config.rarity.find(r => r.id === 'common') || config.rarity[0];
+            const itemsToAdd = [];
+            let sweepMatrix = workingMatrix.map(r => [...r]);
+
+            // Separate bombs from normal cells
+            const normalCells = [];
+            const bombCells = [];
+            for (const ec of eligibleCells) {
+                const ecType = ec.cell.type || 'normal';
+                const ecIsBomb = ecType === 'filler' && ec.cell.item.name === '炸弹';
+                if (ecIsBomb) {
+                    bombCells.push(ec);
+                } else {
+                    normalCells.push(ec);
+                    if (ecType === 'normal') {
+                        itemsToAdd.push({
+                            ...ec.cell.item,
+                            uid: Math.random().toString(36).substr(2, 9),
+                            rarity: commonRarity,
+                            poolName: ec.cell.item.poolName,
+                            decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
+                        });
+                    }
+                }
+            }
+
+            // Apply gravity for normal (non-bomb) cells first
+            for (const nc of normalCells) {
+                sweepMatrix = applyGravity(sweepMatrix, nc.row, nc.col, allNormalItems, config, currentStageConfig, orderNeededItems);
+            }
+
+            // Process bombs: gravity for bomb cell + explosion for surrounding cells
+            for (const bomb of bombCells) {
+                sweepMatrix = applyGravity(sweepMatrix, bomb.row, bomb.col, allNormalItems, config, currentStageConfig, orderNeededItems);
+                const bRow = bomb.row;
+                const bCol = bomb.col;
+                const destroyed = [];
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const nr = bRow + dr;
+                        const nc = bCol + dc;
+                        if (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize) {
+                            destroyed.push({ row: nr, col: nc });
+                        }
+                    }
+                }
+                const byCol = {};
+                for (const d of destroyed) {
+                    if (!byCol[d.col]) byCol[d.col] = [];
+                    byCol[d.col].push(d.row);
+                }
+                for (const colStr of Object.keys(byCol)) {
+                    const col = parseInt(colStr);
+                    const rows = byCol[col].sort((a, b) => b - a);
+                    for (const row of rows) {
+                        sweepMatrix = applyGravity(sweepMatrix, row, col, allNormalItems, config, currentStageConfig, orderNeededItems);
+                    }
+                }
+                showToast("💣 " + t("炸弹爆炸！"), "warning");
+            }
+
+            setMatrix(sweepMatrix);
+            if (eligibleCells.length > 0) {
+                setGravityEvent({ col: eligibleCells[0].col, removedRow: eligibleCells[0].row, tick: Date.now() });
+            }
+
+            // Set lastDrawCell to the first eligible cell (for next round constraint)
+            if (eligibleCells.length > 0) {
+                const firstCell = eligibleCells[0];
+                setLastDrawCell({ row: firstCell.row, col: firstCell.col });
+            }
+
+            // Add swept items to inventory
+            if (itemsToAdd.length > 0) {
+                const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy([...inventory]) : [...inventory];
+                handleIncomingItems(itemsToAdd, decayedInventory);
+            }
+
+            // Assign new effects after sweep completes
+            setTimeout(() => {
+                assignNewEffects();
+                setDrawCount(prev => prev + 1);
+                setIsDrawing(false);
+            }, 300);
+
+            return; // sweep handled entirely
+        }
+
+        // Random pick 1 (exclude the lastDrawCell position so it never stays in place, and exclude sealed items)
         let eligibleIndices = cells.map((_, i) => i);
-        if (lastDrawCell) {
+        if (lastDrawCell && !wasUnlocked) {
             eligibleIndices = eligibleIndices.filter(i => {
                 const c = cells[i];
                 return !(c.row === lastDrawCell.row && c.col === lastDrawCell.col);
             });
         }
-        if (eligibleIndices.length === 0) eligibleIndices = cells.map((_, i) => i); // fallback
+        // Filter out sealed items
+        const currentSealedUids = new Set(sealedItems.map(s => s.uid));
+        eligibleIndices = eligibleIndices.filter(i => {
+            const c = cells[i];
+            return !currentSealedUids.has(c.cell.uid);
+        });
+        if (eligibleIndices.length === 0) {
+            // All sealed — warn and abort
+            if (currentSealedUids.size > 0) {
+                showToast(t("所有行列均被封印"), "warning");
+            }
+            eligibleIndices = cells.map((_, i) => i); // fallback
+        }
         const pickedIdx = eligibleIndices[Math.floor(Math.random() * eligibleIndices.length)];
         const picked = cells[pickedIdx];
         const selectedCell = picked.cell;
@@ -739,8 +917,10 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Clear persistent highlight from previous draw (new animation starting)
         setLastDrawCell(null);
 
-        // Deduct 1 gold per draw
-        deductGold(1);
+        // Deduct 1 gold per draw (skip if springboard)
+        if (!isSpringboard) {
+            deductGold(1);
+        }
 
         // Block further clicks immediately
         setIsDrawing(true);
@@ -748,17 +928,26 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // Capture state for deferred processing
         pendingDrawRef.current = {
             picked, cells, selectedCell, cellType,
-            capturedMatrix: matrix,
+            capturedMatrix: workingMatrix,
             capturedInventory: [...inventory],
             capturedSkillState: { ...skillState },
+            activeEffect, // pass the active effect to onDrawAnimationComplete
+            drawType: type, // 'row' or 'col'
+            drawIndex: index,
         };
 
         // Determine which index in the line to exclude from cycling (the lastDrawCell position)
         let excludeIdx = null;
-        if (lastDrawCell) {
+        if (lastDrawCell && !wasUnlocked) {
             if (type === 'row') excludeIdx = lastDrawCell.col;
             else excludeIdx = lastDrawCell.row;
         }
+
+        // Build sealedIndices for cycling animation to skip
+        const sealedIdxInLine = [];
+        cells.forEach((c, i) => {
+            if (currentSealedUids.has(c.cell.uid)) sealedIdxInLine.push(i);
+        });
 
         // Signal the component to start the cycling animation
         setDrawAnimation({
@@ -766,8 +955,16 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             index,
             targetIdx: pickedIdx, // index within the line (0-3)
             excludeIdx,           // index to skip during cycling (null if none)
+            sealedIndices: sealedIdxInLine, // indices to skip due to seal
             tick: Date.now(),
         });
+    };
+
+    // Helper: assign two random different effects for next draw
+    const assignNewEffects = () => {
+        if (DRAW_EFFECTS.length < 2) return;
+        const shuffled = [...DRAW_EFFECTS].sort(() => Math.random() - 0.5);
+        setDrawEffects({ row: shuffled[0], col: shuffled[1] });
     };
 
     // Called by the component when the cycling animation finishes
@@ -781,7 +978,7 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         pendingDrawRef.current = null;
         setDrawAnimation(null);
 
-        const { picked, cells, selectedCell, cellType, capturedMatrix, capturedInventory, capturedSkillState } = pending;
+        const { picked, cells, selectedCell, cellType, capturedMatrix, capturedInventory, capturedSkillState, activeEffect, drawType, drawIndex } = pending;
 
         // Set lastDraw for fly animation
         setLastDraw({ row: picked.row, col: picked.col, item: selectedCell.item, rarity: selectedCell.rarity, cellType, tick: Date.now() });
@@ -842,6 +1039,9 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
                 showToast("💣 " + t("炸弹爆炸！"), "warning");
 
+                // Assign new effects after bomb draw
+                assignNewEffects();
+
                 setDrawCount(prev => prev + 1);
                 setIsDrawing(false);
                 return; // early return — bomb doesn't give items
@@ -867,7 +1067,31 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                     decay: currentStageConfig.mechanics.entropy ? (currentStageConfig.entropyDecayValue || 25) : undefined,
                 };
 
+                // --- MUTATE EFFECT: change item name/icon to another item in the line ---
+                if (activeEffect && activeEffect.id === 'mutate') {
+                    const otherItems = cells.filter(c => c !== picked && c.cell.type === 'normal' && c.cell.item.name !== '炸弹');
+                    if (otherItems.length > 0) {
+                        const mutateSource = otherItems[Math.floor(Math.random() * otherItems.length)];
+                        newItem = {
+                            ...newItem,
+                            name: mutateSource.cell.item.name,
+                            icon: mutateSource.cell.item.icon,
+                            poolName: mutateSource.cell.item.poolName || mutateSource.cell.item.name,
+                            poolId: mutateSource.cell.item.poolId || mutateSource.cell.item.name,
+                        };
+                    }
+                }
+
                 let itemsToProcess = [newItem];
+
+                // --- COPY EFFECT: duplicate the drawn item ---
+                if (activeEffect && activeEffect.id === 'copy') {
+                    const copyItem = {
+                        ...newItem,
+                        uid: Math.random().toString(36).substr(2, 9),
+                    };
+                    itemsToProcess.push(copyItem);
+                }
 
                 // Extra item from skill (自动补货)
                 let extraPicked = null;
@@ -891,11 +1115,85 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
                 // Apply gravity
                 if (extraPicked) {
                     const finalMatrix = applyGravity(afterPickMatrix, extraPicked.row, extraPicked.col, allNormalItems, config, currentStageConfig, orderNeededItems);
+                    afterPickMatrix = finalMatrix;
                     setMatrix(finalMatrix);
                     setGravityEvent({ col: picked.col, removedRow: picked.row, col2: extraPicked.col, removedRow2: extraPicked.row, tick: Date.now() });
                 } else {
                     setMatrix(afterPickMatrix);
                     setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
+                }
+
+                // --- COLLAPSE EFFECT: remove all remaining cells in the line after draw ---
+                if (activeEffect && activeEffect.id === 'collapse') {
+                    const remainingCells = cells.filter(c => c !== picked);
+                    // Apply gravity for each remaining cell (bombs don't trigger, just removed)
+                    let collapseMatrix = afterPickMatrix;
+                    // Sort by column, rows descending for proper gravity
+                    const sortedRemaining = [...remainingCells].sort((a, b) => {
+                        if (a.col !== b.col) return a.col - b.col;
+                        return b.row - a.row;
+                    });
+                    for (const rc of sortedRemaining) {
+                        collapseMatrix = applyGravity(collapseMatrix, rc.row, rc.col, allNormalItems, config, currentStageConfig, orderNeededItems);
+                    }
+                    setMatrix(collapseMatrix);
+                    // Set collapse visual via exploding cells (grey flash)
+                    const collapseSet = remainingCells.map(c => `${c.row},${c.col}`);
+                    setExplodingCells(new Set(collapseSet));
+                    setTimeout(() => {
+                        setExplodingCells(null);
+                        setGravityEvent({ col: picked.col, removedRow: picked.row, tick: Date.now() });
+                    }, 300);
+                }
+
+                // --- CHARGE EFFECT: immediately boost other direction's items ---
+                if (activeEffect && activeEffect.id === 'charge') {
+                    // Get the latest matrix (may have been modified by collapse above)
+                    const chargeDir = drawType === 'row' ? 'col' : 'row';
+                    const chargeIdx = drawType === 'row' ? picked.col : picked.row;
+
+                    // We need to read the latest matrix; use a setState callback to get current value
+                    setMatrix(currentMatrix => {
+                        const boostedMatrix = currentMatrix.map(r => [...r]);
+                        const gridSize = MATRIX_CONFIG.gridSize;
+                        if (chargeDir === 'row') {
+                            for (let c = 0; c < gridSize; c++) {
+                                const cell = boostedMatrix[chargeIdx][c];
+                                if (cell.type !== 'filler') {
+                                    const nextRarity = getNextRarity(cell.rarity.id, config);
+                                    if (nextRarity) {
+                                        boostedMatrix[chargeIdx][c] = { ...cell, rarity: nextRarity };
+                                    }
+                                }
+                            }
+                        } else {
+                            for (let r = 0; r < gridSize; r++) {
+                                const cell = boostedMatrix[r][chargeIdx];
+                                if (cell.type !== 'filler') {
+                                    const nextRarity = getNextRarity(cell.rarity.id, config);
+                                    if (nextRarity) {
+                                        boostedMatrix[r][chargeIdx] = { ...cell, rarity: nextRarity };
+                                    }
+                                }
+                            }
+                        }
+                        return boostedMatrix;
+                    });
+                    showToast(`⚡ ${t("充能生效：品质+1！")}`, "success");
+                }
+
+                // --- UNLOCK EFFECT: next draw is free ---
+                if (activeEffect && activeEffect.id === 'unlock') {
+                    setUnlockNextDraw(true);
+                }
+
+                // --- SEAL EFFECT: freeze remaining items in the line ---
+                if (activeEffect && activeEffect.id === 'seal') {
+                    const remainingCells = cells.filter(c => c !== picked);
+                    const newSealed = remainingCells
+                        .filter(c => c.cell.uid) // only cells with items
+                        .map(c => ({ uid: c.cell.uid, remainingDraws: 3 }));
+                    setSealedItems(prev => [...prev, ...newSealed]);
                 }
 
                 // Update skill state
@@ -925,6 +1223,14 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
 
                 const decayedInventory = currentStageConfig.mechanics.entropy ? applyEntropy(capturedInventory) : [...capturedInventory];
                 handleIncomingItems(itemsToProcess, decayedInventory);
+            }
+
+            // Assign new effects for next draw (unless unlock will skip constraints next turn)
+            if (activeEffect && activeEffect.id === 'unlock') {
+                // After unlock draw: don't assign effects, let next draw be free
+                setDrawEffects(null);
+            } else {
+                assignNewEffects();
             }
 
             setDrawCount(prev => prev + 1);
@@ -1833,8 +2139,12 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         // 清空背包
         setInventory([]);
 
-        // 清空抽取位置约束
+        // 清空抽取位置约束和效果状态
         setLastDrawCell(null);
+        setDrawEffects(null);
+        setChargeBoost(null);
+        setUnlockNextDraw(false);
+        setSealedItems([]);
 
         setIsSubmitMode(false);
         setSelectedIndices([]);
@@ -1993,6 +2303,13 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
         setIsEvacuationMode(false);
         setSelectedIndices([]);
         setModalContent(null);
+
+        // Reset draw effect state
+        setLastDrawCell(null);
+        setDrawEffects(null);
+        setChargeBoost(null);
+        setUnlockNextDraw(false);
+        setSealedItems([]);
     };
 
     const handleEvacuationExtract = () => {
@@ -2056,7 +2373,11 @@ export const useGameLogic = (config, initialSkills = [], onReset, initialScore =
             orderSlotAssignments,
             assignedItemUids,
             phantomMarks,
-            toolSelectionMode
+            toolSelectionMode,
+            drawEffects,
+            chargeBoost,
+            unlockNextDraw,
+            sealedItems
         },
         actions: {
             showToast,
