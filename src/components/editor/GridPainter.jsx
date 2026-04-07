@@ -26,7 +26,7 @@ function getCellType(cell) {
 
 function getCellDisplay(cell) {
   const type = getCellType(cell);
-  if (!type) return { icon: '', bg: 'bg-gray-800/30', label: '空白' };
+  if (!type) return { icon: '🎲', bg: 'bg-gray-800/30', label: '随机填充' };
   return CELL_DISPLAY[type] || { icon: '?', bg: 'bg-gray-500/60', label: type };
 }
 
