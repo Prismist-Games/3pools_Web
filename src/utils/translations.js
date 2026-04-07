@@ -488,5 +488,23 @@ export const EN_TRANSLATIONS = {
     "部分格子内容隐藏，抽到相邻格时揭示": "Some cells are hidden, revealed when adjacent cells are drawn",
     "每次抽取后，剩余格子随机移位": "Remaining cells shuffle randomly after each draw",
     "部分格子效果翻倍（贴纸×2，厄运×2）": "Some cells have doubled effects (stickers ×2, doom ×2)",
-    "必须行列交替选择": "Must alternate between row and column selection"
+    "必须行列交替选择": "Must alternate between row and column selection",
+
+    // --- Blackjack Event ---
+    "21点": "Blackjack",
+    "凑点数挑战庄家，赢了减厄运，输了加厄运": "Hit numbers to beat the dealer — win to reduce doom, lose to increase it",
+    "事件墙": "Event Wall",
+    "当前点数": "Current Score",
+    "停手": "Stand",
+    "点": "pts",
+    "爆掉了": "Busted",
+    "你赢了": "You Win",
+    "庄家赢了": "Dealer Wins",
+    "你": "You",
+    "庄家": "Dealer",
+    "21点获胜！厄运": "Blackjack win! Doom",
+    "爆掉了！厄运": "Busted! Doom",
+    "庄家赢了！厄运": "Dealer wins! Doom",
+    "板上已无格子": "No cells left on board",
+    "继续": "Continue"
 };
