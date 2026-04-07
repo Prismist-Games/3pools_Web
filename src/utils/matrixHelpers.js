@@ -228,6 +228,24 @@ export function generateWall(wallStickers) {
 }
 
 /**
+ * Generate a 5×5 blackjack wall — every cell is a number 1-5.
+ * @param {number} min — minimum number (inclusive)
+ * @param {number} max — maximum number (inclusive)
+ * @returns {{ grid: Array[][] }} — grid of number cells
+ */
+export function generateBlackjackWall(min = 1, max = 5) {
+  const { gridSize } = MATRIX_CONFIG;
+  const grid = Array.from({ length: gridSize }, () =>
+    Array.from({ length: gridSize }, () => ({
+      type: 'number',
+      value: min + Math.floor(Math.random() * (max - min + 1)),
+      uid: generateUID(),
+    }))
+  );
+  return { grid };
+}
+
+/**
  * Legacy export — backward compatibility during migration.
  * Derives pseudo-stickers from pool items and calls generateWall.
  */
