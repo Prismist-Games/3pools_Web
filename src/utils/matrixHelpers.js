@@ -228,13 +228,35 @@ export function generateWall(wallStickers) {
 }
 
 /**
- * Generate a 5×5 blackjack wall — every cell is a number 1-5.
- * @param {number} min — minimum number (inclusive)
- * @param {number} max — maximum number (inclusive)
- * @returns {{ grid: Array[][] }} — grid of number cells
+ * Generate a 5×5 blackjack wall — every cell is a number in [min, max].
+ * Constraint: every row sum and every column sum must exceed bustThreshold,
+ * so players can't safely clear an entire line without busting.
  */
-export function generateBlackjackWall(min = 1, max = 5) {
+export function generateBlackjackWall(min = 1, max = 10, bustThreshold = 21) {
   const { gridSize } = MATRIX_CONFIG;
+
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const grid = Array.from({ length: gridSize }, () =>
+      Array.from({ length: gridSize }, () => ({
+        type: 'number',
+        value: min + Math.floor(Math.random() * (max - min + 1)),
+        uid: generateUID(),
+      }))
+    );
+
+    // Check all row sums and column sums > bustThreshold
+    let valid = true;
+    for (let i = 0; i < gridSize && valid; i++) {
+      const rowSum = grid[i].reduce((s, c) => s + c.value, 0);
+      if (rowSum <= bustThreshold) { valid = false; break; }
+      let colSum = 0;
+      for (let r = 0; r < gridSize; r++) colSum += grid[r][i].value;
+      if (colSum <= bustThreshold) { valid = false; break; }
+    }
+    if (valid) return { grid };
+  }
+
+  // Fallback: return last attempt (extremely unlikely with 1-10 range)
   const grid = Array.from({ length: gridSize }, () =>
     Array.from({ length: gridSize }, () => ({
       type: 'number',

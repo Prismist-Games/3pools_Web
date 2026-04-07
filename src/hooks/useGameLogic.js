@@ -244,7 +244,7 @@ export const useGameLogic = (config) => {
         if (chosen.isEvent) {
             if (wallType.id === 'blackjack') {
                 const [min, max] = BLACKJACK_CONFIG.numberRange;
-                const { grid } = generateBlackjackWall(min, max);
+                const { grid } = generateBlackjackWall(min, max, BLACKJACK_CONFIG.bustThreshold);
                 setMatrix(grid);
                 setBlackjackState({ score: 0, dealerScore: null, result: 'playing' });
                 setWallCandidates(null);
