@@ -37,7 +37,7 @@ export default function LevelEditor() {
 
   // Compute brushExtras based on current state
   const brushExtras = {};
-  if (multiplier > 1 && activeBrush && activeBrush.includes('sticker')) {
+  if (multiplier > 1 && activeBrush) {
     brushExtras.multiplier = multiplier;
   }
 

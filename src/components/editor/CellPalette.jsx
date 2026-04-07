@@ -57,7 +57,7 @@ export default function CellPalette({ activeBrush, onBrushChange, multiplier, on
             onChange={(e) => onMultiplierChange(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
             className="w-16 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-center text-sm text-white"
           />
-          <span className="text-xs text-gray-500">(仅对贴纸生效)</span>
+          <span className="text-xs text-gray-500">(对所有格子生效)</span>
         </div>
       </div>
     </div>
