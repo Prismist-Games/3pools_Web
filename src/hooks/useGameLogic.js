@@ -176,7 +176,8 @@ export const useGameLogic = (config) => {
             if (usedTypeIds.has(wallType.id)) continue;
             usedTypeIds.add(wallType.id);
 
-            const template = pickTemplate(expeditionNumber);
+            // expeditionNumber state may not be updated yet (React async), so use at least 1
+            const template = pickTemplate(Math.max(1, expeditionNumber));
             let stickers, grid, doomCellCount;
 
             if (template) {
