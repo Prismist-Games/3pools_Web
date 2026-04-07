@@ -575,9 +575,7 @@ export const useGameLogic = (config) => {
         }
 
         if (doomEffects.resolutions > 0) {
-            for (let i = 0; i < doomEffects.resolutions; i++) {
-                resolveDoom();
-            }
+            resolveDoom(null, doomEffects.resolutions);
         }
 
         setLastDrawResult({
@@ -802,17 +800,19 @@ export const useGameLogic = (config) => {
     // =============================================
 
     /** Start animated doom resolution */
-    const resolveDoom = (action = null) => {
+    const resolveDoom = (action = null, times = 1) => {
         if (action) setAfterDoomAction(action);
 
-        // Pre-calculate final selections
+        // Pre-calculate final selections (times rounds of doomLevel hits each)
         const finalSelections = [];
         let hpLoss = 0;
-        for (let i = 0; i < doomLevel; i++) {
-            const cellIndex = Math.floor(Math.random() * doomConfig.gridSize);
-            const isHit = doomGrid[cellIndex].type === 'danger';
-            if (isHit) hpLoss++;
-            finalSelections.push({ index: cellIndex, isHit });
+        for (let t = 0; t < times; t++) {
+            for (let i = 0; i < doomLevel; i++) {
+                const cellIndex = Math.floor(Math.random() * doomConfig.gridSize);
+                const isHit = doomGrid[cellIndex].type === 'danger';
+                if (isHit) hpLoss++;
+                finalSelections.push({ index: cellIndex, isHit });
+            }
         }
 
         // Start with random spinning positions
