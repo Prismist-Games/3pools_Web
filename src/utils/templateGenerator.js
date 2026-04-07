@@ -1,3 +1,4 @@
+// src/utils/templateGenerator.js
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from '../data/v2Config';
 import { CELL_TYPES } from '../data/levelTemplates';
@@ -8,16 +9,16 @@ function generateUID() {
 }
 
 /**
- * Resolve constrained cell types to concrete cell objects.
- * Binds sticker_A/B/C to random sticker types (consistent within one template).
+ * Resolve a single template cell token to a concrete cell object.
+ * Does NOT handle grouping — that's done at the template level.
  */
-function resolveConstrainedCell(token, stickerBindings) {
+function resolveConstrainedCell(token) {
   const { doomCells, specialCells } = MATRIX_CONFIG;
 
   let cellType, extras = {};
   if (typeof token === 'object' && token !== null) {
     cellType = token.type;
-    const { type: _, ...rest } = token;
+    const { type: _, group: _g, ...rest } = token;
     extras = rest;
   } else {
     cellType = token;
@@ -49,18 +50,11 @@ function resolveConstrainedCell(token, stickerBindings) {
     }
     case CELL_TYPES.ANY_SPECIAL: {
       const types = [CELL_TYPES.GOLD, CELL_TYPES.ORDER, CELL_TYPES.OUT_OF_GAME, CELL_TYPES.BOMB];
-      return resolveConstrainedCell(types[Math.floor(Math.random() * types.length)], stickerBindings);
+      return resolveConstrainedCell(types[Math.floor(Math.random() * types.length)]);
     }
-    case CELL_TYPES.ANY_STICKER: {
-      const sticker = STICKER_TYPES[Math.floor(Math.random() * STICKER_TYPES.length)];
-      return { type: 'sticker', item: { ...sticker }, uid: generateUID(), groupId: generateUID(), shapeSize: 1, ...extras };
-    }
-    case CELL_TYPES.STICKER_A:
-    case CELL_TYPES.STICKER_B:
-    case CELL_TYPES.STICKER_C: {
-      const sticker = stickerBindings[cellType];
-      return { type: 'sticker', item: { ...sticker }, uid: generateUID(), groupId: generateUID(), shapeSize: 1, ...extras };
-    }
+    case CELL_TYPES.ANY_STICKER:
+      // Sticker type will be assigned later during group binding
+      return { type: 'sticker', item: null, uid: generateUID(), groupId: null, shapeSize: 1, ...extras };
     default:
       return null;
   }
@@ -69,32 +63,23 @@ function resolveConstrainedCell(token, stickerBindings) {
 /**
  * Generate a wall from a template.
  *
- * 1. Bind sticker_A/B/C to random distinct sticker types
- * 2. Resolve all fixed/constrained cells
- * 3. Group adjacent same-binding sticker cells into polyomino groups
- * 4. Run procedural fill (doom + specials + stickers) on blank cells, respecting constraints
+ * 1. Resolve all fixed/constrained cells
+ * 2. Assign sticker types: group-based binding (same group = same type = same polyomino)
+ * 3. Procedural fill on blank cells, respecting settings
  */
 export function generateWallFromTemplate(template) {
   const { gridSize } = MATRIX_CONFIG;
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
-  const constraints = template.constraints || {};
+  const settings = template.settings || template.constraints || {};
 
-  // Step 1: Bind sticker slots to random distinct types
-  const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
-  const stickerBindings = {
-    [CELL_TYPES.STICKER_A]: shuffledStickers[0],
-    [CELL_TYPES.STICKER_B]: shuffledStickers[1],
-    [CELL_TYPES.STICKER_C]: shuffledStickers[2],
-  };
-
-  // Step 2: Resolve fixed/constrained cells
+  // Step 1: Resolve all template cells
   const doomCellCount = { resolution: 0, upgrade: 0 };
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const token = template.grid[r]?.[c];
       if (token === null || token === undefined) continue;
 
-      const cell = resolveConstrainedCell(token, stickerBindings);
+      const cell = resolveConstrainedCell(token);
       if (cell) {
         grid[r][c] = cell;
         if (cell.type === 'doom_resolution') doomCellCount.resolution++;
@@ -103,52 +88,98 @@ export function generateWallFromTemplate(template) {
     }
   }
 
-  // Step 3: Group adjacent sticker cells with same item.id into polyominos
-  const visited = Array.from({ length: gridSize }, () => Array(gridSize).fill(false));
+  // Step 2: Assign sticker types based on group numbers
+  // Collect all group numbers used in the template
+  const groupNumbers = new Set();
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
-      const cell = grid[r][c];
-      if (!cell || cell.type !== 'sticker' || visited[r][c]) continue;
-
-      const itemId = cell.item.id;
-      const group = [];
-      const queue = [[r, c]];
-      visited[r][c] = true;
-
-      while (queue.length > 0) {
-        const [cr, cc] = queue.shift();
-        group.push([cr, cc]);
-        for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
-          const nr = cr + dr;
-          const nc = cc + dc;
-          if (nr < 0 || nr >= gridSize || nc < 0 || nc >= gridSize) continue;
-          if (visited[nr][nc]) continue;
-          const neighbor = grid[nr][nc];
-          if (neighbor && neighbor.type === 'sticker' && neighbor.item.id === itemId) {
-            visited[nr][nc] = true;
-            queue.push([nr, nc]);
-          }
-        }
-      }
-
-      const groupId = generateUID();
-      for (const [gr, gc] of group) {
-        grid[gr][gc].groupId = groupId;
-        grid[gr][gc].shapeSize = group.length;
+      const token = template.grid[r]?.[c];
+      if (token && typeof token === 'object' && token.group !== undefined) {
+        groupNumbers.add(token.group);
       }
     }
   }
 
-  // Step 4: Procedural fill on remaining blank cells
-  const proceduralDoom = fillDoomAndSpecials(grid, gridSize, constraints);
+  // Shuffle sticker types and assign one per group number
+  const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
+  const groupToSticker = new Map();
+  const groupToGroupId = new Map();
+  let stickerIdx = 0;
+  for (const gNum of groupNumbers) {
+    groupToSticker.set(gNum, shuffledStickers[stickerIdx % shuffledStickers.length]);
+    groupToGroupId.set(gNum, generateUID());
+    stickerIdx++;
+  }
+  const distinctGroupTypes = groupNumbers.size;
+
+  // Apply sticker types and groupIds to all sticker cells
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      const cell = grid[r][c];
+      if (!cell || cell.type !== 'sticker') continue;
+
+      const token = template.grid[r]?.[c];
+      const gNum = (typeof token === 'object' && token !== null) ? token.group : undefined;
+
+      if (gNum !== undefined && groupToSticker.has(gNum)) {
+        // Grouped sticker: same type and groupId as its group
+        cell.item = { ...groupToSticker.get(gNum) };
+        cell.groupId = groupToGroupId.get(gNum);
+      } else {
+        // Ungrouped sticker: independent, random type
+        cell.item = { ...shuffledStickers[(stickerIdx++) % shuffledStickers.length] };
+        cell.groupId = generateUID();
+      }
+    }
+  }
+
+  // Count shape sizes for each group
+  const groupCellCounts = new Map();
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      const cell = grid[r][c];
+      if (cell && cell.type === 'sticker' && cell.groupId) {
+        groupCellCounts.set(cell.groupId, (groupCellCounts.get(cell.groupId) || 0) + 1);
+      }
+    }
+  }
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      const cell = grid[r][c];
+      if (cell && cell.type === 'sticker' && cell.groupId) {
+        cell.shapeSize = groupCellCounts.get(cell.groupId) || 1;
+      }
+    }
+  }
+
+  // Step 3: Procedural fill on blank cells
+  const proceduralDoom = fillDoomAndSpecials(grid, gridSize, {
+    maxDoomInBlank: settings.maxDoomInBlank,
+  });
   doomCellCount.resolution += proceduralDoom.resolution;
   doomCellCount.upgrade += proceduralDoom.upgrade;
 
-  const stickerCount = constraints.stickerTypeCount || (3 + Math.floor(Math.random() * 2));
-  const wallStickers = pickWallStickers(STICKER_TYPES, stickerCount, stickerCount);
+  // Determine how many sticker types for procedural fill
+  const [rangeMin, rangeMax] = settings.stickerTypeRange || [3, 4];
+  const totalMin = Math.max(rangeMin, distinctGroupTypes);
+  const totalMax = Math.max(rangeMax, totalMin);
+  const totalTarget = totalMin + Math.floor(Math.random() * (totalMax - totalMin + 1));
+  const proceduralTypeCount = Math.max(1, totalTarget - distinctGroupTypes);
+
+  // Pick procedural sticker types (excluding types already used by groups)
+  const usedStickerIds = new Set([...groupToSticker.values()].map(s => s.id));
+  const availableStickers = STICKER_TYPES.filter(s => !usedStickerIds.has(s.id));
+  let wallStickers;
+  if (availableStickers.length >= proceduralTypeCount) {
+    wallStickers = pickWallStickers(availableStickers, proceduralTypeCount, proceduralTypeCount);
+  } else {
+    // Not enough unique types left, use all available + some repeats
+    wallStickers = pickWallStickers(STICKER_TYPES, proceduralTypeCount, proceduralTypeCount);
+  }
+
   fillEmptyCellsWithStickers(grid, wallStickers, gridSize);
 
-  // Collect all unique sticker types actually present on the grid
+  // Collect all unique sticker types on the grid for preview
   const stickerMap = new Map();
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
@@ -158,7 +189,6 @@ export function generateWallFromTemplate(template) {
       }
     }
   }
-  const allStickers = [...stickerMap.values()];
 
-  return { grid, doomCellCount, stickers: allStickers };
+  return { grid, doomCellCount, stickers: [...stickerMap.values()] };
 }
