@@ -168,29 +168,35 @@ export const useGameLogic = (config) => {
         // Reset draw direction for alternating wall
         setLastDrawDirection(null);
 
-        // 3-choose-1 wall selection — no duplicate wall types
+        // 3-choose-1 wall selection
+        // Each candidate is EITHER a wallType (procedural) OR a level (no wallType). Mutually exclusive.
         const candidates = [];
-        const usedTypeIds = new Set();
-        while (candidates.length < 3) {
-            const wallType = pickWallType();
-            if (usedTypeIds.has(wallType.id)) continue;
-            usedTypeIds.add(wallType.id);
+        const usedIds = new Set(); // track wallType ids and level ids to avoid duplicates
+        const currentExpedition = Math.max(1, expeditionNumber);
 
-            // expeditionNumber state may not be updated yet (React async), so use at least 1
-            const template = pickTemplate(Math.max(1, expeditionNumber));
-            let stickers, grid, doomCellCount;
+        while (candidates.length < 3) {
+            // Try to pick a level first, then fall back to wallType
+            const template = pickTemplate(currentExpedition);
 
             if (template) {
+                if (usedIds.has('level:' + template.id)) continue;
+                usedIds.add('level:' + template.id);
                 const result = generateWallFromTemplate(template);
-                stickers = result.stickers;
-                grid = result.grid;
-                doomCellCount = result.doomCellCount;
+                candidates.push({
+                    stickers: result.stickers,
+                    grid: result.grid,
+                    doomCellCount: result.doomCellCount,
+                    wallType: null,
+                    level: template,
+                });
             } else {
-                stickers = pickWallStickers(STICKER_TYPES);
-                ({ grid, doomCellCount } = generateWall(stickers));
+                const wallType = pickWallType();
+                if (usedIds.has('wall:' + wallType.id)) continue;
+                usedIds.add('wall:' + wallType.id);
+                const stickers = pickWallStickers(STICKER_TYPES);
+                const { grid, doomCellCount } = generateWall(stickers);
+                candidates.push({ stickers, grid, doomCellCount, wallType, level: null });
             }
-
-            candidates.push({ stickers, grid, doomCellCount, wallType, templateId: template?.id });
         }
         setWallCandidates(candidates);
         setPhase('wall_choice');
@@ -243,6 +249,14 @@ export const useGameLogic = (config) => {
 
         // Apply wall-type mutations to the grid before setting it
         const grid = chosen.grid.map(r => r.map(c => c ? { ...c } : null));
+
+        // Level candidates have no wallType — skip modifier mutations
+        if (!wallType) {
+            setMatrix(grid);
+            setWallCandidates(null);
+            setPhase('drawing');
+            return;
+        }
 
         if (wallType.id === 'hidden') {
             // Mark ~30% of groups/single cells as hidden (whole group hides together)
