@@ -29,7 +29,6 @@ export default function LevelEditor() {
 
   const existingTemplate = templateId
     ? LEVEL_TEMPLATES.find(t => t.id === templateId)
-      ?? (() => { try { return JSON.parse(localStorage.getItem('levelTemplates') || '[]').find(t => t.id === templateId); } catch { return null; } })()
     : null;
 
   const existingSettings = existingTemplate?.settings || existingTemplate?.constraints || {};
@@ -81,39 +80,21 @@ export default function LevelEditor() {
     setTestResult(result.grid);
   };
 
-  // Export JSON
-  const handleExport = () => {
-    const template = { id, name, description, grid, settings: buildSettings() };
-    const json = JSON.stringify(template, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${id || 'template'}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Save to localStorage
+  // Save as JSON file (download to disk, then place in src/data/levels/)
   const handleSave = () => {
     if (!id.trim()) {
       alert('请填写关卡 ID');
       return;
     }
     const template = { id, name, description, grid, settings: buildSettings() };
-    const saved = JSON.parse(localStorage.getItem('levelTemplates') || '[]');
-    const idx = saved.findIndex(t => t.id === id);
-
-    const builtinCollision = LEVEL_TEMPLATES.find(t => t.id === id);
-    if (builtinCollision && idx < 0) {
-      alert(`ID "${id}" 与内置关卡冲突，请换一个 ID`);
-      return;
-    }
-
-    if (idx >= 0) saved[idx] = template;
-    else saved.push(template);
-    localStorage.setItem('levelTemplates', JSON.stringify(saved));
-    alert('已保存到 localStorage');
+    const json = JSON.stringify(template, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleClear = () => setGrid(EMPTY_GRID());
@@ -154,8 +135,7 @@ export default function LevelEditor() {
           <div className="flex gap-2">
             <button onClick={handleClear} className="px-3 py-1.5 bg-gray-700 rounded text-sm hover:bg-gray-600">清空</button>
             <button onClick={handleTest} className="px-3 py-1.5 bg-blue-700 rounded text-sm hover:bg-blue-600">测试生成</button>
-            <button onClick={handleSave} className="px-3 py-1.5 bg-green-700 rounded text-sm hover:bg-green-600">保存</button>
-            <button onClick={handleExport} className="px-3 py-1.5 bg-purple-700 rounded text-sm hover:bg-purple-600">导出 JSON</button>
+            <button onClick={handleSave} className="px-3 py-1.5 bg-green-700 rounded text-sm hover:bg-green-600">保存 JSON</button>
           </div>
         </div>
 

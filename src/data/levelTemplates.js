@@ -26,103 +26,45 @@ export const CELL_TYPES = {
   ANY_STICKER: 'any_sticker',     // random sticker type, 1×1 unless grouped
 };
 
-// --- Sample templates ---
+// --- Levels: auto-imported from src/data/levels/*.json ---
 
-export const LEVEL_TEMPLATES = [
-  {
-    id: 'bomb_ring',
-    name: '炸弹圈',
-    description: '外圈炸弹包围，中心高倍贴纸',
-    grid: [
-      ['bomb', 'bomb', 'bomb', 'bomb', 'bomb'],
-      ['bomb', null,   null,   null,   'bomb'],
-      ['bomb', null,   { type: 'any_sticker', multiplier: 5 }, null, 'bomb'],
-      ['bomb', null,   null,   null,   'bomb'],
-      ['bomb', 'bomb', 'bomb', 'bomb', 'bomb'],
-    ],
-    settings: {
-      stickerTypeRange: [2, 2],
-    },
-  },
-  {
-    id: 'doom_corridor',
-    name: '死亡走廊',
-    description: '厄运格集中在中间列，两侧是安全贴纸区',
-    grid: [
-      [null, null, 'doom_resolve', null, null],
-      [null, null, 'any_doom',     null, null],
-      [null, null, 'doom_upgrade', null, null],
-      [null, null, 'any_doom',     null, null],
-      [null, null, 'doom_resolve', null, null],
-    ],
-    settings: {
-      maxDoomInBlank: 0,
-    },
-  },
-  {
-    id: 'treasure_corners',
-    name: '四角宝藏',
-    description: '四角放高价值物品，中间是风险区',
-    grid: [
-      [{ type: 'out_of_game' }, null, null, null, { type: 'out_of_game' }],
-      [null, 'any_doom', null, 'any_doom', null],
-      [null, null, 'bomb', null, null],
-      [null, 'any_doom', null, 'any_doom', null],
-      [{ type: 'out_of_game' }, null, null, null, { type: 'out_of_game' }],
-    ],
-    settings: {},
-  },
-];
+const levelModules = import.meta.glob('./levels/*.json', { eager: true });
+export const LEVEL_TEMPLATES = Object.values(levelModules).map(m => m.default);
 
-// --- Schedule config (controls how templates appear in gameplay) ---
+// --- Schedule config (controls how levels appear in gameplay) ---
 
-export const TEMPLATE_SCHEDULE = [
-  { templateId: 'bomb_ring',        weight: 10, enabled: true, minExpedition: 1 },
-  { templateId: 'doom_corridor',    weight: 15, enabled: true, minExpedition: 1 },
-  { templateId: 'treasure_corners', weight: 10, enabled: true, minExpedition: 2 },
-];
+// Default schedule for built-in levels (overridable via localStorage in Level Manager)
+export const TEMPLATE_SCHEDULE = LEVEL_TEMPLATES.map(t => ({
+  templateId: t.id,
+  weight: 10,
+  enabled: true,
+  minExpedition: 1,
+}));
 
-// Weight for "no template" (pure procedural wall) — so templates don't dominate
+// Weight for "no template" (pure procedural wall) — so levels don't dominate
 export const PROCEDURAL_WEIGHT = 60;
 
 /**
- * Pick a template based on schedule weights, or null for procedural.
+ * Pick a level template based on schedule weights, or null for procedural.
  * Respects localStorage overrides from the Level Manager.
  * @param {number} expeditionNumber — current expedition (1-based)
  */
 export function pickTemplate(expeditionNumber) {
-  // Load schedule overrides from localStorage (editor saves here)
+  // Load schedule overrides from localStorage (Level Manager saves here)
   let schedule = [...TEMPLATE_SCHEDULE];
   let proceduralWt = PROCEDURAL_WEIGHT;
   try {
     const overrides = JSON.parse(localStorage.getItem('templateSchedule') || '{}');
     if (overrides._proceduralWeight !== undefined) proceduralWt = overrides._proceduralWeight;
     schedule = schedule.map(s => ({ ...s, ...overrides[s.templateId] }));
-
-    // Also include custom templates from localStorage
-    const customTemplates = JSON.parse(localStorage.getItem('levelTemplates') || '[]');
-    for (const ct of customTemplates) {
-      if (!schedule.find(s => s.templateId === ct.id)) {
-        const override = overrides[ct.id] || {};
-        schedule.push({ templateId: ct.id, weight: 10, enabled: false, minExpedition: 1, ...override });
-      }
-    }
   } catch { /* ignore parse errors */ }
 
   const eligible = schedule.filter(
     s => s.enabled && expeditionNumber >= (s.minExpedition || 1)
   );
 
-  // Look up templates from both built-in and localStorage (built-in wins on ID collision)
-  const allTemplates = [...LEVEL_TEMPLATES];
-  const builtinIds = new Set(LEVEL_TEMPLATES.map(t => t.id));
-  try {
-    const custom = JSON.parse(localStorage.getItem('levelTemplates') || '[]');
-    allTemplates.push(...custom.filter(t => !builtinIds.has(t.id)));
-  } catch { /* ignore */ }
-
   const entries = eligible.map(s => {
-    const template = allTemplates.find(t => t.id === s.templateId);
+    const template = LEVEL_TEMPLATES.find(t => t.id === s.templateId);
     return template ? { template, weight: s.weight } : null;
   }).filter(Boolean);
 

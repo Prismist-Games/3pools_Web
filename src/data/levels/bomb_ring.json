@@ -1,0 +1,15 @@
+{
+  "id": "bomb_ring",
+  "name": "炸弹圈",
+  "description": "外圈炸弹包围，中心高倍贴纸",
+  "grid": [
+    ["bomb", "bomb", "bomb", "bomb", "bomb"],
+    ["bomb", null, null, null, "bomb"],
+    ["bomb", null, { "type": "any_sticker", "multiplier": 5 }, null, "bomb"],
+    ["bomb", null, null, null, "bomb"],
+    ["bomb", "bomb", "bomb", "bomb", "bomb"]
+  ],
+  "settings": {
+    "stickerTypeRange": [2, 2]
+  }
+}

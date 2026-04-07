@@ -4,11 +4,6 @@ import { Link } from 'react-router-dom';
 import { LEVEL_TEMPLATES, TEMPLATE_SCHEDULE, PROCEDURAL_WEIGHT } from '../../data/levelTemplates';
 import TemplatePreview from './TemplatePreview';
 
-function loadCustomTemplates() {
-  try { return JSON.parse(localStorage.getItem('levelTemplates') || '[]'); }
-  catch { return []; }
-}
-
 function loadScheduleOverrides() {
   try { return JSON.parse(localStorage.getItem('templateSchedule') || '{}'); }
   catch { return {}; }
@@ -19,12 +14,7 @@ function saveScheduleOverrides(overrides) {
 }
 
 export default function LevelManager() {
-  const customTemplates = loadCustomTemplates();
-  const builtinIds = new Set(LEVEL_TEMPLATES.map(t => t.id));
-  const allTemplates = [
-    ...LEVEL_TEMPLATES.map(t => ({ ...t, source: 'builtin' })),
-    ...customTemplates.filter(t => !builtinIds.has(t.id)).map(t => ({ ...t, source: 'custom' })),
-  ];
+  const allTemplates = LEVEL_TEMPLATES.map(t => ({ ...t }));
 
   const [overrides, setOverrides] = useState(loadScheduleOverrides);
   const [proceduralWeight, setProceduralWeight] = useState(
@@ -86,9 +76,6 @@ export default function LevelManager() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm truncate">{template.name || template.id}</span>
-                    {template.source === 'custom' && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-blue-800 rounded">自定义</span>
-                    )}
                   </div>
                   <p className="text-xs text-gray-400 mt-1 line-clamp-2">{template.description}</p>
                 </div>
