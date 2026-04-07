@@ -65,7 +65,7 @@ const BulletinBoard = ({ orders, onAccept, incomingOrder, onConfirmIncoming, onD
                                 </button>
                             )}
                             <button onClick={onDiscardIncoming}
-                                className="text-[10px] text-gray-400 hover:text-red-500 transition-colors">
+                                className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">
                                 {t('放弃')}
                             </button>
                         </div>

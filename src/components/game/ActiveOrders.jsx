@@ -23,7 +23,7 @@ const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcce
                                 <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
                             ))}
                         </div>
-                        <button onClick={onCancelReplace} className="text-[10px] text-gray-400 hover:text-red-500 transition-colors">
+                        <button onClick={onCancelReplace} className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">
                             {t('取消')}
                         </button>
                     </div>

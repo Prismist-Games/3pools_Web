@@ -10,7 +10,7 @@ import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 
 const GameCore = () => {
-    const { t } = useLanguage();
+    const { t, language, toggleLanguage } = useLanguage();
     const inventoryRef = useRef(null);
     const bulletinRef = useRef(null);
     const [hoveredStickerIds, setHoveredStickerIds] = useState(null);
@@ -32,7 +32,7 @@ const GameCore = () => {
         matrix, wallCandidates, lastDrawResult, currentWallType, lastDrawDirection,
         hp, doomGrid, doomLevel, dangerCount,
         isDoomResolving, doomAnimState, doomResolutionResult,
-        inventory, maxInventorySize, pendingItem, pendingItemCount,
+        inventory, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating,
@@ -147,7 +147,8 @@ const GameCore = () => {
                             <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
                                 ⭐ {totalScore}/{expeditionConfig.scoreToWin}
                             </span>
-                            <button onClick={handleReset} className="text-[11px] text-gray-300 hover:text-red-500 transition-colors ml-1">{t('重置')}</button>
+                            <button onClick={toggleLanguage} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-600 border border-indigo-200 hover:bg-indigo-200 transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
+                            <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-100 text-red-500 border border-red-200 hover:bg-red-200 transition-colors">{t('重置')}</button>
                         </div>
                     </div>
                     {/* Row 2: In-game Resources */}
@@ -305,7 +306,7 @@ const GameCore = () => {
                                         gold={gold}
                                         drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
                                         phase={phase}
-                                        disabled={isDoomResolving || isDrawAnimating}
+                                        disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
                                         drawAnimState={drawAnimState}
                                         wallType={currentWallType}
                                         lastDrawDirection={lastDrawDirection}
@@ -321,7 +322,7 @@ const GameCore = () => {
                                                 : 'bg-gray-100 text-gray-500'
                                         }`}>
                                             {lastDrawResult.obtained
-                                                ? `${t('获得')}: ${lastDrawResult.obtained.item.icon} ${lastDrawResult.obtained.item.name}`
+                                                ? `${t('获得')}: ${lastDrawResult.obtained.item.icon} ${t(lastDrawResult.obtained.item.name)}`
                                                 : t('未获得物品')
                                             }
                                         </div>
@@ -331,9 +332,9 @@ const GameCore = () => {
                                     <div className="mt-4 flex gap-2">
                                         <button
                                             onClick={endTurn}
-                                            disabled={isDoomResolving || isDrawAnimating}
+                                            disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
                                             className={`px-6 py-2 rounded-lg font-bold transition-colors ${
-                                                isDoomResolving || isDrawAnimating
+                                                isDoomResolving || isDrawAnimating || pendingItems.length > 0
                                                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                                     : 'bg-gray-700 text-white hover:bg-gray-800'
                                             }`}
@@ -464,7 +465,7 @@ const GameCore = () => {
                                                     {t('确认回收')} {recycleSelected.size > 0 && `(${recycleSelected.size})`}
                                                 </button>
                                                 <button onClick={() => { setRecycleMode(false); setRecycleSelected(new Set()); }}
-                                                    className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors">{t('取消')}</button>
+                                                    className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">{t('取消')}</button>
                                             </div>
                                         </div>
                                     ) : !pendingItem && (
@@ -474,20 +475,28 @@ const GameCore = () => {
                                                 className="text-[10px] px-2 py-1 rounded-md font-bold text-gray-500 bg-gray-200 hover:bg-red-100 hover:text-red-500 transition-colors">{t('回收')}</button>
                                         </div>
                                     )}
-                                    {/* Pending item */}
-                                    {pendingItem && !recycleMode && (
-                                        <div className="mb-2 p-2 bg-amber-50 border border-amber-300 rounded-lg">
+                                    {/* Pending items queue */}
+                                    {pendingItems.length > 0 && !recycleMode && (
+                                        <div className="mb-2 p-2 bg-amber-50 border-2 border-amber-300 rounded-lg">
                                             <div className="flex items-center justify-between mb-1.5">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-lg">{pendingItem.icon}</span>
-                                                    <span className="text-xs font-bold text-amber-700">{pendingItem.name}</span>
-                                                </div>
-                                                {pendingItemCount > 1 && (
-                                                    <span className="text-[10px] font-bold text-amber-500 bg-amber-200 px-1.5 py-0.5 rounded-full">{pendingItemCount}</span>
-                                                )}
+                                                <span className="text-[11px] font-bold text-amber-700">{t('待处理物品')}</span>
+                                                <span className="text-[10px] font-bold text-amber-500 bg-amber-200 px-1.5 py-0.5 rounded-full">{pendingItems.length}</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5 mb-2">
+                                                {pendingItems.map((pItem, idx) => {
+                                                    const pSc = pItem.isOutOfGame ? (SCORE_STYLE[pItem.score] || SCORE_STYLE[1]) : null;
+                                                    return (
+                                                        <div key={pItem.uid || idx} className={`relative w-9 h-9 rounded border-2 flex items-center justify-center text-lg shadow-sm
+                                                            ${idx === 0 ? 'ring-2 ring-amber-400' : 'opacity-60'}
+                                                            ${pSc ? `${pSc.border} bg-gradient-to-b ${pSc.bg}` : 'border-gray-300 bg-white'}`}>
+                                                            {pItem.icon}
+                                                            {pSc && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center shadow`}>{pItem.score}</span>}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                             <p className="text-[11px] text-amber-600 mb-1.5">{t('背包已满，点击下方物品替换')}</p>
-                                            <button onClick={discardPendingItem} className="text-[11px] text-gray-400 hover:text-red-500 transition-colors">{t('丢弃新物品')}</button>
+                                            <button onClick={discardPendingItem} className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">{t('丢弃当前物品')}</button>
                                         </div>
                                     )}
                                     <div className="grid grid-cols-5 gap-1">
@@ -517,7 +526,7 @@ const GameCore = () => {
                                                             : 'bg-white border-gray-300'}
                                                         ${canReplace ? 'cursor-pointer hover:bg-red-50 hover:border-red-400 hover:scale-110'
                                                             : recycleMode && item ? 'cursor-pointer hover:border-red-400' : ''}`}
-                                                    title={item ? item.name : ''}
+                                                    title={item ? t(item.name) : ''}
                                                 >
                                                     {item ? item.icon : ''}
                                                     {sc && (
@@ -569,7 +578,7 @@ const GameCore = () => {
                                                         <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow`}>
                                                             +{item.score}
                                                         </span>
-                                                        <span className="text-[10px] text-gray-500 mt-1 truncate max-w-[56px] text-center">{item.name}</span>
+                                                        <span className="text-[10px] text-gray-500 mt-1 truncate max-w-[56px] text-center">{t(item.name)}</span>
                                                     </div>
                                                 );
                                             })}

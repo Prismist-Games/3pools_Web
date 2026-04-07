@@ -22,7 +22,7 @@ const WallPicker = ({ candidates, onSelect }) => {
                         <div className="text-[9px] text-gray-300 uppercase tracking-wide mb-1">{t('贴纸')}</div>
                         <div className="flex gap-1 mb-3">
                             {wall.stickers.map(s => (
-                                <div key={s.id} className="w-8 h-8 rounded border border-gray-300 bg-white flex items-center justify-center text-base shadow-sm" title={s.name}>
+                                <div key={s.id} className="w-8 h-8 rounded border border-gray-300 bg-white flex items-center justify-center text-base shadow-sm" title={t(s.name)}>
                                     {s.icon}
                                 </div>
                             ))}

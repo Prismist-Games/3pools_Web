@@ -23,27 +23,27 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
     let icon, name, desc;
     if (cell.type === 'doom_resolution') {
         icon = cell.icon;
-        name = cell.name;
+        name = t(cell.name);
         desc = t('抽中时触发厄运结算，不获得物品');
     } else if (cell.type === 'doom_upgrade') {
         icon = cell.icon;
-        name = cell.name;
+        name = t(cell.name);
         desc = t('抽中时厄运等级+1，不获得物品');
     } else if (cell.type === 'gold') {
         icon = cell.icon;
-        name = cell.name;
+        name = t(cell.name);
         desc = t('抽中时获得金币');
     } else if (cell.type === 'order_cell') {
         icon = cell.icon;
-        name = cell.name;
+        name = t(cell.name);
         desc = t('抽中时获得一个新订单');
     } else if (cell.type === 'out_of_game') {
         icon = cell.icon;
-        name = cell.name;
+        name = t(cell.name);
         desc = t('抽中时直接获得局外物品');
     } else if (cell.type === 'bomb') {
         icon = cell.icon;
-        name = cell.name;
+        name = t(cell.name);
         desc = t('抽中时爆炸，摧毁周围所有格子');
     } else {
         return null;
@@ -174,7 +174,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
             {cellContent}
             {cell !== null && (cell.type === 'item' || cell.type === 'sticker') && !cell.hidden && (
                 <span className="text-[9px] text-gray-600 leading-none mt-0.5 truncate max-w-[48px] font-medium">
-                    {cell.item.name}
+                    {t(cell.item.name)}
                 </span>
             )}
             {hasTip && <CellTooltip cell={cell} anchorRef={ref} visible={hovered} t={t} />}

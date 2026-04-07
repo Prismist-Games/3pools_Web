@@ -991,7 +991,7 @@ export const useGameLogic = (config) => {
         inventory,
         maxInventorySize,
         pendingItem,
-        pendingItemCount: pendingItems.length,
+        pendingItems,
 
         // Orders
         bulletinBoard,
