@@ -8,6 +8,7 @@ import ActiveOrders from './components/game/ActiveOrders';
 import ScoreBoard from './components/game/ScoreBoard';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
+import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from './data/v2Config';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -16,6 +17,8 @@ const GameCore = () => {
     const [hoveredStickerIds, setHoveredStickerIds] = useState(null);
     const [recycleMode, setRecycleMode] = useState(false);
     const [recycleSelected, setRecycleSelected] = useState(new Set());
+    const [debugOpen, setDebugOpen] = useState(false);
+    const [debugSelectedItem, setDebugSelectedItem] = useState(null);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -40,7 +43,7 @@ const GameCore = () => {
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
-        replaceInventoryItem, discardInventoryItem, discardPendingItem,
+        replaceInventoryItem, discardInventoryItem, discardPendingItem, debugAddItem,
         bulletinBoard, activeOrders,
         acceptOrder, submitOrder, canSubmitOrder,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
@@ -149,6 +152,7 @@ const GameCore = () => {
                             </span>
                             <button onClick={toggleLanguage} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-600 border border-indigo-200 hover:bg-indigo-200 transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
                             <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-100 text-red-500 border border-red-200 hover:bg-red-200 transition-colors">{t('重置')}</button>
+                            <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                         </div>
                     </div>
                     {/* Row 2: In-game Resources */}
@@ -543,6 +547,7 @@ const GameCore = () => {
                                     </div>
                                 </div>
                             </div>
+
                         </div>
                     </div>
                 )}
@@ -646,6 +651,58 @@ const GameCore = () => {
                     </div>
                 )}
 
+
+                {/* Debug Modal */}
+                {debugOpen && (
+                    <div className="fixed inset-0 z-50 flex items-start justify-end p-4 pointer-events-none">
+                        <div className="pointer-events-auto bg-gray-900 rounded-xl shadow-2xl border border-gray-700 w-72 mt-12">
+                            <div className="px-4 py-2.5 border-b border-gray-700 flex items-center justify-between">
+                                <span className="text-sm font-bold text-gray-200">🛠 Debug</span>
+                                <button onClick={() => setDebugOpen(false)} className="text-gray-500 hover:text-gray-200 text-lg leading-none">×</button>
+                            </div>
+                            <div className="p-4">
+                                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Stickers</div>
+                                <div className="flex flex-wrap gap-1.5 mb-3">
+                                    {STICKER_TYPES.map(s => (
+                                        <button key={s.id} onClick={() => setDebugSelectedItem({ ...s, isSticker: true })}
+                                            className={`w-8 h-8 rounded-lg border text-base flex items-center justify-center transition-colors
+                                                ${debugSelectedItem?.id === s.id && debugSelectedItem?.isSticker ? 'border-blue-400 bg-blue-900 ring-2 ring-blue-500' : 'border-gray-600 bg-gray-800 hover:border-gray-400'}`}>
+                                            {s.icon}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Out-of-game Items</div>
+                                <div className="flex flex-wrap gap-1.5 mb-4">
+                                    {OUT_OF_GAME_ITEMS.map(item => (
+                                        <button key={item.id} onClick={() => setDebugSelectedItem(item)}
+                                            className={`w-8 h-8 rounded-lg border text-base flex items-center justify-center transition-colors
+                                                ${debugSelectedItem?.id === item.id && !debugSelectedItem?.isSticker ? 'border-blue-400 bg-blue-900 ring-2 ring-blue-500' : 'border-gray-600 bg-gray-800 hover:border-gray-400'}`}>
+                                            {item.icon}
+                                        </button>
+                                    ))}
+                                </div>
+                                {debugSelectedItem ? (
+                                    <div>
+                                        <div className="text-xs text-gray-300 mb-2 text-center">
+                                            {debugSelectedItem.icon} {t(debugSelectedItem.name)}
+                                            {debugSelectedItem.score && <span className="text-gray-500 ml-1">({debugSelectedItem.score}pts)</span>}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => debugAddItem(debugSelectedItem, 1)}
+                                                className="flex-1 py-1.5 rounded-lg bg-green-700 text-green-100 text-xs font-bold hover:bg-green-600 transition-colors">+1</button>
+                                            <button onClick={() => debugAddItem(debugSelectedItem, 5)}
+                                                className="flex-1 py-1.5 rounded-lg bg-blue-700 text-blue-100 text-xs font-bold hover:bg-blue-600 transition-colors">+5</button>
+                                            <button onClick={() => debugAddItem(debugSelectedItem, maxInventorySize)}
+                                                className="flex-1 py-1.5 rounded-lg bg-purple-700 text-purple-100 text-xs font-bold hover:bg-purple-600 transition-colors">Fill</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-[11px] text-gray-600 text-center">Select an item above</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}

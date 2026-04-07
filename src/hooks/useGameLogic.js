@@ -635,6 +635,25 @@ export const useGameLogic = (config) => {
         setInventory(prev => prev.filter((_, i) => !idxSet.has(i)));
     };
 
+    /** Debug: add items directly to inventory */
+    const debugAddItem = (itemDef, count) => {
+        const makeItem = () => itemDef.isSticker
+            ? { name: itemDef.name, icon: itemDef.icon, stickerId: itemDef.id, isSticker: true, uid: generateUID() }
+            : { id: itemDef.id, name: itemDef.name, icon: itemDef.icon, score: itemDef.score, isOutOfGame: true, uid: generateUID() };
+
+        const toInventory = [];
+        const toPending = [];
+        for (let i = 0; i < count; i++) {
+            if (inventory.length + toInventory.length < maxInventorySize) {
+                toInventory.push(makeItem());
+            } else {
+                toPending.push(makeItem());
+            }
+        }
+        if (toInventory.length > 0) setInventory(prev => [...prev, ...toInventory]);
+        if (toPending.length > 0) setPendingItems(prev => [...prev, ...toPending]);
+    };
+
     // =============================================
     // ORDER SYSTEM
     // =============================================
@@ -1022,6 +1041,7 @@ export const useGameLogic = (config) => {
         completeDrawAnim,
         replaceInventoryItem,
         discardInventoryItem,
+        debugAddItem,
         discardPendingItem,
         acceptOrder,
         submitOrder,
