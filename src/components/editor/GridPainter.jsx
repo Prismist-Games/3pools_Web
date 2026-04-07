@@ -1,0 +1,98 @@
+import React, { useState, useCallback } from 'react';
+import { CELL_TYPES } from '../../data/levelTemplates';
+import { MATRIX_CONFIG } from '../../data/matrixConfig';
+
+const CELL_DISPLAY = {
+  doom_resolve: { icon: '💀', bg: 'bg-red-900/60', label: '厄运结算' },
+  doom_upgrade: { icon: '⬆️', bg: 'bg-red-700/60', label: '厄运升级' },
+  any_doom: { icon: '💀?', bg: 'bg-red-800/40', label: '随机厄运' },
+  bomb: { icon: '💣', bg: 'bg-orange-900/60', label: '炸弹' },
+  gold: { icon: '💰', bg: 'bg-yellow-700/60', label: '金币' },
+  order: { icon: '📋', bg: 'bg-blue-700/60', label: '订单' },
+  out_of_game: { icon: '🎁', bg: 'bg-purple-700/60', label: '出口物品' },
+  any_special: { icon: '❓', bg: 'bg-gray-600/60', label: '随机特殊' },
+  any_sticker: { icon: '🏷️', bg: 'bg-green-700/40', label: '随机贴纸' },
+  sticker_A: { icon: 'A', bg: 'bg-emerald-600/60', label: '贴纸A' },
+  sticker_B: { icon: 'B', bg: 'bg-cyan-600/60', label: '贴纸B' },
+  sticker_C: { icon: 'C', bg: 'bg-indigo-600/60', label: '贴纸C' },
+};
+
+function getCellType(cell) {
+  if (cell === null || cell === undefined) return null;
+  if (typeof cell === 'string') return cell;
+  return cell.type || null;
+}
+
+function getCellDisplay(cell) {
+  const type = getCellType(cell);
+  if (!type) return { icon: '', bg: 'bg-gray-800/30', label: '空白' };
+  return CELL_DISPLAY[type] || { icon: '?', bg: 'bg-gray-500/60', label: type };
+}
+
+export default function GridPainter({ grid, onGridChange, activeBrush, brushExtras }) {
+  const [isPainting, setIsPainting] = useState(false);
+  const gridSize = MATRIX_CONFIG.gridSize;
+
+  const applyBrush = useCallback((r, c) => {
+    const newGrid = grid.map(row => [...row]);
+    if (activeBrush === null) {
+      newGrid[r][c] = null;
+    } else if (brushExtras && Object.keys(brushExtras).length > 0) {
+      newGrid[r][c] = { type: activeBrush, ...brushExtras };
+    } else {
+      newGrid[r][c] = activeBrush;
+    }
+    onGridChange(newGrid);
+  }, [grid, activeBrush, brushExtras, onGridChange]);
+
+  const handleMouseDown = (r, c, e) => {
+    e.preventDefault();
+    if (e.button === 2) {
+      const newGrid = grid.map(row => [...row]);
+      newGrid[r][c] = null;
+      onGridChange(newGrid);
+    } else {
+      setIsPainting(true);
+      applyBrush(r, c);
+    }
+  };
+
+  const handleMouseEnter = (r, c) => {
+    if (isPainting) applyBrush(r, c);
+  };
+
+  const handleMouseUp = () => setIsPainting(false);
+
+  return (
+    <div
+      className="inline-grid gap-1 select-none"
+      style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {grid.map((row, r) =>
+        row.map((cell, c) => {
+          const display = getCellDisplay(cell);
+          const hasMultiplier = typeof cell === 'object' && cell?.multiplier;
+          return (
+            <div
+              key={`${r}-${c}`}
+              className={`w-16 h-16 ${display.bg} border border-gray-600 rounded flex flex-col items-center justify-center cursor-pointer hover:ring-2 hover:ring-white/50 transition-all relative`}
+              onMouseDown={(e) => handleMouseDown(r, c, e)}
+              onMouseEnter={() => handleMouseEnter(r, c)}
+              title={`[${r},${c}] ${display.label}`}
+            >
+              <span className="text-xl">{display.icon}</span>
+              {hasMultiplier && (
+                <span className="absolute bottom-0.5 right-1 text-xs font-bold text-yellow-300">
+                  x{cell.multiplier}
+                </span>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
