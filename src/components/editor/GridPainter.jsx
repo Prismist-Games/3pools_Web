@@ -11,6 +11,10 @@ const CELL_DISPLAY = {
   gold: { icon: '💰', bg: 'bg-yellow-700/60', label: '金币' },
   order: { icon: '📋', bg: 'bg-blue-700/60', label: '订单' },
   out_of_game: { icon: '🎁', bg: 'bg-purple-700/60', label: '出口物品' },
+  out_of_game_1: { icon: '🧸', bg: 'bg-green-700/60', label: '1分物品' },
+  out_of_game_2: { icon: '⌚', bg: 'bg-blue-700/60', label: '2分物品' },
+  out_of_game_3: { icon: '💻', bg: 'bg-purple-700/60', label: '3分物品' },
+  out_of_game_5: { icon: '🚗', bg: 'bg-orange-700/60', label: '5分物品' },
   any_special: { icon: '❓', bg: 'bg-gray-600/60', label: '随机特殊' },
   any_sticker: { icon: '🏷️', bg: 'bg-green-700/40', label: '贴纸' },
 };

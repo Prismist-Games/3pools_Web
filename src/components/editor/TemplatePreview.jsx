@@ -11,6 +11,10 @@ const MINI_COLORS = {
   gold: 'bg-yellow-600',
   order: 'bg-blue-600',
   out_of_game: 'bg-purple-600',
+  out_of_game_1: 'bg-green-600',
+  out_of_game_2: 'bg-blue-600',
+  out_of_game_3: 'bg-purple-600',
+  out_of_game_5: 'bg-orange-600',
   any_special: 'bg-gray-500',
   any_sticker: 'bg-green-600',
   // Resolved cell types (from generateWallFromTemplate output)

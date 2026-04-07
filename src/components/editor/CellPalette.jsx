@@ -10,7 +10,11 @@ const PALETTE_ITEMS = [
   { type: CELL_TYPES.BOMB, icon: '💣', label: '炸弹', group: '特殊' },
   { type: CELL_TYPES.GOLD, icon: '💰', label: '金币', group: '特殊' },
   { type: CELL_TYPES.ORDER, icon: '📋', label: '订单', group: '特殊' },
-  { type: CELL_TYPES.OUT_OF_GAME, icon: '🎁', label: '出口物品', group: '特殊' },
+  { type: CELL_TYPES.OUT_OF_GAME, icon: '🎁', label: '出口物品（随机）', group: '特殊' },
+  { type: CELL_TYPES.OUT_OF_GAME_1, icon: '🧸', label: '1分物品', group: '特殊' },
+  { type: CELL_TYPES.OUT_OF_GAME_2, icon: '⌚', label: '2分物品', group: '特殊' },
+  { type: CELL_TYPES.OUT_OF_GAME_3, icon: '💻', label: '3分物品', group: '特殊' },
+  { type: CELL_TYPES.OUT_OF_GAME_5, icon: '🚗', label: '5分物品', group: '特殊' },
   { type: CELL_TYPES.ANY_SPECIAL, icon: '❓', label: '随机特殊', group: '特殊' },
   { type: CELL_TYPES.ANY_STICKER, icon: '🏷️', label: '贴纸', group: '贴纸' },
 ];

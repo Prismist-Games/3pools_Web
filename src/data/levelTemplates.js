@@ -20,6 +20,10 @@ export const CELL_TYPES = {
   GOLD: 'gold',
   ORDER: 'order',
   OUT_OF_GAME: 'out_of_game',
+  OUT_OF_GAME_1: 'out_of_game_1',   // 1分物品
+  OUT_OF_GAME_2: 'out_of_game_2',   // 2分物品
+  OUT_OF_GAME_3: 'out_of_game_3',   // 3分物品
+  OUT_OF_GAME_5: 'out_of_game_5',   // 5分物品
   // Constrained types (resolved at generation time)
   ANY_DOOM: 'any_doom',           // randomly doom_resolve or doom_upgrade
   ANY_SPECIAL: 'any_special',     // randomly gold/order/out_of_game/bomb

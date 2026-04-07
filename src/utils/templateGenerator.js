@@ -48,6 +48,15 @@ function resolveConstrainedCell(token) {
       const item = OUT_OF_GAME_ITEMS[Math.floor(Math.random() * OUT_OF_GAME_ITEMS.length)];
       return { type: 'out_of_game', icon: item.icon, name: item.name, item: { ...item }, uid: generateUID(), ...extras };
     }
+    case CELL_TYPES.OUT_OF_GAME_1:
+    case CELL_TYPES.OUT_OF_GAME_2:
+    case CELL_TYPES.OUT_OF_GAME_3:
+    case CELL_TYPES.OUT_OF_GAME_5: {
+      const tier = parseInt(cellType.split('_').pop());
+      const pool = OUT_OF_GAME_ITEMS.filter(i => i.score === tier);
+      const item = pool[Math.floor(Math.random() * pool.length)];
+      return { type: 'out_of_game', icon: item.icon, name: item.name, item: { ...item }, uid: generateUID(), ...extras };
+    }
     case CELL_TYPES.ANY_SPECIAL: {
       const types = [CELL_TYPES.GOLD, CELL_TYPES.ORDER, CELL_TYPES.OUT_OF_GAME, CELL_TYPES.BOMB];
       return resolveConstrainedCell(types[Math.floor(Math.random() * types.length)]);
