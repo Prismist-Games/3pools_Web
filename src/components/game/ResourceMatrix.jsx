@@ -45,6 +45,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时爆炸，摧毁周围所有格子');
+    } else if (cell.type === 'entrance') {
+        icon = '🚪';
+        name = t('子关卡入口');
+        desc = t('抽中时进入子关卡');
     } else {
         return null;
     }
@@ -88,7 +92,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
-        || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb');
+        || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb' || cell.type === 'entrance');
     const { top, bottom, left, right } = adjacency;
 
     // Rounded corners — only on external corners
@@ -128,6 +132,8 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         bgClass = sc[cell.item?.score] || 'bg-pink-100 border-pink-400';
     } else if (cell.type === 'bomb') {
         bgClass = 'bg-gray-800 border-gray-900';
+    } else if (cell.type === 'entrance') {
+        bgClass = 'bg-teal-100 border-teal-400';
     } else {
         bgClass = 'bg-white border-gray-300';
     }
@@ -258,6 +264,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                     )}
                 </>
             );
+        }
+        if (cell.type === 'entrance') {
+            return <span className="text-xl">🚪</span>;
         }
         return (
             <>

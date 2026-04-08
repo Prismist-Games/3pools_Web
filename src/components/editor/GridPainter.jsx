@@ -45,6 +45,10 @@ function getCellGroup(cell) {
 function getCellDisplay(cell) {
   const type = getCellType(cell);
   if (!type) return { icon: '🎲', bg: 'bg-gray-800/30', label: '随机填充' };
+  if (type.startsWith('entrance:')) {
+    const subId = type.replace('entrance:', '');
+    return { icon: '🚪', bg: 'bg-teal-800/60', label: `入口: ${subId}` };
+  }
   return CELL_DISPLAY[type] || { icon: '?', bg: 'bg-gray-500/60', label: type };
 }
 

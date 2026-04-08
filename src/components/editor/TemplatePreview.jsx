@@ -38,6 +38,7 @@ const GROUP_BORDER_COLORS = [
 function getCellColor(cell) {
   if (!cell) return 'bg-gray-800/40';
   const type = typeof cell === 'string' ? cell : cell.type;
+  if (type && type.startsWith('entrance:')) return 'bg-teal-700';
   return MINI_COLORS[type] || 'bg-gray-600';
 }
 
