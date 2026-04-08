@@ -1,10 +1,30 @@
 {
-  "proceduralWeight": 60,
+  "proceduralWeight": 70,
   "levels": {
-    "bomb_cross": { "enabled": true, "weight": 10, "minExpedition": 1 },
-    "cow_level_item": { "enabled": true, "weight": 10, "minExpedition": 1 },
-    "cow_level_sticker": { "enabled": true, "weight": 10, "minExpedition": 1 },
-    "order_center": { "enabled": true, "weight": 10, "minExpedition": 1 },
-    "select_prize": { "enabled": true, "weight": 10, "minExpedition": 1 }
+    "bomb_cross": {
+      "enabled": true,
+      "weight": 10,
+      "minExpedition": 1
+    },
+    "cow_level_item": {
+      "enabled": true,
+      "weight": 1,
+      "minExpedition": 1
+    },
+    "cow_level_sticker": {
+      "enabled": true,
+      "weight": 3,
+      "minExpedition": 1
+    },
+    "order_center": {
+      "enabled": true,
+      "weight": 10,
+      "minExpedition": 1
+    },
+    "select_prize": {
+      "enabled": true,
+      "weight": 10,
+      "minExpedition": 1
+    }
   }
 }

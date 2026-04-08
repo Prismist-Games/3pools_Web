@@ -33,7 +33,9 @@ export const CELL_TYPES = {
 // --- Levels: auto-imported from src/data/levels/*.json ---
 
 const levelModules = import.meta.glob('./levels/*.json', { eager: true });
-export const LEVEL_TEMPLATES = Object.values(levelModules).map(m => m.default);
+export const LEVEL_TEMPLATES = Object.values(levelModules)
+  .map(m => m.default)
+  .filter(t => t && Array.isArray(t.grid)); // skip non-level JSONs that may end up in the folder
 
 // --- Schedule config: imported from levelSchedule.json ---
 
