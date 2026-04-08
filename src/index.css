@@ -57,6 +57,12 @@
     animation: parent-restore 0.3s cubic-bezier(0.2, 0, 0.2, 1) forwards;
 }
 
+@keyframes gravity-fall {
+    0% { transform: translateY(var(--gravity-from)); }
+    80% { transform: translateY(2px); }
+    100% { transform: translateY(0); }
+}
+
 @layer utilities {
   .scrollbar-hide::-webkit-scrollbar {
       display: none;

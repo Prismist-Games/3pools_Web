@@ -39,7 +39,7 @@ const GameCore = () => {
         inventory, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
-        drawAnimState, isDrawAnimating,
+        drawAnimState, isDrawAnimating, gravityDrops,
         startGame, selectRow, selectColumn, endTurn, continueToNextTurn, selectWall,
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
@@ -339,6 +339,7 @@ const GameCore = () => {
                                             lastDrawDirection={lastDrawDirection}
                                             onHoverStickerIds={setHoveredStickerIds}
                                             bonusItemMap={bonusItemMap}
+                                            gravityDrops={gravityDrops}
                                         />
 
                                         {/* Draw result feedback */}

@@ -102,7 +102,7 @@ const HALF = GAP / 2;
 const TRACK = CELL_SIZE + GAP;
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlight }) => {
+const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlight, gravityDrop }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
@@ -184,6 +184,11 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         highlightClass = 'transition-all duration-150';
     }
 
+    const gravityStyle = gravityDrop ? {
+        animation: `gravity-fall 0.3s cubic-bezier(0.2, 0, 0.6, 1) forwards`,
+        '--gravity-from': `${-gravityDrop * TRACK}px`,
+    } : {};
+
     return (
         <div
             ref={ref}
@@ -194,6 +199,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
                 width: CELL_SIZE + (left ? HALF : 0) + (right ? HALF : 0),
                 height: CELL_SIZE + (top ? HALF : 0) + (bottom ? HALF : 0),
                 boxShadow: extraShadow,
+                ...gravityStyle,
             }}
             onMouseEnter={hasTip ? () => setHovered(true) : undefined}
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
@@ -212,7 +218,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
 /**
  * 5×5 grid display for turn-based prototype.
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, gravityDrops }) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -446,6 +452,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                 const isSettled = isRowSettled || isColSettled;
                                 const isScanLine = isScanRow || isScanCol;
 
+                                const dropDist = gravityDrops?.[`${rowIndex}-${colIndex}`] || 0;
+
                                 return (
                                     <GridCell
                                         key={`${rowIndex}-${colIndex}`}
@@ -456,6 +464,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                         colIndex={colIndex}
                                         adjacency={getAdjacency(rowIndex, colIndex)}
                                         highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanLine ? 'scan-row' : showHover ? 'hover' : null}
+                                        gravityDrop={dropDist}
                                     />
                                 );
                             })

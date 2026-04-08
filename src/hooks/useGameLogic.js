@@ -100,6 +100,7 @@ export const useGameLogic = (config) => {
 
     // --- Board Effect State ---
     const [gravityActive, setGravityActive] = useState(false);
+    const [gravityDrops, setGravityDrops] = useState(null); // { "row-col": dropDistance } for animation
 
     // --- Sub-Level State ---
     const [wallStack, setWallStack] = useState([]); // stack of { matrix, gold, wallType }
@@ -648,24 +649,29 @@ export const useGameLogic = (config) => {
                 const isFree = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols
                     && (newMatrix[r][c] === null || newMatrix[r][c]?.type === 'empty');
 
+                // Record original positions by uid for animation
+                const originalPos = new Map();
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        if (newMatrix[r][c]?.uid) originalPos.set(newMatrix[r][c].uid, r);
+                    }
+                }
+
                 // Repeat until no movement (handles cascading)
                 let moved = true;
                 while (moved) {
                     moved = false;
                     const processedGroups = new Set();
 
-                    // Bottom-up: row (rows-2) to 0 (skip last row — can't fall further)
                     for (let r = rows - 2; r >= 0; r--) {
                         for (let c = 0; c < cols; c++) {
                             const cell = newMatrix[r][c];
                             if (!cell || cell.type === 'empty') continue;
 
                             if (cell.groupId && cell.shapeSize > 1) {
-                                // Polyomino group: process once
                                 if (processedGroups.has(cell.groupId)) continue;
                                 processedGroups.add(cell.groupId);
 
-                                // Collect all cells of this group
                                 const groupMembers = [];
                                 for (let gr = 0; gr < rows; gr++) {
                                     for (let gc = 0; gc < cols; gc++) {
@@ -675,16 +681,13 @@ export const useGameLogic = (config) => {
                                     }
                                 }
 
-                                // Can this group drop by 1? Check each member's cell below
                                 const canDrop = groupMembers.every(({ r: gr, c: gc }) => {
                                     const below = gr + 1;
                                     if (below >= rows) return false;
-                                    // Below is free, or occupied by another member of the same group
                                     return isFree(below, gc) || groupMembers.some(m => m.r === below && m.c === gc);
                                 });
 
                                 if (canDrop) {
-                                    // Move group down by 1 (process bottom-up to avoid overwriting)
                                     const sorted = [...groupMembers].sort((a, b) => b.r - a.r);
                                     for (const { r: gr, c: gc } of sorted) {
                                         newMatrix[gr + 1][gc] = newMatrix[gr][gc];
@@ -693,7 +696,6 @@ export const useGameLogic = (config) => {
                                     moved = true;
                                 }
                             } else {
-                                // Single cell: drop by 1 if below is free
                                 if (isFree(r + 1, c)) {
                                     newMatrix[r + 1][c] = cell;
                                     newMatrix[r][c] = null;
@@ -702,6 +704,25 @@ export const useGameLogic = (config) => {
                             }
                         }
                     }
+                }
+
+                // Compute drop distances: new row - original row (in grid units)
+                const drops = {};
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const cell = newMatrix[r][c];
+                        if (cell?.uid && originalPos.has(cell.uid)) {
+                            const origRow = originalPos.get(cell.uid);
+                            if (r !== origRow) {
+                                drops[`${r}-${c}`] = r - origRow; // positive = fell down
+                            }
+                        }
+                    }
+                }
+                if (Object.keys(drops).length > 0) {
+                    setGravityDrops(drops);
+                    // Clear after animation
+                    setTimeout(() => setGravityDrops(null), 350);
                 }
             }
 
@@ -1169,6 +1190,9 @@ export const useGameLogic = (config) => {
         lastDrawResult,
         currentWallType,
         lastDrawDirection,
+
+        // Board Effects
+        gravityDrops,
 
         // Sub-Level
         isInSubLevel, wallStack,
