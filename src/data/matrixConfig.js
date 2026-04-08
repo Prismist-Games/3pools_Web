@@ -10,39 +10,33 @@ export const MATRIX_CONFIG = {
   // Doom cells: independent cells on the grid (not items)
   doomCells: {
     resolution: {
-      spawnChance: 0.10,  // 10% per cell position
       icon: '💀',
       name: '厄运结算',
     },
-    upgrade: {
-      spawnChance: 0.10,  // 10% per cell position
-      icon: '⬆️',
-      name: '厄运升级',
+    accumulation: {
+      icon: '⬛',
+      name: '厄运积累',
+    },
+    damage: {
+      icon: '💥',
+      name: '伤害',
     },
   },
 
-  // Special cells: gold, order, outOfGame
+  // Special cells: gold, outOfGame, evacuation
   specialCells: {
     gold: {
-      spawnChance: 0.06,  // 6% per cell position
       icon: '💰',
       name: '金币',
       goldRange: [1, 2],  // random gold amount [min, max]
     },
-    order: {
-      spawnChance: 0.04,  // 4% per cell position
-      icon: '📋',
-      name: '订单',
-    },
     outOfGame: {
-      spawnChance: 0.02,  // 2% per cell position
       icon: '🎁',
       name: '出口物品',
     },
-    bomb: {
-      spawnChance: 0.04,  // 4% per cell position
-      icon: '💣',
-      name: '炸弹',
+    evacuation: {
+      icon: '🚪',
+      name: '撤离',
     },
   },
 
