@@ -2,6 +2,8 @@
   "id": "order_center",
   "name": "订单中心",
   "description": "他们不在乎运气。他们只想要确定的东西。",
+  "icon": "🗃️",
+  "role": "sub",
   "grid": [
     [
       "order",
@@ -43,6 +45,7 @@
     "stickerTypeRange": [
       3,
       4
-    ]
+    ],
+    "gold": 3
   }
 }

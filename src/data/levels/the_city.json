@@ -1,0 +1,51 @@
+{
+  "id": "the_city",
+  "name": "美味小镇",
+  "description": "你所需要的一切。",
+  "icon": "🏙️",
+  "role": "main",
+  "grid": [
+    [
+      "empty",
+      "entrance:order_center",
+      "empty",
+      "entrance:order_center",
+      "empty"
+    ],
+    [
+      "empty",
+      "entrance:cow_level_item",
+      "empty",
+      "entrance:cow_level_sticker",
+      "empty"
+    ],
+    [
+      "empty",
+      "entrance:order_center",
+      "empty",
+      "entrance:order_center",
+      "empty"
+    ],
+    [
+      "empty",
+      "entrance:cow_level_item",
+      "empty",
+      "entrance:cow_level_sticker",
+      "empty"
+    ],
+    [
+      "empty",
+      "entrance:order_center",
+      "empty",
+      "entrance:order_center",
+      "empty"
+    ]
+  ],
+  "settings": {
+    "stickerTypeRange": [
+      3,
+      4
+    ],
+    "gold": 3
+  }
+}

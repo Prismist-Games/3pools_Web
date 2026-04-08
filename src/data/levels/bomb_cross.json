@@ -2,6 +2,8 @@
   "id": "bomb_cross",
   "name": "炸弹十字",
   "description": "看到中间那个东西了吗？",
+  "icon": "➕",
+  "role": "main",
   "grid": [
     [
       null,
@@ -46,6 +48,7 @@
     "stickerTypeRange": [
       3,
       4
-    ]
+    ],
+    "maxDoomInBlank": 2
   }
 }

@@ -2,6 +2,8 @@
   "id": "cow_level_item",
   "name": "自助餐",
   "description": "丰俭由命",
+  "icon": "🍽️",
+  "role": "sub",
   "grid": [
     [
       "gold",
@@ -43,6 +45,7 @@
     "stickerTypeRange": [
       1,
       1
-    ]
+    ],
+    "gold": 3
   }
 }

@@ -2,6 +2,8 @@
   "id": "cow_level_sticker",
   "name": "奶牛关",
   "description": "只有好心情",
+  "icon": "🐄",
+  "role": "sub",
   "grid": [
     [
       "gold",
@@ -41,8 +43,9 @@
   ],
   "settings": {
     "stickerTypeRange": [
-      2,
-      2
-    ]
+      1,
+      1
+    ],
+    "gold": 3
   }
 }

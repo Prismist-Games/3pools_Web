@@ -25,6 +25,11 @@
       "enabled": true,
       "weight": 10,
       "minExpedition": 1
+    },
+    "the_city": {
+      "enabled": true,
+      "weight": 10,
+      "minExpedition": 1
     }
   }
 }
