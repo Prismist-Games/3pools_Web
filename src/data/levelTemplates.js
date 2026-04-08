@@ -35,51 +35,35 @@ export const CELL_TYPES = {
 const levelModules = import.meta.glob('./levels/*.json', { eager: true });
 export const LEVEL_TEMPLATES = Object.values(levelModules).map(m => m.default);
 
-// --- Schedule config (controls how levels appear in gameplay) ---
+// --- Schedule config: imported from levelSchedule.json ---
 
-// Default schedule for built-in levels (overridable via localStorage in Level Manager)
-export const TEMPLATE_SCHEDULE = LEVEL_TEMPLATES.map(t => ({
-  templateId: t.id,
-  weight: 10,
-  enabled: true,
-  minExpedition: 1,
-}));
+import scheduleConfig from './levelSchedule.json';
 
-// Weight for "no template" (pure procedural wall) — so levels don't dominate
-export const PROCEDURAL_WEIGHT = 60;
+export const LEVEL_SCHEDULE = scheduleConfig;
 
 /**
  * Pick a level template based on schedule weights, or null for procedural.
- * Respects localStorage overrides from the Level Manager.
  * @param {number} expeditionNumber — current expedition (1-based)
  */
 export function pickTemplate(expeditionNumber) {
-  // Load schedule overrides from localStorage (Level Manager saves here)
-  let schedule = [...TEMPLATE_SCHEDULE];
-  let proceduralWt = PROCEDURAL_WEIGHT;
-  try {
-    const overrides = JSON.parse(localStorage.getItem('templateSchedule') || '{}');
-    if (overrides._proceduralWeight !== undefined) proceduralWt = overrides._proceduralWeight;
-    schedule = schedule.map(s => ({ ...s, ...overrides[s.templateId] }));
-  } catch { /* ignore parse errors */ }
+  const { proceduralWeight, levels } = LEVEL_SCHEDULE;
 
-  const eligible = schedule.filter(
-    s => s.enabled && expeditionNumber >= (s.minExpedition || 1)
-  );
+  const eligible = Object.entries(levels)
+    .filter(([, cfg]) => cfg.enabled && expeditionNumber >= (cfg.minExpedition || 1))
+    .map(([id, cfg]) => {
+      const template = LEVEL_TEMPLATES.find(t => t.id === id);
+      return template ? { template, weight: cfg.weight } : null;
+    })
+    .filter(Boolean);
 
-  const entries = eligible.map(s => {
-    const template = LEVEL_TEMPLATES.find(t => t.id === s.templateId);
-    return template ? { template, weight: s.weight } : null;
-  }).filter(Boolean);
-
-  const totalTemplateWeight = entries.reduce((sum, e) => sum + e.weight, 0);
-  const totalWeight = totalTemplateWeight + proceduralWt;
+  const totalLevelWeight = eligible.reduce((sum, e) => sum + e.weight, 0);
+  const totalWeight = totalLevelWeight + proceduralWeight;
 
   if (totalWeight <= 0) return null;
 
   const roll = Math.random() * totalWeight;
   let acc = 0;
-  for (const entry of entries) {
+  for (const entry of eligible) {
     acc += entry.weight;
     if (roll < acc) return entry.template;
   }

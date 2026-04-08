@@ -1,43 +1,57 @@
 // src/components/editor/LevelManager.jsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LEVEL_TEMPLATES, TEMPLATE_SCHEDULE, PROCEDURAL_WEIGHT } from '../../data/levelTemplates';
+import { LEVEL_TEMPLATES, LEVEL_SCHEDULE } from '../../data/levelTemplates';
 import TemplatePreview from './TemplatePreview';
-
-function loadScheduleOverrides() {
-  try { return JSON.parse(localStorage.getItem('templateSchedule') || '{}'); }
-  catch { return {}; }
-}
-
-function saveScheduleOverrides(overrides) {
-  localStorage.setItem('templateSchedule', JSON.stringify(overrides));
-}
 
 export default function LevelManager() {
   const allTemplates = LEVEL_TEMPLATES.map(t => ({ ...t }));
 
-  const [overrides, setOverrides] = useState(loadScheduleOverrides);
-  const [proceduralWeight, setProceduralWeight] = useState(
-    () => overrides._proceduralWeight ?? PROCEDURAL_WEIGHT
-  );
+  const [proceduralWeight, setProceduralWeight] = useState(LEVEL_SCHEDULE.proceduralWeight);
+  const [levels, setLevels] = useState({ ...LEVEL_SCHEDULE.levels });
 
   const getSchedule = (templateId) => {
-    const base = TEMPLATE_SCHEDULE.find(s => s.templateId === templateId) ||
-      { templateId, weight: 10, enabled: false, minExpedition: 1 };
-    return { ...base, ...overrides[templateId] };
+    return levels[templateId] || { enabled: false, weight: 10, minExpedition: 1 };
   };
 
   const updateSchedule = (templateId, patch) => {
-    const newOverrides = { ...overrides, [templateId]: { ...overrides[templateId], ...patch } };
-    setOverrides(newOverrides);
-    saveScheduleOverrides(newOverrides);
+    setLevels(prev => ({
+      ...prev,
+      [templateId]: { ...getSchedule(templateId), ...patch },
+    }));
   };
 
-  const updateProceduralWeight = (val) => {
-    setProceduralWeight(val);
-    const newOverrides = { ...overrides, _proceduralWeight: val };
-    setOverrides(newOverrides);
-    saveScheduleOverrides(newOverrides);
+  // Build the schedule JSON and save via file picker
+  const handleSave = async () => {
+    const config = {
+      proceduralWeight,
+      levels,
+    };
+    const json = JSON.stringify(config, null, 2);
+
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: 'levelSchedule.json',
+          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+
+    // Fallback: regular download
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'levelSchedule.json';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -53,10 +67,10 @@ export default function LevelManager() {
       <div className="mb-6 p-4 bg-gray-900/60 rounded-lg flex items-center gap-4">
         <span className="text-sm">纯随机墙权重:</span>
         <input type="range" min={0} max={100} value={proceduralWeight}
-          onChange={e => updateProceduralWeight(Number(e.target.value))}
+          onChange={e => setProceduralWeight(Number(e.target.value))}
           className="w-48" />
         <span className="text-sm font-mono w-8">{proceduralWeight}</span>
-        <span className="text-xs text-gray-500">(越高，模板墙出现概率越低)</span>
+        <span className="text-xs text-gray-500">(越高，关卡墙出现概率越低)</span>
       </div>
 
       {/* Template cards */}
@@ -110,11 +124,20 @@ export default function LevelManager() {
               {/* Edit link */}
               <Link to={`/editor/${template.id}`}
                 className="block mt-3 text-xs text-blue-400 hover:underline">
-                编辑模板 →
+                编辑关卡 →
               </Link>
             </div>
           );
         })}
+      </div>
+
+      {/* Save button */}
+      <div className="mt-6">
+        <button onClick={handleSave}
+          className="px-4 py-2 bg-green-700 rounded text-sm hover:bg-green-600">
+          保存调度配置
+        </button>
+        <span className="text-xs text-gray-500 ml-3">保存到 src/data/levelSchedule.json</span>
       </div>
     </div>
   );
