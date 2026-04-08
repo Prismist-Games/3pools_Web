@@ -236,17 +236,16 @@ export default function LevelEditor() {
             <div>
               <label className="text-xs text-gray-400">进入金币数</label>
               <div className="flex items-center gap-2 mt-1">
-                <select
+                <input
+                  type="number"
+                  min={-1}
                   value={goldOverride}
-                  onChange={e => setGoldOverride(Number(e.target.value))}
-                  className="bg-gray-800 border border-gray-600 rounded text-xs px-1.5 py-1"
-                >
-                  <option value={-1}>默认 (5)</option>
-                  {[1,2,3,4,5,6,7,8,9,10,15,20,25].map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
+                  onChange={e => setGoldOverride(parseInt(e.target.value) || -1)}
+                  className="w-16 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-center text-xs text-white"
+                />
+                <span className="text-xs text-gray-500">{goldOverride < 0 ? '默认 (5)' : ''}</span>
               </div>
+              <p className="text-[10px] text-gray-500 mt-1">-1 = 使用默认值</p>
             </div>
           </div>
 
