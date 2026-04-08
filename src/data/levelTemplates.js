@@ -37,6 +37,18 @@ export const LEVEL_TEMPLATES = Object.values(levelModules)
   .map(m => m.default)
   .filter(t => t && Array.isArray(t.grid)); // skip non-level JSONs that may end up in the folder
 
+// --- Role-based helpers ---
+
+/** Get all levels marked as sub-levels */
+export function getSubLevels() {
+  return LEVEL_TEMPLATES.filter(t => t.role === 'sub');
+}
+
+/** Get all main levels (role is 'main' or unset — backward compatible) */
+export function getMainLevels() {
+  return LEVEL_TEMPLATES.filter(t => t.role !== 'sub');
+}
+
 // --- Schedule config: imported from levelSchedule.json ---
 
 import scheduleConfig from './levelSchedule.json';
@@ -53,7 +65,8 @@ export function pickTemplate(expeditionNumber) {
   const eligible = Object.entries(levels)
     .filter(([, cfg]) => cfg.enabled && expeditionNumber >= (cfg.minExpedition || 1))
     .map(([id, cfg]) => {
-      const template = LEVEL_TEMPLATES.find(t => t.id === id);
+      const mainLevels = getMainLevels();
+      const template = mainLevels.find(t => t.id === id);
       return template ? { template, weight: cfg.weight } : null;
     })
     .filter(Boolean);
