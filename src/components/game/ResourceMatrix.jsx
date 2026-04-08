@@ -46,6 +46,14 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时爆炸，摧毁周围所有格子');
+    } else if (cell.type === 'heal') {
+        icon = '❤️‍🩹';
+        name = t('生命恢复');
+        desc = t('抽中时恢复生命值');
+    } else if (cell.type === 'backpack_expand') {
+        icon = '🎒';
+        name = t('背包扩容');
+        desc = t('抽中时增加背包容量');
     } else if (cell.type === 'entrance') {
         const subLevel = LEVEL_TEMPLATES.find(t => t.id === cell.subLevelId);
         icon = cell.icon || '🚪';
@@ -94,7 +102,8 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
-        || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb' || cell.type === 'entrance');
+        || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
+        || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'entrance');
     const { top, bottom, left, right } = adjacency;
 
     // Rounded corners — only on external corners
@@ -134,6 +143,10 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         bgClass = sc[cell.item?.score] || 'bg-pink-100 border-pink-400';
     } else if (cell.type === 'bomb') {
         bgClass = 'bg-gray-800 border-gray-900';
+    } else if (cell.type === 'heal') {
+        bgClass = 'bg-pink-100 border-pink-400';
+    } else if (cell.type === 'backpack_expand') {
+        bgClass = 'bg-amber-100 border-amber-400';
     } else if (cell.type === 'entrance') {
         bgClass = 'bg-teal-100 border-teal-400';
     } else {
@@ -266,6 +279,12 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                     )}
                 </>
             );
+        }
+        if (cell.type === 'heal') {
+            return <span className="text-xl">❤️‍🩹</span>;
+        }
+        if (cell.type === 'backpack_expand') {
+            return <span className="text-xl">🎒</span>;
         }
         if (cell.type === 'entrance') {
             return <span className="text-xl">{cell.icon || '🚪'}</span>;

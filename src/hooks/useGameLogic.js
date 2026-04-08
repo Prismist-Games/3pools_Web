@@ -77,7 +77,9 @@ export const useGameLogic = (config) => {
     const turnConfig = config.turn || TURN_CONFIG;
     const orderConfig = config.order || { bulletinCapacity: 5, maxActive: 3, newPerTurn: 1, initialCount: 2 };
     const expeditionConfig = config.expedition || { expeditionCount: 3, scoreToWin: 30 };
-    const maxInventorySize = config.inventorySize || config.stages[0].inventorySize;
+    const baseInventorySize = config.inventorySize || config.stages[0].inventorySize;
+    const [inventoryBonus, setInventoryBonus] = useState(0);
+    const maxInventorySize = baseInventorySize + inventoryBonus;
 
     // --- Expedition State ---
     const [expeditionNumber, setExpeditionNumber] = useState(0);
@@ -499,6 +501,14 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'order_cell') {
             addBulletinOrder();
             showToast(t('获得新订单'), 'info');
+        } else if (drawnCell.type === 'heal') {
+            const amount = (drawnCell.healAmount || 1) * mult;
+            setHp(prev => Math.min(prev + amount, doomConfig.initialHP));
+            showToast(`❤️‍🩹 HP +${amount}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
+        } else if (drawnCell.type === 'backpack_expand') {
+            const amount = (drawnCell.expandAmount || 1) * mult;
+            setInventoryBonus(prev => prev + amount);
+            showToast(`🎒 ${t('背包')} +${amount}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {

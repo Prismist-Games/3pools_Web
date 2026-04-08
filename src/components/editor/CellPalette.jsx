@@ -16,6 +16,8 @@ const PALETTE_ITEMS = [
   { type: CELL_TYPES.OUT_OF_GAME_3, icon: '💻', label: '3分物品', group: '特殊' },
   { type: CELL_TYPES.OUT_OF_GAME_5, icon: '🚗', label: '5分物品', group: '特殊' },
   { type: CELL_TYPES.ANY_SPECIAL, icon: '❓', label: '随机特殊', group: '特殊' },
+  { type: CELL_TYPES.HEAL, icon: '❤️‍🩹', label: '生命恢复', group: '效果' },
+  { type: CELL_TYPES.BACKPACK_EXPAND, icon: '🎒', label: '背包扩容', group: '效果' },
   { type: CELL_TYPES.ANY_STICKER, icon: '🏷️', label: '贴纸', group: '贴纸' },
 ];
 

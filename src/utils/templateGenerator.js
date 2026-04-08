@@ -61,6 +61,10 @@ function resolveConstrainedCell(token) {
       const types = [CELL_TYPES.GOLD, CELL_TYPES.ORDER, CELL_TYPES.OUT_OF_GAME, CELL_TYPES.BOMB];
       return resolveConstrainedCell(types[Math.floor(Math.random() * types.length)]);
     }
+    case CELL_TYPES.HEAL:
+      return { type: 'heal', icon: '❤️‍🩹', name: '生命恢复', healAmount: extras.healAmount ?? 1, uid: generateUID(), ...extras };
+    case CELL_TYPES.BACKPACK_EXPAND:
+      return { type: 'backpack_expand', icon: '🎒', name: '背包扩容', expandAmount: extras.expandAmount ?? 1, uid: generateUID(), ...extras };
     case CELL_TYPES.ANY_STICKER:
       // Sticker type will be assigned later during group binding
       return { type: 'sticker', item: null, uid: generateUID(), groupId: null, shapeSize: 1, ...extras };
