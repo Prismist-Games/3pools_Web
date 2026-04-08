@@ -98,6 +98,9 @@ export const useGameLogic = (config) => {
     const [currentWallType, setCurrentWallType] = useState(null);
     const [lastDrawDirection, setLastDrawDirection] = useState(null);
 
+    // --- Board Effect State ---
+    const [gravityActive, setGravityActive] = useState(false);
+
     // --- Sub-Level State ---
     const [wallStack, setWallStack] = useState([]); // stack of { matrix, gold, wallType }
     const isInSubLevel = wallStack.length > 0;
@@ -155,6 +158,7 @@ export const useGameLogic = (config) => {
         setGold(turnConfig.goldPerTurn);
         setLastDrawResult(null);
         setDoomResolutionResult(null);
+        setGravityActive(false);
 
         // Doom accumulation (not on first turn)
         if (newTurnNumber > 1) {
@@ -510,8 +514,8 @@ export const useGameLogic = (config) => {
             setInventoryBonus(prev => prev + amount);
             showToast(`🎒 ${t('背包')} +${amount}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'gravity') {
+            setGravityActive(true);
             showToast('⬇️ ' + t('重力开关！'), 'info');
-            // Gravity effect is applied in the matrix update below
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {
@@ -637,7 +641,7 @@ export const useGameLogic = (config) => {
             }
 
             // Gravity: all cells fall down, polyominos move as a unit
-            if (drawnCell.type === 'gravity') {
+            if (gravityActive || drawnCell.type === 'gravity') {
                 const rows = newMatrix.length;
                 const cols = newMatrix[0].length;
 
