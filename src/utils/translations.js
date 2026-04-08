@@ -463,6 +463,16 @@ export const EN_TRANSLATIONS = {
     "最终得分": "Final Score",
     "失去了全部物品，本场得 0 分": "Lost all items, 0 points this round",
     "选择下一面奖品墙": "Choose Next Prize Wall",
+    "满足解锁条件即可进入": "Enter when unlock conditions are met",
+    "可进入": "Enter",
+    "金币格": "Gold Cells",
+    "刷新": "Refresh",
+    // --- Wall color names ---
+    "棕色": "Brown",
+    "黄色": "Yellow",
+    "绿色": "Green",
+    "红色": "Red",
+    "蓝色": "Blue",
     "每面墙有不同的规则和贴纸": "Each wall has different rules and stickers",
     "贴纸": "Stickers",
     "奖品墙": "Wall",
@@ -472,7 +482,7 @@ export const EN_TRANSLATIONS = {
     "重置": "Reset",
     // --- Tooltips ---
     "抽中时触发厄运结算，不获得物品": "Triggers doom resolution when drawn, no item obtained",
-    "抽中时厄运等级+1，不获得物品": "Doom level +1 when drawn, no item obtained",
+    "抽中时厄运抽取数+1，不获得物品": "Doom draws +1 when drawn, no item obtained",
     "抽中时获得金币": "Gain gold when drawn",
     "抽中时获得一个新订单": "Gain a new order when drawn",
     "抽中时直接获得局外物品": "Directly obtain an out-of-game item",
@@ -506,6 +516,7 @@ export const EN_TRANSLATIONS = {
     // --- Doom cell names ---
     "厄运结算": "Doom Resolution",
     "厄运升级": "Doom Upgrade",
+    "抽取": "Draws",
     "炸弹": "Bomb",
     "订单": "Order",
     "出口物品": "Prize",
