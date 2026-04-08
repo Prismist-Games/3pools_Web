@@ -49,6 +49,8 @@ const GameCore = () => {
         acceptOrder, submitOrder, canSubmitOrder,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         pendingAcceptOrder, confirmReplaceOrder, cancelReplaceOrder,
+        isInSubLevel, wallStack,
+        enterSubLevel, exitSubLevel,
     } = state;
 
     // --- Doom animation interval ---
@@ -196,7 +198,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'drawing' || phase === 'between_turns') && (
+                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'drawing' || phase === 'drawing_sub' || phase === 'between_turns') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -303,53 +305,75 @@ const GameCore = () => {
                             )}
 
                             {/* Drawing phase */}
-                            {phase === 'drawing' && matrix && (
-                                <div className="flex flex-col items-center">
-                                    <ResourceMatrix
-                                        matrix={matrix}
-                                        onSelectRow={selectRow}
-                                        onSelectColumn={selectColumn}
-                                        gold={gold}
-                                        drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
-                                        phase={phase}
-                                        disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
-                                        drawAnimState={drawAnimState}
-                                        wallType={currentWallType}
-                                        lastDrawDirection={lastDrawDirection}
-                                        onHoverStickerIds={setHoveredStickerIds}
-                                        bonusItemMap={bonusItemMap}
-                                    />
-
-                                    {/* Draw result feedback */}
-                                    {lastDrawResult && !isDoomResolving && !isDrawAnimating && (
-                                        <div className={`mt-3 p-2 rounded text-sm ${
-                                            lastDrawResult.obtained
-                                                ? 'bg-green-50 text-green-700'
-                                                : 'bg-gray-100 text-gray-500'
-                                        }`}>
-                                            {lastDrawResult.obtained
-                                                ? `${t('获得')}: ${lastDrawResult.obtained.item.icon} ${t(lastDrawResult.obtained.item.name)}`
-                                                : t('未获得物品')
-                                            }
+                            {(phase === 'drawing' || phase === 'drawing_sub') && matrix && (
+                                <div className={`flex ${phase === 'drawing_sub' ? 'items-start gap-6' : 'flex-col items-center'}`}>
+                                    {/* Parent wall preview — only visible during sub-level */}
+                                    {phase === 'drawing_sub' && wallStack && wallStack.length > 0 && (
+                                        <div className="opacity-30 pointer-events-none flex-shrink-0 mt-8">
+                                            <div className="text-[9px] text-gray-400 mb-1 text-center">主关卡（暂停中）</div>
+                                            <div className="transform scale-[0.6] origin-top">
+                                                <ResourceMatrix
+                                                    matrix={wallStack[wallStack.length - 1].matrix}
+                                                    onSelectRow={() => {}}
+                                                    onSelectColumn={() => {}}
+                                                    gold={0}
+                                                    drawCost={1}
+                                                    phase="drawing"
+                                                    disabled={true}
+                                                    wallType={null}
+                                                />
+                                            </div>
                                         </div>
                                     )}
-
-                                    {/* End turn button */}
-                                    <div className="mt-4 flex gap-2">
-                                        <button
-                                            onClick={endTurn}
+                                    <div className="flex flex-col items-center">
+                                        <ResourceMatrix
+                                            matrix={matrix}
+                                            onSelectRow={selectRow}
+                                            onSelectColumn={selectColumn}
+                                            gold={gold}
+                                            drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
+                                            phase={phase}
                                             disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
-                                            className={`px-6 py-2 rounded-lg font-bold transition-colors ${
-                                                isDoomResolving || isDrawAnimating || pendingItems.length > 0
-                                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                                    : 'bg-gray-700 text-white hover:bg-gray-800'
-                                            }`}
-                                        >
-                                            {t('结束回合')}
-                                        </button>
-                                        {gold <= 0 && !isDoomResolving && (
-                                            <span className="text-sm text-gray-400 self-center">{t('金币已用完')}</span>
+                                            drawAnimState={drawAnimState}
+                                            wallType={currentWallType}
+                                            lastDrawDirection={lastDrawDirection}
+                                            onHoverStickerIds={setHoveredStickerIds}
+                                            bonusItemMap={bonusItemMap}
+                                        />
+
+                                        {/* Draw result feedback */}
+                                        {lastDrawResult && !isDoomResolving && !isDrawAnimating && (
+                                            <div className={`mt-3 p-2 rounded text-sm ${
+                                                lastDrawResult.obtained
+                                                    ? 'bg-green-50 text-green-700'
+                                                    : 'bg-gray-100 text-gray-500'
+                                            }`}>
+                                                {lastDrawResult.obtained
+                                                    ? `${t('获得')}: ${lastDrawResult.obtained.item.icon} ${t(lastDrawResult.obtained.item.name)}`
+                                                    : t('未获得物品')
+                                                }
+                                            </div>
                                         )}
+
+                                        {/* End turn button */}
+                                        <div className="mt-4 flex gap-2">
+                                            <button
+                                                onClick={phase === 'drawing_sub' ? exitSubLevel : endTurn}
+                                                disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
+                                                className={`px-6 py-2 rounded-lg font-bold transition-colors ${
+                                                    isDoomResolving || isDrawAnimating || pendingItems.length > 0
+                                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                        : phase === 'drawing_sub'
+                                                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                                            : 'bg-gray-700 text-white hover:bg-gray-800'
+                                                }`}
+                                            >
+                                                {phase === 'drawing_sub' ? t('结束事件') : t('结束回合')}
+                                            </button>
+                                            {gold <= 0 && !isDoomResolving && (
+                                                <span className="text-sm text-gray-400 self-center">{t('金币已用完')}</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
