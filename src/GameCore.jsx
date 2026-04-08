@@ -32,8 +32,10 @@ const GameCore = () => {
     const {
         expeditionNumber, expeditionScores, totalScore, expeditionConfig, bonusItems,
         turnNumber, gold, phase,
+        drawCount, totalDrawCount, refreshCount, currentWallColor,
+        canUnlockWall, refreshWallCandidates, getDoomDraws,
         matrix, wallCandidates, lastDrawResult, currentWallType, lastDrawDirection,
-        hp, doomGrid, doomLevel, dangerCount,
+        hp, doomGrid, dangerCount,
         isDoomResolving, doomAnimState, doomResolutionResult,
         inventory, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
@@ -167,7 +169,15 @@ const GameCore = () => {
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="text-slate-400 text-xs">💀</span>
-                            <span className="text-sm font-black text-slate-600">×{doomLevel}</span>
+                            <span className="text-sm font-black text-slate-600">×{getDoomDraws(turnNumber)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="text-indigo-400 text-xs">🔄</span>
+                            <span className="text-sm font-black text-indigo-600">{refreshCount}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="text-cyan-400 text-xs">🎯</span>
+                            <span className="text-sm font-black text-cyan-600">{drawCount}</span>
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="text-teal-400 text-xs">🎒</span>
@@ -180,7 +190,7 @@ const GameCore = () => {
                 {phase === 'pre_game' && (
                     <div className="text-center py-20">
                         <h2 className="text-2xl font-bold mb-4">{t('幸运之墙')}</h2>
-                        <p className="text-gray-500 mb-2">{t('回合制原型')} v2</p>
+                        <p className="text-gray-500 mb-2">{t('回合制原型')} v3</p>
                         {expeditionNumber > 0 && (
                             <p className="text-sm text-gray-400 mb-4">{t('累计')}: {totalScore} {t('分')}</p>
                         )}
@@ -297,7 +307,14 @@ const GameCore = () => {
 
                             {/* Wall choice phase */}
                             {phase === 'wall_choice' && wallCandidates && (
-                                <WallPicker candidates={wallCandidates} onSelect={selectWall} />
+                                <WallPicker
+                                    candidates={wallCandidates}
+                                    onSelect={selectWall}
+                                    onRefresh={refreshWallCandidates}
+                                    refreshCount={refreshCount}
+                                    drawCount={drawCount}
+                                    gold={gold}
+                                />
                             )}
 
                             {/* Drawing phase */}
@@ -330,6 +347,23 @@ const GameCore = () => {
                                         </div>
                                     )}
 
+                                    {/* Evacuation offer from 🚪 cell */}
+                                    {lastDrawResult?.isEvacuationOffer && !isDoomResolving && !isDrawAnimating && (
+                                        <div className="mt-3 p-3 bg-emerald-50 border-2 border-emerald-400 rounded-lg text-center">
+                                            <p className="text-sm font-bold text-emerald-700 mb-2">🚪 {t('是否撤离？')}</p>
+                                            <div className="flex gap-2 justify-center">
+                                                <button onClick={handleEvacuate}
+                                                    className="px-4 py-1.5 bg-emerald-500 text-white rounded-lg text-sm font-bold hover:bg-emerald-600 transition-colors">
+                                                    {t('撤离')}
+                                                </button>
+                                                <button onClick={() => {/* just dismiss */}}
+                                                    className="px-4 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-300 transition-colors">
+                                                    {t('继续')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* End turn button */}
                                     <div className="mt-4 flex gap-2">
                                         <button
@@ -343,9 +377,6 @@ const GameCore = () => {
                                         >
                                             {t('结束回合')}
                                         </button>
-                                        {gold <= 0 && !isDoomResolving && (
-                                            <span className="text-sm text-gray-400 self-center">{t('金币已用完')}</span>
-                                        )}
                                     </div>
                                 </div>
                             )}
@@ -355,10 +386,10 @@ const GameCore = () => {
                                 <div className="text-center py-8">
                                     <h2 className="text-xl font-bold mb-2">{t('回合')} {turnNumber} {t('结束')}</h2>
                                     <p className="text-gray-500 mb-2">
-                                        {t('背包')}: {inventory.length}/{maxInventorySize} | HP: {hp} | 💀 ×{doomLevel}
+                                        {t('背包')}: {inventory.length}/{maxInventorySize} | HP: {hp}
                                     </p>
                                     <p className="text-gray-400 text-sm mb-6">
-                                        {t('下回合将增加')} 1 {t('个危险格子')}
+                                        {t('抽取次数')}: {drawCount} | 💀 ×{getDoomDraws(turnNumber)}
                                     </p>
 
                                     <div className="flex gap-4 justify-center">
@@ -393,7 +424,7 @@ const GameCore = () => {
                             <div className="bg-white rounded-lg shadow-sm border">
                                 <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
                                     <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('厄运')}</h3>
-                                    <span className="text-[11px] font-bold text-red-500">{t('抽取')} ×{doomLevel}</span>
+                                    <span className="text-[11px] font-bold text-red-500">{t('抽取')} ×{getDoomDraws(turnNumber)}</span>
                                 </div>
                                 <div className="p-2">
                                     <div className="grid grid-cols-5 gap-1">
@@ -417,7 +448,7 @@ const GameCore = () => {
                                     </div>
                                     <div className="flex justify-between mt-1.5 text-[10px] text-gray-300">
                                         <span>{t('危险')} {dangerCount}/{doomGrid.length}</span>
-                                        <span>{t('抽取')} ×{doomLevel}</span>
+                                        <span>{t('抽取')} ×{getDoomDraws(turnNumber)}</span>
                                     </div>
 
                                     {/* Doom animation result + confirm */}
