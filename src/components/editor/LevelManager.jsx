@@ -6,6 +6,8 @@ import TemplatePreview from './TemplatePreview';
 
 export default function LevelManager() {
   const allTemplates = LEVEL_TEMPLATES.map(t => ({ ...t }));
+  const mainTemplates = allTemplates.filter(t => t.role !== 'sub');
+  const subTemplates = allTemplates.filter(t => t.role === 'sub');
 
   const [proceduralWeight, setProceduralWeight] = useState(LEVEL_SCHEDULE.proceduralWeight);
   const [levels, setLevels] = useState({ ...LEVEL_SCHEDULE.levels });
@@ -75,7 +77,7 @@ export default function LevelManager() {
 
       {/* Template cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {allTemplates.map(template => {
+        {mainTemplates.map(template => {
           const schedule = getSchedule(template.id);
           return (
             <div key={template.id}
@@ -130,6 +132,31 @@ export default function LevelManager() {
           );
         })}
       </div>
+
+      {/* Sub-levels */}
+      {subTemplates.length > 0 && (
+        <>
+          <h2 className="text-lg font-bold mt-8 mb-4">子关卡</h2>
+          <p className="text-xs text-gray-500 mb-4">子关卡不会出现在 3 选 1 中，而是作为入口格子放置在主关卡上。</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {subTemplates.map(template => (
+              <div key={template.id} className="p-4 rounded-lg border bg-amber-900/20 border-amber-700/40">
+                <div className="flex gap-3 mb-3">
+                  <TemplatePreview grid={template.grid} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-bold text-sm truncate">{template.name || template.id}</span>
+                    <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-amber-800 rounded">子关卡</span>
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{template.description}</p>
+                  </div>
+                </div>
+                <Link to={`/editor/${template.id}`} className="text-xs text-blue-400 hover:underline">
+                  编辑关卡 →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Save button */}
       <div className="mt-6">
