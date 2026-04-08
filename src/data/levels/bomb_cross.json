@@ -2,7 +2,7 @@
   "id": "bomb_cross",
   "name": "炸弹十字",
   "description": "看到中间那个东西了吗？",
-  "icon": "➕",
+  "icon": "💣🐄💣",
   "role": "main",
   "grid": [
     [
@@ -22,10 +22,7 @@
     [
       null,
       "bomb",
-      {
-        "type": "any_sticker",
-        "multiplier": 5
-      },
+      "entrance:cow_level_sticker",
       "bomb",
       null
     ],

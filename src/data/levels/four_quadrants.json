@@ -1,0 +1,115 @@
+{
+  "id": "four_quadrants",
+  "name": "鱼和熊掌",
+  "description": "二者不可得兼。",
+  "icon": "🐟❎🐻",
+  "role": "main",
+  "grid": [
+    [
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 0
+      },
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 0
+      },
+      "doom_resolve",
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 1
+      },
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 1
+      }
+    ],
+    [
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 0
+      },
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 0
+      },
+      "doom_resolve",
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 1
+      },
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 1
+      }
+    ],
+    [
+      "doom_resolve",
+      "doom_resolve",
+      "doom_resolve",
+      "doom_resolve",
+      "doom_resolve"
+    ],
+    [
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 3
+      },
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 3
+      },
+      "doom_resolve",
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 2
+      },
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 2
+      }
+    ],
+    [
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 3
+      },
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 3
+      },
+      "doom_resolve",
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 2
+      },
+      {
+        "type": "any_sticker",
+        "multiplier": 2,
+        "group": 2
+      }
+    ]
+  ],
+  "settings": {
+    "stickerTypeRange": [
+      4,
+      4
+    ],
+    "gold": 3
+  }
+}

@@ -30,6 +30,11 @@
       "enabled": true,
       "weight": 10,
       "minExpedition": 1
+    },
+    "four_quadrants": {
+      "enabled": true,
+      "weight": 10,
+      "minExpedition": 1
     }
   }
 }

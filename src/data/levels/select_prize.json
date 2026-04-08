@@ -2,7 +2,7 @@
   "id": "select_prize",
   "name": "抉择",
   "description": "选择你的奖品，风险与机遇并存。",
-  "icon": "⚖️",
+  "icon": "🅰️❎🅱️",
   "role": "main",
   "grid": [
     [
