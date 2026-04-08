@@ -18,6 +18,7 @@ const PALETTE_ITEMS = [
   { type: CELL_TYPES.ANY_SPECIAL, icon: '❓', label: '随机特殊', group: '特殊' },
   { type: CELL_TYPES.HEAL, icon: '❤️‍🩹', label: '生命恢复', group: '效果' },
   { type: CELL_TYPES.BACKPACK_EXPAND, icon: '🎒', label: '背包扩容', group: '效果' },
+  { type: CELL_TYPES.GRAVITY, icon: '⬇️', label: '重力开关', group: '效果' },
   { type: CELL_TYPES.ANY_STICKER, icon: '🏷️', label: '贴纸', group: '贴纸' },
 ];
 

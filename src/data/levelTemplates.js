@@ -27,6 +27,7 @@ export const CELL_TYPES = {
   // Effect types
   HEAL: 'heal',                     // restore HP
   BACKPACK_EXPAND: 'backpack_expand', // +backpack slots
+  GRAVITY: 'gravity',               // triggers gravity — all cells fall down
   // Constrained types (resolved at generation time)
   ANY_DOOM: 'any_doom',           // randomly doom_resolve or doom_upgrade
   ANY_SPECIAL: 'any_special',     // randomly gold/order/out_of_game/bomb

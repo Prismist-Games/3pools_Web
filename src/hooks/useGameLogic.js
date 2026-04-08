@@ -509,6 +509,9 @@ export const useGameLogic = (config) => {
             const amount = (drawnCell.expandAmount || 1) * mult;
             setInventoryBonus(prev => prev + amount);
             showToast(`🎒 ${t('背包')} +${amount}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
+        } else if (drawnCell.type === 'gravity') {
+            showToast('⬇️ ' + t('重力开关！'), 'info');
+            // Gravity effect is applied in the matrix update below
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {
@@ -630,6 +633,68 @@ export const useGameLogic = (config) => {
                 for (let i = 0; i < cells.length; i++) {
                     const [r, c] = allPositions[i];
                     newMatrix[r][c] = cells[i];
+                }
+            }
+
+            // Gravity: all cells fall down, polyominos move as a unit
+            if (drawnCell.type === 'gravity') {
+                const rows = newMatrix.length;
+                const cols = newMatrix[0].length;
+
+                // Collect all polyomino groups and their cells
+                const groupCells = new Map(); // groupId → [{r, c, cell}]
+                const ungrouped = []; // [{r, c, cell}]
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const cell = newMatrix[r][c];
+                        if (!cell || cell.type === 'empty') continue;
+                        if (cell.groupId && cell.shapeSize > 1) {
+                            if (!groupCells.has(cell.groupId)) groupCells.set(cell.groupId, []);
+                            groupCells.get(cell.groupId).push({ r, c, cell });
+                        } else {
+                            ungrouped.push({ r, c, cell });
+                        }
+                    }
+                }
+
+                // Clear all movable cells
+                for (const { r, c } of ungrouped) newMatrix[r][c] = null;
+                for (const cells of groupCells.values()) {
+                    for (const { r, c } of cells) newMatrix[r][c] = null;
+                }
+
+                // Drop polyomino groups first (as units)
+                for (const cells of groupCells.values()) {
+                    // Find max drop distance for this group
+                    let maxDrop = rows;
+                    for (const { r, c } of cells) {
+                        let drop = 0;
+                        for (let nr = r + 1; nr < rows; nr++) {
+                            // Check if position is free (and not occupied by another cell in this group)
+                            if (newMatrix[nr][c] !== null && !cells.some(g => g.r === nr && g.c === c)) break;
+                            drop++;
+                        }
+                        maxDrop = Math.min(maxDrop, drop);
+                    }
+                    // Place group at new position
+                    for (const { r, c, cell } of cells) {
+                        newMatrix[r + maxDrop][c] = cell;
+                    }
+                }
+
+                // Drop ungrouped cells (bottom-up per column)
+                for (let c = 0; c < cols; c++) {
+                    const colCells = ungrouped.filter(u => u.c === c).sort((a, b) => b.r - a.r);
+                    let bottom = rows - 1;
+                    // Find lowest empty slot
+                    while (bottom >= 0 && newMatrix[bottom][c] !== null) bottom--;
+                    for (const { cell } of colCells) {
+                        while (bottom >= 0 && newMatrix[bottom][c] !== null) bottom--;
+                        if (bottom >= 0) {
+                            newMatrix[bottom][c] = cell;
+                            bottom--;
+                        }
+                    }
                 }
             }
 

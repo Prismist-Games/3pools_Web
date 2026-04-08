@@ -54,6 +54,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         icon = '🎒';
         name = t('背包扩容');
         desc = t('抽中时增加背包容量');
+    } else if (cell.type === 'gravity') {
+        icon = '⬇️';
+        name = t('重力开关');
+        desc = t('抽中时所有格子向下坠落');
     } else if (cell.type === 'entrance') {
         const subLevel = LEVEL_TEMPLATES.find(t => t.id === cell.subLevelId);
         icon = cell.icon || '🚪';
@@ -103,7 +107,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
-        || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'entrance');
+        || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance');
     const { top, bottom, left, right } = adjacency;
 
     // Rounded corners — only on external corners
@@ -147,6 +151,8 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         bgClass = 'bg-pink-100 border-pink-400';
     } else if (cell.type === 'backpack_expand') {
         bgClass = 'bg-amber-100 border-amber-400';
+    } else if (cell.type === 'gravity') {
+        bgClass = 'bg-sky-100 border-sky-400';
     } else if (cell.type === 'entrance') {
         bgClass = 'bg-teal-100 border-teal-400';
     } else {
@@ -285,6 +291,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         }
         if (cell.type === 'backpack_expand') {
             return <span className="text-xl">🎒</span>;
+        }
+        if (cell.type === 'gravity') {
+            return <span className="text-xl">⬇️</span>;
         }
         if (cell.type === 'entrance') {
             return <span className="text-xl">{cell.icon || '🚪'}</span>;

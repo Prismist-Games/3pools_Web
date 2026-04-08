@@ -18,6 +18,7 @@ const MINI_COLORS = {
   any_special: 'bg-gray-500',
   heal: 'bg-pink-600',
   backpack_expand: 'bg-amber-600',
+  gravity: 'bg-sky-600',
   any_sticker: 'bg-green-600',
   // Resolved cell types (from generateWallFromTemplate output)
   doom_resolution: 'bg-red-700',

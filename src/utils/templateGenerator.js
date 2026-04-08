@@ -65,6 +65,8 @@ function resolveConstrainedCell(token) {
       return { type: 'heal', icon: '❤️‍🩹', name: '生命恢复', healAmount: extras.healAmount ?? 1, uid: generateUID(), ...extras };
     case CELL_TYPES.BACKPACK_EXPAND:
       return { type: 'backpack_expand', icon: '🎒', name: '背包扩容', expandAmount: extras.expandAmount ?? 1, uid: generateUID(), ...extras };
+    case CELL_TYPES.GRAVITY:
+      return { type: 'gravity', icon: '⬇️', name: '重力开关', uid: generateUID(), ...extras };
     case CELL_TYPES.ANY_STICKER:
       // Sticker type will be assigned later during group binding
       return { type: 'sticker', item: null, uid: generateUID(), groupId: null, shapeSize: 1, ...extras };
