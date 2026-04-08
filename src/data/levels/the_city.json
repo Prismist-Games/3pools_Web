@@ -7,45 +7,75 @@
   "grid": [
     [
       "empty",
-      "entrance:order_center",
       "empty",
-      "entrance:order_center",
-      "empty"
+      "empty",
+      {
+        "type": "entrance:order_center",
+        "group": 0
+      },
+      {
+        "type": "entrance:order_center",
+        "group": 0
+      }
     ],
     [
       "empty",
-      "entrance:cow_level_item",
       "empty",
-      "entrance:cow_level_sticker",
-      "empty"
+      "empty",
+      {
+        "type": "entrance:hospital",
+        "group": 1
+      },
+      {
+        "type": "entrance:hospital",
+        "group": 1
+      }
     ],
     [
       "empty",
-      "entrance:order_center",
       "empty",
-      "entrance:order_center",
-      "empty"
+      "empty",
+      {
+        "type": "entrance:cow_level_item",
+        "group": 2
+      },
+      {
+        "type": "entrance:cow_level_item",
+        "group": 2
+      }
     ],
     [
       "empty",
-      "entrance:cow_level_item",
       "empty",
-      "entrance:cow_level_sticker",
-      "empty"
+      "empty",
+      {
+        "type": "backpack_expand",
+        "group": 4
+      },
+      {
+        "type": "backpack_expand",
+        "group": 4
+      }
     ],
     [
       "empty",
-      "entrance:order_center",
       "empty",
-      "entrance:order_center",
-      "empty"
+      "empty",
+      {
+        "type": "entrance:cow_level_sticker",
+        "group": 3
+      },
+      {
+        "type": "entrance:cow_level_sticker",
+        "group": 3
+      }
     ]
   ],
   "settings": {
     "stickerTypeRange": [
-      3,
-      4
+      5,
+      5
     ],
-    "gold": 3
+    "gold": 2
   }
 }
