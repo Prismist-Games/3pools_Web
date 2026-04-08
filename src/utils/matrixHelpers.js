@@ -42,41 +42,67 @@ function tryPlaceShape(shape, startRow, startCol, grid, gridSize) {
   return positions;
 }
 
+/** Apply ±1 variance to a base count, clamped to ≥0 */
+function variedCount(base) {
+  return Math.max(0, Math.round(base + (Math.random() - 0.5) * 2));
+}
+
 /**
  * Randomly pick min–max sticker types from the full sticker array.
  */
-export function pickWallStickers(allStickers, min = 3, max = 4) {
+export function pickWallStickers(allStickers, min = 2, max = 4) {
   const count = min + Math.floor(Math.random() * (max - min + 1));
   const shuffled = [...allStickers].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
 /**
- * Generate a 5×5 wall matrix for one turn using sticker types.
+ * Generate a 5×5 wall matrix for one turn using sticker types and a wallColor config.
  *
- * Phase 1: Roll doom cells per position (independent)
- * Phase 2: Roll special cells (gold / order / out-of-game) on remaining empty positions
+ * Phase 1: Determine cell counts from wallColor.baseDistribution with ±1 variance
+ * Phase 2: Shuffle all 25 positions, place negative/gold/evacuation cells in order
  * Phase 3: Fill remaining empty cells with sticker shapes (polyomino algorithm)
  *
  * Multi-cell stickers share a groupId so drawing any cell obtains the whole sticker.
  *
  * @param {Array} wallStickers — array of sticker type objects from STICKER_TYPES
+ * @param {Object} wallColor — color config object from WALL_COLORS with baseDistribution, negativeBreakdown, stickerRange
  */
-export function generateWall(wallStickers) {
+export function generateWall(wallStickers, wallColor) {
   const { gridSize, doomCells, itemShapes, specialCells } = MATRIX_CONFIG;
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
-  const doomCellCount = { resolution: 0, upgrade: 0 };
 
-  // Phase 1: Roll doom cells — normal distribution, median ~5
-  // Box-Muller approximation for normal distribution
-  const u1 = Math.random();
-  const u2 = Math.random();
-  const normalSample = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  const totalDoom = Math.max(1, Math.min(9, Math.round(5 + normalSample * 1.5)));
-  // Split between resolution (~55%) and upgrade (~45%)
-  const resCount = Math.max(0, Math.min(totalDoom, Math.round(totalDoom * (0.5 + (Math.random() - 0.5) * 0.3))));
-  const upgCount = totalDoom - resCount;
-  // Collect all positions, shuffle, place doom cells
+  // Phase 1: Determine cell counts from wallColor config
+  const { baseDistribution, negativeBreakdown } = wallColor;
+
+  // Total negative cells
+  const totalNegative = variedCount(baseDistribution.negative);
+
+  // Negative breakdown — proportion-based, then apply variance
+  const nbEntries = Object.entries(negativeBreakdown);
+  const nbTotal = nbEntries.reduce((sum, [, v]) => sum + v, 0);
+  const negativeCounts = {};
+  let allocatedNegative = 0;
+  for (let i = 0; i < nbEntries.length; i++) {
+    const [key, weight] = nbEntries[i];
+    if (i === nbEntries.length - 1) {
+      // Last entry gets remainder to avoid rounding drift
+      negativeCounts[key] = Math.max(0, totalNegative - allocatedNegative);
+    } else {
+      const base = (weight / nbTotal) * totalNegative;
+      negativeCounts[key] = variedCount(base);
+      allocatedNegative += negativeCounts[key];
+    }
+  }
+
+  // Gold cells
+  const goldCount = variedCount(baseDistribution.gold);
+
+  // Evacuation cells
+  const evacValue = baseDistribution.evacuation;
+  const evacCount = evacValue >= 1 ? 1 : (Math.random() < evacValue ? 1 : 0);
+
+  // Phase 2: Shuffle all grid positions and place cells in order
   const allPositions = [];
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
@@ -84,74 +110,77 @@ export function generateWall(wallStickers) {
     }
   }
   allPositions.sort(() => Math.random() - 0.5);
-  for (let i = 0; i < totalDoom && i < allPositions.length; i++) {
-    const [r, c] = allPositions[i];
-    if (i < resCount) {
-      grid[r][c] = {
-        type: 'doom_resolution',
-        icon: doomCells.resolution.icon,
-        name: doomCells.resolution.name,
-        uid: generateUID(),
-      };
-      doomCellCount.resolution++;
-    } else {
-      grid[r][c] = {
-        type: 'doom_upgrade',
-        icon: doomCells.upgrade.icon,
-        name: doomCells.upgrade.name,
-        uid: generateUID(),
-      };
-      doomCellCount.upgrade++;
-    }
+
+  let posIdx = 0;
+  const cellCounts = {
+    doom_resolution: 0,
+    doom_accumulation: 0,
+    damage: 0,
+    gold: 0,
+    evacuation: 0,
+    sticker: 0,
+  };
+
+  // Place doom_resolution cells
+  for (let i = 0; i < negativeCounts.doom_resolution && posIdx < allPositions.length; i++, posIdx++) {
+    const [r, c] = allPositions[posIdx];
+    grid[r][c] = {
+      type: 'doom_resolution',
+      icon: doomCells.resolution.icon,
+      name: doomCells.resolution.name,
+      uid: generateUID(),
+    };
+    cellCounts.doom_resolution++;
   }
 
-  // Phase 2: Roll special cells on remaining empty positions
-  // Cumulative probability check: gold → order → outOfGame
-  for (let row = 0; row < gridSize; row++) {
-    for (let col = 0; col < gridSize; col++) {
-      if (grid[row][col] !== null) continue;
+  // Place doom_accumulation cells
+  for (let i = 0; i < negativeCounts.doom_accumulation && posIdx < allPositions.length; i++, posIdx++) {
+    const [r, c] = allPositions[posIdx];
+    grid[r][c] = {
+      type: 'doom_accumulation',
+      icon: doomCells.accumulation.icon,
+      name: doomCells.accumulation.name,
+      uid: generateUID(),
+    };
+    cellCounts.doom_accumulation++;
+  }
 
-      const roll = Math.random();
-      const goldChance = specialCells.gold.spawnChance;
-      const orderChance = goldChance + specialCells.order.spawnChance;
-      const outOfGameChance = orderChance + specialCells.outOfGame.spawnChance;
-      const bombChance = outOfGameChance + (specialCells.bomb?.spawnChance || 0);
+  // Place damage cells
+  for (let i = 0; i < negativeCounts.damage && posIdx < allPositions.length; i++, posIdx++) {
+    const [r, c] = allPositions[posIdx];
+    grid[r][c] = {
+      type: 'damage',
+      icon: doomCells.damage.icon,
+      name: doomCells.damage.name,
+      uid: generateUID(),
+    };
+    cellCounts.damage++;
+  }
 
-      if (roll < goldChance) {
-        const [min, max] = specialCells.gold.goldRange;
-        const goldAmount = min + Math.floor(Math.random() * (max - min + 1));
-        grid[row][col] = {
-          type: 'gold',
-          icon: specialCells.gold.icon,
-          name: specialCells.gold.name,
-          goldAmount,
-          uid: generateUID(),
-        };
-      } else if (roll < orderChance) {
-        grid[row][col] = {
-          type: 'order_cell',
-          icon: specialCells.order.icon,
-          name: specialCells.order.name,
-          uid: generateUID(),
-        };
-      } else if (roll < outOfGameChance) {
-        const item = OUT_OF_GAME_ITEMS[Math.floor(Math.random() * OUT_OF_GAME_ITEMS.length)];
-        grid[row][col] = {
-          type: 'out_of_game',
-          icon: item.icon,
-          name: item.name,
-          item: { ...item },
-          uid: generateUID(),
-        };
-      } else if (roll < bombChance) {
-        grid[row][col] = {
-          type: 'bomb',
-          icon: specialCells.bomb.icon,
-          name: specialCells.bomb.name,
-          uid: generateUID(),
-        };
-      }
-    }
+  // Place gold cells
+  for (let i = 0; i < goldCount && posIdx < allPositions.length; i++, posIdx++) {
+    const [r, c] = allPositions[posIdx];
+    const goldAmount = 1 + Math.floor(Math.random() * 2); // 1–2
+    grid[r][c] = {
+      type: 'gold',
+      icon: specialCells.gold.icon,
+      name: specialCells.gold.name,
+      goldAmount,
+      uid: generateUID(),
+    };
+    cellCounts.gold++;
+  }
+
+  // Place evacuation cells
+  for (let i = 0; i < evacCount && posIdx < allPositions.length; i++, posIdx++) {
+    const [r, c] = allPositions[posIdx];
+    grid[r][c] = {
+      type: 'evacuation',
+      icon: specialCells.evacuation.icon,
+      name: specialCells.evacuation.name,
+      uid: generateUID(),
+    };
+    cellCounts.evacuation++;
   }
 
   // Phase 3: Fill remaining empty cells with sticker shapes
@@ -200,6 +229,7 @@ export function generateWall(wallStickers) {
               shapeSize: size,
             };
           }
+          cellCounts.sticker += positions.length;
           placed = true;
           break;
         }
@@ -217,6 +247,7 @@ export function generateWall(wallStickers) {
         groupId: generateUID(),
         shapeSize: 1,
       };
+      cellCounts.sticker++;
     }
 
     // Refresh empty list
@@ -224,7 +255,7 @@ export function generateWall(wallStickers) {
     empty.sort(() => Math.random() - 0.5);
   }
 
-  return { grid, doomCellCount };
+  return { grid, cellCounts };
 }
 
 /**
@@ -244,7 +275,14 @@ export function generateTurnMatrix(pools) {
       });
     }
   }
-  const { grid, doomCellCount } = generateWall(pseudoStickers);
+
+  // Legacy fallback wallColor for backward compatibility
+  const legacyWallColor = {
+    baseDistribution: { sticker: 10, gold: 3, negative: 7, evacuation: 0 },
+    negativeBreakdown: { doom_resolution: 4, doom_accumulation: 3, damage: 0 },
+  };
+
+  const { grid, cellCounts } = generateWall(pseudoStickers, legacyWallColor);
 
   // Re-label sticker cells as 'item' so existing downstream code keeps working
   for (let r = 0; r < grid.length; r++) {
@@ -254,6 +292,12 @@ export function generateTurnMatrix(pools) {
       }
     }
   }
+
+  // Return doomCellCount for backward compatibility
+  const doomCellCount = {
+    resolution: cellCounts.doom_resolution,
+    upgrade: cellCounts.doom_accumulation,
+  };
 
   return { grid, doomCellCount };
 }
