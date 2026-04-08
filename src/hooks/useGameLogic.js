@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
-import { pickTemplate } from '../data/levelTemplates';
+import { pickTemplate, LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
 
@@ -95,6 +95,10 @@ export const useGameLogic = (config) => {
     const [wallCandidates, setWallCandidates] = useState(null);
     const [currentWallType, setCurrentWallType] = useState(null);
     const [lastDrawDirection, setLastDrawDirection] = useState(null);
+
+    // --- Sub-Level State ---
+    const [wallStack, setWallStack] = useState([]); // stack of { matrix, gold, wallType }
+    const isInSubLevel = wallStack.length > 0;
 
     // --- Doom State ---
     const [hp, setHp] = useState(doomConfig.initialHP);
@@ -307,6 +311,41 @@ export const useGameLogic = (config) => {
         setPhase('drawing');
     };
 
+    /** Enter a sub-level: push current wall state, load sub-level grid */
+    const enterSubLevel = (subLevelId) => {
+        const subLevel = LEVEL_TEMPLATES.find(t => t.id === subLevelId && t.role === 'sub');
+        if (!subLevel) return;
+
+        // Push current state onto stack
+        setWallStack(prev => [...prev, {
+            matrix,
+            gold,
+            wallType: currentWallType,
+        }]);
+
+        // Generate and load sub-level
+        const result = generateWallFromTemplate(subLevel);
+        const subGold = subLevel.settings?.gold ?? turnConfig.goldPerTurn;
+        setMatrix(result.grid);
+        setGold(subGold);
+        setCurrentWallType(null);
+        setLastDrawResult(null);
+        setPhase('drawing_sub');
+    };
+
+    /** Exit sub-level: pop wall stack, restore parent state. No doom resolution. */
+    const exitSubLevel = () => {
+        if (wallStack.length === 0) return;
+
+        const parent = wallStack[wallStack.length - 1];
+        setWallStack(prev => prev.slice(0, -1));
+        setMatrix(parent.matrix);
+        setGold(parent.gold);
+        setCurrentWallType(parent.wallType);
+        setLastDrawResult(null);
+        setPhase('drawing');
+    };
+
     // =============================================
     // DRAW MECHANIC
     // =============================================
@@ -449,6 +488,18 @@ export const useGameLogic = (config) => {
             showToast(t('获得新订单'), 'info');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
+        } else if (drawnCell.type === 'entrance') {
+            // Remove the entrance cell from the grid, then enter sub-level
+            setMatrix(prev => {
+                const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
+                newMatrix[finalRowIndex][finalColIndex] = null;
+                return newMatrix;
+            });
+            setDrawAnimState(null);
+            setLastDrawResult({ obtained: null, row: finalRowIndex, col: finalColIndex, id: Date.now() });
+            showToast(`🚪 ${t('进入子关卡')}: ${drawnCell.name}`, 'info');
+            setTimeout(() => enterSubLevel(drawnCell.subLevelId), 300);
+            return; // Skip the normal post-draw flow
         }
 
         // Remove drawn cell(s) + hidden reveal + drift shuffle
@@ -1030,6 +1081,10 @@ export const useGameLogic = (config) => {
         lastDrawResult,
         currentWallType,
         lastDrawDirection,
+
+        // Sub-Level
+        isInSubLevel, wallStack,
+        enterSubLevel, exitSubLevel,
 
         // Doom
         hp,
