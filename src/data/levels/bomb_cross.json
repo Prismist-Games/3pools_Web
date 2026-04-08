@@ -6,7 +6,7 @@
     [
       null,
       null,
-      "bomb",
+      null,
       null,
       null
     ],
@@ -18,14 +18,14 @@
       null
     ],
     [
-      "bomb",
+      null,
       "bomb",
       {
         "type": "any_sticker",
         "multiplier": 5
       },
       "bomb",
-      "bomb"
+      null
     ],
     [
       null,
@@ -37,7 +37,7 @@
     [
       null,
       null,
-      "bomb",
+      null,
       null,
       null
     ]
