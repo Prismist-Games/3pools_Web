@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
-import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
+import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES } from '../data/v2Config';
+import { WALL_COLORS, UNLOCK_TEMPLATES, DOOM_PHASES, DOOM_RESOLUTION_DRAWS, V3_INITIAL_STATE } from '../data/v3Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -32,16 +33,6 @@ function pickWeightedTemplate() {
         if (roll <= 0) return t;
     }
     return ORDER_TEMPLATES[0];
-}
-
-function pickWallType() {
-    const total = WALL_TYPES.reduce((s, t) => s + t.weight, 0);
-    let roll = Math.random() * total;
-    for (const t of WALL_TYPES) {
-        roll -= t.weight;
-        if (roll <= 0) return t;
-    }
-    return WALL_TYPES[0];
 }
 
 function generateOrder() {
@@ -93,6 +84,12 @@ export const useGameLogic = (config) => {
     const [wallCandidates, setWallCandidates] = useState(null);
     const [currentWallType, setCurrentWallType] = useState(null);
     const [lastDrawDirection, setLastDrawDirection] = useState(null);
+    const [currentWallColor, setCurrentWallColor] = useState(null);
+
+    // --- Draw Count State ---
+    const [drawCount, setDrawCount] = useState(0);          // draws on current wall
+    const [totalDrawCount, setTotalDrawCount] = useState(0); // total draws this expedition
+    const [refreshCount, setRefreshCount] = useState(V3_INITIAL_STATE.refreshCount);
 
     // --- Doom State ---
     const [hp, setHp] = useState(doomConfig.initialHP);
@@ -103,7 +100,6 @@ export const useGameLogic = (config) => {
         }
         return grid;
     });
-    const [doomLevel, setDoomLevel] = useState(doomConfig.initialDoomLevel);
     const [isDoomResolving, setIsDoomResolving] = useState(false);
     const [doomAnimState, setDoomAnimState] = useState(null);
     const [doomResolutionResult, setDoomResolutionResult] = useState(null);
@@ -136,48 +132,85 @@ export const useGameLogic = (config) => {
         [doomGrid]
     );
 
+    // --- v3 Doom Helpers ---
+    const getDoomDraws = (turn) => {
+        for (const entry of DOOM_RESOLUTION_DRAWS) {
+            if (turn >= entry.turnRange[0] && turn <= entry.turnRange[1]) return entry.draws;
+        }
+        return 3;
+    };
+
+    // --- v3 Wall Candidate Generation ---
+    const wallColorValues = Object.values(WALL_COLORS);
+
+    const generateWallCandidates = () => {
+        const candidates = [];
+        for (let i = 0; i < 3; i++) {
+            const wallColor = wallColorValues[Math.floor(Math.random() * wallColorValues.length)];
+            const stickerRange = wallColor.stickerRange || [2, 4];
+            const stickers = pickWallStickers(STICKER_TYPES, stickerRange[0], stickerRange[1]);
+
+            // Build the baseDistribution wrapper that generateWall expects
+            const evacuationBase = wallColor.evacuationRange
+                ? (wallColor.evacuationRange[0] + wallColor.evacuationRange[1]) / 2
+                : 0;
+            const wallColorForGen = {
+                baseDistribution: {
+                    sticker: wallColor.sticker,
+                    gold: wallColor.gold,
+                    negative: wallColor.negative,
+                    evacuation: evacuationBase,
+                },
+                negativeBreakdown: wallColor.negativeBreakdown,
+            };
+
+            const { grid, cellCounts } = generateWall(stickers, wallColorForGen);
+
+            // Generate unlock condition
+            const templates = Math.random() < 0.5 ? UNLOCK_TEMPLATES.drawOnly : UNLOCK_TEMPLATES.drawAndGold;
+            const unlock = { ...templates[Math.floor(Math.random() * templates.length)] };
+
+            candidates.push({ stickers, grid, cellCounts, wallColor, unlockCondition: unlock });
+        }
+        return candidates;
+    };
+
     // =============================================
     // TURN FLOW
     // =============================================
 
-    /** Start a new turn: generate grid, give gold */
+    /** Start a new turn: generate grid */
     const startNewTurn = () => {
         const newTurnNumber = turnNumber + 1;
         setTurnNumber(newTurnNumber);
-        setGold(turnConfig.goldPerTurn);
         setLastDrawResult(null);
         setDoomResolutionResult(null);
 
-        // Doom accumulation (not on first turn)
+        // Doom accumulation — phase-based (not on first turn)
         if (newTurnNumber > 1) {
-            setDoomGrid(prev => {
-                const newGrid = [...prev];
-                let added = 0;
-                for (let i = 0; i < newGrid.length && added < doomConfig.dangerPerTurn; i++) {
-                    if (newGrid[i].type === 'empty') {
-                        newGrid[i] = { type: 'danger' };
-                        added++;
-                    }
+            const doomPhase = DOOM_PHASES.find(p => newTurnNumber >= p.turnRange[0] && newTurnNumber <= p.turnRange[1]);
+            if (doomPhase && doomPhase.interval !== Infinity) {
+                const turnsInPhase = newTurnNumber - doomPhase.turnRange[0];
+                if (turnsInPhase % doomPhase.interval === 0) {
+                    setDoomGrid(prev => {
+                        const newGrid = [...prev];
+                        for (let i = 0; i < newGrid.length; i++) {
+                            if (newGrid[i].type === 'empty') {
+                                newGrid[i] = { type: 'danger' };
+                                break;
+                            }
+                        }
+                        return newGrid;
+                    });
                 }
-                return newGrid;
-            });
+            }
         }
 
-        // Reset draw direction for alternating wall
+        // Reset draw direction
         setLastDrawDirection(null);
 
-        // 3-choose-1 wall selection — no duplicate wall types
-        const candidates = [];
-        const usedTypeIds = new Set();
-        while (candidates.length < 3) {
-            const wallType = pickWallType();
-            if (usedTypeIds.has(wallType.id)) continue;
-            usedTypeIds.add(wallType.id);
-            const stickers = pickWallStickers(STICKER_TYPES);
-            const { grid, doomCellCount } = generateWall(stickers);
-            candidates.push({ stickers, grid, doomCellCount, wallType });
-        }
-        setWallCandidates(candidates);
+        // 3-choose-1 wall selection with colors and unlock conditions
+        setWallCandidates(generateWallCandidates());
         setPhase('wall_choice');
     };
 
@@ -190,6 +223,11 @@ export const useGameLogic = (config) => {
             setBonusItems(shuffled.slice(0, 3).map((item, i) => ({ ...item, bonusValue: bonusValues[i] })));
         }
         setExpeditionNumber(prev => prev + 1);
+        // v3 initial economy
+        setGold(V3_INITIAL_STATE.gold);
+        setRefreshCount(V3_INITIAL_STATE.refreshCount);
+        setDrawCount(0);
+        setTotalDrawCount(0);
         // Seed initial bulletin with unique reward combinations
         const initial = [];
         const usedKeys = new Set();
@@ -219,58 +257,38 @@ export const useGameLogic = (config) => {
         setPhase('incoming_order');
     };
 
+    /** Check if a wall candidate can be unlocked (draws + gold requirements) */
+    const canUnlockWall = (candidate) => {
+        const cond = candidate.unlockCondition;
+        if (cond.draws && drawCount < cond.draws) return false;
+        if (cond.gold && gold < cond.gold) return false;
+        return true;
+    };
+
     /** Select one of the wall candidates to play with */
     const selectWall = (index) => {
         if (!wallCandidates || !wallCandidates[index]) return;
         const chosen = wallCandidates[index];
-        const wallType = chosen.wallType;
-        setCurrentWallType(wallType);
+        if (!canUnlockWall(chosen)) return;
 
-        // Apply wall-type mutations to the grid before setting it
-        const grid = chosen.grid.map(r => r.map(c => c ? { ...c } : null));
-
-        if (wallType.id === 'hidden') {
-            // Mark ~30% of groups/single cells as hidden (whole group hides together)
-            const ratio = wallType.hiddenRatio || 0.3;
-            const hiddenGroups = new Set();
-            for (let r = 0; r < grid.length; r++) {
-                for (let c = 0; c < grid[r].length; c++) {
-                    const cell = grid[r][c];
-                    if (!cell || (cell.type !== 'sticker' && cell.type !== 'item')) continue;
-                    if (cell.groupId && hiddenGroups.has(cell.groupId)) continue; // already decided
-                    if (Math.random() < ratio) {
-                        if (cell.groupId) {
-                            hiddenGroups.add(cell.groupId);
-                        } else {
-                            cell.hidden = true;
-                        }
-                    }
-                }
-            }
-            // Apply group hiding
-            for (let r = 0; r < grid.length; r++) {
-                for (let c = 0; c < grid[r].length; c++) {
-                    if (grid[r][c]?.groupId && hiddenGroups.has(grid[r][c].groupId)) {
-                        grid[r][c].hidden = true;
-                    }
-                }
-            }
-        } else if (wallType.id === 'multiplier') {
-            // Mark ~20% of cells with multiplier = 2
-            const ratio = wallType.multiplierRatio || 0.2;
-            for (let r = 0; r < grid.length; r++) {
-                for (let c = 0; c < grid[r].length; c++) {
-                    const cell = grid[r][c];
-                    if (cell && Math.random() < ratio) {
-                        cell.multiplier = 2;
-                    }
-                }
-            }
+        // Pay gold cost if any
+        if (chosen.unlockCondition.gold) {
+            setGold(prev => prev - chosen.unlockCondition.gold);
         }
 
-        setMatrix(grid);
+        setCurrentWallColor(chosen.wallColor);
+        setCurrentWallType(null);  // keep for compat, will be null
+        setMatrix(chosen.grid);
         setWallCandidates(null);
+        setDrawCount(0);  // reset per-wall draw count
         setPhase('drawing');
+    };
+
+    /** Refresh wall candidates (limited uses per expedition) */
+    const refreshWallCandidates = () => {
+        if (refreshCount <= 0) return;
+        setRefreshCount(prev => prev - 1);
+        setWallCandidates(generateWallCandidates());
     };
 
     // =============================================
@@ -283,10 +301,7 @@ export const useGameLogic = (config) => {
     const selectRow = (rowIndex) => {
         if (phase !== 'drawing') return;
         if (isDoomResolving || isDrawAnimating) return;
-        if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
-        // Alternating wall: block consecutive row draws
-        if (currentWallType?.id === 'alternating' && lastDrawDirection === 'row') return;
 
         setDoomResolutionResult(null);
         setFlyingItem(null);
@@ -299,7 +314,9 @@ export const useGameLogic = (config) => {
         });
         if (activeCols.length === 0) return;
 
-        setGold(prev => prev - turnConfig.drawCost);
+        // v3: free draws — increment draw counts
+        setDrawCount(prev => prev + 1);
+        setTotalDrawCount(prev => prev + 1);
 
         // Pre-determine result
         const finalColIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
@@ -331,10 +348,7 @@ export const useGameLogic = (config) => {
     const selectColumn = (colIndex) => {
         if (phase !== 'drawing') return;
         if (isDoomResolving || isDrawAnimating) return;
-        if (gold < turnConfig.drawCost) return;
         if (!matrix) return;
-        // Alternating wall: block consecutive column draws
-        if (currentWallType?.id === 'alternating' && lastDrawDirection === 'column') return;
 
         setDoomResolutionResult(null);
         setFlyingItem(null);
@@ -347,7 +361,9 @@ export const useGameLogic = (config) => {
         });
         if (activeCols.length === 0) return;
 
-        setGold(prev => prev - turnConfig.drawCost);
+        // v3: free draws — increment draw counts
+        setDrawCount(prev => prev + 1);
+        setTotalDrawCount(prev => prev + 1);
 
         // Pre-determine result: pick a random row from active rows
         const finalRowIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
@@ -393,31 +409,49 @@ export const useGameLogic = (config) => {
         if (!drawAnimState) return;
         const { direction, finalRowIndex, finalColIndex, drawnCell } = drawAnimState;
 
-        // Track draw direction for alternating wall
+        // Track draw direction
         setLastDrawDirection(direction);
 
         const mult = drawnCell.multiplier || 1;
         let obtainedItem = null;
-        const doomEffects = { resolutions: 0, upgrades: 0 };
+        const doomEffects = { resolutions: 0 };
+        let isEvacuationOffer = false;
 
         if (drawnCell.type === 'item' || drawnCell.type === 'sticker' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
         } else if (drawnCell.type === 'doom_resolution') {
             doomEffects.resolutions = 1 * mult;
-        } else if (drawnCell.type === 'doom_upgrade') {
-            doomEffects.upgrades = 1 * mult;
+        } else if (drawnCell.type === 'doom_accumulation') {
+            setDoomGrid(prev => {
+                const newGrid = [...prev];
+                for (let i = 0; i < newGrid.length; i++) {
+                    if (newGrid[i].type === 'empty') {
+                        newGrid[i] = { type: 'danger' };
+                        break;
+                    }
+                }
+                return newGrid;
+            });
+            showToast(t('厄运积累') + ' +1', 'warning');
+        } else if (drawnCell.type === 'damage') {
+            setHp(prev => {
+                const newHp = Math.max(0, prev - 1);
+                if (newHp <= 0) {
+                    handleGameOver();
+                }
+                return newHp;
+            });
+            showToast('💥 -1 HP', 'error');
+        } else if (drawnCell.type === 'evacuation') {
+            isEvacuationOffer = true;
+            showToast(t('撤离机会'), 'info');
         } else if (drawnCell.type === 'gold') {
             const goldGain = drawnCell.goldAmount * mult;
             setGold(prev => prev + goldGain);
-            showToast(`${t('金币')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
-        } else if (drawnCell.type === 'order_cell') {
-            addBulletinOrder();
-            showToast(t('获得新订单'), 'info');
-        } else if (drawnCell.type === 'bomb') {
-            // Bomb: mark for adjacent destruction (handled in matrix update below)
+            showToast(`${t('金币')} +${goldGain}${mult > 1 ? ' (\u00d7' + mult + ')' : ''}`, 'success');
         }
 
-        // Remove drawn cell(s) + hidden reveal + drift shuffle
+        // Remove drawn cell(s) from matrix
         setMatrix(prev => {
             const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
 
@@ -434,104 +468,6 @@ export const useGameLogic = (config) => {
                 newMatrix[finalRowIndex][finalColIndex] = null;
             }
 
-            // Bomb: destroy all adjacent cells (8 directions)
-            if (drawnCell.type === 'bomb') {
-                const bombDirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-                const destroyGroups = new Set();
-                for (const [dr, dc] of bombDirs) {
-                    const nr = finalRowIndex + dr;
-                    const nc = finalColIndex + dc;
-                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length && newMatrix[nr][nc]) {
-                        if (newMatrix[nr][nc].groupId) {
-                            destroyGroups.add(newMatrix[nr][nc].groupId);
-                        } else {
-                            newMatrix[nr][nc] = null;
-                        }
-                    }
-                }
-                // Destroy entire groups touched by explosion
-                if (destroyGroups.size > 0) {
-                    for (let r = 0; r < newMatrix.length; r++) {
-                        for (let c = 0; c < newMatrix[r].length; c++) {
-                            if (newMatrix[r][c]?.groupId && destroyGroups.has(newMatrix[r][c].groupId)) {
-                                newMatrix[r][c] = null;
-                            }
-                        }
-                    }
-                }
-                showToast('💣 ' + t('炸弹爆炸！'), 'warning');
-            }
-
-            // Hidden wall: reveal adjacent hidden cells (whole group reveals together)
-            if (currentWallType?.id === 'hidden') {
-                const revealGroups = new Set();
-                const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-                for (const [dr, dc] of dirs) {
-                    const nr = finalRowIndex + dr;
-                    const nc = finalColIndex + dc;
-                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length) {
-                        const neighbor = newMatrix[nr][nc];
-                        if (neighbor?.hidden) {
-                            if (neighbor.groupId) {
-                                revealGroups.add(neighbor.groupId);
-                            } else {
-                                neighbor.hidden = false;
-                            }
-                        }
-                    }
-                }
-                // Reveal entire groups
-                if (revealGroups.size > 0) {
-                    for (let r = 0; r < newMatrix.length; r++) {
-                        for (let c = 0; c < newMatrix[r].length; c++) {
-                            if (newMatrix[r][c]?.groupId && revealGroups.has(newMatrix[r][c].groupId)) {
-                                newMatrix[r][c].hidden = false;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Drift wall: shuffle remaining non-null cells to random positions
-            if (currentWallType?.id === 'drift') {
-                const cells = [];
-                const positions = [];
-                for (let r = 0; r < newMatrix.length; r++) {
-                    for (let c = 0; c < newMatrix[r].length; c++) {
-                        if (newMatrix[r][c] !== null) {
-                            cells.push(newMatrix[r][c]);
-                            positions.push([r, c]);
-                        }
-                    }
-                }
-                // Shuffle cells array
-                for (let i = cells.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [cells[i], cells[j]] = [cells[j], cells[i]];
-                }
-                // Clear all non-null positions
-                for (const [r, c] of positions) {
-                    newMatrix[r][c] = null;
-                }
-                // Redistribute: collect ALL positions (null and non-null)
-                const allPositions = [];
-                for (let r = 0; r < newMatrix.length; r++) {
-                    for (let c = 0; c < newMatrix[r].length; c++) {
-                        allPositions.push([r, c]);
-                    }
-                }
-                // Shuffle all positions
-                for (let i = allPositions.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [allPositions[i], allPositions[j]] = [allPositions[j], allPositions[i]];
-                }
-                // Place cells into first N shuffled positions
-                for (let i = 0; i < cells.length; i++) {
-                    const [r, c] = allPositions[i];
-                    newMatrix[r][c] = cells[i];
-                }
-            }
-
             return newMatrix;
         });
 
@@ -544,19 +480,7 @@ export const useGameLogic = (config) => {
                 colIndex: finalColIndex,
                 id: Date.now(),
             });
-            // Multiplier: add to inventory multiple times for stickers
-            if (mult > 1 && (obtainedItem.type === 'sticker' || obtainedItem.type === 'item')) {
-                for (let i = 0; i < mult; i++) {
-                    addToInventory({ ...obtainedItem, uid: generateUID() });
-                }
-            } else {
-                addToInventory(obtainedItem);
-            }
-        }
-
-        if (doomEffects.upgrades > 0) {
-            setDoomLevel(prev => prev + doomEffects.upgrades);
-            showToast(t('厄运升级') + ` +${doomEffects.upgrades}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'warning');
+            addToInventory(obtainedItem);
         }
 
         if (doomEffects.resolutions > 0) {
@@ -570,6 +494,7 @@ export const useGameLogic = (config) => {
             colIndex: finalColIndex,
             obtained: obtainedItem,
             doomEffects,
+            isEvacuationOffer,
         });
         setDrawAnimState(null);
     };
@@ -790,10 +715,13 @@ export const useGameLogic = (config) => {
     const resolveDoom = (action = null) => {
         if (action) setAfterDoomAction(action);
 
+        // v3: draw count based on current turn number
+        const draws = getDoomDraws(turnNumber);
+
         // Pre-calculate final selections
         const finalSelections = [];
         let hpLoss = 0;
-        for (let i = 0; i < doomLevel; i++) {
+        for (let i = 0; i < draws; i++) {
             const cellIndex = Math.floor(Math.random() * doomConfig.gridSize);
             const isHit = doomGrid[cellIndex].type === 'danger';
             if (isHit) hpLoss++;
@@ -896,7 +824,11 @@ export const useGameLogic = (config) => {
         setMatrix(null);
         setWallCandidates(null);
         setCurrentWallType(null);
+        setCurrentWallColor(null);
         setLastDrawDirection(null);
+        setDrawCount(0);
+        setTotalDrawCount(0);
+        setRefreshCount(V3_INITIAL_STATE.refreshCount);
         setHp(doomConfig.initialHP);
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
@@ -905,7 +837,6 @@ export const useGameLogic = (config) => {
             }
             return grid;
         });
-        setDoomLevel(doomConfig.initialDoomLevel);
         setIsDoomResolving(false);
         setDoomAnimState(null);
         setDoomResolutionResult(null);
@@ -934,7 +865,11 @@ export const useGameLogic = (config) => {
         setMatrix(null);
         setWallCandidates(null);
         setCurrentWallType(null);
+        setCurrentWallColor(null);
         setLastDrawDirection(null);
+        setDrawCount(0);
+        setTotalDrawCount(0);
+        setRefreshCount(V3_INITIAL_STATE.refreshCount);
         setHp(doomConfig.initialHP);
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
@@ -943,7 +878,6 @@ export const useGameLogic = (config) => {
             }
             return grid;
         });
-        setDoomLevel(doomConfig.initialDoomLevel);
         setIsDoomResolving(false);
         setDoomAnimState(null);
         setDoomResolutionResult(null);
@@ -995,12 +929,20 @@ export const useGameLogic = (config) => {
         wallCandidates,
         lastDrawResult,
         currentWallType,
+        currentWallColor,
         lastDrawDirection,
+
+        // v3 draw/economy state
+        drawCount,
+        totalDrawCount,
+        refreshCount,
+        canUnlockWall,
+        refreshWallCandidates,
+        getDoomDraws,
 
         // Doom
         hp,
         doomGrid,
-        doomLevel,
         dangerCount,
         isDoomResolving,
         doomAnimState,
