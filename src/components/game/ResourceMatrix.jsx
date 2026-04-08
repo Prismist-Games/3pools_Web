@@ -25,26 +25,26 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时触发厄运结算，不获得物品');
-    } else if (cell.type === 'doom_upgrade') {
-        icon = cell.icon;
-        name = t(cell.name);
-        desc = t('抽中时厄运等级+1，不获得物品');
     } else if (cell.type === 'gold') {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时获得金币');
-    } else if (cell.type === 'order_cell') {
-        icon = cell.icon;
-        name = t(cell.name);
-        desc = t('抽中时获得一个新订单');
     } else if (cell.type === 'out_of_game') {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时直接获得局外物品');
-    } else if (cell.type === 'bomb') {
+    } else if (cell.type === 'doom_accumulation') {
         icon = cell.icon;
         name = t(cell.name);
-        desc = t('抽中时爆炸，摧毁周围所有格子');
+        desc = t('抽中时厄运网格+1危险符号');
+    } else if (cell.type === 'damage') {
+        icon = cell.icon;
+        name = t(cell.name);
+        desc = t('抽中时直接-1生命值');
+    } else if (cell.type === 'evacuation') {
+        icon = cell.icon;
+        name = t(cell.name);
+        desc = t('抽中时可选择立即撤离');
     } else {
         return null;
     }
@@ -87,8 +87,9 @@ const TRACK = CELL_SIZE + GAP;
 const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlight }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
-    const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
-        || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb');
+    const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_accumulation'
+        || cell.type === 'damage' || cell.type === 'gold' || cell.type === 'evacuation'
+        || cell.type === 'out_of_game');
     const { top, bottom, left, right } = adjacency;
 
     // Rounded corners — only on external corners
@@ -108,8 +109,6 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         bgClass = 'bg-gray-100 border-gray-200';
     } else if (cell.type === 'doom_resolution') {
         bgClass = 'bg-red-100 border-red-400';
-    } else if (cell.type === 'doom_upgrade') {
-        bgClass = 'bg-amber-100 border-amber-400';
     } else if (cell.type === 'item' || cell.type === 'sticker') {
         // Stickers are always white
         const borderColor = 'border-gray-300';
@@ -120,14 +119,16 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         bgClass = `bg-white ${bT} ${bB} ${bL} ${bR}`;
     } else if (cell.type === 'gold') {
         bgClass = 'bg-yellow-100 border-yellow-400';
-    } else if (cell.type === 'order_cell') {
-        bgClass = 'bg-blue-50 border-blue-300';
     } else if (cell.type === 'out_of_game') {
         // Score-based colors matching order reward cards
         const sc = { 1: 'bg-green-50 border-green-400', 2: 'bg-blue-50 border-blue-400', 3: 'bg-purple-50 border-purple-400', 5: 'bg-orange-50 border-orange-400' };
         bgClass = sc[cell.item?.score] || 'bg-pink-100 border-pink-400';
-    } else if (cell.type === 'bomb') {
-        bgClass = 'bg-gray-800 border-gray-900';
+    } else if (cell.type === 'doom_accumulation') {
+        bgClass = 'bg-gray-800 border-gray-600';
+    } else if (cell.type === 'damage') {
+        bgClass = 'bg-orange-100 border-orange-400';
+    } else if (cell.type === 'evacuation') {
+        bgClass = 'bg-emerald-100 border-emerald-400';
     } else {
         bgClass = 'bg-white border-gray-300';
     }
@@ -185,7 +186,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
 /**
  * 5×5 grid display for turn-based prototype.
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap }) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -210,7 +211,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
 
     if (!matrix) return null;
 
-    const canDraw = phase === 'drawing' && gold >= drawCost && !disabled;
+    const canDraw = phase === 'drawing' && !disabled;
 
     const getCellContent = (cell) => {
         if (cell === null) return <span className="text-gray-300">·</span>;

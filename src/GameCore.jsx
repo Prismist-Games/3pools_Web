@@ -167,7 +167,7 @@ const GameCore = () => {
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="text-slate-400 text-xs">💀</span>
-                            <span className="text-sm font-black text-slate-600">Lv.{doomLevel}</span>
+                            <span className="text-sm font-black text-slate-600">×{doomLevel}</span>
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="text-teal-400 text-xs">🎒</span>
@@ -307,8 +307,6 @@ const GameCore = () => {
                                         matrix={matrix}
                                         onSelectRow={selectRow}
                                         onSelectColumn={selectColumn}
-                                        gold={gold}
-                                        drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
                                         phase={phase}
                                         disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
                                         drawAnimState={drawAnimState}
@@ -357,7 +355,7 @@ const GameCore = () => {
                                 <div className="text-center py-8">
                                     <h2 className="text-xl font-bold mb-2">{t('回合')} {turnNumber} {t('结束')}</h2>
                                     <p className="text-gray-500 mb-2">
-                                        {t('背包')}: {inventory.length}/{maxInventorySize} | HP: {hp} | 💀 Lv.{doomLevel}
+                                        {t('背包')}: {inventory.length}/{maxInventorySize} | HP: {hp} | 💀 ×{doomLevel}
                                     </p>
                                     <p className="text-gray-400 text-sm mb-6">
                                         {t('下回合将增加')} 1 {t('个危险格子')}
@@ -395,7 +393,7 @@ const GameCore = () => {
                             <div className="bg-white rounded-lg shadow-sm border">
                                 <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
                                     <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('厄运')}</h3>
-                                    <span className="text-[11px] font-bold text-red-500">Lv.{doomLevel}</span>
+                                    <span className="text-[11px] font-bold text-red-500">{t('抽取')} ×{doomLevel}</span>
                                 </div>
                                 <div className="p-2">
                                     <div className="grid grid-cols-5 gap-1">
@@ -419,7 +417,7 @@ const GameCore = () => {
                                     </div>
                                     <div className="flex justify-between mt-1.5 text-[10px] text-gray-300">
                                         <span>{t('危险')} {dangerCount}/{doomGrid.length}</span>
-                                        <span>{t('结算')} ×{doomLevel}</span>
+                                        <span>{t('抽取')} ×{doomLevel}</span>
                                     </div>
 
                                     {/* Doom animation result + confirm */}
