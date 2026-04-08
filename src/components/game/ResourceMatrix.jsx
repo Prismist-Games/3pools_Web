@@ -218,7 +218,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
 
     if (!matrix) return null;
 
-    const canDraw = phase === 'drawing' && gold >= drawCost && !disabled;
+    const canDraw = (phase === 'drawing' || phase === 'drawing_sub') && gold >= drawCost && !disabled;
 
     const getCellContent = (cell) => {
         if (cell === null) return <span className="text-gray-300">·</span>;
