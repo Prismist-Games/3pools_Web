@@ -309,7 +309,7 @@ const GameCore = () => {
                                 <div className="flex flex-col items-center">
                                     {/* Parent wall preview — only visible during sub-level */}
                                     {(phase === 'drawing_sub' || phase === 'exiting_sub') && wallStack && wallStack.length > 0 && (
-                                        <div className="mb-4 pointer-events-none parent-shrink" style={{ height: '140px', overflow: 'hidden' }}>
+                                        <div className={`mb-4 pointer-events-none ${phase === 'exiting_sub' ? 'parent-restore' : 'parent-shrink'}`} style={{ overflow: 'hidden' }}>
                                             <div className="text-[9px] text-gray-400 mb-1 text-center">主关卡（暂停中）</div>
                                             <div className="transform scale-[0.5] origin-top">
                                                 <ResourceMatrix
