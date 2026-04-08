@@ -657,7 +657,10 @@ export const useGameLogic = (config) => {
                     }
                 }
 
-                // Clear all movable cells
+                // Helper: is a cell position free for dropping into?
+                const isFree = (r, c) => newMatrix[r][c] === null || newMatrix[r][c]?.type === 'empty';
+
+                // Clear all movable cells (replace with null, preserve empty cells underneath)
                 for (const { r, c } of ungrouped) newMatrix[r][c] = null;
                 for (const cells of groupCells.values()) {
                     for (const { r, c } of cells) newMatrix[r][c] = null;
@@ -670,13 +673,12 @@ export const useGameLogic = (config) => {
                     for (const { r, c } of cells) {
                         let drop = 0;
                         for (let nr = r + 1; nr < rows; nr++) {
-                            // Check if position is free (and not occupied by another cell in this group)
-                            if (newMatrix[nr][c] !== null && !cells.some(g => g.r === nr && g.c === c)) break;
+                            if (!isFree(nr, c) && !cells.some(g => g.r === nr && g.c === c)) break;
                             drop++;
                         }
                         maxDrop = Math.min(maxDrop, drop);
                     }
-                    // Place group at new position
+                    // Place group at new position (overwrite empty cells)
                     for (const { r, c, cell } of cells) {
                         newMatrix[r + maxDrop][c] = cell;
                     }
@@ -686,10 +688,9 @@ export const useGameLogic = (config) => {
                 for (let c = 0; c < cols; c++) {
                     const colCells = ungrouped.filter(u => u.c === c).sort((a, b) => b.r - a.r);
                     let bottom = rows - 1;
-                    // Find lowest empty slot
-                    while (bottom >= 0 && newMatrix[bottom][c] !== null) bottom--;
+                    while (bottom >= 0 && !isFree(bottom, c)) bottom--;
                     for (const { cell } of colCells) {
-                        while (bottom >= 0 && newMatrix[bottom][c] !== null) bottom--;
+                        while (bottom >= 0 && !isFree(bottom, c)) bottom--;
                         if (bottom >= 0) {
                             newMatrix[bottom][c] = cell;
                             bottom--;
