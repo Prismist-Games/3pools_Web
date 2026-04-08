@@ -198,7 +198,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'drawing' || phase === 'drawing_sub' || phase === 'between_turns') && (
+                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'between_turns') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -305,10 +305,10 @@ const GameCore = () => {
                             )}
 
                             {/* Drawing phase */}
-                            {(phase === 'drawing' || phase === 'drawing_sub') && matrix && (
+                            {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub') && matrix && (
                                 <div className="flex flex-col items-center">
                                     {/* Parent wall preview — only visible during sub-level */}
-                                    {phase === 'drawing_sub' && wallStack && wallStack.length > 0 && (
+                                    {(phase === 'drawing_sub' || phase === 'exiting_sub') && wallStack && wallStack.length > 0 && (
                                         <div className="mb-4 pointer-events-none parent-shrink" style={{ height: '140px', overflow: 'hidden' }}>
                                             <div className="text-[9px] text-gray-400 mb-1 text-center">主关卡（暂停中）</div>
                                             <div className="transform scale-[0.5] origin-top">
@@ -325,7 +325,7 @@ const GameCore = () => {
                                             </div>
                                         </div>
                                     )}
-                                    <div className={`flex flex-col items-center ${phase === 'drawing_sub' ? 'sub-level-enter' : ''}`}>
+                                    <div className={`flex flex-col items-center ${phase === 'drawing_sub' ? 'sub-level-enter' : phase === 'exiting_sub' ? 'sub-level-exit pointer-events-none' : ''}`}>
                                         <ResourceMatrix
                                             matrix={matrix}
                                             onSelectRow={selectRow}

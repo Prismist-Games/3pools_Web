@@ -311,44 +311,52 @@ export const useGameLogic = (config) => {
         setPhase('drawing');
     };
 
-    /** Enter a sub-level: push current wall state, load sub-level grid */
-    const enterSubLevel = (subLevelId) => {
+    /** Enter a sub-level: push current wall state, load sub-level grid.
+     *  entranceRow/Col: position of the entrance cell to remove from saved matrix */
+    const enterSubLevel = (subLevelId, entranceRow, entranceCol) => {
         const subLevel = LEVEL_TEMPLATES.find(t => t.id === subLevelId && t.role === 'sub');
         if (!subLevel) return;
 
-        // Read current matrix via functional update to get the latest state
-        // (entrance cell was already removed by setMatrix before this runs)
-        setMatrix(currentMatrix => {
-            // Push current state onto stack (using the ACTUAL current matrix)
-            setWallStack(prev => [...prev, {
-                matrix: currentMatrix,
-                gold,
-                wallType: currentWallType,
-            }]);
+        // Save current matrix with entrance cell removed
+        const savedMatrix = matrix.map(r => r.map(c => c ? { ...c } : null));
+        if (entranceRow !== undefined && entranceCol !== undefined) {
+            savedMatrix[entranceRow][entranceCol] = null;
+        }
 
-            // Generate and load sub-level grid
-            const result = generateWallFromTemplate(subLevel);
-            const subGold = subLevel.settings?.gold ?? turnConfig.goldPerTurn;
-            setGold(subGold);
-            setCurrentWallType(null);
-            setLastDrawResult(null);
-            setPhase('drawing_sub');
+        setWallStack(prev => [...prev, {
+            matrix: savedMatrix,
+            gold,
+            wallType: currentWallType,
+        }]);
 
-            return result.grid; // replace matrix with sub-level grid
-        });
+        // Generate and load sub-level
+        const result = generateWallFromTemplate(subLevel);
+        const subGold = subLevel.settings?.gold ?? turnConfig.goldPerTurn;
+        setMatrix(result.grid);
+        setGold(subGold);
+        setCurrentWallType(null);
+        setLastDrawResult(null);
+        setDrawAnimState(null);
+        setPhase('drawing_sub');
     };
 
-    /** Exit sub-level: pop wall stack, restore parent state. No doom resolution. */
+    /** Exit sub-level: play exit animation, then pop wall stack and restore. No doom resolution. */
     const exitSubLevel = () => {
         if (wallStack.length === 0) return;
 
-        const parent = wallStack[wallStack.length - 1];
-        setWallStack(prev => prev.slice(0, -1));
-        setMatrix(parent.matrix);
-        setGold(parent.gold);
-        setCurrentWallType(parent.wallType);
-        setLastDrawResult(null);
-        setPhase('drawing');
+        // Set a transitional phase to trigger exit animation
+        setPhase('exiting_sub');
+
+        // After animation completes, restore parent state
+        setTimeout(() => {
+            const parent = wallStack[wallStack.length - 1];
+            setWallStack(prev => prev.slice(0, -1));
+            setMatrix(parent.matrix);
+            setGold(parent.gold);
+            setCurrentWallType(parent.wallType);
+            setLastDrawResult(null);
+            setPhase('drawing');
+        }, 280);
     };
 
     // =============================================
@@ -494,16 +502,9 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {
-            // Remove the entrance cell from the grid, then enter sub-level
-            setMatrix(prev => {
-                const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
-                newMatrix[finalRowIndex][finalColIndex] = null;
-                return newMatrix;
-            });
-            setDrawAnimState(null);
-            setLastDrawResult({ obtained: null, row: finalRowIndex, col: finalColIndex, id: Date.now() });
+            // Enter sub-level directly — no setTimeout, no stale closure issues
             showToast(`🚪 ${t('进入子关卡')}: ${drawnCell.name}`, 'info');
-            setTimeout(() => enterSubLevel(drawnCell.subLevelId), 300);
+            enterSubLevel(drawnCell.subLevelId, finalRowIndex, finalColIndex);
             return; // Skip the normal post-draw flow
         }
 
