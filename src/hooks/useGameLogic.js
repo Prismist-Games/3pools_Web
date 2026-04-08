@@ -316,21 +316,26 @@ export const useGameLogic = (config) => {
         const subLevel = LEVEL_TEMPLATES.find(t => t.id === subLevelId && t.role === 'sub');
         if (!subLevel) return;
 
-        // Push current state onto stack
-        setWallStack(prev => [...prev, {
-            matrix,
-            gold,
-            wallType: currentWallType,
-        }]);
+        // Read current matrix via functional update to get the latest state
+        // (entrance cell was already removed by setMatrix before this runs)
+        setMatrix(currentMatrix => {
+            // Push current state onto stack (using the ACTUAL current matrix)
+            setWallStack(prev => [...prev, {
+                matrix: currentMatrix,
+                gold,
+                wallType: currentWallType,
+            }]);
 
-        // Generate and load sub-level
-        const result = generateWallFromTemplate(subLevel);
-        const subGold = subLevel.settings?.gold ?? turnConfig.goldPerTurn;
-        setMatrix(result.grid);
-        setGold(subGold);
-        setCurrentWallType(null);
-        setLastDrawResult(null);
-        setPhase('drawing_sub');
+            // Generate and load sub-level grid
+            const result = generateWallFromTemplate(subLevel);
+            const subGold = subLevel.settings?.gold ?? turnConfig.goldPerTurn;
+            setGold(subGold);
+            setCurrentWallType(null);
+            setLastDrawResult(null);
+            setPhase('drawing_sub');
+
+            return result.grid; // replace matrix with sub-level grid
+        });
     };
 
     /** Exit sub-level: pop wall stack, restore parent state. No doom resolution. */
@@ -354,7 +359,7 @@ export const useGameLogic = (config) => {
 
     /** Select a row — starts scanning animation, then resolves */
     const selectRow = (rowIndex) => {
-        if (phase !== 'drawing') return;
+        if (phase !== 'drawing' && phase !== 'drawing_sub') return;
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
@@ -402,7 +407,7 @@ export const useGameLogic = (config) => {
 
     /** Select a column — starts scanning animation top-to-bottom, then resolves */
     const selectColumn = (colIndex) => {
-        if (phase !== 'drawing') return;
+        if (phase !== 'drawing' && phase !== 'drawing_sub') return;
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix) return;

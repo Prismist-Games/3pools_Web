@@ -306,12 +306,12 @@ const GameCore = () => {
 
                             {/* Drawing phase */}
                             {(phase === 'drawing' || phase === 'drawing_sub') && matrix && (
-                                <div className={`flex ${phase === 'drawing_sub' ? 'items-start gap-6' : 'flex-col items-center'}`}>
+                                <div className="flex flex-col items-center">
                                     {/* Parent wall preview — only visible during sub-level */}
                                     {phase === 'drawing_sub' && wallStack && wallStack.length > 0 && (
-                                        <div className="opacity-30 pointer-events-none flex-shrink-0 mt-8">
+                                        <div className="mb-4 pointer-events-none parent-shrink" style={{ height: '140px', overflow: 'hidden' }}>
                                             <div className="text-[9px] text-gray-400 mb-1 text-center">主关卡（暂停中）</div>
-                                            <div className="transform scale-[0.6] origin-top">
+                                            <div className="transform scale-[0.5] origin-top">
                                                 <ResourceMatrix
                                                     matrix={wallStack[wallStack.length - 1].matrix}
                                                     onSelectRow={() => {}}
@@ -325,7 +325,7 @@ const GameCore = () => {
                                             </div>
                                         </div>
                                     )}
-                                    <div className="flex flex-col items-center">
+                                    <div className={`flex flex-col items-center ${phase === 'drawing_sub' ? 'sub-level-enter' : ''}`}>
                                         <ResourceMatrix
                                             matrix={matrix}
                                             onSelectRow={selectRow}

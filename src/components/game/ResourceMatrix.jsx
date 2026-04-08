@@ -1,6 +1,7 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
 
 /** Tooltip for grid cells — Portal-based, same style as ToolItemTooltip */
 const CellTooltip = ({ cell, anchorRef, visible, t }) => {
@@ -46,9 +47,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         name = t(cell.name);
         desc = t('抽中时爆炸，摧毁周围所有格子');
     } else if (cell.type === 'entrance') {
+        const subLevel = LEVEL_TEMPLATES.find(t => t.id === cell.subLevelId);
         icon = '🚪';
-        name = t('子关卡入口');
-        desc = t('抽中时进入子关卡');
+        name = subLevel ? (subLevel.name || cell.subLevelId) : cell.subLevelId;
+        desc = subLevel?.description || t('抽中时进入子关卡');
     } else {
         return null;
     }
