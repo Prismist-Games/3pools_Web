@@ -36,6 +36,7 @@ export default function LevelEditor() {
   const [id, setId] = useState(existingTemplate?.id || '');
   const [name, setName] = useState(existingTemplate?.name || '');
   const [description, setDescription] = useState(existingTemplate?.description || '');
+  const [role, setRole] = useState(existingTemplate?.role || 'main');
   const [grid, setGrid] = useState(
     existingTemplate ? existingTemplate.grid.map(r => [...r]) : EMPTY_GRID()
   );
@@ -77,7 +78,7 @@ export default function LevelEditor() {
   // Test generate
   const [testResult, setTestResult] = useState(null);
   const handleTest = () => {
-    const template = { id, name, description, grid, settings: buildSettings() };
+    const template = { id, name, description, role, grid, settings: buildSettings() };
     const result = generateWallFromTemplate(template);
     setTestResult(result.grid);
   };
@@ -88,7 +89,7 @@ export default function LevelEditor() {
       alert('请填写关卡 ID');
       return;
     }
-    const template = { id, name, description, grid, settings: buildSettings() };
+    const template = { id, name, description, role, grid, settings: buildSettings() };
     const json = JSON.stringify(template, null, 2);
 
     // Try File System Access API (Chrome/Edge — shows save dialog, remembers last path)
@@ -140,6 +141,7 @@ export default function LevelEditor() {
           onGroupModeChange={setGroupMode}
           activeGroupNumber={activeGroupNumber}
           onActiveGroupNumberChange={setActiveGroupNumber}
+          levelRole={role}
         />
 
         {/* Center: Grid */}
@@ -175,6 +177,32 @@ export default function LevelEditor() {
             <label className="text-xs text-gray-400">描述</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)}
               className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm h-16" placeholder="关卡描述..." />
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-400">关卡类型</label>
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={() => setRole('main')}
+                className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                  role === 'main'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800 text-gray-400 border border-gray-600'
+                }`}
+              >
+                主关卡
+              </button>
+              <button
+                onClick={() => setRole('sub')}
+                className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                  role === 'sub'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-gray-800 text-gray-400 border border-gray-600'
+                }`}
+              >
+                子关卡
+              </button>
+            </div>
           </div>
 
           {/* Wall settings */}

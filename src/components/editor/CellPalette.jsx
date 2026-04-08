@@ -1,5 +1,5 @@
 import React from 'react';
-import { CELL_TYPES } from '../../data/levelTemplates';
+import { CELL_TYPES, getSubLevels } from '../../data/levelTemplates';
 
 const PALETTE_ITEMS = [
   { type: null, icon: '🚫', label: '橡皮擦（随机填充）', group: '工具' },
@@ -35,8 +35,19 @@ export default function CellPalette({
   multiplier, onMultiplierChange,
   groupMode, onGroupModeChange,
   activeGroupNumber, onActiveGroupNumberChange,
+  levelRole,
 }) {
-  const groups = [...new Set(PALETTE_ITEMS.map(i => i.group))];
+  // Dynamic entrance brushes — only show when editing a main level
+  const subLevels = levelRole === 'main' ? getSubLevels() : [];
+  const entranceBrushes = subLevels.map(sub => ({
+    type: `entrance:${sub.id}`,
+    icon: '🚪',
+    label: `入口: ${sub.name || sub.id}`,
+    group: '子关卡入口',
+  }));
+  const allPaletteItems = [...PALETTE_ITEMS, ...entranceBrushes];
+
+  const groups = [...new Set(allPaletteItems.map(i => i.group))];
 
   return (
     <div className="flex flex-col gap-4 p-3 bg-gray-900/80 rounded-lg min-w-[180px]">
@@ -44,7 +55,7 @@ export default function CellPalette({
         <div key={group}>
           <div className="text-xs text-gray-400 uppercase tracking-wider mb-1.5">{group}</div>
           <div className="flex flex-wrap gap-1.5">
-            {PALETTE_ITEMS.filter(i => i.group === group).map(item => (
+            {allPaletteItems.filter(i => i.group === group).map(item => (
               <button
                 key={item.type ?? 'eraser'}
                 onClick={() => { onBrushChange(item.type); if (groupMode) onGroupModeChange(false); }}
