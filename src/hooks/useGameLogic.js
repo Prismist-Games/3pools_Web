@@ -641,63 +641,65 @@ export const useGameLogic = (config) => {
             }
 
             // Gravity: all cells fall down, polyominos move as a unit
+            // Iterative bottom-up: process from bottom row upward so lower things settle first
             if (gravityActive || drawnCell.type === 'gravity') {
                 const rows = newMatrix.length;
                 const cols = newMatrix[0].length;
+                const isFree = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols
+                    && (newMatrix[r][c] === null || newMatrix[r][c]?.type === 'empty');
 
-                // Collect all polyomino groups and their cells
-                const groupCells = new Map(); // groupId → [{r, c, cell}]
-                const ungrouped = []; // [{r, c, cell}]
-                for (let r = 0; r < rows; r++) {
-                    for (let c = 0; c < cols; c++) {
-                        const cell = newMatrix[r][c];
-                        if (!cell || cell.type === 'empty') continue;
-                        if (cell.groupId && cell.shapeSize > 1) {
-                            if (!groupCells.has(cell.groupId)) groupCells.set(cell.groupId, []);
-                            groupCells.get(cell.groupId).push({ r, c, cell });
-                        } else {
-                            ungrouped.push({ r, c, cell });
-                        }
-                    }
-                }
+                // Repeat until no movement (handles cascading)
+                let moved = true;
+                while (moved) {
+                    moved = false;
+                    const processedGroups = new Set();
 
-                // Helper: is a cell position free for dropping into?
-                const isFree = (r, c) => newMatrix[r][c] === null || newMatrix[r][c]?.type === 'empty';
+                    // Bottom-up: row (rows-2) to 0 (skip last row — can't fall further)
+                    for (let r = rows - 2; r >= 0; r--) {
+                        for (let c = 0; c < cols; c++) {
+                            const cell = newMatrix[r][c];
+                            if (!cell || cell.type === 'empty') continue;
 
-                // Clear all movable cells (replace with null, preserve empty cells underneath)
-                for (const { r, c } of ungrouped) newMatrix[r][c] = null;
-                for (const cells of groupCells.values()) {
-                    for (const { r, c } of cells) newMatrix[r][c] = null;
-                }
+                            if (cell.groupId && cell.shapeSize > 1) {
+                                // Polyomino group: process once
+                                if (processedGroups.has(cell.groupId)) continue;
+                                processedGroups.add(cell.groupId);
 
-                // Drop polyomino groups first (as units)
-                for (const cells of groupCells.values()) {
-                    // Find max drop distance for this group
-                    let maxDrop = rows;
-                    for (const { r, c } of cells) {
-                        let drop = 0;
-                        for (let nr = r + 1; nr < rows; nr++) {
-                            if (!isFree(nr, c) && !cells.some(g => g.r === nr && g.c === c)) break;
-                            drop++;
-                        }
-                        maxDrop = Math.min(maxDrop, drop);
-                    }
-                    // Place group at new position (overwrite empty cells)
-                    for (const { r, c, cell } of cells) {
-                        newMatrix[r + maxDrop][c] = cell;
-                    }
-                }
+                                // Collect all cells of this group
+                                const groupMembers = [];
+                                for (let gr = 0; gr < rows; gr++) {
+                                    for (let gc = 0; gc < cols; gc++) {
+                                        if (newMatrix[gr][gc]?.groupId === cell.groupId) {
+                                            groupMembers.push({ r: gr, c: gc });
+                                        }
+                                    }
+                                }
 
-                // Drop ungrouped cells (bottom-up per column)
-                for (let c = 0; c < cols; c++) {
-                    const colCells = ungrouped.filter(u => u.c === c).sort((a, b) => b.r - a.r);
-                    let bottom = rows - 1;
-                    while (bottom >= 0 && !isFree(bottom, c)) bottom--;
-                    for (const { cell } of colCells) {
-                        while (bottom >= 0 && !isFree(bottom, c)) bottom--;
-                        if (bottom >= 0) {
-                            newMatrix[bottom][c] = cell;
-                            bottom--;
+                                // Can this group drop by 1? Check each member's cell below
+                                const canDrop = groupMembers.every(({ r: gr, c: gc }) => {
+                                    const below = gr + 1;
+                                    if (below >= rows) return false;
+                                    // Below is free, or occupied by another member of the same group
+                                    return isFree(below, gc) || groupMembers.some(m => m.r === below && m.c === gc);
+                                });
+
+                                if (canDrop) {
+                                    // Move group down by 1 (process bottom-up to avoid overwriting)
+                                    const sorted = [...groupMembers].sort((a, b) => b.r - a.r);
+                                    for (const { r: gr, c: gc } of sorted) {
+                                        newMatrix[gr + 1][gc] = newMatrix[gr][gc];
+                                        newMatrix[gr][gc] = null;
+                                    }
+                                    moved = true;
+                                }
+                            } else {
+                                // Single cell: drop by 1 if below is free
+                                if (isFree(r + 1, c)) {
+                                    newMatrix[r + 1][c] = cell;
+                                    newMatrix[r][c] = null;
+                                    moved = true;
+                                }
+                            }
                         }
                     }
                 }
