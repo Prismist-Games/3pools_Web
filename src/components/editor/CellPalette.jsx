@@ -41,7 +41,7 @@ export default function CellPalette({
   const subLevels = levelRole === 'main' ? getSubLevels() : [];
   const entranceBrushes = subLevels.map(sub => ({
     type: `entrance:${sub.id}`,
-    icon: '🚪',
+    icon: sub.icon || '🚪',
     label: `入口: ${sub.name || sub.id}`,
     group: '子关卡入口',
   }));

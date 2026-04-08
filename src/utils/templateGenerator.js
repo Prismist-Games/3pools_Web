@@ -1,7 +1,7 @@
 // src/utils/templateGenerator.js
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from '../data/v2Config';
-import { CELL_TYPES } from '../data/levelTemplates';
+import { CELL_TYPES, LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { pickWallStickers, fillDoomAndSpecials, fillEmptyCellsWithStickers } from './matrixHelpers';
 
 function generateUID() {
@@ -68,11 +68,12 @@ function resolveConstrainedCell(token) {
       // Handle dynamic entrance cells: "entrance:{subLevelId}"
       if (cellType && cellType.startsWith('entrance:')) {
         const subLevelId = cellType.replace('entrance:', '');
+        const subLevel = LEVEL_TEMPLATES.find(t => t.id === subLevelId);
         return {
           type: 'entrance',
           subLevelId,
-          icon: '🚪',
-          name: subLevelId,
+          icon: subLevel?.icon || '🚪',
+          name: subLevel?.name || subLevelId,
           uid: generateUID(),
           ...extras,
         };

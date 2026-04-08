@@ -36,6 +36,7 @@ export default function LevelEditor() {
   const [id, setId] = useState(existingTemplate?.id || '');
   const [name, setName] = useState(existingTemplate?.name || '');
   const [description, setDescription] = useState(existingTemplate?.description || '');
+  const [icon, setIcon] = useState(existingTemplate?.icon || '📐');
   const [role, setRole] = useState(existingTemplate?.role || 'main');
   const [grid, setGrid] = useState(
     existingTemplate ? existingTemplate.grid.map(r => [...r]) : EMPTY_GRID()
@@ -78,7 +79,7 @@ export default function LevelEditor() {
   // Test generate
   const [testResult, setTestResult] = useState(null);
   const handleTest = () => {
-    const template = { id, name, description, role, grid, settings: buildSettings() };
+    const template = { id, name, description, icon, role, grid, settings: buildSettings() };
     const result = generateWallFromTemplate(template);
     setTestResult(result.grid);
   };
@@ -89,7 +90,7 @@ export default function LevelEditor() {
       alert('请填写关卡 ID');
       return;
     }
-    const template = { id, name, description, role, grid, settings: buildSettings() };
+    const template = { id, name, description, icon, role, grid, settings: buildSettings() };
     const json = JSON.stringify(template, null, 2);
 
     // Try File System Access API (Chrome/Edge — shows save dialog, remembers last path)
@@ -168,10 +169,17 @@ export default function LevelEditor() {
             <input value={id} onChange={e => setId(e.target.value)}
               className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm" placeholder="bomb_ring" />
           </div>
-          <div>
-            <label className="text-xs text-gray-400">名称</label>
-            <input value={name} onChange={e => setName(e.target.value)}
-              className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm" placeholder="炸弹圈" />
+          <div className="flex gap-2">
+            <div className="flex-shrink-0">
+              <label className="text-xs text-gray-400">图标</label>
+              <input value={icon} onChange={e => setIcon(e.target.value)}
+                className="w-12 px-1 py-1 bg-gray-800 border border-gray-600 rounded text-sm text-center" />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs text-gray-400">名称</label>
+              <input value={name} onChange={e => setName(e.target.value)}
+                className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm" placeholder="炸弹圈" />
+            </div>
           </div>
           <div>
             <label className="text-xs text-gray-400">描述</label>

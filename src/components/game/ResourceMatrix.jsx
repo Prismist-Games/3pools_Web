@@ -48,7 +48,7 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         desc = t('抽中时爆炸，摧毁周围所有格子');
     } else if (cell.type === 'entrance') {
         const subLevel = LEVEL_TEMPLATES.find(t => t.id === cell.subLevelId);
-        icon = '🚪';
+        icon = cell.icon || '🚪';
         name = subLevel ? (subLevel.name || cell.subLevelId) : cell.subLevelId;
         desc = subLevel?.description || t('抽中时进入子关卡');
     } else {
@@ -268,7 +268,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             );
         }
         if (cell.type === 'entrance') {
-            return <span className="text-xl">🚪</span>;
+            return <span className="text-xl">{cell.icon || '🚪'}</span>;
         }
         return (
             <>

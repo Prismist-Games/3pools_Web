@@ -503,7 +503,7 @@ export const useGameLogic = (config) => {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {
             // Enter sub-level directly — no setTimeout, no stale closure issues
-            showToast(`🚪 ${t('进入子关卡')}: ${drawnCell.name}`, 'info');
+            showToast(`${drawnCell.icon || '🚪'} ${t('进入子关卡')}: ${drawnCell.name}`, 'info');
             enterSubLevel(drawnCell.subLevelId, finalRowIndex, finalColIndex);
             return; // Skip the normal post-draw flow
         }

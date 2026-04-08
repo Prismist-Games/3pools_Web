@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { CELL_TYPES } from '../../data/levelTemplates';
+import { CELL_TYPES, LEVEL_TEMPLATES } from '../../data/levelTemplates';
 import { MATRIX_CONFIG } from '../../data/matrixConfig';
 
 const CELL_DISPLAY = {
@@ -47,7 +47,8 @@ function getCellDisplay(cell) {
   if (!type) return { icon: '🎲', bg: 'bg-gray-800/30', label: '随机填充' };
   if (type.startsWith('entrance:')) {
     const subId = type.replace('entrance:', '');
-    return { icon: '🚪', bg: 'bg-teal-800/60', label: `入口: ${subId}` };
+    const subLevel = LEVEL_TEMPLATES.find(t => t.id === subId);
+    return { icon: subLevel?.icon || '🚪', bg: 'bg-teal-800/60', label: `入口: ${subLevel?.name || subId}` };
   }
   return CELL_DISPLAY[type] || { icon: '?', bg: 'bg-gray-500/60', label: type };
 }
