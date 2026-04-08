@@ -64,8 +64,21 @@ function resolveConstrainedCell(token) {
     case CELL_TYPES.ANY_STICKER:
       // Sticker type will be assigned later during group binding
       return { type: 'sticker', item: null, uid: generateUID(), groupId: null, shapeSize: 1, ...extras };
-    default:
+    default: {
+      // Handle dynamic entrance cells: "entrance:{subLevelId}"
+      if (cellType && cellType.startsWith('entrance:')) {
+        const subLevelId = cellType.replace('entrance:', '');
+        return {
+          type: 'entrance',
+          subLevelId,
+          icon: '🚪',
+          name: subLevelId,
+          uid: generateUID(),
+          ...extras,
+        };
+      }
       return null;
+    }
   }
 }
 
