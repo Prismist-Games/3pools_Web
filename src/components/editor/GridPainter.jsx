@@ -44,6 +44,16 @@ function getCellGroup(cell) {
   return undefined;
 }
 
+/** Find the cell type already used in a group number (for same-type validation) */
+function getGroupCellType(grid, groupNumber) {
+  for (const row of grid) {
+    for (const cell of row) {
+      if (getCellGroup(cell) === groupNumber) return getCellType(cell);
+    }
+  }
+  return null;
+}
+
 function getCellDisplay(cell) {
   const type = getCellType(cell);
   if (!type) return { icon: '🎲', bg: 'bg-gray-800/30', label: '随机填充' };
@@ -74,8 +84,12 @@ export default function GridPainter({ grid, onGridChange, activeBrush, brushExtr
   const applyGroup = useCallback((r, c) => {
     const cell = grid[r][c];
     const type = getCellType(cell);
-    // Only sticker cells can be grouped
-    if (type !== 'any_sticker') return;
+    // Empty and null cells can't be grouped
+    if (!type || type === 'empty') return;
+
+    // Validate same-type constraint within group
+    const existingType = getGroupCellType(grid, activeGroupNumber);
+    if (existingType && existingType !== type) return; // different type, reject
 
     const newGrid = grid.map(row => [...row]);
     const currentGroup = getCellGroup(cell);

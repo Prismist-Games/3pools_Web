@@ -118,64 +118,73 @@ export function generateWallFromTemplate(template) {
   // Step 2: Determine the wall's sticker type pool (respects stickerTypeRange globally)
   const [rangeMin, rangeMax] = settings.stickerTypeRange || [3, 4];
 
-  // Collect all group numbers used in the template
+  // Collect all group numbers and identify which are sticker groups
   const groupNumbers = new Set();
+  const stickerGroupNumbers = new Set();
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const token = template.grid[r]?.[c];
       if (token && typeof token === 'object' && token.group !== undefined) {
         groupNumbers.add(token.group);
+        const cell = grid[r][c];
+        if (cell && cell.type === 'sticker') stickerGroupNumbers.add(token.group);
       }
     }
   }
-  const distinctGroupCount = groupNumbers.size;
 
-  // Total sticker types for the entire wall (groups + ungrouped + procedural all share this)
-  const totalMin = Math.max(rangeMin, distinctGroupCount);
+  // Total sticker types for the entire wall
+  const distinctStickerGroups = stickerGroupNumbers.size;
+  const totalMin = Math.max(rangeMin, distinctStickerGroups);
   const totalMax = Math.max(rangeMax, totalMin);
   const totalTypeCount = totalMin + Math.floor(Math.random() * (totalMax - totalMin + 1));
 
-  // Shuffle and pick exactly totalTypeCount sticker types as the wall's pool
+  // Shuffle and pick sticker types as the wall's pool
   const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
   const wallStickerPool = shuffledStickers.slice(0, Math.min(totalTypeCount, shuffledStickers.length));
 
-  // Assign one type per group from the pool
+  // Generate groupIds for ALL groups, sticker type binding only for sticker groups
   const groupToSticker = new Map();
   const groupToGroupId = new Map();
   let poolIdx = 0;
   for (const gNum of groupNumbers) {
-    groupToSticker.set(gNum, wallStickerPool[poolIdx % wallStickerPool.length]);
     groupToGroupId.set(gNum, generateUID());
-    poolIdx++;
+    if (stickerGroupNumbers.has(gNum)) {
+      groupToSticker.set(gNum, wallStickerPool[poolIdx % wallStickerPool.length]);
+      poolIdx++;
+    }
   }
 
-  // Apply sticker types and groupIds to all template-placed sticker cells
+  // Apply groupIds to ALL grouped cells, sticker types only to sticker cells
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const cell = grid[r][c];
-      if (!cell || cell.type !== 'sticker') continue;
+      if (!cell) continue;
 
       const token = template.grid[r]?.[c];
       const gNum = (typeof token === 'object' && token !== null) ? token.group : undefined;
 
-      if (gNum !== undefined && groupToSticker.has(gNum)) {
-        // Grouped sticker: same type and groupId as its group
-        cell.item = { ...groupToSticker.get(gNum) };
+      if (cell.type === 'sticker') {
+        // Sticker cells: assign type + groupId
+        if (gNum !== undefined && groupToSticker.has(gNum)) {
+          cell.item = { ...groupToSticker.get(gNum) };
+          cell.groupId = groupToGroupId.get(gNum);
+        } else {
+          cell.item = { ...wallStickerPool[Math.floor(Math.random() * wallStickerPool.length)] };
+          cell.groupId = generateUID();
+        }
+      } else if (gNum !== undefined && groupToGroupId.has(gNum)) {
+        // Non-sticker grouped cells: only assign groupId
         cell.groupId = groupToGroupId.get(gNum);
-      } else {
-        // Ungrouped sticker: independent, random type from the wall pool
-        cell.item = { ...wallStickerPool[Math.floor(Math.random() * wallStickerPool.length)] };
-        cell.groupId = generateUID();
       }
     }
   }
 
-  // Count shape sizes for each group
+  // Count shape sizes for each group (ALL types, not just stickers)
   const groupCellCounts = new Map();
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const cell = grid[r][c];
-      if (cell && cell.type === 'sticker' && cell.groupId) {
+      if (cell && cell.groupId) {
         groupCellCounts.set(cell.groupId, (groupCellCounts.get(cell.groupId) || 0) + 1);
       }
     }
@@ -183,7 +192,7 @@ export function generateWallFromTemplate(template) {
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const cell = grid[r][c];
-      if (cell && cell.type === 'sticker' && cell.groupId) {
+      if (cell && cell.groupId) {
         cell.shapeSize = groupCellCounts.get(cell.groupId) || 1;
       }
     }

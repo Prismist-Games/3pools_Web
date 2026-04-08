@@ -104,7 +104,7 @@ export default function CellPalette({
           </div>
         )}
         {groupMode && (
-          <p className="text-[10px] text-gray-500 mt-1.5">点击贴纸格子分配到组 {activeGroupNumber}。右键移除。同组 = 同种类 + 同 polyomino。</p>
+          <p className="text-[10px] text-gray-500 mt-1.5">点击格子分配到组 {activeGroupNumber}。右键移除。同组内必须同类型，抽到一个移除整组。</p>
         )}
       </div>
 
