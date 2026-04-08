@@ -44,6 +44,7 @@ export default function LevelEditor() {
   const [stickerMin, setStickerMin] = useState(existingSettings.stickerTypeRange?.[0] ?? 3);
   const [stickerMax, setStickerMax] = useState(existingSettings.stickerTypeRange?.[1] ?? 4);
   const [maxDoomInBlank, setMaxDoomInBlank] = useState(existingSettings.maxDoomInBlank ?? -1); // -1 = no limit
+  const [goldOverride, setGoldOverride] = useState(existingSettings.gold ?? -1); // -1 = use default (5)
 
   // Brush state
   const [activeBrush, setActiveBrush] = useState(null);
@@ -69,6 +70,7 @@ export default function LevelEditor() {
     const s = {};
     s.stickerTypeRange = [effectiveMin, effectiveMax];
     if (maxDoomInBlank >= 0) s.maxDoomInBlank = maxDoomInBlank;
+    if (goldOverride >= 0) s.gold = goldOverride;
     return s;
   };
 
@@ -224,6 +226,23 @@ export default function LevelEditor() {
                 >
                   <option value={-1}>不限</option>
                   {[0,1,2,3,4,5].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Gold override */}
+            <div>
+              <label className="text-xs text-gray-400">进入金币数</label>
+              <div className="flex items-center gap-2 mt-1">
+                <select
+                  value={goldOverride}
+                  onChange={e => setGoldOverride(Number(e.target.value))}
+                  className="bg-gray-800 border border-gray-600 rounded text-xs px-1.5 py-1"
+                >
+                  <option value={-1}>默认 (5)</option>
+                  {[1,2,3,4,5,6,7,8,9,10,15,20,25].map(n => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>

@@ -250,6 +250,11 @@ export const useGameLogic = (config) => {
         // Apply wall-type mutations to the grid before setting it
         const grid = chosen.grid.map(r => r.map(c => c ? { ...c } : null));
 
+        // Level-specific gold override
+        if (chosen.level?.settings?.gold !== undefined) {
+            setGold(chosen.level.settings.gold);
+        }
+
         // Level candidates have no wallType — skip modifier mutations
         if (!wallType) {
             setMatrix(grid);
