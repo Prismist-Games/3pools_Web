@@ -1,10 +1,10 @@
 {
-  "id": "heal_1",
-  "name": "后厨的后门",
-  "name_en": "Kitchen Back Door",
-  "description": "小憩好去处。",
-  "description_en": "A nice place for a break.",
-  "icon": "🏃‍➡️🚪🚬",
+  "id": "expand_1",
+  "name": "冰箱清洁",
+  "name_en": "Fridge Cleaning",
+  "description": "没人能准确说出自己冰箱里的每一件东西。",
+  "description_en": "No one can tell exactly what’s in their fridge.",
+  "icon": "🧊🧹🚮",
   "role": "main",
   "grid": [
     [
@@ -24,7 +24,7 @@
     [
       null,
       null,
-      "heal",
+      "backpack_expand",
       null,
       null
     ],

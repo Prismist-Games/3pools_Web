@@ -35,6 +35,26 @@
       "enabled": true,
       "weight": 10,
       "minExpedition": 1
+    },
+    "gravity": {
+      "enabled": true,
+      "weight": 10,
+      "minExpedition": 1
+    },
+    "safe_landing": {
+      "enabled": true,
+      "weight": 10,
+      "minExpedition": 1
+    },
+    "heal_1": {
+      "enabled": true,
+      "weight": 10,
+      "minExpedition": 1
+    },
+    "expand_1": {
+      "enabled": true,
+      "weight": 10,
+      "minExpedition": 1
     }
   }
 }

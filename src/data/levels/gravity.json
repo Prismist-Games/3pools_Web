@@ -1,7 +1,9 @@
 {
   "id": "gravity",
   "name": "离心机",
+  "name_en": "Centrifuge",
   "description": "分子料理第一步。",
+  "description_en": "Molecular gastronomy 101.",
   "icon": "⏬",
   "role": "main",
   "grid": [
@@ -47,7 +49,5 @@
       4
     ],
     "maxDoomInBlank": 3
-  },
-  "name_en": "Centrifuge",
-  "description_en": "Step one of molecular gastronomy."
+  }
 }

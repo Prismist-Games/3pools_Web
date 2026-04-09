@@ -1,7 +1,9 @@
 {
   "id": "four_quadrants",
   "name": "鱼和熊掌",
+  "name_en": "Fish or Bear Paw",
   "description": "二者不可得兼。",
+  "description_en": "You just can't have both.",
   "icon": "🐟❎🐻",
   "role": "main",
   "grid": [
@@ -111,7 +113,5 @@
       4
     ],
     "gold": 3
-  },
-  "name_en": "Fish or Bear Paw",
-  "description_en": "You can't have both."
+  }
 }
