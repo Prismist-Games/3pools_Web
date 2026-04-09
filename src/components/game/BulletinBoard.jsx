@@ -17,6 +17,7 @@ const SCORE_STYLE = {
 };
 
 const RewardCard = ({ reward, size = 'md', bonusValue }) => {
+    const { t } = useLanguage();
     const s = SCORE_STYLE[reward.score] || SCORE_STYLE[1];
     const dim = size === 'sm' ? 'w-8 h-8 text-base' : 'w-9 h-9 text-lg';
     const badgeDim = size === 'sm' ? 'w-3 h-3 text-[7px]' : 'w-3.5 h-3.5 text-[8px]';
@@ -26,17 +27,16 @@ const RewardCard = ({ reward, size = 'md', bonusValue }) => {
             <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-2xl leading-none">{reward.icon}</span>
                 <div>
-                    <div className="font-bold text-sm leading-tight">{reward.name}</div>
-                    <div className={`text-[10px] ${s.labelColor}`}>{s.label}</div>
+                    <div className="font-bold text-sm leading-tight">{t(reward.name)}</div>
+                    <div className={`text-[10px] ${s.labelColor}`}>{t(s.label)}</div>
                 </div>
             </div>
             <div className="border-t border-gray-700/50 pt-1.5 mt-1">
                 <div className="flex justify-between text-[11px]">
-                    <span className="text-gray-400">撤离价值</span>
-                    <span className="font-bold text-yellow-300">{reward.score} 分</span>
+                    <span className="text-gray-400">{t('撤离价值')}</span>
+                    <span className="font-bold text-yellow-300">{reward.score} {t('分')}</span>
                 </div>
             </div>
-            <p className="text-[10px] text-gray-500 italic mt-1.5">详细描述待填写...</p>
         </>
     );
 

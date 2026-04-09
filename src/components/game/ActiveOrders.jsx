@@ -85,17 +85,16 @@ const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcce
                                                     <div className="flex items-center gap-2 mb-1.5">
                                                         <span className="text-2xl leading-none">{req.icon}</span>
                                                         <div>
-                                                            <div className="font-bold text-sm leading-tight">{req.name}</div>
-                                                            <div className="text-[10px] text-cyan-400">风土之源</div>
+                                                            <div className="font-bold text-sm leading-tight">{t(req.name)}</div>
+                                                            <div className="text-[10px] text-cyan-400">{t('风土之源')}</div>
                                                         </div>
                                                     </div>
                                                     <div className="border-t border-gray-700/50 pt-1.5 mt-1">
                                                         <div className="flex justify-between text-[11px]">
-                                                            <span className="text-gray-400">持有 / 需要</span>
+                                                            <span className="text-gray-400">{t('持有 / 需要')}</span>
                                                             <span className={`font-bold ${enough ? 'text-green-400' : 'text-red-400'}`}>{owned} / {req.count}</span>
                                                         </div>
                                                     </div>
-                                                    <p className="text-[10px] text-gray-500 italic mt-1.5">详细描述待填写...</p>
                                                 </>
                                             }>
                                                 <div className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>

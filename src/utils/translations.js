@@ -581,4 +581,37 @@ export const EN_TRANSLATIONS = {
     "每场生命值": "HP / Round",
     "总场次": "Expeditions",
     "胜利分数": "Win Score",
+
+    // --- Sticker types (风土主题) ---
+    "山": "Mountain",
+    "海": "Sea",
+    "田": "Field",
+    "林": "Forest",
+    "空": "Sky",
+    "岛": "Island",
+    "沙": "Desert",
+    "雪": "Snow",
+
+    // --- Out-of-game items (食材/厨具) ---
+    "盐": "Salt",
+    "姜": "Ginger",
+    "黄油": "Butter",
+    "鸡蛋": "Egg",
+    "鲜鱼": "Fish",
+    "蔬菜": "Veggie",
+    "牛排": "Steak",
+    "龙虾": "Lobster",
+    "松露": "Truffle",
+    "主厨刀": "Chef's Knife",
+    "铸铁锅": "Cast Iron Pan",
+    "砂锅": "Clay Pot",
+
+    // --- Tooltip labels ---
+    "基础调料": "Basic Seasoning",
+    "普通食材": "Common Ingredient",
+    "珍稀食材": "Rare Ingredient",
+    "厨具": "Cookware",
+    "撤离价值": "Evacuation Value",
+    "风土之源": "Terroir Source",
+    "持有 / 需要": "Have / Need",
 };
