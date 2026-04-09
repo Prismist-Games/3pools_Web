@@ -113,7 +113,7 @@ export const InventorySlot = ({
 
     // 工具物品独特样式：金色渐变边框 + 发光
     const toolItemStyle = isToolItem
-        ? 'border-amber-400 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 ring-1 ring-amber-200/50 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
+        ? 'border-kitchen-gold bg-gradient-to-br from-[#FFF8E0] via-[#FFF3E0] to-[#FFE8CC] ring-1 ring-kitchen-gold/30 shadow-[0_0_12px_rgba(232,168,48,0.3)]'
         : '';
 
     return (
@@ -139,14 +139,14 @@ export const InventorySlot = ({
                             : `${item.rarity?.color || 'bg-slate-100 border-slate-300'} ${item.rarity?.shadow || ''} shadow-sm`
                         : 'bg-slate-50 border-dashed border-slate-200'
                     }
-                    ${!isMultiSelectMode && !isTradeInMode && isSelected ? '-translate-y-4 scale-110 z-10 shadow-xl ring-2 ring-blue-400' : ''}
-                    ${!isMultiSelectMode && !isTradeInMode && isTarget && isPendingSlot ? 'animate-pulse ring-2 ring-red-400 cursor-pointer hover:bg-red-50' : ''}
-                    ${!isMultiSelectMode && !isTradeInMode && isTarget && !isPendingSlot ? 'hover:border-blue-300 cursor-pointer' : ''}
-                    ${!isMultiSelectMode && canSynthesize && isTarget ? 'ring-4 ring-yellow-400 scale-105 z-20' : ''}
+                    ${!isMultiSelectMode && !isTradeInMode && isSelected ? '-translate-y-4 scale-110 z-10 shadow-xl ring-2 ring-kitchen-gold' : ''}
+                    ${!isMultiSelectMode && !isTradeInMode && isTarget && isPendingSlot ? 'animate-pulse ring-2 ring-kitchen-danger cursor-pointer hover:bg-[#FFF0EE]' : ''}
+                    ${!isMultiSelectMode && !isTradeInMode && isTarget && !isPendingSlot ? 'hover:border-kitchen-gold-border cursor-pointer' : ''}
+                    ${!isMultiSelectMode && canSynthesize && isTarget ? 'ring-4 ring-kitchen-gold scale-105 z-20' : ''}
                     ${!isMultiSelectMode && !canSynthesize && isTarget ? 'hover:scale-105' : ''}
                     ${isMultiSelectMode && item && !isPendingSlot ? 'cursor-pointer hover:scale-105' : ''}
-                    ${isSelected && isSubmitMode ? 'border-blue-600 bg-blue-50 border-2 z-10' : ''}
-                    ${isSelected && isRecycleMode ? 'border-amber-600 bg-amber-50 border-2 z-10' : ''}
+                    ${isSelected && isSubmitMode ? 'border-kitchen-info-border bg-[#F0F8FF] border-2 z-10' : ''}
+                    ${isSelected && isRecycleMode ? 'border-kitchen-gold-dark bg-[#FFF8E0] border-2 z-10' : ''}
                     ${isMultiSelectMode && !isSelected && item && !isPendingSlot ? 'opacity-70 hover:opacity-100 grayscale-[0.3]' : ''}
                     ${isAssigned ? '!opacity-30 !grayscale cursor-not-allowed !scale-95 pointer-events-none' : ''}
                     ${className}
@@ -175,7 +175,7 @@ export const InventorySlot = ({
                         {/* 工具物品标识 */}
                         {isToolItem && (
                             <div className="absolute top-0 left-0 p-0.5 rounded-br-lg z-10">
-                                <div className="bg-amber-500 text-white rounded-md px-1 py-0.5 text-[8px] font-black uppercase tracking-wider shadow-sm">
+                                <div className="bg-kitchen-gold text-kitchen-text-title rounded-md px-1 py-0.5 text-[8px] font-black uppercase tracking-wider shadow-sm">
                                     {t("工具")}
                                 </div>
                             </div>
@@ -201,7 +201,7 @@ export const InventorySlot = ({
                         {/* Upgrade Badge */}
                         {hasUpgradePair && !isPendingSlot && !item.sterile && (
                             <div className="absolute -top-1.5 -right-1.5 z-20 animate-bounce">
-                                <div className="bg-yellow-400 text-yellow-900 rounded-full p-0.5 shadow-md ring-1 ring-white">
+                                <div className="bg-kitchen-gold text-kitchen-text-title rounded-full p-0.5 shadow-md ring-1 ring-white">
                                     <ChevronsUp size={12} strokeWidth={3} />
                                 </div>
                             </div>
