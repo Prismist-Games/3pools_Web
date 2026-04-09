@@ -3,17 +3,17 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import Tooltip from '../ui/Tooltip';
 
 const DIFFICULTY_STYLE = {
-    easy:    { bg: 'bg-green-100', text: 'text-green-700' },
-    medium:  { bg: 'bg-blue-100',  text: 'text-blue-700' },
-    hard:    { bg: 'bg-purple-100', text: 'text-purple-700' },
-    extreme: { bg: 'bg-red-100',   text: 'text-red-700' },
+    easy:    { bg: 'bg-[#F0FFF8]', text: 'text-[#408060]' },
+    medium:  { bg: 'bg-[#F0F8FF]', text: 'text-kitchen-info-border' },
+    hard:    { bg: 'bg-purple-50',  text: 'text-purple-700' },
+    extreme: { bg: 'bg-[#FFF0F0]', text: 'text-kitchen-danger-text' },
 };
 
 const SCORE_STYLE = {
-    1: { border: 'border-green-400',  bg: 'from-green-50 to-white',  badge: 'bg-green-500', label: '基础调料', labelColor: 'text-green-400' },
-    2: { border: 'border-blue-400',   bg: 'from-blue-50 to-white',   badge: 'bg-blue-500',  label: '普通食材', labelColor: 'text-blue-400' },
-    3: { border: 'border-purple-400', bg: 'from-purple-50 to-white', badge: 'bg-purple-500', label: '珍稀食材', labelColor: 'text-purple-400' },
-    5: { border: 'border-orange-400', bg: 'from-orange-50 to-white', badge: 'bg-orange-500', label: '厨具',     labelColor: 'text-orange-400' },
+    1: { border: 'border-kitchen-success-border', bg: 'from-[#F0FFF8] to-kitchen-card', badge: 'bg-kitchen-success', label: '基础调料', labelColor: 'text-kitchen-success-border' },
+    2: { border: 'border-kitchen-info-border',    bg: 'from-[#F0F8FF] to-kitchen-card', badge: 'bg-kitchen-info',    label: '普通食材', labelColor: 'text-kitchen-info-border' },
+    3: { border: 'border-purple-400',             bg: 'from-purple-50 to-kitchen-card', badge: 'bg-purple-500',      label: '珍稀食材', labelColor: 'text-purple-400' },
+    5: { border: 'border-kitchen-gold',           bg: 'from-[#FFF8E0] to-kitchen-card', badge: 'bg-kitchen-gold',    label: '厨具',     labelColor: 'text-kitchen-gold' },
 };
 
 const RewardCard = ({ reward, size = 'md', bonusValue }) => {
@@ -61,18 +61,19 @@ const BulletinBoard = ({ orders, onAccept, incomingOrder, onConfirmIncoming, onD
     const hasIncoming = !!incomingOrder;
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border">
+        <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark rounded-xl border-2 border-kitchen-wood-border shadow-[0_3px_0_#C8A880]"
+            style={{ backgroundImage: 'radial-gradient(circle, rgba(180,140,80,0.08) 1px, transparent 1px)', backgroundSize: '12px 12px' }}>
             {/* Panel header */}
-            <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('货架')}</h3>
+            <div className="px-3 py-2 border-b border-dashed border-kitchen-wood-border flex items-center justify-between">
+                <h3 className="text-sm font-bold text-kitchen-text-body">📌 {t('货架')}</h3>
                 <span className="text-[10px] text-gray-300 font-medium">{orders.length}/5</span>
             </div>
 
             <div className="p-2">
                 {/* Incoming order banner */}
                 {hasIncoming && (
-                    <div className="mb-2 p-2.5 bg-blue-50 border-2 border-blue-300 rounded-lg">
-                        <div className="text-[11px] font-bold text-blue-600 mb-1.5">{t('新订单')}</div>
+                    <div className="mb-2 p-2.5 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-lg">
+                        <div className="text-[11px] font-bold text-kitchen-gold-deep mb-1.5">{t('新订单')}</div>
                         <div className="flex items-center gap-1 mb-2">
                             {incomingOrder.rewards.map((r, i) => (
                                 <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
@@ -83,7 +84,7 @@ const BulletinBoard = ({ orders, onAccept, incomingOrder, onConfirmIncoming, onD
                                 <span className="text-[10px] text-amber-600">{t('货架已满，选择下方订单替换')}</span>
                             ) : (
                                 <button onClick={onConfirmIncoming}
-                                    className="text-[10px] px-2.5 py-1 rounded-md font-bold bg-blue-500 text-white hover:bg-blue-600 transition-colors">
+                                    className="text-[10px] px-2.5 py-1 rounded-md font-bold bg-kitchen-gold text-kitchen-text-title hover:bg-kitchen-gold-dark transition-colors">
                                     {t('加入货架')}
                                 </button>
                             )}
@@ -99,15 +100,16 @@ const BulletinBoard = ({ orders, onAccept, incomingOrder, onConfirmIncoming, onD
                     <p className="text-[11px] text-gray-300 text-center py-3">{t('暂无订单')}</p>
                 ) : (
                     <div className="flex flex-col gap-1.5">
-                        {orders.map(order => {
+                        {orders.map((order, index) => {
                             const ds = DIFFICULTY_STYLE[order.difficulty] || DIFFICULTY_STYLE.easy;
                             return (
                                 <div key={order.id}
                                     onClick={() => hasIncoming && isFull && onReplaceIncoming(order.id)}
+                                    style={{ transform: `rotate(${index % 2 === 0 ? -1 : 0.5}deg)` }}
                                     className={`p-2 rounded-lg border ${
                                         hasIncoming && isFull
-                                            ? 'border-amber-400 bg-amber-50 cursor-pointer hover:bg-red-50 hover:border-red-400 transition-colors'
-                                            : 'border-gray-100 bg-gray-50/50'
+                                            ? 'border-kitchen-gold bg-[#FFF8E0] cursor-pointer hover:bg-red-50 hover:border-red-400 transition-colors'
+                                            : 'border-kitchen-gold-border-muted/50 bg-kitchen-card/80'
                                     }`}>
                                     {/* Row 1: difficulty + action */}
                                     <div className="flex items-center justify-between mb-1.5">
@@ -119,7 +121,7 @@ const BulletinBoard = ({ orders, onAccept, incomingOrder, onConfirmIncoming, onD
                                         </div>
                                         {!hasIncoming && (
                                             <button onClick={() => onAccept(order.id)}
-                                                className="text-[10px] px-2 py-0.5 rounded-md font-bold bg-blue-500 text-white hover:bg-blue-600 transition-colors">
+                                                className="text-[10px] px-2 py-0.5 rounded-md font-bold bg-kitchen-gold text-kitchen-text-title hover:bg-kitchen-gold-dark font-bold transition-colors">
                                                 {t('接取')}
                                             </button>
                                         )}
