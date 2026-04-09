@@ -60,16 +60,29 @@ import scheduleConfig from './levelSchedule.json';
 export const LEVEL_SCHEDULE = scheduleConfig;
 
 /**
+ * Get the active schedule config.
+ * If localStorage has an override (local mode from Level Manager), use that.
+ * Otherwise fall back to the JSON file defaults.
+ */
+export function getActiveSchedule() {
+  try {
+    const local = localStorage.getItem('levelScheduleLocal');
+    if (local) return JSON.parse(local);
+  } catch { /* ignore */ }
+  return LEVEL_SCHEDULE;
+}
+
+/**
  * Pick a level template based on schedule weights, or null for procedural.
  * @param {number} expeditionNumber — current expedition (1-based)
  */
 export function pickTemplate(expeditionNumber) {
-  const { proceduralWeight, levels } = LEVEL_SCHEDULE;
+  const { proceduralWeight, levels } = getActiveSchedule();
 
+  const mainLevels = getMainLevels();
   const eligible = Object.entries(levels)
     .filter(([, cfg]) => cfg.enabled && expeditionNumber >= (cfg.minExpedition || 1))
     .map(([id, cfg]) => {
-      const mainLevels = getMainLevels();
       const template = mainLevels.find(t => t.id === id);
       return template ? { template, weight: cfg.weight } : null;
     })

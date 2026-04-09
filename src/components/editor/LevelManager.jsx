@@ -4,31 +4,63 @@ import { Link } from 'react-router-dom';
 import { LEVEL_TEMPLATES, LEVEL_SCHEDULE } from '../../data/levelTemplates';
 import TemplatePreview from './TemplatePreview';
 
+function loadLocalSchedule() {
+  try {
+    const s = localStorage.getItem('levelScheduleLocal');
+    return s ? JSON.parse(s) : null;
+  } catch { return null; }
+}
+
 export default function LevelManager() {
   const allTemplates = LEVEL_TEMPLATES.map(t => ({ ...t }));
   const mainTemplates = allTemplates.filter(t => t.role !== 'sub');
   const subTemplates = allTemplates.filter(t => t.role === 'sub');
 
-  const [proceduralWeight, setProceduralWeight] = useState(LEVEL_SCHEDULE.proceduralWeight);
-  const [levels, setLevels] = useState({ ...LEVEL_SCHEDULE.levels });
+  // Local mode: overrides are stored in localStorage and used by pickTemplate at runtime
+  const [localMode, setLocalMode] = useState(() => !!loadLocalSchedule());
+  const initialSchedule = loadLocalSchedule() || LEVEL_SCHEDULE;
+  const [proceduralWeight, setProceduralWeight] = useState(initialSchedule.proceduralWeight);
+  const [levels, setLevels] = useState({ ...initialSchedule.levels });
 
   const getSchedule = (templateId) => {
     return levels[templateId] || { enabled: false, weight: 10, minExpedition: 1 };
   };
 
   const updateSchedule = (templateId, patch) => {
-    setLevels(prev => ({
-      ...prev,
+    const newLevels = {
+      ...levels,
       [templateId]: { ...getSchedule(templateId), ...patch },
-    }));
+    };
+    setLevels(newLevels);
+    if (localMode) saveToLocal(proceduralWeight, newLevels);
   };
 
-  // Build the schedule JSON and save via file picker
-  const handleSave = async () => {
-    const config = {
-      proceduralWeight,
-      levels,
-    };
+  const handleProceduralWeightChange = (val) => {
+    setProceduralWeight(val);
+    if (localMode) saveToLocal(val, levels);
+  };
+
+  const saveToLocal = (pw, lvls) => {
+    localStorage.setItem('levelScheduleLocal', JSON.stringify({ proceduralWeight: pw, levels: lvls }));
+  };
+
+  const toggleLocalMode = () => {
+    if (localMode) {
+      // Turning off: remove localStorage override, reset to file defaults
+      localStorage.removeItem('levelScheduleLocal');
+      setProceduralWeight(LEVEL_SCHEDULE.proceduralWeight);
+      setLevels({ ...LEVEL_SCHEDULE.levels });
+      setLocalMode(false);
+    } else {
+      // Turning on: save current state to localStorage
+      saveToLocal(proceduralWeight, levels);
+      setLocalMode(true);
+    }
+  };
+
+  // Save to file (for committing to Git)
+  const handleSaveFile = async () => {
+    const config = { proceduralWeight, levels };
     const json = JSON.stringify(config, null, 2);
 
     if (window.showSaveFilePicker) {
@@ -46,7 +78,6 @@ export default function LevelManager() {
       }
     }
 
-    // Fallback: regular download
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -65,14 +96,26 @@ export default function LevelManager() {
 
       <h1 className="text-2xl font-bold mb-6">关卡管理</h1>
 
-      {/* Procedural weight */}
-      <div className="mb-6 p-4 bg-gray-900/60 rounded-lg flex items-center gap-4">
-        <span className="text-sm">纯随机墙权重:</span>
-        <input type="range" min={0} max={100} value={proceduralWeight}
-          onChange={e => setProceduralWeight(Number(e.target.value))}
-          className="w-48" />
-        <span className="text-sm font-mono w-8">{proceduralWeight}</span>
-        <span className="text-xs text-gray-500">(越高，关卡墙出现概率越低)</span>
+      {/* Mode toggle + procedural weight */}
+      <div className="mb-6 p-4 bg-gray-900/60 rounded-lg flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={localMode} onChange={toggleLocalMode}
+              className="w-4 h-4" />
+            <span className="text-sm font-bold">本地模式</span>
+          </label>
+          <span className="text-xs text-gray-500">
+            {localMode ? '改动即时生效（存 localStorage），刷新后保留' : '使用文件配置（需保存文件 + 重新部署）'}
+          </span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-sm">纯随机墙权重:</span>
+          <input type="range" min={0} max={100} value={proceduralWeight}
+            onChange={e => handleProceduralWeightChange(Number(e.target.value))}
+            className="w-48" />
+          <span className="text-sm font-mono w-8">{proceduralWeight}</span>
+          <span className="text-xs text-gray-500">(越高，关卡墙出现概率越低)</span>
+        </div>
       </div>
 
       {/* Template cards */}
@@ -158,13 +201,13 @@ export default function LevelManager() {
         </>
       )}
 
-      {/* Save button */}
+      {/* Save to file button */}
       <div className="mt-6">
-        <button onClick={handleSave}
+        <button onClick={handleSaveFile}
           className="px-4 py-2 bg-green-700 rounded text-sm hover:bg-green-600">
-          保存调度配置
+          保存为文件
         </button>
-        <span className="text-xs text-gray-500 ml-3">保存到 src/data/levelSchedule.json</span>
+        <span className="text-xs text-gray-500 ml-3">导出 levelSchedule.json（用于提交到 Git）</span>
       </div>
     </div>
   );
