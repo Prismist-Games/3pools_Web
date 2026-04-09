@@ -174,14 +174,14 @@ const GameCore = () => {
                 {/* Pre-game state */}
                 {phase === 'pre_game' && (
                     <div className="text-center py-20">
-                        <h2 className="text-2xl font-bold mb-4">{t('梦想厨房')}</h2>
-                        <p className="text-gray-500 mb-2">{t('回合制原型')} v2</p>
+                        <h2 className="text-2xl font-bold mb-4 text-kitchen-text-title">{t('梦想厨房')}</h2>
+                        <p className="text-kitchen-text-body mb-2">{t('回合制原型')} v2</p>
                         {expeditionNumber > 0 && (
-                            <p className="text-sm text-gray-400 mb-4">{t('累计')}: {totalScore} {t('分')}</p>
+                            <p className="text-sm text-kitchen-text-secondary mb-4">{t('累计')}: {totalScore} {t('分')}</p>
                         )}
                         <button
                             onClick={startGame}
-                            className="px-8 py-3 bg-blue-500 text-white rounded-lg text-lg font-bold hover:bg-blue-600 transition-colors"
+                            className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body text-lg font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
                         >
                             {language === 'en' ? `Start Round ${expeditionNumber + 1}` : `开始第 ${expeditionNumber + 1} 场`}
                         </button>
@@ -224,9 +224,9 @@ const GameCore = () => {
                             {/* Incoming order phase */}
                             {phase === 'incoming_order' && incomingOrder && (
                                 <div className="flex justify-center py-8">
-                                    <div className="bg-white rounded-xl shadow-lg border-2 border-blue-300 p-6 max-w-sm text-center self-start">
-                                        <h2 className="text-base font-bold mb-1">{t('新订单')}</h2>
-                                        <p className="text-[11px] text-gray-400 mb-4">{t('选择是否加入货架')}</p>
+                                    <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_4px_0_#D4B896] p-6 max-w-sm text-center self-start">
+                                        <h2 className="text-base font-bold mb-1 text-kitchen-text-title">{t('新订单')}</h2>
+                                        <p className="text-[11px] text-kitchen-text-body mb-4">{t('选择是否加入货架')}</p>
                                         <div className="flex items-center justify-center gap-2 mb-4">
                                             {incomingOrder.rewards.map((r, i) => {
                                                 const sc = SCORE_STYLE[r.score] || SCORE_STYLE[1];
@@ -249,11 +249,11 @@ const GameCore = () => {
                                         {bulletinBoard.length < 5 ? (
                                             <div className="flex gap-2 justify-center">
                                                 <button onClick={confirmIncomingOrder}
-                                                    className="px-5 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors">
+                                                    className="px-5 py-2 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body text-sm font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors">
                                                     {t('加入货架')}
                                                 </button>
                                                 <button onClick={discardIncomingOrder}
-                                                    className="px-5 py-2 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-300 transition-colors">
+                                                    className="px-5 py-2 bg-[#F5F0E8] border-2 border-kitchen-gold-border-muted text-kitchen-text-secondary text-sm font-bold rounded-xl shadow-[0_2px_0_#D4B896] hover:bg-[#EDE8E0] transition-colors">
                                                     {t('放弃')}
                                                 </button>
                                             </div>
@@ -619,20 +619,20 @@ const GameCore = () => {
 
                         {expeditionNumber < expeditionConfig.expeditionCount ? (
                             <button onClick={() => { startNextExpedition(); }}
-                                className="px-8 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition-colors"
+                                className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
                             >
                                 {language === 'en' ? `Start Round ${expeditionNumber + 1}` : `开始第 ${expeditionNumber + 1} 场`}
                             </button>
                         ) : (
                             <div>
-                                <h2 className="text-2xl font-bold mb-4">
+                                <h2 className="text-2xl font-bold mb-4 text-kitchen-text-title">
                                     {totalScore >= expeditionConfig.scoreToWin ? `🎉 ${t('胜利')}!` : t('挑战失败')}
                                 </h2>
-                                <p className="text-gray-500 mb-6">
+                                <p className="text-kitchen-text-body mb-6">
                                     {t('最终得分')}: {totalScore} / {expeditionConfig.scoreToWin}
                                 </p>
                                 <button onClick={handleReset}
-                                    className="px-8 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition-colors"
+                                    className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
                                 >
                                     {t('再来一局')}
                                 </button>
