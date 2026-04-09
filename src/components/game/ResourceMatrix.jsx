@@ -52,8 +52,8 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         desc = t('抽中时恢复生命值');
     } else if (cell.type === 'backpack_expand') {
         icon = '🎒';
-        name = t('背包扩容');
-        desc = t('抽中时增加背包容量');
+        name = t('菜篮扩容');
+        desc = t('抽中时增加菜篮容量');
     } else if (cell.type === 'gravity') {
         icon = '⬇️';
         name = t('重力开关');

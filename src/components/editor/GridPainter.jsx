@@ -17,7 +17,7 @@ const CELL_DISPLAY = {
   out_of_game_5: { icon: '🚗', bg: 'bg-orange-700/60', label: '5分物品' },
   any_special: { icon: '❓', bg: 'bg-gray-600/60', label: '随机特殊' },
   heal: { icon: '❤️‍🩹', bg: 'bg-pink-700/60', label: '生命恢复' },
-  backpack_expand: { icon: '🎒', bg: 'bg-amber-700/60', label: '背包扩容' },
+  backpack_expand: { icon: '🎒', bg: 'bg-amber-700/60', label: '菜篮扩容' },
   gravity: { icon: '⬇️', bg: 'bg-sky-700/60', label: '重力开关' },
   any_sticker: { icon: '🏷️', bg: 'bg-green-700/40', label: '贴纸' },
 };

@@ -513,7 +513,7 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'backpack_expand') {
             const amount = (drawnCell.expandAmount || 1) * mult;
             setInventoryBonus(prev => prev + amount);
-            showToast(`🎒 ${t('背包')} +${amount}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
+            showToast(`🎒 ${t('菜篮')} +${amount}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'gravity') {
             setGravityActive(true);
             showToast('⬇️ ' + t('重力开关！'), 'info');

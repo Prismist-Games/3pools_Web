@@ -106,7 +106,7 @@ export const GameGuide = ({ onClose }) => {
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className="w-5 text-center">🎒</span>
-                                <span><b>{t('背包扩容')}</b> — {t('增加背包容量')}</span>
+                                <span><b>{t('菜篮扩容')}</b> — {t('增加菜篮容量')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className="w-5 text-center">⬇️</span>
@@ -123,7 +123,7 @@ export const GameGuide = ({ onClose }) => {
                         <ol className="list-decimal list-inside space-y-0.5">
                             <li>{t('从左侧公告牌接取订单（只显示奖励和难度，接取后才揭示所需贴纸）')}</li>
                             <li>{t('在奖品墙上抽取贴纸，收集订单所需的种类和数量')}</li>
-                            <li>{t('随时提交已完成的订单，获得得分物品放入背包')}</li>
+                            <li>{t('随时提交已完成的订单，获得得分物品放入菜篮')}</li>
                         </ol>
                     </section>
 
@@ -135,7 +135,7 @@ export const GameGuide = ({ onClose }) => {
                         <ul className="list-disc list-inside space-y-0.5">
                             <li>{t('每回合结束，厄运网格自动增加 1 个危险格子')}</li>
                             <li>{t('抽到 💀 触发结算：在厄运网格抽取，命中危险格 = -1 HP')}</li>
-                            <li>{t('HP 归零 = 丢失全部背包物品，强制撤离，本场 0 分')}</li>
+                            <li>{t('HP 归零 = 丢失全部菜篮物品，强制撤离，本场 0 分')}</li>
                         </ul>
                     </section>
 
@@ -145,7 +145,7 @@ export const GameGuide = ({ onClose }) => {
                             🚪 {t('撤离决策')}
                         </h3>
                         <ul className="list-disc list-inside space-y-0.5">
-                            <li>{t('回合结束后可选择撤离，背包中的得分物品转化为分数')}</li>
+                            <li>{t('回合结束后可选择撤离，菜篮中的得分物品转化为分数')}</li>
                             <li>{t('继续 = 更多收集机会，但厄运在不断积累！')}</li>
                         </ul>
                     </section>
@@ -162,7 +162,7 @@ export const GameGuide = ({ onClose }) => {
                             </div>
                             <div className="bg-slate-50 rounded-lg px-3 py-2 text-center">
                                 <div className="font-black text-lg text-slate-800">15</div>
-                                <div className="text-slate-500">{t('背包容量')}</div>
+                                <div className="text-slate-500">{t('菜篮容量')}</div>
                             </div>
                             <div className="bg-slate-50 rounded-lg px-3 py-2 text-center">
                                 <div className="font-black text-lg text-red-500">5 ❤️</div>

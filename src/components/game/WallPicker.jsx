@@ -24,7 +24,7 @@ function getSpecialCells(grid, language) {
                 order_cell: { icon: '📋', label: language === 'en' ? 'Order' : '订单' },
                 out_of_game: { icon: '🎁', label: language === 'en' ? 'Item' : '物品' },
                 heal: { icon: '❤️‍🩹', label: language === 'en' ? 'Heal' : '生命恢复' },
-                backpack_expand: { icon: '🎒', label: language === 'en' ? 'Backpack' : '背包扩容' },
+                backpack_expand: { icon: '🎒', label: language === 'en' ? 'Basket Expand' : '菜篮扩容' },
                 gravity: { icon: '⬇️', label: language === 'en' ? 'Gravity' : '重力开关' },
             }[type];
 
