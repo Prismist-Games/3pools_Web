@@ -27,7 +27,7 @@ export const GameGuide = ({ onClose }) => {
                         <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
                             🎯 {t('游戏目标')}
                         </h3>
-                        <p>{t('完成 3 个营业日，累计获得 ≥30 分即可挽救你的餐厅。每天收集贴纸、完成订单获得食材，然后打烊结算分数。')}</p>
+                        <p>{t('完成 3 场录制，累计获得 ≥30 分即可挽救你的餐厅。每场收集贴纸、完成订单获得食材，选择合适的时机撤离带出分数。')}</p>
                     </section>
 
                     {/* Turn Flow */}
@@ -53,7 +53,7 @@ export const GameGuide = ({ onClose }) => {
                             </span>
                             <span className="text-slate-300">→</span>
                             <span className="px-2 py-1 bg-green-50 border border-green-200 rounded-lg font-bold text-green-700">
-                                5. {t('继续或打烊')}
+                                5. {t('继续或撤离')}
                             </span>
                         </div>
                     </section>
@@ -135,18 +135,18 @@ export const GameGuide = ({ onClose }) => {
                         <ul className="list-disc list-inside space-y-0.5">
                             <li>{t('每回合结束，厄运网格自动增加 1 个危险格子')}</li>
                             <li>{t('抽到 💀 触发结算：在厄运网格抽取，命中危险格 = -1 HP')}</li>
-                            <li>{t('HP 归零 = 丢失全部菜篮物品，强制打烊，本日 0 分')}</li>
+                            <li>{t('HP 归零 = 丢失全部菜篮物品，强制撤离，本场 0 分')}</li>
                         </ul>
                     </section>
 
                     {/* Evacuate */}
                     <section>
                         <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
-                            🚪 {t('打烊决策')}
+                            🚪 {t('撤离决策')}
                         </h3>
                         <ul className="list-disc list-inside space-y-0.5">
-                            <li>{t('回合结束后可选择打烊，菜篮中的食材转化为分数')}</li>
-                            <li>{t('继续营业 = 更多食材，但厄运在不断积累！')}</li>
+                            <li>{t('回合结束后可选择撤离，菜篮中的食材转化为分数')}</li>
+                            <li>{t('继续 = 更多食材，但厄运在不断积累！')}</li>
                         </ul>
                     </section>
                 </div>
