@@ -1,0 +1,78 @@
+{
+  "id": "50_50_sticker",
+  "name": "五五开",
+  "name_en": "50/50",
+  "description": "绝对公平。",
+  "description_en": "Absolutely fair.",
+  "icon": "✅🤔❎",
+  "role": "main",
+  "grid": [
+    [
+      {
+        "type": "doom_resolve",
+        "multiplier": 4
+      },
+      "empty",
+      "empty",
+      "empty",
+      {
+        "type": "any_sticker",
+        "multiplier": 6,
+        "group": 1
+      }
+    ],
+    [
+      "empty",
+      {
+        "type": "doom_resolve",
+        "multiplier": 2
+      },
+      "empty",
+      {
+        "type": "any_sticker",
+        "multiplier": 3,
+        "group": 1
+      },
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "any_sticker",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      {
+        "type": "any_sticker",
+        "multiplier": 3,
+        "group": 0
+      },
+      "empty",
+      "doom_upgrade",
+      "empty"
+    ],
+    [
+      {
+        "type": "any_sticker",
+        "multiplier": 6,
+        "group": 0
+      },
+      "empty",
+      "empty",
+      "empty",
+      {
+        "type": "doom_upgrade",
+        "multiplier": 2
+      }
+    ]
+  ],
+  "settings": {
+    "stickerTypeRange": [
+      2,
+      2
+    ],
+    "gold": 2
+  }
+}

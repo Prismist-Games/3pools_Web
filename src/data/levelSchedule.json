@@ -55,6 +55,11 @@
       "enabled": true,
       "weight": 10,
       "minExpedition": 1
+    },
+    "50_50_sticker": {
+      "enabled": true,
+      "weight": 10,
+      "minExpedition": 1
     }
   }
 }
