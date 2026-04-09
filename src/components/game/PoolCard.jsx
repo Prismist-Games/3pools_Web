@@ -38,7 +38,7 @@ const PoolCardBase = ({
                 rounded-2xl border-2 p-4 transition-all duration-200
                 transform-gpu will-change-transform backface-hidden subpixel-antialiased
                 ${pool.color} 
-                ${isHovered ? 'scale-[1.02] shadow-xl z-10 ring-4 ring-white/50' : 'shadow-sm hover:shadow-md'}
+                ${isHovered ? 'scale-[1.02] shadow-xl z-10 ring-4 ring-kitchen-gold/30' : 'shadow-[0_2px_0_#D4B896] hover:shadow-[0_2px_0_#D4952A,0_4px_12px_rgba(0,0,0,0.1)]'}
                 ${isEffectiveDisabled ? 'opacity-60 grayscale-[0.8] cursor-not-allowed' : 'active:scale-95 cursor-pointer'}
                 flex flex-col gap-2 min-h-[140px]
             `}
@@ -54,20 +54,20 @@ const PoolCardBase = ({
                 <div className={`
                     flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-lg border-2 shadow-sm
                     bg-white
-                    ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-yellow-400'}
+                    ${!canAfford ? 'opacity-60 grayscale' : 'text-slate-800 border-kitchen-gold'}
                 `}>
                     {finalCost < pool.cost && (
                         <span className="line-through text-xs text-slate-400">{pool.cost}</span>
                     )}
                     {finalCost === 0 ? t("免费") : finalCost}
-                    <span className={canAfford ? "text-yellow-500" : "text-slate-400"}>🪙</span>
+                    <span className={canAfford ? "text-kitchen-gold" : "text-kitchen-text-muted"}>🪙</span>
                 </div>
             </div>
 
             {/* Row 2: Affix Name (LARGE and prominent) */}
             {pool.affix && (
                 <div className="flex items-center gap-2">
-                    <span className="text-base font-black text-slate-800 bg-white/60 px-3 py-1 rounded-lg shadow-sm border border-white/50">
+                    <span className="text-base font-black text-kitchen-text-body bg-kitchen-card/60 px-3 py-1 rounded-lg shadow-sm border border-kitchen-gold-border">
                         ✨ {t(pool.affix.name)}
                     </span>
                 </div>
