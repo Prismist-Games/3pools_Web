@@ -1,7 +1,9 @@
 {
   "id": "bomb_cross",
-  "name": "炸弹十字",
-  "description": "看到中间那个东西了吗？",
+  "name": "危险十字",
+  "name_en": "Danger Cross",
+  "description": "看到中间那个可怜的东西了吗？",
+  "description_en": "See that poor thing in the middle?",
   "icon": "💣🐄💣",
   "role": "main",
   "grid": [
@@ -47,7 +49,5 @@
       4
     ],
     "maxDoomInBlank": 2
-  },
-  "name_en": "Bomb Cross",
-  "description_en": "See that thing in the middle?"
+  }
 }

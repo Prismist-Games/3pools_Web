@@ -1,7 +1,9 @@
 {
   "id": "select_prize",
   "name": "抉择",
-  "description": "选择你的奖品，风险与机遇并存。",
+  "name_en": "The Choice",
+  "description": "选择你的食材或厨具，风险与机遇并存。",
+  "description_en": "Choose your Ingredients or kitchenware— risk and reward intertwined.",
   "icon": "🅰️❎🅱️",
   "role": "main",
   "grid": [
@@ -76,7 +78,5 @@
       2,
       2
     ]
-  },
-  "name_en": "The Choice",
-  "description_en": "Choose your prize — risk and reward intertwined."
+  }
 }

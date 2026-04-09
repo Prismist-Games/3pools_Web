@@ -18,7 +18,7 @@
       {
         "type": "any_sticker",
         "multiplier": 6,
-        "group": 1
+        "group": 0
       }
     ],
     [
@@ -57,7 +57,7 @@
       {
         "type": "any_sticker",
         "multiplier": 6,
-        "group": 0
+        "group": 1
       },
       "empty",
       "empty",

@@ -1,7 +1,9 @@
 {
   "id": "safe_landing",
   "name": "安全着陆",
+  "name_en": "Safe Landing",
   "description": "小心，空运食材很精贵。",
+  "description_en": "Careful, those airlifted ingredients are fragile.",
   "icon": "🛬",
   "role": "main",
   "grid": [
@@ -77,7 +79,5 @@
       4
     ],
     "maxDoomInBlank": 0
-  },
-  "name_en": "Safe Landing",
-  "description_en": "Careful, airlifted ingredients are precious."
+  }
 }

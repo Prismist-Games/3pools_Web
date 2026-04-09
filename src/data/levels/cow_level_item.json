@@ -1,7 +1,9 @@
 {
   "id": "cow_level_item",
-  "name": "自助餐",
-  "description": "丰俭由命",
+  "name": "菜市场",
+  "name_en": "Wet Market",
+  "description": "丰俭由命。",
+  "description_en": "Take what you can get.",
   "icon": "🍽️",
   "role": "sub",
   "grid": [
@@ -47,7 +49,5 @@
       1
     ],
     "gold": 3
-  },
-  "name_en": "Buffet",
-  "description_en": "Take what you can get."
+  }
 }
