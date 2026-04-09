@@ -61,7 +61,7 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
     } else if (cell.type === 'entrance') {
         const subLevel = LEVEL_TEMPLATES.find(t => t.id === cell.subLevelId);
         icon = cell.icon || '🚪';
-        name = subLevel ? (subLevel.name || cell.subLevelId) : cell.subLevelId;
+        name = subLevel ? (t(subLevel.name) || cell.subLevelId) : cell.subLevelId;
         desc = subLevel?.description || t('抽中时进入子关卡');
     } else {
         return null;

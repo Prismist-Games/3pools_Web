@@ -60,8 +60,8 @@ const WallPicker = ({ candidates, onSelect }) => {
                         >
                             {isLevel ? (
                                 <>
-                                    <div className="text-sm font-bold mb-1">{wall.level.icon || '📐'} {wall.level.name || wall.level.id}</div>
-                                    <p className="text-[10px] text-gray-400 mb-3 leading-relaxed">{wall.level.description || t('特殊地形关卡')}</p>
+                                    <div className="text-sm font-bold mb-1">{wall.level.icon || '📐'} {t(wall.level.name) || wall.level.id}</div>
+                                    <p className="text-[10px] text-gray-400 mb-3 leading-relaxed">{t(wall.level.description) || t('特殊地形关卡')}</p>
                                 </>
                             ) : (
                                 <>
