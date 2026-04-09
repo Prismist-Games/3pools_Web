@@ -2,7 +2,7 @@ import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 /** Scan a grid for special (non-sticker, non-doom) cell types and entrances */
-function getSpecialCells(grid) {
+function getSpecialCells(grid, language) {
     const specials = [];
     const seen = new Set();
     if (!grid) return specials;
@@ -11,27 +11,26 @@ function getSpecialCells(grid) {
         for (const cell of row) {
             if (!cell) continue;
             const type = cell.type;
-            // Skip stickers, doom, empty, null — those are shown elsewhere or not interesting
             if (!type || type === 'sticker' || type === 'item' || type === 'empty'
                 || type === 'doom_resolution' || type === 'doom_upgrade') continue;
 
-            // Use type + subLevelId as key to deduplicate
             const key = type === 'entrance' ? `entrance:${cell.subLevelId}` : type;
             if (seen.has(key)) continue;
             seen.add(key);
 
             const info = {
-                bomb: { icon: '💣', label: '炸弹' },
-                gold: { icon: '💰', label: '金币' },
-                order_cell: { icon: '📋', label: '订单' },
-                out_of_game: { icon: '🎁', label: '物品' },
-                heal: { icon: '❤️‍🩹', label: '生命恢复' },
-                backpack_expand: { icon: '🎒', label: '背包扩容' },
-                gravity: { icon: '⬇️', label: '重力开关' },
+                bomb: { icon: '💣', label: language === 'en' ? 'Bomb' : '炸弹' },
+                gold: { icon: '💰', label: language === 'en' ? 'Gold' : '金币' },
+                order_cell: { icon: '📋', label: language === 'en' ? 'Order' : '订单' },
+                out_of_game: { icon: '🎁', label: language === 'en' ? 'Item' : '物品' },
+                heal: { icon: '❤️‍🩹', label: language === 'en' ? 'Heal' : '生命恢复' },
+                backpack_expand: { icon: '🎒', label: language === 'en' ? 'Backpack' : '背包扩容' },
+                gravity: { icon: '⬇️', label: language === 'en' ? 'Gravity' : '重力开关' },
             }[type];
 
             if (type === 'entrance') {
-                specials.push({ icon: cell.icon || '🚪', label: cell.name || cell.subLevelId });
+                const label = (language === 'en' && cell.name_en) ? cell.name_en : (cell.name || cell.subLevelId);
+                specials.push({ icon: cell.icon || '🚪', label });
             } else if (info) {
                 specials.push(info);
             }
@@ -55,7 +54,7 @@ const WallPicker = ({ candidates, onSelect }) => {
             <div className="flex gap-4 justify-center">
                 {candidates.map((wall, idx) => {
                     const isLevel = !wall.wallType && wall.level;
-                    const specials = getSpecialCells(wall.grid);
+                    const specials = getSpecialCells(wall.grid, language);
                     return (
                         <button
                             key={idx}
@@ -91,8 +90,8 @@ const WallPicker = ({ candidates, onSelect }) => {
                             {specials.length > 0 && (
                                 <div className="mt-2 flex flex-wrap gap-1">
                                     {specials.map((s, i) => (
-                                        <span key={i} className="text-[10px] px-1.5 py-0.5 bg-gray-100 rounded-full text-gray-600" title={t(s.label)}>
-                                            {s.icon} {t(s.label)}
+                                        <span key={i} className="text-[10px] px-1.5 py-0.5 bg-gray-100 rounded-full text-gray-600" title={s.label}>
+                                            {s.icon} {s.label}
                                         </span>
                                     ))}
                                 </div>
