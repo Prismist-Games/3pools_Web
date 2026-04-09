@@ -117,21 +117,21 @@ const OrderCardBase = ({
         <div
             onClick={() => onClick(index, isScoreOrder)}
             className={`
-                relative bg-white rounded-2xl shadow-sm border-2 transition-all duration-200
+                relative bg-kitchen-card rounded-2xl shadow-sm border-2 transition-all duration-200
                 ${isCandidate ? 'p-2' : 'p-3'}
                 ${isCandidate ? 'hover:border-blue-500 hover:shadow-lg cursor-pointer' : ''}
                 ${isScoreOrder
-                    ? 'border-blue-300 bg-blue-50 ring-4 ring-blue-50'
+                    ? 'border-kitchen-info bg-[#F0F8FF] ring-4 ring-[#F0F8FF]'
                     : order.isEmergency
-                        ? 'border-red-400 bg-red-50 ring-4 ring-red-50'
-                        : 'border-slate-100 hover:border-slate-300'
+                        ? 'border-kitchen-danger bg-[#FFF0EE] ring-4 ring-[#FFF0EE]'
+                        : 'border-kitchen-gold-border-muted/50 hover:border-kitchen-gold-border'
                 }
                 ${isSubmitMode ? (canSatisfy || potentialSatisfy ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed') : ''}
                 ${isSatisfied
-                    ? (isScoreOrder ? 'ring-4 ring-green-400 border-green-500 bg-green-50' : 'ring-4 ring-green-400 border-green-500 bg-green-50 transform scale-[1.02]')
+                    ? (isScoreOrder ? 'ring-4 ring-kitchen-success border-kitchen-success-border bg-[#F0FFF8]' : 'ring-4 ring-kitchen-success border-kitchen-success-border bg-[#F0FFF8] transform scale-[1.02]')
                     : ((isSubmitMode && !isScoreOrder) ? 'opacity-60 grayscale-[0.8] scale-95' : '')
                 }
-                ${isBeingReplaced ? '!ring-8 !ring-yellow-400 !border-yellow-500 !border-4 !bg-yellow-100 animate-pulse shadow-2xl !scale-[1.05] relative z-20' : ''}
+                ${isBeingReplaced ? '!ring-8 !ring-kitchen-gold !border-kitchen-gold !border-4 !bg-[#FFF8E0] animate-pulse shadow-2xl !scale-[1.05] relative z-20' : ''}
             `}
         >
             {/* 调试获取物品按钮 - 仅在 index !== -1 且 onDebugGetItems 存在时显示 */}
@@ -148,15 +148,15 @@ const OrderCardBase = ({
             {isBeingReplaced && (
                 <>
                     {/* 顶部闪烁标签 */}
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-black shadow-lg z-30 animate-bounce flex items-center gap-1">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-kitchen-gold text-kitchen-text-title px-3 py-1 rounded-full text-xs font-black shadow-lg z-30 animate-bounce flex items-center gap-1">
                         <AlertCircle size={12} />
                         <span>{t("正在替换")}</span>
                     </div>
                     {/* 四角光效 */}
-                    <div className="absolute -top-1 -left-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping" />
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0.1s' }} />
-                    <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0.2s' }} />
-                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0.3s' }} />
+                    <div className="absolute -top-1 -left-1 w-3 h-3 bg-kitchen-gold rounded-full animate-ping" />
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-kitchen-gold rounded-full animate-ping" style={{ animationDelay: '0.1s' }} />
+                    <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-kitchen-gold rounded-full animate-ping" style={{ animationDelay: '0.2s' }} />
+                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-kitchen-gold rounded-full animate-ping" style={{ animationDelay: '0.3s' }} />
                 </>
             )}
 
@@ -195,7 +195,7 @@ const OrderCardBase = ({
                             /* Rewards Badge for Normal/Score Orders */
                             <div className={`flex items-center ${isCandidate ? 'gap-1' : 'gap-2'}`}>
                                 {/* Score Reward */}
-                                <div className={`flex items-center gap-1 rounded-lg font-black text-[10px] shadow-sm ${isCandidate ? 'px-1.5 py-0.5' : 'px-2 py-1'} ${canSatisfy ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'}`}>
+                                <div className={`flex items-center gap-1 rounded-lg font-black text-[10px] shadow-sm ${isCandidate ? 'px-1.5 py-0.5' : 'px-2 py-1'} ${canSatisfy ? 'bg-kitchen-gold text-kitchen-text-title' : 'bg-[#FFF3E0] text-kitchen-gold-deep'}`}>
                                     <span>{rewardInfo?.minScoreReward ?? baseScoreReward}</span>
                                     {rewardInfo?.isDifferent && !canSatisfy && (
                                         <>
@@ -474,8 +474,8 @@ const OrderCardBase = ({
                             className={`
                                 relative w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm
                                 ${orderRefreshCount > 0
-                                    ? 'bg-orange-100 text-orange-500 hover:bg-orange-200 hover:scale-105 active:scale-95'
-                                    : 'bg-slate-50 text-slate-300 cursor-not-allowed'}
+                                    ? 'bg-[#FFF3E0] text-kitchen-gold-deep hover:bg-[#FFE8CC] hover:scale-105 active:scale-95'
+                                    : 'bg-[#F5F0E8] text-kitchen-text-muted cursor-not-allowed'}
                             `}
                             title={t("刷新此订单")}
                         >
@@ -489,7 +489,7 @@ const OrderCardBase = ({
             </div>
 
             {isSatisfied && !isCandidate && (
-                <div className="absolute bottom-3 left-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-sm animate-bounce flex items-center gap-1">
+                <div className="absolute bottom-3 left-3 bg-kitchen-success text-white px-2 py-1 rounded-full text-xs font-bold shadow-sm animate-bounce flex items-center gap-1">
                     <Check size={12} /> {t("可提交")}
                 </div>
             )}
