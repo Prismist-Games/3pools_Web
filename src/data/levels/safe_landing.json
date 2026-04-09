@@ -1,0 +1,83 @@
+{
+  "id": "safe_landing",
+  "name": "安全着陆",
+  "description": "小心，空运食材很精贵。",
+  "icon": "🛬",
+  "role": "main",
+  "grid": [
+    [
+      null,
+      null,
+      null,
+      null,
+      "doom_resolve"
+    ],
+    [
+      null,
+      null,
+      null,
+      "doom_resolve",
+      {
+        "type": "gravity",
+        "group": 0
+      }
+    ],
+    [
+      null,
+      null,
+      "doom_resolve",
+      {
+        "type": "gravity",
+        "group": 0
+      },
+      {
+        "type": "gravity",
+        "group": 0
+      }
+    ],
+    [
+      null,
+      "doom_resolve",
+      {
+        "type": "gravity",
+        "group": 0
+      },
+      {
+        "type": "gravity",
+        "group": 0
+      },
+      {
+        "type": "gravity",
+        "group": 0
+      }
+    ],
+    [
+      "doom_resolve",
+      {
+        "type": "gravity",
+        "group": 0
+      },
+      {
+        "type": "gravity",
+        "group": 0
+      },
+      {
+        "type": "gravity",
+        "group": 0
+      },
+      {
+        "type": "gravity",
+        "group": 0
+      }
+    ]
+  ],
+  "settings": {
+    "stickerTypeRange": [
+      3,
+      4
+    ],
+    "maxDoomInBlank": 0
+  },
+  "name_en": "Safe Landing",
+  "description_en": "Careful, airlifted ingredients are precious."
+}

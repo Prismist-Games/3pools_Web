@@ -4,7 +4,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
 
 /** Tooltip for grid cells — Portal-based, same style as ToolItemTooltip */
-const CellTooltip = ({ cell, anchorRef, visible, t }) => {
+const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
     const [pos, setPos] = useState(null);
 
     useLayoutEffect(() => {
@@ -61,8 +61,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
     } else if (cell.type === 'entrance') {
         const subLevel = LEVEL_TEMPLATES.find(t => t.id === cell.subLevelId);
         icon = cell.icon || '🚪';
-        name = subLevel ? (t(subLevel.name) || cell.subLevelId) : cell.subLevelId;
-        desc = subLevel?.description || t('抽中时进入子关卡');
+        const useName = language === 'en' && subLevel?.name_en ? subLevel.name_en : subLevel?.name;
+        name = useName || cell.subLevelId;
+        const useDesc = language === 'en' && subLevel?.description_en ? subLevel.description_en : subLevel?.description;
+        desc = useDesc || t('抽中时进入子关卡');
     } else {
         return null;
     }
@@ -102,7 +104,7 @@ const HALF = GAP / 2;
 const TRACK = CELL_SIZE + GAP;
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlight, gravityDrop }) => {
+const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacency, highlight, gravityDrop }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
@@ -210,7 +212,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
                     {t(cell.item.name)}
                 </span>
             )}
-            {hasTip && <CellTooltip cell={cell} anchorRef={ref} visible={hovered} t={t} />}
+            {hasTip && <CellTooltip cell={cell} anchorRef={ref} visible={hovered} t={t} language={language} />}
         </div>
     );
 };
@@ -219,7 +221,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
  * 5×5 grid display for turn-based prototype.
  */
 const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, gravityDrops }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
 
@@ -460,6 +462,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                         cell={cell}
                                         cellContent={getCellContent(cell)}
                                         t={t}
+                                        language={language}
                                         rowIndex={rowIndex}
                                         colIndex={colIndex}
                                         adjacency={getAdjacency(rowIndex, colIndex)}

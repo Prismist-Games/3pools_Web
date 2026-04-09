@@ -70,7 +70,7 @@ function generateOrder() {
 }
 
 export const useGameLogic = (config) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
 
     // --- Configuration ---
     const doomConfig = config.doom || DOOM_CONFIG;
@@ -521,7 +521,8 @@ export const useGameLogic = (config) => {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {
             // Enter sub-level directly — no setTimeout, no stale closure issues
-            showToast(`${drawnCell.icon || '🚪'} ${t('进入子关卡')}: ${t(drawnCell.name)}`, 'info');
+            const entryName = (language === 'en' && drawnCell.name_en) ? drawnCell.name_en : drawnCell.name;
+            showToast(`${drawnCell.icon || '🚪'} ${t('进入子关卡')}: ${entryName}`, 'info');
             enterSubLevel(drawnCell.subLevelId, finalRowIndex, finalColIndex);
             return; // Skip the normal post-draw flow
         }

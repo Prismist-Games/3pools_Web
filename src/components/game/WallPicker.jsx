@@ -41,7 +41,12 @@ function getSpecialCells(grid) {
 }
 
 const WallPicker = ({ candidates, onSelect }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    /** Get localized level field — uses _en if available in English mode, falls back to t() */
+    const tl = (level, field) => {
+        if (language === 'en' && level[field + '_en']) return level[field + '_en'];
+        return t(level[field]);
+    };
 
     return (
         <div className="text-center py-6">
@@ -60,8 +65,8 @@ const WallPicker = ({ candidates, onSelect }) => {
                         >
                             {isLevel ? (
                                 <>
-                                    <div className="text-sm font-bold mb-1">{wall.level.icon || '📐'} {t(wall.level.name) || wall.level.id}</div>
-                                    <p className="text-[10px] text-gray-400 mb-3 leading-relaxed">{t(wall.level.description) || t('特殊地形关卡')}</p>
+                                    <div className="text-sm font-bold mb-1">{wall.level.icon || '📐'} {tl(wall.level, 'name') || wall.level.id}</div>
+                                    <p className="text-[10px] text-gray-400 mb-3 leading-relaxed">{tl(wall.level, 'description') || t('特殊地形关卡')}</p>
                                 </>
                             ) : (
                                 <>

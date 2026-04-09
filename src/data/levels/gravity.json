@@ -1,0 +1,53 @@
+{
+  "id": "gravity",
+  "name": "离心机",
+  "description": "分子料理第一步。",
+  "icon": "⏬",
+  "role": "main",
+  "grid": [
+    [
+      "empty",
+      null,
+      "empty",
+      null,
+      "empty"
+    ],
+    [
+      null,
+      "empty",
+      null,
+      "empty",
+      null
+    ],
+    [
+      "empty",
+      null,
+      "empty",
+      null,
+      "empty"
+    ],
+    [
+      null,
+      "empty",
+      null,
+      "empty",
+      null
+    ],
+    [
+      "empty",
+      null,
+      "gravity",
+      null,
+      "empty"
+    ]
+  ],
+  "settings": {
+    "stickerTypeRange": [
+      3,
+      4
+    ],
+    "maxDoomInBlank": 3
+  },
+  "name_en": "Centrifuge",
+  "description_en": "Step one of molecular gastronomy."
+}

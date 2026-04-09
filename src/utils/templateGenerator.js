@@ -80,6 +80,8 @@ function resolveConstrainedCell(token) {
           subLevelId,
           icon: subLevel?.icon || '🚪',
           name: subLevel?.name || subLevelId,
+          name_en: subLevel?.name_en,
+          description_en: subLevel?.description_en,
           uid: generateUID(),
           ...extras,
         };

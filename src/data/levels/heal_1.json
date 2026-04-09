@@ -1,8 +1,8 @@
 {
-  "id": "bomb_cross",
-  "name": "炸弹十字",
-  "description": "看到中间那个东西了吗？",
-  "icon": "💣🐄💣",
+  "id": "heal_1",
+  "name": "后厨的后门",
+  "description": "小憩好去处。",
+  "icon": "🚪",
   "role": "main",
   "grid": [
     [
@@ -15,21 +15,21 @@
     [
       null,
       null,
-      "bomb",
+      null,
       null,
       null
     ],
     [
       null,
-      "bomb",
-      "entrance:cow_level_sticker",
-      "bomb",
+      null,
+      "heal",
+      null,
       null
     ],
     [
       null,
       null,
-      "bomb",
+      null,
       null,
       null
     ],
@@ -45,9 +45,8 @@
     "stickerTypeRange": [
       3,
       4
-    ],
-    "maxDoomInBlank": 2
+    ]
   },
-  "name_en": "Bomb Cross",
-  "description_en": "See that thing in the middle?"
+  "name_en": "Kitchen Back Door",
+  "description_en": "A nice place for a break."
 }

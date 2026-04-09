@@ -35,7 +35,9 @@ export default function LevelEditor() {
 
   const [id, setId] = useState(existingTemplate?.id || '');
   const [name, setName] = useState(existingTemplate?.name || '');
+  const [nameEn, setNameEn] = useState(existingTemplate?.name_en || '');
   const [description, setDescription] = useState(existingTemplate?.description || '');
+  const [descEn, setDescEn] = useState(existingTemplate?.description_en || '');
   const [icon, setIcon] = useState(existingTemplate?.icon || '📐');
   const [role, setRole] = useState(existingTemplate?.role || 'main');
   const [grid, setGrid] = useState(
@@ -79,7 +81,7 @@ export default function LevelEditor() {
   // Test generate
   const [testResult, setTestResult] = useState(null);
   const handleTest = () => {
-    const template = { id, name, description, icon, role, grid, settings: buildSettings() };
+    const template = { id, name, name_en: nameEn || undefined, description, description_en: descEn || undefined, icon, role, grid, settings: buildSettings() };
     const result = generateWallFromTemplate(template);
     setTestResult(result.grid);
   };
@@ -90,7 +92,7 @@ export default function LevelEditor() {
       alert('请填写关卡 ID');
       return;
     }
-    const template = { id, name, description, icon, role, grid, settings: buildSettings() };
+    const template = { id, name, name_en: nameEn || undefined, description, description_en: descEn || undefined, icon, role, grid, settings: buildSettings() };
     const json = JSON.stringify(template, null, 2);
 
     // Try File System Access API (Chrome/Edge — shows save dialog, remembers last path)
@@ -179,12 +181,16 @@ export default function LevelEditor() {
               <label className="text-xs text-gray-400">名称</label>
               <input value={name} onChange={e => setName(e.target.value)}
                 className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm" placeholder="炸弹圈" />
+              <input value={nameEn} onChange={e => setNameEn(e.target.value)}
+                className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm mt-1 text-gray-400" placeholder="English name" />
             </div>
           </div>
           <div>
             <label className="text-xs text-gray-400">描述</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)}
-              className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm h-16" placeholder="关卡描述..." />
+              className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm h-12" placeholder="关卡描述..." />
+            <textarea value={descEn} onChange={e => setDescEn(e.target.value)}
+              className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm h-12 mt-1 text-gray-400" placeholder="English description" />
           </div>
 
           <div>
