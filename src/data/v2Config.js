@@ -18,22 +18,22 @@ export const STICKER_TYPES = [
 // --- 游戏外物品（出口物品）---
 // 按分值分成4个tier：1/2/3/5分
 export const OUT_OF_GAME_ITEMS = [
-    // 1分
-    { id: 'doll',     icon: '🧸', name: '玩偶',   score: 1 },
-    { id: 'headset',  icon: '🎧', name: '耳机',   score: 1 },
-    { id: 'sunglasses', icon: '🕶️', name: '墨镜', score: 1 },
-    // 2分
-    { id: 'watch',    icon: '⌚', name: '手表',   score: 2 },
-    { id: 'handbag',  icon: '👜', name: '手包',   score: 2 },
-    { id: 'camera',   icon: '📷', name: '相机',   score: 2 },
-    // 3分
-    { id: 'laptop',   icon: '💻', name: '笔记本', score: 3 },
-    { id: 'dress',    icon: '👗', name: '礼服',   score: 3 },
-    { id: 'ring',     icon: '💍', name: '戒指',   score: 3 },
-    // 5分
-    { id: 'car',      icon: '🚗', name: '汽车',   score: 5 },
-    { id: 'travel',   icon: '🏝️', name: '旅行',  score: 5 },
-    { id: 'house',    icon: '🏠', name: '房产',   score: 5 },
+    // 1分 — 基础调料
+    { id: 'salt',     icon: '🧂', name: '盐',     score: 1 },
+    { id: 'ginger',   icon: '🫚', name: '姜',     score: 1 },
+    { id: 'butter',   icon: '🧈', name: '黄油',   score: 1 },
+    // 2分 — 普通食材
+    { id: 'egg',      icon: '🥚', name: '鸡蛋',   score: 2 },
+    { id: 'fish',     icon: '🐟', name: '鲜鱼',   score: 2 },
+    { id: 'veggie',   icon: '🥬', name: '蔬菜',   score: 2 },
+    // 3分 — 珍稀食材
+    { id: 'steak',    icon: '🥩', name: '牛排',   score: 3 },
+    { id: 'lobster',  icon: '🦞', name: '龙虾',   score: 3 },
+    { id: 'truffle',  icon: '🍄', name: '松露',   score: 3 },
+    // 5分 — 厨具
+    { id: 'knife',    icon: '🔪', name: '主厨刀', score: 5 },
+    { id: 'pan',      icon: '🍳', name: '铸铁锅', score: 5 },
+    { id: 'pot',      icon: '🫕', name: '砂锅',   score: 5 },
 ];
 
 // --- 订单模板 ---
