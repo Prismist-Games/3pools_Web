@@ -342,12 +342,12 @@ export const INITIAL_AFFIXES_CONFIG = [
 ];
 
 export const INITIAL_RARITY_CONFIG = [
-    { id: 'common', name: '普通', color: 'border-slate-300 bg-slate-50 text-slate-600', dotColor: 'bg-slate-400', starColor: 'text-slate-400', shadow: '', bonus: 0, recycleValue: 0 },
+    { id: 'common', name: '普通', color: 'border-kitchen-gold-border-muted bg-kitchen-card text-kitchen-text-secondary', dotColor: 'bg-kitchen-text-muted', starColor: 'text-kitchen-text-muted', shadow: '', bonus: 0, recycleValue: 0 },
     { id: 'uncommon', name: '优秀', color: 'border-green-400 bg-green-50 text-green-700', dotColor: 'bg-green-500', starColor: 'text-green-500', shadow: 'shadow-green-200', bonus: 0.1, recycleValue: 0 },
-    { id: 'rare', name: '稀有', color: 'border-blue-400 bg-blue-50 text-blue-700', dotColor: 'bg-blue-500', starColor: 'text-blue-500', shadow: 'shadow-blue-200', bonus: 0.25, recycleValue: 1 },
+    { id: 'rare', name: '稀有', color: 'border-kitchen-info-border bg-blue-50 text-blue-700', dotColor: 'bg-kitchen-info', starColor: 'text-kitchen-info', shadow: 'shadow-blue-200', bonus: 0.25, recycleValue: 1 },
     { id: 'epic', name: '史诗', color: 'border-purple-400 bg-purple-50 text-purple-700', dotColor: 'bg-purple-500', starColor: 'text-purple-500', shadow: 'shadow-purple-200', bonus: 0.5, recycleValue: 2 },
-    { id: 'legendary', name: '传说', color: 'border-orange-400 bg-orange-50 text-orange-700', dotColor: 'bg-orange-500', starColor: 'text-orange-500', shadow: 'shadow-orange-200', bonus: 1.0, recycleValue: 4 },
-    { id: 'mythic', name: '神话', color: 'border-rose-500 bg-rose-50 text-rose-700', dotColor: 'bg-rose-500', starColor: 'text-rose-600', shadow: 'shadow-rose-200', bonus: 2.0, recycleValue: 10 }
+    { id: 'legendary', name: '传说', color: 'border-kitchen-gold bg-orange-50 text-orange-700', dotColor: 'bg-kitchen-gold', starColor: 'text-kitchen-gold', shadow: 'shadow-orange-200', bonus: 1.0, recycleValue: 4 },
+    { id: 'mythic', name: '神话', color: 'border-kitchen-danger bg-rose-50 text-rose-700', dotColor: 'bg-kitchen-danger', starColor: 'text-kitchen-danger', shadow: 'shadow-rose-200', bonus: 2.0, recycleValue: 10 }
 ];
 
 export const INITIAL_POOLS_DATA = [
