@@ -572,7 +572,12 @@ const GameCore = () => {
 
                 {/* Game over / Evacuated */}
                 {phase === 'game_over' && (
-                    <div className="text-center py-12">
+                    <div className="relative text-center py-12">
+                        {modalContent === 'evacuated' && (
+                            <div className="absolute bottom-2 right-3 font-mono text-[10px] text-kitchen-gold/40">
+                                REC ● {new Date().toLocaleTimeString()}
+                            </div>
+                        )}
                         {modalContent === 'evacuated' ? (
                             <h2 className="text-xl font-bold mb-4">{t('安全撤离')}</h2>
                         ) : (

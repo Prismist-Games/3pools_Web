@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
@@ -224,6 +224,15 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
+    const [doomFlash, setDoomFlash] = useState(false);
+
+    useEffect(() => {
+        if (drawAnimState?.phase === 'settled' && drawAnimState?.drawnCell?.type === 'doom_resolution') {
+            setDoomFlash(true);
+            const timer = setTimeout(() => setDoomFlash(false), 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [drawAnimState]);
 
     // Report hovered sticker IDs to parent
     const reportHover = (row, col) => {
@@ -337,7 +346,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     const isDrawSettled = drawAnimState?.phase === 'settled';
 
     return (
-        <div className={`bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-[3px] border-kitchen-wood-border rounded-[14px] p-4 shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)] transition-all duration-300${isDrawSettled ? ' crt-light vignette' : ''}`}>
+        <div className={`bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-[3px] border-kitchen-wood-border rounded-[14px] p-4 shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)] transition-all duration-300${doomFlash ? ' crt-heavy vignette-heavy animate-signal-shake' : isDrawSettled ? ' crt-light vignette' : ''}`}>
             <div className="text-center mb-2 pb-2 border-b border-dashed border-kitchen-wood-border">
                 <span className="text-sm font-bold text-kitchen-text-body">🎯 {t('奖品墙')}</span>
             </div>
