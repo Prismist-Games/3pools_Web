@@ -8,7 +8,7 @@ const CHEF_EMOJIS = [
 
 const Prologue = ({ onComplete }) => {
     const { t, language, toggleLanguage } = useLanguage();
-    const [step, setStep] = useState('select');       // select | transition | name | hardship | opportunity
+    const [step, setStep] = useState('select');       // select | transition | name | hardship | opportunity | challenge | resolve
     const [selectedEmoji, setSelectedEmoji] = useState(null);
     const [floatingStyle, setFloatingStyle] = useState(null);
     const [name, setName] = useState('');
@@ -71,6 +71,18 @@ const Prologue = ({ onComplete }) => {
 
     const handleToOpportunity = useCallback(() => {
         setStep('opportunity');
+        setFadeIn(false);
+        setTimeout(() => setFadeIn(true), 50);
+    }, []);
+
+    const handleToChallenge = useCallback(() => {
+        setStep('challenge');
+        setFadeIn(false);
+        setTimeout(() => setFadeIn(true), 50);
+    }, []);
+
+    const handleToResolve = useCallback(() => {
+        setStep('resolve');
         setFadeIn(false);
         setTimeout(() => setFadeIn(true), 50);
     }, []);
@@ -180,11 +192,57 @@ const Prologue = ({ onComplete }) => {
                     </p>
 
                     <button
-                        onClick={handleContinue}
+                        onClick={handleToChallenge}
                         className="mt-8 px-8 py-2.5 bg-blue-500 text-white rounded-lg font-bold
                             hover:bg-blue-600 active:scale-95 transition-all duration-150"
                     >
                         {t('继续')}
+                    </button>
+                </div>
+            )}
+
+            {/* Page 5: Challenge rules */}
+            {step === 'challenge' && (
+                <div className={`flex flex-col items-center transition-opacity duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className="text-6xl mb-3">🎯</div>
+                    <div className="text-4xl mb-8">🍳</div>
+
+                    <p className="text-base text-gray-600 text-center max-w-sm px-4 leading-relaxed">
+                        {language === 'zh'
+                            ? '挑战的内容是：节目组每天会抽取一位随机观众，提出对菜品的要求。你需要使用在节目中获取的有限食材，尽可能满足观众的需求，获得更高的评价。'
+                            : 'Each day, the show sends a random audience member to your restaurant with specific requests. Using only the limited ingredients you win from the show, you must do your best to satisfy their demands and earn their approval.'
+                        }
+                    </p>
+
+                    <button
+                        onClick={handleToResolve}
+                        className="mt-8 px-8 py-2.5 bg-blue-500 text-white rounded-lg font-bold
+                            hover:bg-blue-600 active:scale-95 transition-all duration-150"
+                    >
+                        {t('继续')}
+                    </button>
+                </div>
+            )}
+
+            {/* Page 6: Resolve */}
+            {step === 'resolve' && (
+                <div className={`flex flex-col items-center transition-opacity duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className="text-6xl mb-3">{selectedEmoji}</div>
+                    <div className="text-4xl mb-8">🏪</div>
+
+                    <p className="text-base text-gray-600 text-center max-w-sm px-4 leading-relaxed">
+                        {language === 'zh'
+                            ? '于是你满怀着希望参加了节目，为了心爱的餐厅努力着。'
+                            : 'And so, filled with hope, you joined the show — fighting for the restaurant you love.'
+                        }
+                    </p>
+
+                    <button
+                        onClick={handleContinue}
+                        className="mt-8 px-8 py-2.5 bg-blue-500 text-white rounded-lg font-bold
+                            hover:bg-blue-600 active:scale-95 transition-all duration-150"
+                    >
+                        {t('开始游戏')}
                     </button>
                 </div>
             )}
