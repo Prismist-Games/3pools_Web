@@ -10,6 +10,7 @@ import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from './data/v2Config';
 import { Link } from 'react-router-dom';
+import { GameGuide } from './components/ui/GameGuide';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -20,6 +21,7 @@ const GameCore = () => {
     const [recycleSelected, setRecycleSelected] = useState(new Set());
     const [debugOpen, setDebugOpen] = useState(false);
     const [debugSelectedItem, setDebugSelectedItem] = useState(null);
+    const [guideOpen, setGuideOpen] = useState(false);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -153,7 +155,8 @@ const GameCore = () => {
                             <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
                                 ⭐ {totalScore}/{expeditionConfig.scoreToWin}
                             </span>
-                            <button onClick={toggleLanguage} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-600 border border-indigo-200 hover:bg-indigo-200 transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
+                            <button onClick={() => setGuideOpen(true)} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-600 border border-emerald-200 hover:bg-emerald-200 transition-colors">❓</button>
+                            <button onClick={toggleLanguage} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-600 border border-indigo-200 hover:bg-indigo-200 transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
                             <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-100 text-red-500 border border-red-200 hover:bg-red-200 transition-colors">{t('重置')}</button>
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                             <Link to="/editor" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors no-underline">📐</Link>
@@ -192,7 +195,7 @@ const GameCore = () => {
                             onClick={startGame}
                             className="px-8 py-3 bg-blue-500 text-white rounded-lg text-lg font-bold hover:bg-blue-600 transition-colors"
                         >
-                            {t('开始第')} {expeditionNumber + 1} {t('场')}
+                            {language === 'en' ? `Start Round ${expeditionNumber + 1}` : `开始第 ${expeditionNumber + 1} 场`}
                         </button>
                     </div>
                 )}
@@ -596,7 +599,7 @@ const GameCore = () => {
                             {expeditionScores.map((exp, i) => (
                                 <div key={i} className="mb-4">
                                     <div className="text-xs text-gray-500 font-bold mb-2">
-                                        {t('第')} {i + 1} {t('场')} — {exp.score} {t('分')}
+                                        {language === 'en' ? `Round ${i + 1}` : `第 ${i + 1} 场`} — {exp.score} {t('分')}
                                     </div>
                                     {exp.items.length > 0 ? (
                                         <div className="flex flex-wrap gap-3">
@@ -630,7 +633,7 @@ const GameCore = () => {
                             <button onClick={() => { startNextExpedition(); }}
                                 className="px-8 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition-colors"
                             >
-                                {t('开始第')} {expeditionNumber + 1} {t('场')}
+                                {language === 'en' ? `Start Round ${expeditionNumber + 1}` : `开始第 ${expeditionNumber + 1} 场`}
                             </button>
                         ) : (
                             <div>
@@ -730,6 +733,9 @@ const GameCore = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Game Guide */}
+                {guideOpen && <GameGuide onClose={() => setGuideOpen(false)} />}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
