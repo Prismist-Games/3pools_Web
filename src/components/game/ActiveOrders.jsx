@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { RewardCard, DIFFICULTY_STYLE } from './BulletinBoard';
+import Tooltip from '../ui/Tooltip';
 
 const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcceptOrder, onConfirmReplace, onCancelReplace, hoveredStickerIds, bonusItemMap }) => {
     const { t } = useLanguage();
@@ -79,16 +80,35 @@ const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcce
                                         const enough = owned >= req.count;
                                         const isHovered = hoveredStickerIds?.has(req.stickerId);
                                         return (
-                                            <div key={i} className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
-                                                <div className={`w-7 h-7 rounded border ${
-                                                    isHovered ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-300'
-                                                    : enough ? 'border-green-400 bg-green-50'
-                                                    : 'border-gray-300 bg-white'
-                                                } flex items-center justify-center text-sm shadow-sm`}>
-                                                    {req.icon}
+                                            <Tooltip key={i} content={
+                                                <>
+                                                    <div className="flex items-center gap-2 mb-1.5">
+                                                        <span className="text-2xl leading-none">{req.icon}</span>
+                                                        <div>
+                                                            <div className="font-bold text-sm leading-tight">{req.name}</div>
+                                                            <div className="text-[10px] text-cyan-400">风土之源</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="border-t border-gray-700/50 pt-1.5 mt-1">
+                                                        <div className="flex justify-between text-[11px]">
+                                                            <span className="text-gray-400">持有 / 需要</span>
+                                                            <span className={`font-bold ${enough ? 'text-green-400' : 'text-red-400'}`}>{owned} / {req.count}</span>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-500 italic mt-1.5">详细描述待填写...</p>
+                                                </>
+                                            }>
+                                                <div className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
+                                                    <div className={`w-7 h-7 rounded border ${
+                                                        isHovered ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-300'
+                                                        : enough ? 'border-green-400 bg-green-50'
+                                                        : 'border-gray-300 bg-white'
+                                                    } flex items-center justify-center text-sm shadow-sm`}>
+                                                        {req.icon}
+                                                    </div>
+                                                    <span className={`text-[10px] font-bold ${isHovered ? 'text-blue-600' : enough ? 'text-green-600' : 'text-gray-400'}`}>{owned}<span className="font-normal text-gray-300">/{req.count}</span></span>
                                                 </div>
-                                                <span className={`text-[10px] font-bold ${isHovered ? 'text-blue-600' : enough ? 'text-green-600' : 'text-gray-400'}`}>{owned}<span className="font-normal text-gray-300">/{req.count}</span></span>
-                                            </div>
+                                            </Tooltip>
                                         );
                                     })}
                                 </div>

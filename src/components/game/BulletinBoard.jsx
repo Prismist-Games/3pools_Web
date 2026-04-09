@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import Tooltip from '../ui/Tooltip';
 
 const DIFFICULTY_STYLE = {
     easy:    { bg: 'bg-green-100', text: 'text-green-700' },
@@ -9,26 +10,48 @@ const DIFFICULTY_STYLE = {
 };
 
 const SCORE_STYLE = {
-    1: { border: 'border-green-400',  bg: 'from-green-50 to-white',  badge: 'bg-green-500' },
-    2: { border: 'border-blue-400',   bg: 'from-blue-50 to-white',   badge: 'bg-blue-500' },
-    3: { border: 'border-purple-400', bg: 'from-purple-50 to-white', badge: 'bg-purple-500' },
-    5: { border: 'border-orange-400', bg: 'from-orange-50 to-white', badge: 'bg-orange-500' },
+    1: { border: 'border-green-400',  bg: 'from-green-50 to-white',  badge: 'bg-green-500', label: '基础调料', labelColor: 'text-green-400' },
+    2: { border: 'border-blue-400',   bg: 'from-blue-50 to-white',   badge: 'bg-blue-500',  label: '普通食材', labelColor: 'text-blue-400' },
+    3: { border: 'border-purple-400', bg: 'from-purple-50 to-white', badge: 'bg-purple-500', label: '珍稀食材', labelColor: 'text-purple-400' },
+    5: { border: 'border-orange-400', bg: 'from-orange-50 to-white', badge: 'bg-orange-500', label: '厨具',     labelColor: 'text-orange-400' },
 };
 
 const RewardCard = ({ reward, size = 'md', bonusValue }) => {
     const s = SCORE_STYLE[reward.score] || SCORE_STYLE[1];
     const dim = size === 'sm' ? 'w-8 h-8 text-base' : 'w-9 h-9 text-lg';
     const badgeDim = size === 'sm' ? 'w-3 h-3 text-[7px]' : 'w-3.5 h-3.5 text-[8px]';
+
+    const tipContent = (
+        <>
+            <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-2xl leading-none">{reward.icon}</span>
+                <div>
+                    <div className="font-bold text-sm leading-tight">{reward.name}</div>
+                    <div className={`text-[10px] ${s.labelColor}`}>{s.label}</div>
+                </div>
+            </div>
+            <div className="border-t border-gray-700/50 pt-1.5 mt-1">
+                <div className="flex justify-between text-[11px]">
+                    <span className="text-gray-400">撤离价值</span>
+                    <span className="font-bold text-yellow-300">{reward.score} 分</span>
+                </div>
+            </div>
+            <p className="text-[10px] text-gray-500 italic mt-1.5">详细描述待填写...</p>
+        </>
+    );
+
     return (
-        <div className={`relative ${dim} rounded border-2 ${s.border} bg-gradient-to-b ${s.bg} flex items-center justify-center shadow-sm`}>
-            {reward.icon}
-            <span className={`absolute -bottom-1 -right-1 ${s.badge} text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow`}>
-                {reward.score}
-            </span>
-            {bonusValue && (
-                <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusValue}</span>
-            )}
-        </div>
+        <Tooltip content={tipContent}>
+            <div className={`relative ${dim} rounded border-2 ${s.border} bg-gradient-to-b ${s.bg} flex items-center justify-center shadow-sm`}>
+                {reward.icon}
+                <span className={`absolute -bottom-1 -right-1 ${s.badge} text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow`}>
+                    {reward.score}
+                </span>
+                {bonusValue && (
+                    <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusValue}</span>
+                )}
+            </div>
+        </Tooltip>
     );
 };
 
