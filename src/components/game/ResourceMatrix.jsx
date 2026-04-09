@@ -126,23 +126,23 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacenc
     // Cell background
     let bgClass;
     if (cell === null || cell.type === 'empty') {
-        bgClass = 'bg-gray-100 border-gray-200';
+        bgClass = 'bg-[#F8F4EC] border-[#D4C8B0]';
     } else if (cell.type === 'doom_resolution') {
-        bgClass = 'bg-red-100 border-red-400';
+        bgClass = 'bg-[#FFF0EE] border-kitchen-danger';
     } else if (cell.type === 'doom_upgrade') {
-        bgClass = 'bg-amber-100 border-amber-400';
+        bgClass = 'bg-[#FFF8F0] border-[#E8B860]';
     } else if (cell.type === 'item' || cell.type === 'sticker') {
-        // Stickers are always white
-        const borderColor = 'border-gray-300';
+        // Stickers use card background
+        const borderColor = 'border-kitchen-gold-border-muted';
         const bT = top ? 'border-t-0' : borderColor;
         const bB = bottom ? 'border-b-0' : borderColor;
         const bL = left ? 'border-l-0' : borderColor;
         const bR = right ? 'border-r-0' : borderColor;
-        bgClass = `bg-white ${bT} ${bB} ${bL} ${bR}`;
+        bgClass = `bg-kitchen-card ${bT} ${bB} ${bL} ${bR}`;
     } else if (cell.type === 'gold') {
-        bgClass = 'bg-yellow-100 border-yellow-400';
+        bgClass = 'bg-[#FFFCE8] border-[#E8C860]';
     } else if (cell.type === 'order_cell') {
-        bgClass = 'bg-blue-50 border-blue-300';
+        bgClass = 'bg-[#F0F8FF] border-kitchen-info';
     } else if (cell.type === 'out_of_game') {
         // Score-based colors matching order reward cards
         const sc = { 1: 'bg-green-50 border-green-400', 2: 'bg-blue-50 border-blue-400', 3: 'bg-purple-50 border-purple-400', 5: 'bg-orange-50 border-orange-400' };
@@ -150,15 +150,15 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacenc
     } else if (cell.type === 'bomb') {
         bgClass = 'bg-gray-800 border-gray-900';
     } else if (cell.type === 'heal') {
-        bgClass = 'bg-pink-100 border-pink-400';
+        bgClass = 'bg-[#F0FFF8] border-kitchen-success';
     } else if (cell.type === 'backpack_expand') {
-        bgClass = 'bg-amber-100 border-amber-400';
+        bgClass = 'bg-[#FFF8E0] border-kitchen-gold';
     } else if (cell.type === 'gravity') {
-        bgClass = 'bg-sky-100 border-sky-400';
+        bgClass = 'bg-[#F0F8FF] border-kitchen-info';
     } else if (cell.type === 'entrance') {
-        bgClass = 'bg-teal-100 border-teal-400';
+        bgClass = 'bg-[#F0FFF8] border-kitchen-success-border';
     } else {
-        bgClass = 'bg-white border-gray-300';
+        bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     }
 
     // Highlight effects
@@ -166,15 +166,15 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacenc
     let extraShadow = undefined;
 
     if (highlight === 'settled') {
-        highlightClass = 'ring-3 ring-yellow-400 scale-110 z-20 shadow-lg shadow-yellow-200 transition-all duration-200';
+        highlightClass = 'ring-3 ring-kitchen-gold scale-110 z-20 shadow-lg shadow-[rgba(232,168,48,0.3)] transition-all duration-200';
     } else if (highlight === 'scanning') {
-        highlightClass = 'ring-2 ring-yellow-300 z-10 transition-all duration-75';
+        highlightClass = 'ring-2 ring-kitchen-gold/60 z-10 transition-all duration-75';
     } else if (highlight === 'scan-row') {
-        highlightClass = 'ring-1 ring-blue-200 transition-all duration-75';
+        highlightClass = 'bg-[rgba(232,168,48,0.08)] border-kitchen-gold shadow-[0_0_8px_rgba(232,168,48,0.15)] transition-all duration-75';
     } else if (highlight === 'hover') {
         highlightClass = 'scale-105 z-10 transition-all duration-150';
         // Build directional ring only on external (non-connected) sides
-        const ringColor = 'rgba(96,165,250,0.6)';
+        const ringColor = 'rgba(232,168,48,0.5)';
         const ringW = 2.5;
         const parts = ['0 4px 6px -1px rgba(0,0,0,0.1)', '0 2px 4px -2px rgba(0,0,0,0.1)']; // shadow-md
         if (!top) parts.push(`inset 0 ${ringW}px 0 0 ${ringColor}`);
@@ -335,7 +335,11 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     const ROW_BTN_MARGIN = 8; // mr-2
 
     return (
-        <div>
+        <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-[3px] border-kitchen-wood-border rounded-[14px] p-4 shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)]">
+            <div className="text-center mb-2 pb-2 border-b border-dashed border-kitchen-wood-border">
+                <span className="text-sm font-bold text-kitchen-text-body">🎯 {t('奖品墙')}</span>
+            </div>
+
             {wallType && (
                 <div className="text-center mb-2">
                     <span className="text-sm font-bold">{wallType.icon} {t(wallType.name)}</span>
@@ -361,16 +365,16 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             className={`
                                 rounded-lg text-xs font-black flex-shrink-0
                                 flex items-center justify-center
-                                transition-all duration-150 shadow-sm
+                                transition-all duration-150
                                 ${colClickable
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 cursor-pointer'
-                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    ? 'bg-gradient-to-b from-[#FFF3E0] to-[#FFE8CC] border-2 border-kitchen-gold rounded-lg shadow-[0_2px_0_#D4952A,0_0_10px_rgba(232,168,48,0.25)] text-kitchen-gold-deep font-bold cursor-pointer'
+                                    : 'bg-[#F5F0E8] border-2 border-kitchen-gold-border-muted/50 text-kitchen-text-muted cursor-not-allowed opacity-60'
                                 }
                             `}
                             style={{ width: CELL_SIZE, height: 24, marginRight: GAP }}
                             title={colClickable ? t('抽取此列') : t('无法抽取')}
                         >
-                            ▼
+                            ⬇
                         </button>
                     );
                 })}
@@ -393,16 +397,16 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                 className={`
                                     rounded-lg text-xs font-black flex-shrink-0
                                     flex items-center justify-center
-                                    transition-all duration-150 shadow-sm
+                                    transition-all duration-150
                                     ${rowClickable
-                                        ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 cursor-pointer'
-                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        ? 'bg-gradient-to-r from-[#FFF3E0] to-[#FFE8CC] border-2 border-kitchen-gold rounded-lg shadow-[0_2px_0_#D4952A,0_0_10px_rgba(232,168,48,0.25)] text-kitchen-gold-deep font-bold cursor-pointer'
+                                        : 'bg-[#F5F0E8] border-2 border-kitchen-gold-border-muted/50 text-kitchen-text-muted cursor-not-allowed opacity-60'
                                     }
                                 `}
                                 style={{ width: 36, height: CELL_SIZE, marginBottom: GAP }}
                                 title={rowClickable ? t('抽取此行') : t('无法抽取')}
                             >
-                                ▶
+                                ➡
                             </button>
                         );
                     })}
