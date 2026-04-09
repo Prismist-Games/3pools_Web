@@ -138,48 +138,36 @@ const GameCore = () => {
     })();
 
     return (
-        <div className="min-h-screen bg-slate-100 p-4">
+        <div className="min-h-screen p-4">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
-                <div className="mb-4 bg-white rounded-xl shadow-md border border-gray-200">
+                <div className="mb-4 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
                     {/* Row 1: Title + Progress */}
-                    <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                        <h1 className="text-base font-black tracking-tight">{t('梦想厨房')}</h1>
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-kitchen-gold-border/30">
+                        <h1 className="text-base font-black tracking-tight text-kitchen-text-title">🍳 {t('梦想厨房')}</h1>
                         <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[11px] font-bold">
+                            <span className="px-2 py-0.5 rounded-full bg-[#FFF3E0] text-kitchen-gold-deep border border-kitchen-gold-border text-[11px] font-bold">
                                 {t('场次')} {expeditionNumber}/{expeditionConfig.expeditionCount}
                             </span>
-                            <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
+                            <span className="px-2 py-0.5 rounded-full bg-[#FFF3E0] text-kitchen-gold-deep border border-kitchen-gold-border text-[11px] font-bold">
                                 {t('回合')} {turnNumber}
                             </span>
-                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
+                            <span className="px-2 py-0.5 rounded-full bg-[#FFF8E0] text-kitchen-gold-deep border border-kitchen-gold-border text-[11px] font-bold">
                                 ⭐ {totalScore}/{expeditionConfig.scoreToWin}
                             </span>
-                            <button onClick={() => setGuideOpen(true)} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-600 border border-emerald-200 hover:bg-emerald-200 transition-colors">❓</button>
-                            <button onClick={toggleLanguage} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-600 border border-indigo-200 hover:bg-indigo-200 transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
-                            <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-100 text-red-500 border border-red-200 hover:bg-red-200 transition-colors">{t('重置')}</button>
+                            <button onClick={() => setGuideOpen(true)} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">❓</button>
+                            <button onClick={toggleLanguage} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
+                            <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#FFF0F0] border border-kitchen-danger text-kitchen-danger-text hover:bg-red-100 transition-colors">{t('重置')}</button>
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                             <Link to="/editor" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors no-underline">📐</Link>
                         </div>
                     </div>
                     {/* Row 2: In-game Resources */}
-                    <div className="flex items-center gap-5 px-4 py-2">
-                        <div className="flex items-center gap-1">
-                            <span className="text-rose-400 text-xs">❤️</span>
-                            <span className="text-sm font-black text-rose-600">{hp}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-amber-400 text-xs">💰</span>
-                            <span className="text-sm font-black text-amber-600">{gold}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-slate-400 text-xs">💀</span>
-                            <span className="text-sm font-black text-slate-600">Lv.{doomLevel}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-teal-400 text-xs">🎒</span>
-                            <span className="text-sm font-black text-teal-600">{inventory.length}<span className="text-xs font-normal text-gray-400">/{maxInventorySize}</span></span>
-                        </div>
+                    <div className="flex items-center gap-2 px-4 py-2">
+                        <span className="bg-[#FFF0F0] border border-[#E8A0A0] px-2.5 py-1 rounded-full text-xs font-medium text-kitchen-danger-text">❤️ {hp}</span>
+                        <span className="bg-[#FFF8E0] border border-[#E8C860] px-2.5 py-1 rounded-full text-xs font-medium text-[#A08020]">💰 {gold}</span>
+                        <span className="bg-[#F5F0E8] border border-[#C8B898] px-2.5 py-1 rounded-full text-xs font-medium text-[#706040]">💀 Lv.{doomLevel}</span>
+                        <span className="bg-[#F0FFF8] border border-kitchen-success-border px-2.5 py-1 rounded-full text-xs font-medium text-[#408060]">🎒 {inventory.length}/{maxInventorySize}</span>
                     </div>
                 </div>
 
