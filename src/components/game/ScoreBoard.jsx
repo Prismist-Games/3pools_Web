@@ -8,7 +8,7 @@ const ScoreBoard = ({ expeditionNumber, expeditionScores, totalScore, victorySco
         <div className="bg-white rounded-lg shadow-sm border">
             {/* Panel header */}
             <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('得分')}</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('今日食材')}</h3>
                 <span className="text-[10px] text-gray-300 font-medium">{language === 'en' ? `Round ${expeditionNumber}` : `第 ${expeditionNumber} 场`}</span>
             </div>
 

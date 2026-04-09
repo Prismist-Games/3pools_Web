@@ -37,7 +37,7 @@ export const MATRIX_CONFIG = {
     outOfGame: {
       spawnChance: 0.02,  // 2% per cell position
       icon: '🎁',
-      name: '出口物品',
+      name: '食材',
     },
     bomb: {
       spawnChance: 0.04,  // 4% per cell position
