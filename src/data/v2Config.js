@@ -5,14 +5,14 @@
 
 // --- 贴纸类型 ---
 export const STICKER_TYPES = [
-    { id: 'star',      icon: '⭐', name: '星星' },
-    { id: 'flower',    icon: '🌸', name: '花朵' },
-    { id: 'lightning', icon: '⚡', name: '闪电' },
-    { id: 'fire',      icon: '🔥', name: '火焰' },
-    { id: 'moon',      icon: '🌙', name: '月亮' },
-    { id: 'clover',    icon: '🍀', name: '四叶草' },
-    { id: 'note',      icon: '🎵', name: '音符' },
-    { id: 'butterfly', icon: '🦋', name: '蝴蝶' },
+    { id: 'mountain', icon: '🏔️', name: '山' },
+    { id: 'sea',      icon: '🌊', name: '海' },
+    { id: 'field',    icon: '🌾', name: '田' },
+    { id: 'forest',   icon: '🌲', name: '林' },
+    { id: 'sky',      icon: '🌤️', name: '空' },
+    { id: 'island',   icon: '🏝️', name: '岛' },
+    { id: 'desert',   icon: '🏜️', name: '沙' },
+    { id: 'snow',     icon: '❄️', name: '雪' },
 ];
 
 // --- 游戏外物品（出口物品）---
