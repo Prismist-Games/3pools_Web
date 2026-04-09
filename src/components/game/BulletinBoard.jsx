@@ -64,7 +64,7 @@ const BulletinBoard = ({ orders, onAccept, incomingOrder, onConfirmIncoming, onD
         <div className="bg-white rounded-lg shadow-sm border">
             {/* Panel header */}
             <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('公告牌')}</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('货架')}</h3>
                 <span className="text-[10px] text-gray-300 font-medium">{orders.length}/5</span>
             </div>
 
@@ -80,11 +80,11 @@ const BulletinBoard = ({ orders, onAccept, incomingOrder, onConfirmIncoming, onD
                         </div>
                         <div className="flex items-center gap-2">
                             {isFull ? (
-                                <span className="text-[10px] text-amber-600">{t('公告牌已满，选择下方订单替换')}</span>
+                                <span className="text-[10px] text-amber-600">{t('货架已满，选择下方订单替换')}</span>
                             ) : (
                                 <button onClick={onConfirmIncoming}
                                     className="text-[10px] px-2.5 py-1 rounded-md font-bold bg-blue-500 text-white hover:bg-blue-600 transition-colors">
-                                    {t('加入公告牌')}
+                                    {t('加入货架')}
                                 </button>
                             )}
                             <button onClick={onDiscardIncoming}

@@ -86,7 +86,7 @@ const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcce
                                                         <span className="text-2xl leading-none">{req.icon}</span>
                                                         <div>
                                                             <div className="font-bold text-sm leading-tight">{req.name}</div>
-                                                            <div className="text-[10px] text-cyan-400">风土之源</div>
+                                                            <div className="text-[10px] text-cyan-400">贴纸</div>
                                                         </div>
                                                     </div>
                                                     <div className="border-t border-gray-700/50 pt-1.5 mt-1">

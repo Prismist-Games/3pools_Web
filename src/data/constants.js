@@ -107,7 +107,7 @@ export const INITIAL_STAGE_CONFIG = [
     {
         "id": 2,
         "name": "阶段 3",
-        "mechanicDesc": "背包内物品种类数量受限",
+        "mechanicDesc": "菜篮内物品种类数量受限",
         "desc": "专业化模式 (Specialization)",
         "inventorySize": 20,
         "orderSlots": 3,
@@ -265,7 +265,7 @@ export const INITIAL_AFFIXES_CONFIG = [
     {
         "id": "trade_in",
         "name": "以旧换新的",
-        "desc": "用背包内的 1 个物品随机置换 1 个同品质的物品。",
+        "desc": "用菜篮内的 1 个物品随机置换 1 个同品质的物品。",
         "type": "interaction",
         "weight": 10,
         "cost": 1

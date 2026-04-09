@@ -15,7 +15,7 @@ export const STICKER_TYPES = [
     { id: 'snow',     icon: '❄️', name: '雪' },
 ];
 
-// --- 游戏外物品（出口物品）---
+// --- 食材与厨具 ---
 // 按分值分成4个tier：1/2/3/5分
 export const OUT_OF_GAME_ITEMS = [
     // 1分 — 基础调料
@@ -38,7 +38,7 @@ export const OUT_OF_GAME_ITEMS = [
 
 // --- 订单模板 ---
 // 奖励物品 1-3 个，数量呈正态分布（2个最多，1/3个较少）
-// 同总分下，物品越少 = 占背包格子越少 = 越高效 = 越难获取
+// 同总分下，物品越少 = 占菜篮格子越少 = 越高效 = 越难获取
 export const ORDER_TEMPLATES = [
     // 1 个奖励 (~25%)
     { id: 'a', difficulty: 'easy',    rewardTiers: [1],       totalStickers: 2, stickerTypes: 1, weight: 8  },
@@ -74,7 +74,7 @@ export const EXPEDITION_CONFIG = {
 
 // --- 订单配置 ---
 export const ORDER_CONFIG = {
-    bulletinCapacity: 5,    // 公告板最大订单数
+    bulletinCapacity: 5,    // 货架最大订单数
     maxActive: 3,           // 玩家最多持有订单数
     newPerTurn: 1,          // 每回合新增订单数
     initialCount: 4,        // 游戏开始时的初始订单数

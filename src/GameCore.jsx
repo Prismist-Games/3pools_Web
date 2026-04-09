@@ -139,7 +139,7 @@ const GameCore = () => {
                 <div className="mb-4 bg-white rounded-xl shadow-md border border-gray-200">
                     {/* Row 1: Title + Progress */}
                     <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                        <h1 className="text-base font-black tracking-tight">{t('幸运之墙')}</h1>
+                        <h1 className="text-base font-black tracking-tight">{t('梦想厨房')}</h1>
                         <div className="flex items-center gap-2">
                             <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[11px] font-bold">
                                 {t('场次')} {expeditionNumber}/{expeditionConfig.expeditionCount}
@@ -179,7 +179,7 @@ const GameCore = () => {
                 {/* Pre-game state */}
                 {phase === 'pre_game' && (
                     <div className="text-center py-20">
-                        <h2 className="text-2xl font-bold mb-4">{t('幸运之墙')}</h2>
+                        <h2 className="text-2xl font-bold mb-4">{t('梦想厨房')}</h2>
                         <p className="text-gray-500 mb-2">{t('回合制原型')} v2</p>
                         {expeditionNumber > 0 && (
                             <p className="text-sm text-gray-400 mb-4">{t('累计')}: {totalScore} {t('分')}</p>
@@ -231,7 +231,7 @@ const GameCore = () => {
                                 <div className="flex justify-center py-8">
                                     <div className="bg-white rounded-xl shadow-lg border-2 border-blue-300 p-6 max-w-sm text-center self-start">
                                         <h2 className="text-base font-bold mb-1">{t('新订单')}</h2>
-                                        <p className="text-[11px] text-gray-400 mb-4">{t('选择是否加入公告牌')}</p>
+                                        <p className="text-[11px] text-gray-400 mb-4">{t('选择是否加入货架')}</p>
                                         <div className="flex items-center justify-center gap-2 mb-4">
                                             {incomingOrder.rewards.map((r, i) => {
                                                 const sc = SCORE_STYLE[r.score] || SCORE_STYLE[1];
@@ -255,7 +255,7 @@ const GameCore = () => {
                                             <div className="flex gap-2 justify-center">
                                                 <button onClick={confirmIncomingOrder}
                                                     className="px-5 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors">
-                                                    {t('加入公告牌')}
+                                                    {t('加入货架')}
                                                 </button>
                                                 <button onClick={discardIncomingOrder}
                                                     className="px-5 py-2 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-300 transition-colors">
@@ -264,7 +264,7 @@ const GameCore = () => {
                                             </div>
                                         ) : (
                                             <div>
-                                                <p className="text-xs text-amber-600 mb-3">{t('公告牌已满，选择一个替换')}</p>
+                                                <p className="text-xs text-amber-600 mb-3">{t('货架已满，选择一个替换')}</p>
                                                 <div className="flex flex-wrap gap-2 mb-3 text-left">
                                                     {bulletinBoard.map(order => {
                                                         const ds = DIFFICULTY_STYLE[order.difficulty] || DIFFICULTY_STYLE.easy;
@@ -357,7 +357,7 @@ const GameCore = () => {
                                 <div className="text-center py-8">
                                     <h2 className="text-xl font-bold mb-2">{t('回合')} {turnNumber} {t('结束')}</h2>
                                     <p className="text-gray-500 mb-2">
-                                        {t('背包')}: {inventory.length}/{maxInventorySize} | HP: {hp} | 💀 Lv.{doomLevel}
+                                        {t('菜篮')}: {inventory.length}/{maxInventorySize} | HP: {hp} | 💀 Lv.{doomLevel}
                                     </p>
                                     <p className="text-gray-400 text-sm mb-6">
                                         {t('下回合将增加')} 1 {t('个危险格子')}
@@ -449,7 +449,7 @@ const GameCore = () => {
                             {/* Inventory */}
                             <div ref={inventoryRef} className="bg-white rounded-lg shadow-sm border">
                                 <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-                                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('背包')}</h3>
+                                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('菜篮')}</h3>
                                     <span className="text-[10px] text-gray-300 font-medium">{inventory.length}/{maxInventorySize}</span>
                                 </div>
                                 <div className="p-2">
@@ -499,7 +499,7 @@ const GameCore = () => {
                                                     );
                                                 })}
                                             </div>
-                                            <p className="text-[11px] text-amber-600 mb-1.5">{t('背包已满，点击下方物品替换')}</p>
+                                            <p className="text-[11px] text-amber-600 mb-1.5">{t('菜篮已满，点击下方物品替换')}</p>
                                             <button onClick={discardPendingItem} className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">{t('丢弃当前物品')}</button>
                                         </div>
                                     )}
