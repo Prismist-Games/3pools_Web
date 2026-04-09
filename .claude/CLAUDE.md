@@ -52,18 +52,22 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "幸运之墙 Wall of Fort
 - **Config-driven**: Game balance, items, skills — all defined in `src/data/constants.js`. Edit config values, not logic.
 - **i18n**: Chinese is the source language. Wrap all UI strings with `t()` from `useLanguage()`. Add English translations to `src/utils/translations.js`. Never hardcode English in components.
 
-### Game Concepts (Turn-Based Prototype v2)
+### Game Concepts (Turn-Based Prototype v2.3)
 
 - **Setting**: TV game show. Player faces a Prize Wall (奖品墙) each turn.
 - **Game Structure**: 3 expeditions per game. Each expedition: multiple turns of drawing → evacuate. Victory: ≥30 points across 3 evacuations.
-- **Turn Structure**: Prize Wall ready → draw using gold (5/turn, 1 per draw) → doom accumulates → bulletin board adds order → 3-choose-1 next wall → continue or evacuate.
-- **Prize Wall**: 5×5 wall, player selects row OR column, random draw 1 cell. Cell types: stickers (main), 💀 doom resolution, ⬆️ doom upgrade, export items (rare), order cells, gold cells. Hidden cells revealed by drawing adjacent cells. All items have Tetris-like shapes.
-- **Stickers**: 8 types of local-only materials (⭐🌸⚡🔥🌙🍀🎵🦋). Each wall has 2-3 types. Consumed when submitting orders.
+- **Turn Structure**: Prize Wall ready → draw using gold (5/turn default, configurable per level) → doom accumulates → bulletin board adds order → 3-choose-1 next wall → continue or evacuate.
+- **Prize Wall**: 5×5 wall, player selects row OR column, random draw 1 cell. Cell types: stickers (main), 💀 doom resolution, ⬆️ doom upgrade, export items (1/2/3/5 pt tiers), order cells, gold cells, 💣 bomb, ❤️‍🩹 heal, 🎒 backpack expand, ⬇️ gravity switch, 🚪 sub-level entrance, ⬜ empty (structural). All items have Tetris-like shapes (polyomino grouping).
+- **Stickers**: 8 types of local-only materials (⭐🌸⚡🔥🌙🍀🎵🦋). Each wall has configurable types (stickerTypeRange). Consumed when submitting orders.
 - **Orders**: Bulletin board shows 5 orders (reward + difficulty only). Accept to reveal requirements. Max 3 held. Orders need specific sticker types/quantities. Submit anytime, no cost.
 - **Export Items**: Score items from completing orders (1/2/3/5 pts, 3 items per tier). Also rarely appear on wall. Evacuate to convert to score.
 - **Doom System**: 10-cell Doom Grid, +1 danger/turn. 💀 triggers resolution (cursor hits N cells, N = doom level). ⬆️ increases doom level. HP = 5; at 0 = lose entire backpack, forced evacuation.
-- **Backpack**: 15 slots shared by stickers and export items.
-- **Wall Types**: Basic, Hidden (many hidden cells), Drift (cells shift after draw), Multiplier (visible multiplier markers), Alternating (must alternate row/column).
+- **Backpack**: 15 base slots (expandable via 🎒 cells) shared by stickers and export items.
+- **Wall Selection**: 3-choose-1 per turn. Each candidate is EITHER a modifier (procedural) OR a hand-crafted level (no modifier). Mutually exclusive.
+- **Wall Modifiers**: Basic, Hidden, Drift, Multiplier, Alternating. Only apply to procedural walls.
+- **Level System**: Hand-crafted levels stored as JSON in `src/data/levels/`. Main levels appear in 3-choose-1. Sub-levels entered via 🚪 entrance cells (push/pop wall state, independent gold, shared backpack/doom). Level editor at `/editor`, management at `/levels`.
+- **Gravity**: ⬇️ gravity switch activates persistent downward gravity for the rest of the turn. Polyominos fall as units.
+- **Localization**: Chinese source, English via `name_en`/`description_en` in level JSON + `translations.js` for UI strings.
 - **Planned systems (not in prototype)**: Sticker exchange system, functional wall types (shop), item abilities, doom expansion, evacuation expansion.
 
 ### Workflow Rules

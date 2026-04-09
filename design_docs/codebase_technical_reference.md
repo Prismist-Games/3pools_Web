@@ -71,17 +71,17 @@ npm run lint      # ESLint 检查
 │   ├── main.jsx                   ← ReactDOM 渲染入口（BrowserRouter）
 │   ├── App.jsx                    ← 路由配置（/ → 游戏, /editor → 编辑器, /levels → 关卡管理）
 │   ├── GameCore.jsx               ← 游戏布局 + 组件编排
-│   ├── index.css                  ← Tailwind 指令 + 自定义滚动条隐藏
+│   ├── index.css                  ← Tailwind 指令 + 动画（重力下落、子关卡入场/退场）
 │   │
 │   ├── data/
 │   │   ├── constants.js           ← 游戏配置数据 (~20KB)
 │   │   ├── v2Config.js            ← v2 贴纸/订单/墙类型/远征配置
 │   │   ├── matrixConfig.js        ← 5×5 网格生成参数（厄运/特殊格/形状权重）
-│   │   ├── levelTemplates.js      ← 关卡系统：CELL_TYPES、glob 导入关卡、pickTemplate()
+│   │   ├── levelTemplates.js      ← 关卡系统：CELL_TYPES、glob 导入关卡、pickTemplate()、role helpers
+│   │   ├── levelSchedule.json     ← 关卡调度配置（权重、启用、最低探险、proceduralWeight）
 │   │   └── levels/                ← 关卡 JSON 文件（自动导入，编辑器保存至此）
-│   │       ├── bomb_cross.json
-│   │       ├── cow_level_sticker.json
-│   │       └── select_prize.json
+│   │       ├── bomb_cross.json, gravity.json, the_city.json, ...
+│   │       └── （含 name_en/description_en 本地化字段）
 │   │
 │   ├── hooks/
 │   │   └── useGameLogic.js        ← 游戏全部状态与逻辑
@@ -89,7 +89,7 @@ npm run lint      # ESLint 检查
 │   ├── utils/
 │   │   ├── helpers.js             ← 纯函数工具
 │   │   ├── matrixHelpers.js       ← 墙生成（fillDoomAndSpecials, fillEmptyCellsWithStickers）
-│   │   ├── templateGenerator.js   ← 关卡模板解析（generateWallFromTemplate）
+│   │   ├── templateGenerator.js   ← 关卡解析（generateWallFromTemplate、entrance/gravity/heal 等）
 │   │   ├── translations.js        ← 英文翻译映射
 │   │
 │   ├── contexts/
