@@ -49,8 +49,8 @@ const WallPicker = ({ candidates, onSelect }) => {
 
     return (
         <div className="text-center py-6">
-            <h2 className="text-base font-bold mb-1">{t('选择下一面奖品墙')}</h2>
-            <p className="text-[11px] text-gray-400 mb-5">{t('每面墙有不同的规则和贴纸')}</p>
+            <h2 className="text-base font-bold text-kitchen-text-title mb-1">{t('选择下一面奖品墙')}</h2>
+            <p className="text-[11px] text-kitchen-text-secondary mb-5">{t('每面墙有不同的规则和贴纸')}</p>
             <div className="flex gap-4 justify-center">
                 {candidates.map((wall, idx) => {
                     const isLevel = !wall.wallType && wall.level;
@@ -59,43 +59,50 @@ const WallPicker = ({ candidates, onSelect }) => {
                         <button
                             key={idx}
                             onClick={() => onSelect(idx)}
-                            className="w-52 p-4 bg-white rounded-xl shadow-md border-2 border-gray-200
-                                hover:border-blue-400 hover:shadow-lg transition-all duration-150 text-left"
+                            className="w-52 bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border-muted
+                                shadow-[0_2px_0_#D4B896] hover:border-kitchen-gold hover:shadow-[0_2px_0_#D4952A,0_0_12px_rgba(232,168,48,0.15)]
+                                hover:-translate-y-1 transition-all duration-150 text-left overflow-hidden"
                         >
                             {isLevel ? (
                                 <>
-                                    <div className="text-sm font-bold mb-1">{wall.level.icon || '📐'} {tl(wall.level, 'name') || wall.level.id}</div>
-                                    <p className="text-[10px] text-gray-400 mb-3 leading-relaxed">{tl(wall.level, 'description') || t('特殊地形关卡')}</p>
+                                    <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark px-4 pt-3 pb-2 mb-3 border-b border-dashed border-kitchen-wood-border">
+                                        <div className="text-sm font-bold text-kitchen-text-body">{wall.level.icon || '📐'} {tl(wall.level, 'name') || wall.level.id}</div>
+                                    </div>
+                                    <p className="text-[10px] text-kitchen-text-secondary mb-3 leading-relaxed px-4">{tl(wall.level, 'description') || t('特殊地形关卡')}</p>
                                 </>
                             ) : (
                                 <>
-                                    <div className="text-sm font-bold mb-1">{wall.wallType.icon} {t(wall.wallType.name)}</div>
-                                    <p className="text-[10px] text-gray-400 mb-3 leading-relaxed">{t(wall.wallType.desc)}</p>
+                                    <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark px-4 pt-3 pb-2 mb-3 border-b border-dashed border-kitchen-wood-border">
+                                        <div className="text-sm font-bold text-kitchen-text-body">{wall.wallType.icon} {t(wall.wallType.name)}</div>
+                                    </div>
+                                    <p className="text-[10px] text-kitchen-text-secondary mb-3 leading-relaxed px-4">{t(wall.wallType.desc)}</p>
                                 </>
                             )}
 
-                            <div className="text-[9px] text-gray-300 uppercase tracking-wide mb-1">{t('贴纸')}</div>
-                            <div className="flex gap-1 mb-3">
-                                {wall.stickers.map(s => (
-                                    <div key={s.id} className="w-8 h-8 rounded border border-gray-300 bg-white flex items-center justify-center text-base shadow-sm" title={t(s.name)}>
-                                        {s.icon}
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="text-[10px] text-red-500 font-bold">
-                                💀 {wall.doomCellCount.resolution + wall.doomCellCount.upgrade} {t('厄运格')}
-                            </div>
-
-                            {specials.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-1">
-                                    {specials.map((s, i) => (
-                                        <span key={i} className="text-[10px] px-1.5 py-0.5 bg-gray-100 rounded-full text-gray-600" title={s.label}>
-                                            {s.icon} {s.label}
-                                        </span>
+                            <div className="px-4 pb-4">
+                                <div className="text-[9px] text-kitchen-text-muted uppercase tracking-wide mb-1">{t('贴纸')}</div>
+                                <div className="flex gap-1 mb-3">
+                                    {wall.stickers.map(s => (
+                                        <div key={s.id} className="w-8 h-8 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex items-center justify-center text-base shadow-sm" title={t(s.name)}>
+                                            {s.icon}
+                                        </div>
                                     ))}
                                 </div>
-                            )}
+
+                                <div className="text-[10px] text-kitchen-danger-text font-bold">
+                                    💀 {wall.doomCellCount.resolution + wall.doomCellCount.upgrade} {t('厄运格')}
+                                </div>
+
+                                {specials.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                        {specials.map((s, i) => (
+                                            <span key={i} className="text-[10px] px-1.5 py-0.5 bg-[#FFF3E0] rounded-full text-kitchen-text-secondary border border-kitchen-gold-border" title={s.label}>
+                                                {s.icon} {s.label}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </button>
                     );
                 })}
