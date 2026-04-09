@@ -27,7 +27,7 @@ export const GameGuide = ({ onClose }) => {
                         <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
                             🎯 {t('游戏目标')}
                         </h3>
-                        <p>{t('完成 3 场探险，累计获得 ≥30 分即为胜利。每场探险中收集贴纸、完成订单获得得分物品，然后撤离带出分数。')}</p>
+                        <p>{t('完成 3 个营业日，累计获得 ≥30 分即可挽救你的餐厅。每天收集贴纸、完成订单获得食材，然后打烊结算分数。')}</p>
                     </section>
 
                     {/* Turn Flow */}
@@ -53,7 +53,7 @@ export const GameGuide = ({ onClose }) => {
                             </span>
                             <span className="text-slate-300">→</span>
                             <span className="px-2 py-1 bg-green-50 border border-green-200 rounded-lg font-bold text-green-700">
-                                5. {t('继续或撤离')}
+                                5. {t('继续或打烊')}
                             </span>
                         </div>
                     </section>
@@ -63,7 +63,7 @@ export const GameGuide = ({ onClose }) => {
                         <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
                             🎰 {t('抽取规则')}
                         </h3>
-                        <p>{t('每回合获得一定金币，每次抽取花 1 金币。选择奖品墙的一行或一列，随机抽中其中 1 格。不必用完所有金币。')}</p>
+                        <p>{t('每回合获得金币，每次抽取花 1 金币。选择面板的一行或一列，随机抽中其中 1 格。不必用完所有金币。')}</p>
                     </section>
 
                     {/* Cell Types */}
@@ -73,7 +73,7 @@ export const GameGuide = ({ onClose }) => {
                         </h3>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                             <div className="flex items-center gap-1.5">
-                                <span className="w-5 text-center">⭐</span>
+                                <span className="w-5 text-center">🏔️</span>
                                 <span><b>{t('贴纸')}</b> — {t('收集完成订单')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
@@ -86,7 +86,7 @@ export const GameGuide = ({ onClose }) => {
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className="w-5 text-center">🎁</span>
-                                <span><b>{t('得分物品')}</b> — {t('直接获得分数物品')}</span>
+                                <span><b>{t('食材')}</b> — {t('直接获得食材')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className="w-5 text-center">📋</span>
@@ -121,9 +121,9 @@ export const GameGuide = ({ onClose }) => {
                             📋 {t('订单与贴纸')}
                         </h3>
                         <ol className="list-decimal list-inside space-y-0.5">
-                            <li>{t('从左侧公告牌接取订单（只显示奖励和难度，接取后才揭示所需贴纸）')}</li>
-                            <li>{t('在奖品墙上抽取贴纸，收集订单所需的种类和数量')}</li>
-                            <li>{t('随时提交已完成的订单，获得得分物品放入菜篮')}</li>
+                            <li>{t('从左侧货架接取订单（只显示奖励和难度，接取后才揭示所需贴纸）')}</li>
+                            <li>{t('在面板上抽取贴纸，收集订单所需的种类和数量')}</li>
+                            <li>{t('随时提交已完成的订单，获得食材放入菜篮')}</li>
                         </ol>
                     </section>
 
@@ -135,48 +135,19 @@ export const GameGuide = ({ onClose }) => {
                         <ul className="list-disc list-inside space-y-0.5">
                             <li>{t('每回合结束，厄运网格自动增加 1 个危险格子')}</li>
                             <li>{t('抽到 💀 触发结算：在厄运网格抽取，命中危险格 = -1 HP')}</li>
-                            <li>{t('HP 归零 = 丢失全部菜篮物品，强制撤离，本场 0 分')}</li>
+                            <li>{t('HP 归零 = 丢失全部菜篮物品，强制打烊，本日 0 分')}</li>
                         </ul>
                     </section>
 
                     {/* Evacuate */}
                     <section>
                         <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
-                            🚪 {t('撤离决策')}
+                            🚪 {t('打烊决策')}
                         </h3>
                         <ul className="list-disc list-inside space-y-0.5">
-                            <li>{t('回合结束后可选择撤离，菜篮中的得分物品转化为分数')}</li>
-                            <li>{t('继续 = 更多收集机会，但厄运在不断积累！')}</li>
+                            <li>{t('回合结束后可选择打烊，菜篮中的食材转化为分数')}</li>
+                            <li>{t('继续营业 = 更多食材，但厄运在不断积累！')}</li>
                         </ul>
-                    </section>
-
-                    {/* Key Numbers */}
-                    <section>
-                        <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
-                            📊 {t('关键数值')}
-                        </h3>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                            <div className="bg-slate-50 rounded-lg px-3 py-2 text-center">
-                                <div className="font-black text-lg text-slate-800">5×5</div>
-                                <div className="text-slate-500">{t('奖品墙大小')}</div>
-                            </div>
-                            <div className="bg-slate-50 rounded-lg px-3 py-2 text-center">
-                                <div className="font-black text-lg text-slate-800">15</div>
-                                <div className="text-slate-500">{t('菜篮容量')}</div>
-                            </div>
-                            <div className="bg-slate-50 rounded-lg px-3 py-2 text-center">
-                                <div className="font-black text-lg text-red-500">5 ❤️</div>
-                                <div className="text-slate-500">{t('每场生命值')}</div>
-                            </div>
-                            <div className="bg-slate-50 rounded-lg px-3 py-2 text-center">
-                                <div className="font-black text-lg text-slate-800">3</div>
-                                <div className="text-slate-500">{t('总场次')}</div>
-                            </div>
-                            <div className="bg-slate-50 rounded-lg px-3 py-2 text-center">
-                                <div className="font-black text-lg text-amber-500">30 ⭐</div>
-                                <div className="text-slate-500">{t('胜利分数')}</div>
-                            </div>
-                        </div>
                     </section>
                 </div>
             </div>
