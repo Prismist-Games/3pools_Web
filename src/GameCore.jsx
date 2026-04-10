@@ -25,6 +25,7 @@ const GameCore = () => {
     const [guideOpen, setGuideOpen] = useState(false);
     const [transitionKey, setTransitionKey] = useState(0);
     const [transitionLabel, setTransitionLabel] = useState('');
+    const prevTurnRef = useRef(0);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -92,12 +93,15 @@ const GameCore = () => {
     }, [flyingItem]);
 
     // --- Round transition overlay ---
+    // Fires when a new turn starts (phase becomes 'drawing' for a turn we haven't seen yet).
+    // Does NOT fire on sub-level exit (turnNumber stays the same, drawing_sub → drawing).
     useEffect(() => {
-        if (expeditionNumber > 0 && phase === 'drawing') {
+        if (turnNumber > 0 && phase === 'drawing' && turnNumber !== prevTurnRef.current) {
+            prevTurnRef.current = turnNumber;
             setTransitionLabel(language === 'en' ? `Round ${expeditionNumber}` : `第 ${expeditionNumber} 场`);
             setTransitionKey(k => k + 1);
         }
-    }, [expeditionNumber, phase, language]);
+    }, [turnNumber, phase, expeditionNumber, language]);
 
     // --- Doom grid cell style (with animation highlights) ---
     const getDoomCellClass = (cell, cellIndex) => {
