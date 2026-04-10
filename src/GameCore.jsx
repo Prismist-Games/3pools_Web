@@ -91,24 +91,22 @@ const GameCore = () => {
     // --- Doom grid cell style (with animation highlights) ---
     const getDoomCellClass = (cell, cellIndex) => {
         const base = cell.type === 'danger'
-            ? 'bg-red-100 border-red-300 text-red-600 font-bold'
-            : 'bg-gray-50 border-gray-200 text-gray-300';
+            ? 'bg-[#FFE8E2] border-kitchen-danger text-kitchen-danger-text font-bold'
+            : 'bg-[#F5F0E8] border-kitchen-gold-border-muted text-kitchen-text-muted';
 
         if (!doomAnimState) return base;
 
-        // Count how many cursors are on this cell
         const cursorCount = doomAnimState.spinningPositions.filter(p => p === cellIndex).length;
         if (cursorCount === 0) return base;
 
         if (doomAnimState.phase === 'spinning') {
-            return `${base} ring-2 ring-yellow-400 scale-110 z-10 transition-all duration-75`;
+            return `${base} ring-2 ring-kitchen-gold scale-110 z-10 transition-all duration-75`;
         }
-        // Settled — check result
         const isHit = doomAnimState.finalSelections.some(s => s.index === cellIndex && s.isHit);
         if (isHit) {
-            return 'bg-red-200 border-red-500 text-red-700 font-bold ring-3 ring-red-400 scale-125 z-10 transition-all duration-300';
+            return 'bg-[#FFD4C8] border-kitchen-danger-border text-kitchen-danger-text font-bold ring-3 ring-kitchen-danger scale-125 z-10 transition-all duration-300';
         }
-        return 'bg-green-200 border-green-500 text-green-700 font-bold ring-3 ring-green-400 scale-125 z-10 transition-all duration-300';
+        return 'bg-[#D4F0DC] border-kitchen-success-border text-[#408060] font-bold ring-3 ring-kitchen-success scale-125 z-10 transition-all duration-300';
     };
 
     // --- Cursor count bubble on doom cells ---
@@ -410,10 +408,10 @@ const GameCore = () => {
                             />
 
                             {/* Doom Grid */}
-                            <div className="bg-white rounded-lg shadow-sm border">
-                                <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-                                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('厄运')}</h3>
-                                    <span className="text-[11px] font-bold text-red-500">Lv.{doomLevel}</span>
+                            <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
+                                <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between">
+                                    <h3 className="text-sm font-bold text-kitchen-text-body">💀 {t('厄运')}</h3>
+                                    <span className="text-[11px] font-bold text-kitchen-danger-text">Lv.{doomLevel}</span>
                                 </div>
                                 <div className="p-2">
                                     <div className="grid grid-cols-5 gap-1">
@@ -427,7 +425,7 @@ const GameCore = () => {
                                                 >
                                                     {cell.type === 'danger' ? '☠' : '·'}
                                                     {cursors > 0 && (
-                                                        <span className="absolute -top-1 -right-1 bg-yellow-400 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                                                        <span className="absolute -top-1 -right-1 bg-kitchen-gold text-kitchen-text-title text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                                                             {cursors}
                                                         </span>
                                                     )}
@@ -435,14 +433,14 @@ const GameCore = () => {
                                             );
                                         })}
                                     </div>
-                                    <div className="flex justify-between mt-1.5 text-[10px] text-gray-300">
+                                    <div className="flex justify-between mt-1.5 text-[10px] text-kitchen-text-muted">
                                         <span>{t('危险')} {dangerCount}/{doomGrid.length}</span>
                                         <span>{t('结算')} ×{doomLevel}</span>
                                     </div>
 
                                     {/* Doom animation result + confirm */}
                                     {doomAnimState?.phase === 'settled' && (
-                                        <div className="mt-2 pt-2 border-t border-gray-100">
+                                        <div className="mt-2 pt-2 border-t border-dashed border-kitchen-gold-border/30">
                                             <div className="flex items-center gap-1 mb-2">
                                                 {doomAnimState.finalSelections.map((s, i) => (
                                                     <span key={i} className={`text-lg ${s.isHit ? 'animate-bounce' : ''}`}>
@@ -455,7 +453,7 @@ const GameCore = () => {
                                             </div>
                                             <button
                                                 onClick={completeDoomResolution}
-                                                className="w-full py-1.5 bg-slate-700 text-white rounded-md text-xs font-bold hover:bg-slate-800 transition-colors"
+                                                className="w-full py-1.5 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body font-bold rounded-md text-xs shadow-[0_2px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
                                             >
                                                 {t('确认')}
                                             </button>
@@ -465,16 +463,16 @@ const GameCore = () => {
                             </div>
 
                             {/* Inventory */}
-                            <div ref={inventoryRef} className="bg-white rounded-lg shadow-sm border">
-                                <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-                                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('菜篮')}</h3>
-                                    <span className="text-[10px] text-gray-300 font-medium">{inventory.length}/{maxInventorySize}</span>
+                            <div ref={inventoryRef} className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
+                                <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between">
+                                    <h3 className="text-sm font-bold text-kitchen-text-body">🧺 {t('菜篮')}</h3>
+                                    <span className="text-[10px] text-kitchen-text-muted font-medium">{inventory.length}/{maxInventorySize}</span>
                                 </div>
                                 <div className="p-2">
                                     {/* Recycle card — always visible */}
                                     {recycleMode ? (
-                                        <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                                            <p className="text-[11px] text-red-600 mb-1.5">{t('点击选择要回收的物品')}</p>
+                                        <div className="mb-2 p-2 bg-[#FFF0EE] border-2 border-kitchen-danger rounded-lg">
+                                            <p className="text-[11px] text-kitchen-danger-text mb-1.5">{t('点击选择要回收的物品')}</p>
                                             <div className="flex gap-2">
                                                 <button onClick={() => {
                                                     if (recycleSelected.size > 0) {
@@ -483,42 +481,42 @@ const GameCore = () => {
                                                     setRecycleMode(false); setRecycleSelected(new Set());
                                                 }}
                                                     disabled={recycleSelected.size === 0}
-                                                    className={`text-[10px] px-2 py-1 rounded-md font-bold transition-colors ${recycleSelected.size > 0 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                                                    className={`text-[10px] px-2 py-1 rounded-md font-bold transition-colors ${recycleSelected.size > 0 ? 'bg-kitchen-danger text-white hover:bg-kitchen-danger-border' : 'bg-[#F5F0E8] text-kitchen-text-muted cursor-not-allowed'}`}>
                                                     {t('确认回收')} {recycleSelected.size > 0 && `(${recycleSelected.size})`}
                                                 </button>
                                                 <button onClick={() => { setRecycleMode(false); setRecycleSelected(new Set()); }}
-                                                    className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">{t('取消')}</button>
+                                                    className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">{t('取消')}</button>
                                             </div>
                                         </div>
                                     ) : !pendingItem && (
-                                        <div className="mb-2 p-2 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
-                                            <span className="text-[11px] text-gray-400">{t('回收不需要的物品')}</span>
+                                        <div className="mb-2 p-2 bg-[#FFF8F0] border border-kitchen-gold-border-muted rounded-lg flex items-center justify-between">
+                                            <span className="text-[11px] text-kitchen-text-secondary">{t('回收不需要的物品')}</span>
                                             <button onClick={() => { setRecycleMode(true); setRecycleSelected(new Set()); }}
-                                                className="text-[10px] px-2 py-1 rounded-md font-bold text-gray-500 bg-gray-200 hover:bg-red-100 hover:text-red-500 transition-colors">{t('回收')}</button>
+                                                className="text-[10px] px-2 py-1 rounded-md font-bold text-kitchen-text-body bg-[#FFF3E0] border border-kitchen-gold-border hover:bg-[#FFF0EE] hover:text-kitchen-danger-text transition-colors">{t('回收')}</button>
                                         </div>
                                     )}
                                     {/* Pending items queue */}
                                     {pendingItems.length > 0 && !recycleMode && (
-                                        <div className="mb-2 p-2 bg-amber-50 border-2 border-amber-300 rounded-lg">
+                                        <div className="mb-2 p-2 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-lg">
                                             <div className="flex items-center justify-between mb-1.5">
-                                                <span className="text-[11px] font-bold text-amber-700">{t('待处理物品')}</span>
-                                                <span className="text-[10px] font-bold text-amber-500 bg-amber-200 px-1.5 py-0.5 rounded-full">{pendingItems.length}</span>
+                                                <span className="text-[11px] font-bold text-kitchen-gold-deep">{t('待处理物品')}</span>
+                                                <span className="text-[10px] font-bold text-kitchen-text-title bg-kitchen-gold px-1.5 py-0.5 rounded-full">{pendingItems.length}</span>
                                             </div>
                                             <div className="flex flex-wrap gap-1.5 mb-2">
                                                 {pendingItems.map((pItem, idx) => {
                                                     const pSc = pItem.isOutOfGame ? (SCORE_STYLE[pItem.score] || SCORE_STYLE[1]) : null;
                                                     return (
                                                         <div key={pItem.uid || idx} className={`relative w-9 h-9 rounded border-2 flex items-center justify-center text-lg shadow-sm
-                                                            ${idx === 0 ? 'ring-2 ring-amber-400' : 'opacity-60'}
-                                                            ${pSc ? `${pSc.border} bg-gradient-to-b ${pSc.bg}` : 'border-gray-300 bg-white'}`}>
+                                                            ${idx === 0 ? 'ring-2 ring-kitchen-gold' : 'opacity-60'}
+                                                            ${pSc ? `${pSc.border} bg-gradient-to-b ${pSc.bg}` : 'border-kitchen-gold-border-muted bg-kitchen-card'}`}>
                                                             {pItem.icon}
                                                             {pSc && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center shadow`}>{pItem.score}</span>}
                                                         </div>
                                                     );
                                                 })}
                                             </div>
-                                            <p className="text-[11px] text-amber-600 mb-1.5">{t('菜篮已满，点击下方物品替换')}</p>
-                                            <button onClick={discardPendingItem} className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">{t('丢弃当前物品')}</button>
+                                            <p className="text-[11px] text-kitchen-gold-deep mb-1.5">{t('菜篮已满，点击下方物品替换')}</p>
+                                            <button onClick={discardPendingItem} className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">{t('丢弃当前物品')}</button>
                                         </div>
                                     )}
                                     <div className="grid grid-cols-5 gap-1">
@@ -542,12 +540,12 @@ const GameCore = () => {
                                                         }
                                                     }}
                                                     className={`w-10 h-10 rounded flex items-center justify-center text-lg border-2 relative transition-all duration-150
-                                                        ${isRecycleSelected ? 'bg-red-100 border-red-400 scale-95 opacity-60'
-                                                            : !item ? 'bg-gray-50 border-gray-200'
+                                                        ${isRecycleSelected ? 'bg-[#FFF0EE] border-kitchen-danger scale-95 opacity-60'
+                                                            : !item ? 'bg-[#F8F4EC] border-kitchen-gold-border-muted'
                                                             : sc ? `bg-gradient-to-b ${sc.bg} ${sc.border}`
-                                                            : 'bg-white border-gray-300'}
-                                                        ${canReplace ? 'cursor-pointer hover:bg-red-50 hover:border-red-400 hover:scale-110'
-                                                            : recycleMode && item ? 'cursor-pointer hover:border-red-400' : ''}`}
+                                                            : 'bg-kitchen-card border-kitchen-gold-border-muted'}
+                                                        ${canReplace ? 'cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:scale-110'
+                                                            : recycleMode && item ? 'cursor-pointer hover:border-kitchen-danger' : ''}`}
                                                     title={item ? t(item.name) : ''}
                                                 >
                                                     {item ? item.icon : ''}
@@ -579,11 +577,11 @@ const GameCore = () => {
                             </div>
                         )}
                         {modalContent === 'evacuated' ? (
-                            <h2 className="text-xl font-bold mb-4">{t('安全撤离')}</h2>
+                            <h2 className="text-xl font-bold text-kitchen-text-title mb-4">{t('安全撤离')}</h2>
                         ) : (
                             <>
-                                <h2 className="text-xl font-bold mb-2 text-red-600">{t('游戏结束')}</h2>
-                                <p className="text-red-500 mb-4">{t('失去了全部物品，本场得 0 分')}</p>
+                                <h2 className="text-xl font-bold mb-2 text-kitchen-danger-text">{t('游戏结束')}</h2>
+                                <p className="text-kitchen-danger-text mb-4">{t('失去了全部物品，本场得 0 分')}</p>
                             </>
                         )}
 
@@ -591,7 +589,7 @@ const GameCore = () => {
                         <div className="inline-block mb-6 text-left">
                             {expeditionScores.map((exp, i) => (
                                 <div key={i} className="mb-4">
-                                    <div className="text-xs text-gray-500 font-bold mb-2">
+                                    <div className="text-xs text-kitchen-text-secondary font-bold mb-2">
                                         {language === 'en' ? `Round ${i + 1}` : `第 ${i + 1} 场`} — {exp.score} {t('分')}
                                     </div>
                                     {exp.items.length > 0 ? (
@@ -606,19 +604,19 @@ const GameCore = () => {
                                                         <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow`}>
                                                             +{item.score}
                                                         </span>
-                                                        <span className="text-[10px] text-gray-500 mt-1 truncate max-w-[56px] text-center">{t(item.name)}</span>
+                                                        <span className="text-[10px] text-kitchen-text-secondary mt-1 truncate max-w-[56px] text-center">{t(item.name)}</span>
                                                     </div>
                                                 );
                                             })}
                                         </div>
                                     ) : (
-                                        <span className="text-xs text-gray-400">—</span>
+                                        <span className="text-xs text-kitchen-text-muted">—</span>
                                     )}
                                 </div>
                             ))}
                         </div>
 
-                        <p className="text-sm text-gray-500 mb-6">
+                        <p className="text-sm text-kitchen-text-secondary mb-6">
                             {t('累计')}: {totalScore} / {expeditionConfig.scoreToWin} {t('分')}
                         </p>
 
@@ -630,10 +628,12 @@ const GameCore = () => {
                             </button>
                         ) : (
                             <div>
-                                <h2 className="text-2xl font-bold mb-4 text-kitchen-text-title">
-                                    {totalScore >= expeditionConfig.scoreToWin ? `🎉 ${t('胜利')}!` : t('挑战失败')}
-                                </h2>
-                                <p className="text-kitchen-text-body mb-6">
+                                {totalScore >= expeditionConfig.scoreToWin ? (
+                                    <h2 className="text-2xl font-bold mb-4 text-kitchen-success-border">{`🎉 ${t('胜利')}!`}</h2>
+                                ) : (
+                                    <h2 className="text-2xl font-bold mb-4 text-kitchen-danger-text">{t('挑战失败')}</h2>
+                                )}
+                                <p className="text-sm text-kitchen-text-secondary mb-6">
                                     {t('最终得分')}: {totalScore} / {expeditionConfig.scoreToWin}
                                 </p>
                                 <button onClick={handleReset}
