@@ -7,24 +7,24 @@ export const GameGuide = ({ onClose }) => {
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={onClose}>
             <div
-                className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95"
+                className="bg-kitchen-card rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="sticky top-0 bg-white rounded-t-2xl border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
-                    <h2 className="text-lg font-black text-slate-800">{t('快速指南')}</h2>
+                <div className="sticky top-0 bg-kitchen-card rounded-t-2xl border-b border-kitchen-gold-border-muted px-6 py-4 flex items-center justify-between z-10">
+                    <h2 className="text-lg font-black text-kitchen-text-title">{t('快速指南')}</h2>
                     <button
                         onClick={onClose}
-                        className="text-slate-400 hover:text-slate-600 text-xl font-bold w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
+                        className="text-kitchen-text-secondary hover:text-kitchen-text-body text-xl font-bold w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#FFF8F0] transition-colors"
                     >
                         ×
                     </button>
                 </div>
 
-                <div className="px-6 py-4 space-y-5 text-sm text-slate-700">
+                <div className="px-6 py-4 space-y-5 text-sm text-kitchen-text-body">
                     {/* Goal */}
                     <section>
-                        <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
+                        <h3 className="font-black text-kitchen-text-title mb-1.5 flex items-center gap-1.5">
                             🎯 {t('游戏目标')}
                         </h3>
                         <p>{t('完成 3 场录制，累计获得 ≥30 分即可挽救你的餐厅。每场收集贴纸、完成订单获得食材，选择合适的时机撤离带出分数。')}</p>
@@ -32,26 +32,26 @@ export const GameGuide = ({ onClose }) => {
 
                     {/* Turn Flow */}
                     <section>
-                        <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
+                        <h3 className="font-black text-kitchen-text-title mb-1.5 flex items-center gap-1.5">
                             🔄 {t('回合流程')}
                         </h3>
                         <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                            <span className="px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg font-bold text-blue-700">
+                            <span className="px-2 py-1 bg-[#FFF8E0] border border-kitchen-gold-border-muted rounded-lg font-bold text-kitchen-gold-deep">
                                 1. {t('选墙')}
                             </span>
-                            <span className="text-slate-300">→</span>
+                            <span className="text-kitchen-text-muted">→</span>
                             <span className="px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg font-bold text-amber-700">
                                 2. {t('花金币抽取')}
                             </span>
-                            <span className="text-slate-300">→</span>
+                            <span className="text-kitchen-text-muted">→</span>
                             <span className="px-2 py-1 bg-purple-50 border border-purple-200 rounded-lg font-bold text-purple-700">
                                 3. {t('厄运积累')}
                             </span>
-                            <span className="text-slate-300">→</span>
-                            <span className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-600">
+                            <span className="text-kitchen-text-muted">→</span>
+                            <span className="px-2 py-1 bg-[#FFFAF2] border border-kitchen-gold-border-muted rounded-lg font-bold text-kitchen-text-body">
                                 4. {t('新订单')}
                             </span>
-                            <span className="text-slate-300">→</span>
+                            <span className="text-kitchen-text-muted">→</span>
                             <span className="px-2 py-1 bg-green-50 border border-green-200 rounded-lg font-bold text-green-700">
                                 5. {t('继续或撤离')}
                             </span>
@@ -60,7 +60,7 @@ export const GameGuide = ({ onClose }) => {
 
                     {/* Drawing */}
                     <section>
-                        <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
+                        <h3 className="font-black text-kitchen-text-title mb-1.5 flex items-center gap-1.5">
                             🎰 {t('抽取规则')}
                         </h3>
                         <p>{t('每回合获得金币，每次抽取花 1 金币。选择面板的一行或一列，随机抽中其中 1 格。不必用完所有金币。')}</p>
@@ -68,7 +68,7 @@ export const GameGuide = ({ onClose }) => {
 
                     {/* Cell Types */}
                     <section>
-                        <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
+                        <h3 className="font-black text-kitchen-text-title mb-1.5 flex items-center gap-1.5">
                             🧩 {t('格子类型')}
                         </h3>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -117,7 +117,7 @@ export const GameGuide = ({ onClose }) => {
 
                     {/* Orders & Stickers */}
                     <section>
-                        <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
+                        <h3 className="font-black text-kitchen-text-title mb-1.5 flex items-center gap-1.5">
                             📋 {t('订单与贴纸')}
                         </h3>
                         <ol className="list-decimal list-inside space-y-0.5">
@@ -129,7 +129,7 @@ export const GameGuide = ({ onClose }) => {
 
                     {/* Doom */}
                     <section>
-                        <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
+                        <h3 className="font-black text-kitchen-text-title mb-1.5 flex items-center gap-1.5">
                             💀 {t('厄运系统')}
                         </h3>
                         <ul className="list-disc list-inside space-y-0.5">
@@ -141,7 +141,7 @@ export const GameGuide = ({ onClose }) => {
 
                     {/* Evacuate */}
                     <section>
-                        <h3 className="font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
+                        <h3 className="font-black text-kitchen-text-title mb-1.5 flex items-center gap-1.5">
                             🚪 {t('撤离决策')}
                         </h3>
                         <ul className="list-disc list-inside space-y-0.5">
