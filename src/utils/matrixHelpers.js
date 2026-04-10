@@ -53,47 +53,11 @@ export function pickWallStickers(allStickers, min = 3, max = 4) {
  * Respects constraints.maxDoomInBlank to limit doom count.
  */
 export function fillDoomAndSpecials(grid, gridSize, constraints = {}) {
-  const { doomCells, specialCells } = MATRIX_CONFIG;
+  const { specialCells } = MATRIX_CONFIG;
   const doomCellCount = { resolution: 0, upgrade: 0 };
 
-  const u1 = Math.random();
-  const u2 = Math.random();
-  const normalSample = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  let totalDoom = Math.max(1, Math.min(9, Math.round(5 + normalSample * 1.5)));
-
-  if (constraints.maxDoomInBlank !== undefined) {
-    totalDoom = Math.min(totalDoom, constraints.maxDoomInBlank);
-  }
-
-  if (totalDoom > 0) {
-    const resCount = Math.max(0, Math.min(totalDoom, Math.round(totalDoom * (0.5 + (Math.random() - 0.5) * 0.3))));
-    const upgCount = totalDoom - resCount;
-
-    const emptyPositions = [];
-    for (let r = 0; r < gridSize; r++) {
-      for (let c = 0; c < gridSize; c++) {
-        if (grid[r][c] === null) emptyPositions.push([r, c]);
-      }
-    }
-    emptyPositions.sort(() => Math.random() - 0.5);
-
-    for (let i = 0; i < totalDoom && i < emptyPositions.length; i++) {
-      const [r, c] = emptyPositions[i];
-      if (i < resCount) {
-        grid[r][c] = {
-          type: 'doom_resolution', icon: doomCells.resolution.icon,
-          name: doomCells.resolution.name, uid: generateUID(),
-        };
-        doomCellCount.resolution++;
-      } else {
-        grid[r][c] = {
-          type: 'doom_upgrade', icon: doomCells.upgrade.icon,
-          name: doomCells.upgrade.name, uid: generateUID(),
-        };
-        doomCellCount.upgrade++;
-      }
-    }
-  }
+  // Doom cells (💀 / ⬆️) are no longer placed on random walls.
+  // Hand-crafted templates may still specify them explicitly via resolveConstrainedCell.
 
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {

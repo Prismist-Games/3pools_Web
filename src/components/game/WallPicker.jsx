@@ -90,12 +90,8 @@ const WallPicker = ({ candidates, onSelect }) => {
                                     ))}
                                 </div>
 
-                                <div className="text-[10px] text-kitchen-danger-text font-bold">
-                                    💀 {wall.doomCellCount.resolution + wall.doomCellCount.upgrade} {t('厄运格')}
-                                </div>
-
                                 {specials.length > 0 && (
-                                    <div className="mt-2 flex flex-wrap gap-1">
+                                    <div className="flex flex-wrap gap-1">
                                         {specials.map((s, i) => (
                                             <span key={i} className="text-[10px] px-1.5 py-0.5 bg-[#FFF3E0] rounded-full text-kitchen-text-secondary border border-kitchen-gold-border" title={s.label}>
                                                 {s.icon} {s.label}
