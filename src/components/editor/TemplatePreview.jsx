@@ -27,27 +27,11 @@ const MINI_COLORS = {
   order_cell: 'bg-blue-600',
 };
 
-const GROUP_BORDER_COLORS = [
-  'border-rose-400',
-  'border-sky-400',
-  'border-amber-400',
-  'border-lime-400',
-  'border-violet-400',
-  'border-teal-400',
-  'border-orange-400',
-  'border-pink-400',
-];
-
 function getCellColor(cell) {
   if (!cell) return 'bg-gray-800/40';
   const type = typeof cell === 'string' ? cell : cell.type;
   if (type && type.startsWith('entrance:')) return 'bg-teal-700';
   return MINI_COLORS[type] || 'bg-gray-600';
-}
-
-function getCellGroup(cell) {
-  if (typeof cell === 'object' && cell !== null) return cell.group;
-  return undefined;
 }
 
 export default function TemplatePreview({ grid, size = 'sm', label }) {
@@ -63,14 +47,10 @@ export default function TemplatePreview({ grid, size = 'sm', label }) {
         {grid.map((row, r) =>
           row.map((cell, c) => {
             const hasMultiplier = typeof cell === 'object' && cell?.multiplier;
-            const group = getCellGroup(cell);
-            const groupBorder = group !== undefined
-              ? `border ${GROUP_BORDER_COLORS[group % GROUP_BORDER_COLORS.length]}`
-              : '';
             return (
               <div
                 key={`${r}-${c}`}
-                className={`${cellPx} ${getCellColor(cell)} rounded-sm relative ${groupBorder}`}
+                className={`${cellPx} ${getCellColor(cell)} rounded-sm relative`}
               >
                 {hasMultiplier && (
                   <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-yellow-300">

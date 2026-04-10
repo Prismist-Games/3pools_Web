@@ -2,42 +2,29 @@ import React from 'react';
 import { CELL_TYPES, getSubLevels } from '../../data/levelTemplates';
 
 const PALETTE_ITEMS = [
-  { type: null, icon: '🚫', label: '橡皮擦（随机填充）', group: '工具' },
-  { type: CELL_TYPES.EMPTY, icon: '⬜', label: '空白格（不填充）', group: '工具' },
-  { type: CELL_TYPES.DOOM_RESOLVE, icon: '💀', label: '厄运结算', group: '厄运' },
-  { type: CELL_TYPES.DOOM_UPGRADE, icon: '⬆️', label: '厄运升级', group: '厄运' },
-  { type: CELL_TYPES.ANY_DOOM, icon: '💀?', label: '随机厄运', group: '厄运' },
-  { type: CELL_TYPES.BOMB, icon: '💣', label: '炸弹', group: '特殊' },
-  { type: CELL_TYPES.GOLD, icon: '💰', label: '金币', group: '特殊' },
-  { type: CELL_TYPES.ORDER, icon: '📋', label: '订单', group: '特殊' },
-  { type: CELL_TYPES.OUT_OF_GAME, icon: '🎁', label: '出口物品（随机）', group: '特殊' },
-  { type: CELL_TYPES.OUT_OF_GAME_1, icon: '🧸', label: '1分物品', group: '特殊' },
-  { type: CELL_TYPES.OUT_OF_GAME_2, icon: '⌚', label: '2分物品', group: '特殊' },
-  { type: CELL_TYPES.OUT_OF_GAME_3, icon: '💻', label: '3分物品', group: '特殊' },
-  { type: CELL_TYPES.OUT_OF_GAME_5, icon: '🚗', label: '5分物品', group: '特殊' },
-  { type: CELL_TYPES.ANY_SPECIAL, icon: '❓', label: '随机特殊', group: '特殊' },
-  { type: CELL_TYPES.HEAL, icon: '❤️‍🩹', label: '生命恢复', group: '效果' },
-  { type: CELL_TYPES.BACKPACK_EXPAND, icon: '🎒', label: '菜篮扩容', group: '效果' },
-  { type: CELL_TYPES.GRAVITY, icon: '⬇️', label: '重力开关', group: '效果' },
-  { type: CELL_TYPES.ANY_STICKER, icon: '🏷️', label: '贴纸', group: '贴纸' },
-];
-
-const GROUP_COLORS = [
-  'bg-rose-400/30 border-rose-400',
-  'bg-sky-400/30 border-sky-400',
-  'bg-amber-400/30 border-amber-400',
-  'bg-lime-400/30 border-lime-400',
-  'bg-violet-400/30 border-violet-400',
-  'bg-teal-400/30 border-teal-400',
-  'bg-orange-400/30 border-orange-400',
-  'bg-pink-400/30 border-pink-400',
+  { type: null, icon: '🚫', label: '橡皮擦（随机填充）', category: '工具' },
+  { type: CELL_TYPES.EMPTY, icon: '⬜', label: '空白格（不填充）', category: '工具' },
+  { type: CELL_TYPES.DOOM_RESOLVE, icon: '💀', label: '厄运结算', category: '厄运' },
+  { type: CELL_TYPES.DOOM_UPGRADE, icon: '⬆️', label: '厄运升级', category: '厄运' },
+  { type: CELL_TYPES.ANY_DOOM, icon: '💀?', label: '随机厄运', category: '厄运' },
+  { type: CELL_TYPES.BOMB, icon: '💣', label: '炸弹', category: '特殊' },
+  { type: CELL_TYPES.GOLD, icon: '💰', label: '金币', category: '特殊' },
+  { type: CELL_TYPES.ORDER, icon: '📋', label: '订单', category: '特殊' },
+  { type: CELL_TYPES.OUT_OF_GAME, icon: '🎁', label: '出口物品（随机）', category: '特殊' },
+  { type: CELL_TYPES.OUT_OF_GAME_1, icon: '🧸', label: '1分物品', category: '特殊' },
+  { type: CELL_TYPES.OUT_OF_GAME_2, icon: '⌚', label: '2分物品', category: '特殊' },
+  { type: CELL_TYPES.OUT_OF_GAME_3, icon: '💻', label: '3分物品', category: '特殊' },
+  { type: CELL_TYPES.OUT_OF_GAME_5, icon: '🚗', label: '5分物品', category: '特殊' },
+  { type: CELL_TYPES.ANY_SPECIAL, icon: '❓', label: '随机特殊', category: '特殊' },
+  { type: CELL_TYPES.HEAL, icon: '❤️‍🩹', label: '生命恢复', category: '效果' },
+  { type: CELL_TYPES.BACKPACK_EXPAND, icon: '🎒', label: '菜篮扩容', category: '效果' },
+  { type: CELL_TYPES.GRAVITY, icon: '⬇️', label: '重力开关', category: '效果' },
+  { type: CELL_TYPES.ANY_STICKER, icon: '🏷️', label: '贴纸', category: '贴纸' },
 ];
 
 export default function CellPalette({
   activeBrush, onBrushChange,
   multiplier, onMultiplierChange,
-  groupMode, onGroupModeChange,
-  activeGroupNumber, onActiveGroupNumberChange,
   levelRole,
 }) {
   // Dynamic entrance brushes — only show when editing a main level
@@ -46,24 +33,24 @@ export default function CellPalette({
     type: `entrance:${sub.id}`,
     icon: sub.icon || '🚪',
     label: `入口: ${sub.name || sub.id}`,
-    group: '子关卡入口',
+    category: '子关卡入口',
   }));
   const allPaletteItems = [...PALETTE_ITEMS, ...entranceBrushes];
 
-  const groups = [...new Set(allPaletteItems.map(i => i.group))];
+  const categories = [...new Set(allPaletteItems.map(i => i.category))];
 
   return (
     <div className="flex flex-col gap-4 p-3 bg-gray-900/80 rounded-lg min-w-[180px]">
-      {groups.map(group => (
-        <div key={group}>
-          <div className="text-xs text-gray-400 uppercase tracking-wider mb-1.5">{group}</div>
+      {categories.map(category => (
+        <div key={category}>
+          <div className="text-xs text-gray-400 uppercase tracking-wider mb-1.5">{category}</div>
           <div className="flex flex-wrap gap-1.5">
-            {allPaletteItems.filter(i => i.group === group).map(item => (
+            {allPaletteItems.filter(i => i.category === category).map(item => (
               <button
                 key={item.type ?? 'eraser'}
-                onClick={() => { onBrushChange(item.type); if (groupMode) onGroupModeChange(false); }}
+                onClick={() => onBrushChange(item.type)}
                 className={`w-12 h-12 rounded border flex flex-col items-center justify-center text-sm transition-all
-                  ${!groupMode && activeBrush === item.type
+                  ${activeBrush === item.type
                     ? 'border-yellow-400 bg-yellow-400/20 ring-2 ring-yellow-400/50'
                     : 'border-gray-600 bg-gray-800/60 hover:border-gray-400'
                   }`}
@@ -75,39 +62,6 @@ export default function CellPalette({
           </div>
         </div>
       ))}
-
-      {/* Group brush */}
-      <div>
-        <div className="text-xs text-gray-400 uppercase tracking-wider mb-1.5">编组</div>
-        <button
-          onClick={() => onGroupModeChange(!groupMode)}
-          className={`w-full px-3 py-1.5 rounded border text-sm mb-2 transition-all
-            ${groupMode
-              ? 'border-yellow-400 bg-yellow-400/20 ring-2 ring-yellow-400/50 text-yellow-300'
-              : 'border-gray-600 bg-gray-800/60 hover:border-gray-400 text-gray-300'
-            }`}
-        >
-          🔗 编组画笔 {groupMode ? '(开)' : '(关)'}
-        </button>
-        {groupMode && (
-          <div className="flex flex-wrap gap-1.5">
-            {GROUP_COLORS.map((color, i) => (
-              <button
-                key={i}
-                onClick={() => onActiveGroupNumberChange(i)}
-                className={`w-8 h-8 rounded border-2 flex items-center justify-center text-xs font-bold transition-all
-                  ${color}
-                  ${activeGroupNumber === i ? 'ring-2 ring-white/60 scale-110' : 'opacity-70 hover:opacity-100'}`}
-              >
-                {i}
-              </button>
-            ))}
-          </div>
-        )}
-        {groupMode && (
-          <p className="text-[10px] text-gray-500 mt-1.5">点击格子分配到组 {activeGroupNumber}。右键移除。同组内必须同类型，抽到一个移除整组。</p>
-        )}
-      </div>
 
       {/* Multiplier input */}
       <div>

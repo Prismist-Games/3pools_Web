@@ -1,5 +1,5 @@
 // src/components/editor/LevelEditor.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { MATRIX_CONFIG } from '../../data/matrixConfig';
 import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
@@ -10,19 +10,6 @@ import TemplatePreview from './TemplatePreview';
 
 const EMPTY_GRID = () =>
   Array.from({ length: MATRIX_CONFIG.gridSize }, () => Array(MATRIX_CONFIG.gridSize).fill(null));
-
-/** Count distinct group numbers used on sticker cells in the grid */
-function countDistinctGroups(grid) {
-  const groups = new Set();
-  for (const row of grid) {
-    for (const cell of row) {
-      if (typeof cell === 'object' && cell !== null && cell.group !== undefined) {
-        groups.add(cell.group);
-      }
-    }
-  }
-  return groups.size;
-}
 
 export default function LevelEditor() {
   const { templateId } = useParams();
@@ -54,13 +41,7 @@ export default function LevelEditor() {
   const [activeBrush, setActiveBrush] = useState(null);
   const [multiplier, setMultiplier] = useState(1);
 
-  // Group mode state
-  const [groupMode, setGroupMode] = useState(false);
-  const [activeGroupNumber, setActiveGroupNumber] = useState(0);
-
-  // Auto-compute lower bound for sticker types
-  const distinctGroups = useMemo(() => countDistinctGroups(grid), [grid]);
-  const effectiveMin = Math.max(stickerMin, distinctGroups);
+  const effectiveMin = stickerMin;
   const effectiveMax = Math.max(stickerMax, effectiveMin);
 
   // Brush extras
@@ -140,10 +121,6 @@ export default function LevelEditor() {
           onBrushChange={setActiveBrush}
           multiplier={multiplier}
           onMultiplierChange={setMultiplier}
-          groupMode={groupMode}
-          onGroupModeChange={setGroupMode}
-          activeGroupNumber={activeGroupNumber}
-          onActiveGroupNumberChange={setActiveGroupNumber}
           levelRole={role}
         />
 
@@ -154,8 +131,6 @@ export default function LevelEditor() {
             onGridChange={setGrid}
             activeBrush={activeBrush}
             brushExtras={brushExtras}
-            groupMode={groupMode}
-            activeGroupNumber={activeGroupNumber}
           />
           <div className="flex gap-2">
             <button onClick={handleClear} className="px-3 py-1.5 bg-gray-700 rounded text-sm hover:bg-gray-600">清空</button>
@@ -233,9 +208,7 @@ export default function LevelEditor() {
                   className="bg-gray-800 border border-gray-600 rounded text-xs px-1.5 py-1"
                 >
                   {[1,2,3,4,5,6,7,8].map(n => (
-                    <option key={n} value={n} disabled={n < distinctGroups}>
-                      {n}{n < distinctGroups ? ` (已用${distinctGroups}组)` : ''}
-                    </option>
+                    <option key={n} value={n}>{n}</option>
                   ))}
                 </select>
                 <span className="text-xs text-gray-500">~</span>
@@ -252,9 +225,6 @@ export default function LevelEditor() {
                 </select>
                 <span className="text-xs text-gray-500">种</span>
               </div>
-              {distinctGroups > 0 && (
-                <p className="text-[10px] text-gray-500 mt-1">已使用 {distinctGroups} 个编组，下限自动锁定</p>
-              )}
             </div>
 
             {/* Max doom in blank */}
