@@ -5,40 +5,6 @@ function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 }
 
-function weightedRandom(weights) {
-  const entries = Object.entries(weights);
-  const total = entries.reduce((sum, [, w]) => sum + w, 0);
-  let roll = Math.random() * total;
-  for (const [key, weight] of entries) {
-    roll -= weight;
-    if (roll <= 0) return key;
-  }
-  return entries[entries.length - 1][0];
-}
-
-function rollItemSize(weights) {
-  const entries = Object.entries(weights).map(([k, v]) => [Number(k), v]);
-  const total = entries.reduce((sum, [, w]) => sum + w, 0);
-  let roll = Math.random() * total;
-  for (const [size, weight] of entries) {
-    roll -= weight;
-    if (roll <= 0) return size;
-  }
-  return 1;
-}
-
-function tryPlaceShape(shape, startRow, startCol, grid, gridSize) {
-  const positions = [];
-  for (const [dr, dc] of shape) {
-    const r = startRow + dr;
-    const c = startCol + dc;
-    if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return null;
-    if (grid[r][c] !== null) return null;
-    positions.push([r, c]);
-  }
-  return positions;
-}
-
 /**
  * Randomly pick min–max sticker types from the full sticker array.
  */
@@ -99,70 +65,25 @@ export function fillDoomAndSpecials(grid, gridSize, constraints = {}) {
 }
 
 /**
- * Phase 3: Fill all remaining null cells with polyomino sticker shapes.
+ * Phase 3: Fill all remaining null cells with independent 1×1 stickers.
  */
 export function fillEmptyCellsWithStickers(grid, wallStickers, gridSize) {
-  const { itemShapes } = MATRIX_CONFIG;
-
-  const getEmptyPositions = () => {
-    const empty = [];
-    for (let r = 0; r < gridSize; r++) {
-      for (let c = 0; c < gridSize; c++) {
-        if (grid[r][c] === null) empty.push([r, c]);
-      }
-    }
-    return empty;
-  };
-
-  let empty = getEmptyPositions();
-  empty.sort(() => Math.random() - 0.5);
-
-  while (empty.length > 0) {
-    const [startR, startC] = empty[0];
-    if (grid[startR][startC] !== null) {
-      empty.shift();
-      continue;
-    }
-
-    let size = rollItemSize(itemShapes.weights);
-    let placed = false;
-
-    while (size >= 1 && !placed) {
-      const shapesForSize = itemShapes.shapes[size];
-      const shuffled = [...shapesForSize].sort(() => Math.random() - 0.5);
-      for (const shape of shuffled) {
-        const positions = tryPlaceShape(shape, startR, startC, grid, gridSize);
-        if (positions) {
-          const sticker = wallStickers[Math.floor(Math.random() * wallStickers.length)];
-          const groupId = generateUID();
-          for (const [r, c] of positions) {
-            grid[r][c] = {
-              type: 'sticker', item: { ...sticker },
-              uid: generateUID(), groupId, shapeSize: size,
-            };
-          }
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) size--;
-    }
-
-    if (!placed) {
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      if (grid[r][c] !== null) continue;
       const sticker = wallStickers[Math.floor(Math.random() * wallStickers.length)];
-      grid[startR][startC] = {
-        type: 'sticker', item: { ...sticker },
-        uid: generateUID(), groupId: generateUID(), shapeSize: 1,
+      grid[r][c] = {
+        type: 'sticker',
+        item: { ...sticker },
+        uid: generateUID(),
       };
     }
-
-    empty = getEmptyPositions();
-    empty.sort(() => Math.random() - 0.5);
   }
 }
 
 /**
- * Generate a fully procedural wall (size from MATRIX_CONFIG.gridSize; delegates to extracted helpers).
+ * Generate a fully procedural wall (size from MATRIX_CONFIG.gridSize).
+ * Each cell is an independent 1×1 sticker or a special/doom cell.
  */
 export function generateWall(wallStickers) {
   const { gridSize } = MATRIX_CONFIG;

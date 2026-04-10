@@ -10,7 +10,6 @@ function generateUID() {
 
 /**
  * Resolve a single template cell token to a concrete cell object.
- * Does NOT handle grouping — that's done at the template level.
  */
 function resolveConstrainedCell(token) {
   const { doomCells, specialCells } = MATRIX_CONFIG;
@@ -18,7 +17,7 @@ function resolveConstrainedCell(token) {
   let cellType, extras = {};
   if (typeof token === 'object' && token !== null) {
     cellType = token.type;
-    const { type: _, group: _g, ...rest } = token;
+    const { type: _, ...rest } = token;
     extras = rest;
   } else {
     cellType = token;
@@ -68,8 +67,8 @@ function resolveConstrainedCell(token) {
     case CELL_TYPES.GRAVITY:
       return { type: 'gravity', icon: '⬇️', name: '重力开关', uid: generateUID(), ...extras };
     case CELL_TYPES.ANY_STICKER:
-      // Sticker type will be assigned later during group binding
-      return { type: 'sticker', item: null, uid: generateUID(), groupId: null, shapeSize: 1, ...extras };
+      // Sticker type is assigned later from the wall's sticker pool.
+      return { type: 'sticker', item: null, uid: generateUID(), ...extras };
     default: {
       // Handle dynamic entrance cells: "entrance:{subLevelId}"
       if (cellType && cellType.startsWith('entrance:')) {
@@ -95,7 +94,7 @@ function resolveConstrainedCell(token) {
  * Generate a wall from a template.
  *
  * 1. Resolve all fixed/constrained cells
- * 2. Assign sticker types: group-based binding (same group = same type = same polyomino)
+ * 2. Assign sticker types from the wall's sticker pool (each sticker cell independent)
  * 3. Procedural fill on blank cells, respecting settings
  */
 export function generateWallFromTemplate(template) {
@@ -119,85 +118,18 @@ export function generateWallFromTemplate(template) {
     }
   }
 
-  // Step 2: Determine the wall's sticker type pool (respects stickerTypeRange globally)
+  // Step 2: Pick the wall's sticker type pool (respects stickerTypeRange)
   const [rangeMin, rangeMax] = settings.stickerTypeRange || [3, 4];
-
-  // Collect all group numbers and identify which are sticker groups
-  const groupNumbers = new Set();
-  const stickerGroupNumbers = new Set();
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      const token = template.grid[r]?.[c];
-      if (token && typeof token === 'object' && token.group !== undefined) {
-        groupNumbers.add(token.group);
-        const cell = grid[r][c];
-        if (cell && cell.type === 'sticker') stickerGroupNumbers.add(token.group);
-      }
-    }
-  }
-
-  // Total sticker types for the entire wall
-  const distinctStickerGroups = stickerGroupNumbers.size;
-  const totalMin = Math.max(rangeMin, distinctStickerGroups);
-  const totalMax = Math.max(rangeMax, totalMin);
-  const totalTypeCount = totalMin + Math.floor(Math.random() * (totalMax - totalMin + 1));
-
-  // Shuffle and pick sticker types as the wall's pool
+  const totalTypeCount = rangeMin + Math.floor(Math.random() * (rangeMax - rangeMin + 1));
   const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
   const wallStickerPool = shuffledStickers.slice(0, Math.min(totalTypeCount, shuffledStickers.length));
 
-  // Generate groupIds for ALL groups, sticker type binding only for sticker groups
-  const groupToSticker = new Map();
-  const groupToGroupId = new Map();
-  let poolIdx = 0;
-  for (const gNum of groupNumbers) {
-    groupToGroupId.set(gNum, generateUID());
-    if (stickerGroupNumbers.has(gNum)) {
-      groupToSticker.set(gNum, wallStickerPool[poolIdx % wallStickerPool.length]);
-      poolIdx++;
-    }
-  }
-
-  // Apply groupIds to ALL grouped cells, sticker types only to sticker cells
+  // Assign a random sticker type to each template-placed sticker cell
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const cell = grid[r][c];
-      if (!cell) continue;
-
-      const token = template.grid[r]?.[c];
-      const gNum = (typeof token === 'object' && token !== null) ? token.group : undefined;
-
-      if (cell.type === 'sticker') {
-        // Sticker cells: assign type + groupId
-        if (gNum !== undefined && groupToSticker.has(gNum)) {
-          cell.item = { ...groupToSticker.get(gNum) };
-          cell.groupId = groupToGroupId.get(gNum);
-        } else {
-          cell.item = { ...wallStickerPool[Math.floor(Math.random() * wallStickerPool.length)] };
-          cell.groupId = generateUID();
-        }
-      } else if (gNum !== undefined && groupToGroupId.has(gNum)) {
-        // Non-sticker grouped cells: only assign groupId
-        cell.groupId = groupToGroupId.get(gNum);
-      }
-    }
-  }
-
-  // Count shape sizes for each group (ALL types, not just stickers)
-  const groupCellCounts = new Map();
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      const cell = grid[r][c];
-      if (cell && cell.groupId) {
-        groupCellCounts.set(cell.groupId, (groupCellCounts.get(cell.groupId) || 0) + 1);
-      }
-    }
-  }
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      const cell = grid[r][c];
-      if (cell && cell.groupId) {
-        cell.shapeSize = groupCellCounts.get(cell.groupId) || 1;
+      if (cell && cell.type === 'sticker' && !cell.item) {
+        cell.item = { ...wallStickerPool[Math.floor(Math.random() * wallStickerPool.length)] };
       }
     }
   }

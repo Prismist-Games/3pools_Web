@@ -2,13 +2,7 @@
  * Cell type tokens for template grids.
  * null = blank (procedural fill)
  * String tokens = fixed or constrained cells
- * Object tokens = cell with extra properties (e.g. multiplier, group)
- *
- * Sticker grouping:
- *   { type: 'any_sticker', group: 1 } — belongs to polyomino group 1
- *   'any_sticker' or { type: 'any_sticker' } — independent 1×1 sticker
- *   Same group number → same polyomino → same randomly-bound sticker type
- *   Different group numbers → different polyominoes (may or may not be same type)
+ * Object tokens = cell with extra properties (e.g. multiplier)
  */
 export const CELL_TYPES = {
   // Structural
@@ -31,7 +25,7 @@ export const CELL_TYPES = {
   // Constrained types (resolved at generation time)
   ANY_DOOM: 'any_doom',           // randomly doom_resolve or doom_upgrade
   ANY_SPECIAL: 'any_special',     // randomly gold/order/out_of_game/bomb
-  ANY_STICKER: 'any_sticker',     // random sticker type, 1×1 unless grouped
+  ANY_STICKER: 'any_sticker',     // random sticker type (1×1)
 };
 
 // --- Levels: auto-imported from src/data/levels/*.json ---
