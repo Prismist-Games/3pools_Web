@@ -127,10 +127,11 @@ const DispatchJudgment = ({ onClose }) => {
     const overlapValues = missionReqs.map((m, i) => Math.min(m, heroStats[i]));
     const overlapPolygon = overlapValues.map((v, i) => getPoint(i, v));
 
-    // Overlap percentage
-    const missionArea = polygonArea(missionPolygon);
+    // Overlap percentage (relative to hero polygon — ball bounces within hero area)
+    const heroPolygon = heroStats.map((v, i) => getPoint(i, v));
+    const heroArea = polygonArea(heroPolygon);
     const overlapArea = polygonArea(overlapPolygon);
-    const overlapPct = missionArea > 0 ? Math.round((overlapArea / missionArea) * 100) : 0;
+    const overlapPct = heroArea > 0 ? Math.round((overlapArea / heroArea) * 100) : 0;
 
     // Update an input value
     const updateHero = (idx, val) => {
@@ -146,7 +147,7 @@ const DispatchJudgment = ({ onClose }) => {
     // Uses linear deceleration (sliding friction) for natural "glide to stop" feel
     const animateStep = useCallback(() => {
         const ball = ballRef.current;
-        const { missionPoly, overlapPoly } = animDataRef.current;
+        const { heroPoly, overlapPoly } = animDataRef.current;
         const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
 
         // Proportional friction: deceleration scales with speed
@@ -160,6 +161,7 @@ const DispatchJudgment = ({ onClose }) => {
             ball.vx = 0;
             ball.vy = 0;
             setBallPos([ball.x, ball.y]);
+            // Success = ball landed inside the overlap zone (satisfies mission requirements)
             const inOverlap = pointInPolygon(ball.x, ball.y, overlapPoly);
             setResult(inOverlap ? 'success' : 'failure');
             setIsAnimating(false);
@@ -174,20 +176,20 @@ const DispatchJudgment = ({ onClose }) => {
         let newX = ball.x + ball.vx;
         let newY = ball.y + ball.vy;
 
-        // Check collision with mission polygon edges
-        const n = missionPoly.length;
+        // Check collision with hero polygon edges (ball bounces within hero's stats area)
+        const n = heroPoly.length;
         for (let i = 0; i < n; i++) {
             const j = (i + 1) % n;
             const t = segmentIntersect(
                 [ball.x, ball.y], [newX, newY],
-                missionPoly[i], missionPoly[j]
+                heroPoly[i], heroPoly[j]
             );
             if (t !== null && t > 0) {
                 // Move ball to just before intersection
                 newX = ball.x + (newX - ball.x) * t * 0.95;
                 newY = ball.y + (newY - ball.y) * t * 0.95;
                 // Reflect velocity with energy loss (restitution)
-                const [rvx, rvy] = reflectVelocity(ball.vx, ball.vy, missionPoly[i], missionPoly[j]);
+                const [rvx, rvy] = reflectVelocity(ball.vx, ball.vy, heroPoly[i], heroPoly[j]);
                 const RESTITUTION = 0.94;
                 ball.vx = rvx * RESTITUTION;
                 ball.vy = rvy * RESTITUTION;
@@ -195,8 +197,8 @@ const DispatchJudgment = ({ onClose }) => {
             }
         }
 
-        // Extra safety: if new position is outside polygon, push toward center
-        if (!pointInPolygon(newX, newY, missionPoly)) {
+        // Extra safety: if new position is outside hero polygon, push toward center
+        if (!pointInPolygon(newX, newY, heroPoly)) {
             const dx = CENTER_X - newX;
             const dy = CENTER_Y - newY;
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -215,22 +217,23 @@ const DispatchJudgment = ({ onClose }) => {
 
     // Start judgment
     const startJudgment = useCallback(() => {
+        const heroPoly = heroStats.map((v, i) => getPoint(i, v));
         const missionPoly = missionReqs.map((v, i) => getPoint(i, v));
         const overlapVals = missionReqs.map((m, i) => Math.min(m, heroStats[i]));
         const overlapPoly = overlapVals.map((v, i) => getPoint(i, v));
 
-        // Check mission polygon has non-zero area
-        if (polygonArea(missionPoly) < 1) return;
+        // Check hero polygon has non-zero area (ball bounces within it)
+        if (polygonArea(heroPoly) < 1) return;
 
-        // Snapshot polygon data for animation
-        animDataRef.current = { missionPoly, overlapPoly };
+        // Snapshot polygon data for animation — ball bounces in heroPoly, success = inside missionPoly
+        animDataRef.current = { heroPoly, missionPoly, overlapPoly };
 
         setResult(null);
         setIsAnimating(true);
         startTimeRef.current = Date.now();
 
-        // Random start position inside mission polygon
-        const [sx, sy] = randomPointInPolygon(missionPoly);
+        // Random start position inside hero polygon
+        const [sx, sy] = randomPointInPolygon(heroPoly);
 
         // Random direction, higher initial speed for dramatic start
         const angle = Math.random() * 2 * Math.PI;
