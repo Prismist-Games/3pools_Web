@@ -105,24 +105,12 @@ const HALF = GAP / 2;
 const TRACK = CELL_SIZE + GAP;
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacency, highlight, gravityDrop }) => {
+const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance');
-    const { top, bottom, left, right } = adjacency;
-
-    // Rounded corners — only on external corners
-    const isConnected = top || bottom || left || right;
-    const rounding = isConnected
-        ? [
-            (!top && !left) ? 'rounded-tl-lg' : '',
-            (!top && !right) ? 'rounded-tr-lg' : '',
-            (!bottom && !left) ? 'rounded-bl-lg' : '',
-            (!bottom && !right) ? 'rounded-br-lg' : '',
-          ].join(' ')
-        : 'rounded-lg';
 
     // Cell background
     let bgClass;
@@ -135,13 +123,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacenc
     } else if (cell.type === 'doom_upgrade') {
         bgClass = 'bg-[#FFF8F0] border-[#E8B860]';
     } else if (cell.type === 'item' || cell.type === 'sticker') {
-        // Stickers use card background
-        const borderColor = 'border-kitchen-gold-border-muted';
-        const bT = top ? 'border-t-0' : borderColor;
-        const bB = bottom ? 'border-b-0' : borderColor;
-        const bL = left ? 'border-l-0' : borderColor;
-        const bR = right ? 'border-r-0' : borderColor;
-        bgClass = `bg-kitchen-card ${bT} ${bB} ${bL} ${bR}`;
+        bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     } else if (cell.type === 'gold') {
         bgClass = 'bg-[#FFFCE8] border-[#E8C860]';
     } else if (cell.type === 'order_cell') {
@@ -175,16 +157,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacenc
     } else if (highlight === 'scan-row') {
         highlightClass = 'bg-[rgba(232,168,48,0.08)] border-kitchen-gold shadow-[0_0_8px_rgba(232,168,48,0.15)] transition-all duration-75';
     } else if (highlight === 'hover') {
-        highlightClass = 'scale-105 z-10 transition-all duration-150';
-        // Build directional ring only on external (non-connected) sides
-        const ringColor = 'rgba(232,168,48,0.5)';
-        const ringW = 2.5;
-        const parts = ['0 4px 6px -1px rgba(0,0,0,0.1)', '0 2px 4px -2px rgba(0,0,0,0.1)']; // shadow-md
-        if (!top) parts.push(`inset 0 ${ringW}px 0 0 ${ringColor}`);
-        if (!bottom) parts.push(`inset 0 -${ringW}px 0 0 ${ringColor}`);
-        if (!left) parts.push(`inset ${ringW}px 0 0 0 ${ringColor}`);
-        if (!right) parts.push(`inset -${ringW}px 0 0 0 ${ringColor}`);
-        extraShadow = parts.join(', ');
+        highlightClass = 'scale-105 z-10 transition-all duration-150 ring-2 ring-[rgba(232,168,48,0.5)] shadow-md';
     } else {
         highlightClass = 'transition-all duration-150';
     }
@@ -198,11 +171,11 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacenc
         <div
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
-            className={`relative border flex flex-col items-center justify-center ${rounding} ${bgClass} ${highlightClass}`}
+            className={`relative border rounded-lg flex flex-col items-center justify-center ${bgClass} ${highlightClass}`}
             style={{
-                margin: `${top ? 0 : HALF}px ${right ? 0 : HALF}px ${bottom ? 0 : HALF}px ${left ? 0 : HALF}px`,
-                width: CELL_SIZE + (left ? HALF : 0) + (right ? HALF : 0),
-                height: CELL_SIZE + (top ? HALF : 0) + (bottom ? HALF : 0),
+                margin: `${HALF}px`,
+                width: CELL_SIZE,
+                height: CELL_SIZE,
                 boxShadow: extraShadow,
                 ...gravityStyle,
             }}
@@ -328,20 +301,6 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         );
     };
 
-    const getAdjacency = (rowIdx, colIdx) => {
-        const cell = matrix[rowIdx]?.[colIdx];
-        if (!cell || !cell.groupId || (cell.shapeSize || 1) <= 1) {
-            return { top: false, bottom: false, left: false, right: false };
-        }
-        const gid = cell.groupId;
-        return {
-            top: rowIdx > 0 && matrix[rowIdx - 1]?.[colIdx]?.groupId === gid,
-            bottom: rowIdx < matrix.length - 1 && matrix[rowIdx + 1]?.[colIdx]?.groupId === gid,
-            left: colIdx > 0 && matrix[rowIdx][colIdx - 1]?.groupId === gid,
-            right: colIdx < matrix[rowIdx].length - 1 && matrix[rowIdx][colIdx + 1]?.groupId === gid,
-        };
-    };
-
     // Row button width
     const ROW_BTN_WIDTH = 36;
     const ROW_BTN_MARGIN = 8; // mr-2
@@ -435,62 +394,44 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                         /* no gap — margins on cells handle spacing */
                     }}
                 >
-                    {(() => {
-                        // Compute groupIds that touch the hovered row or hovered column
-                        const hoveredGroupIds = new Set();
-                        if (hoveredRow !== null) {
-                            matrix[hoveredRow]?.forEach(cell => {
-                                if (cell?.groupId) hoveredGroupIds.add(cell.groupId);
-                            });
-                        }
-                        if (hoveredCol !== null) {
-                            matrix.forEach(row => {
-                                const cell = row[hoveredCol];
-                                if (cell?.groupId) hoveredGroupIds.add(cell.groupId);
-                            });
-                        }
+                    {matrix.flatMap((row, rowIndex) =>
+                        row.map((cell, colIndex) => {
+                            // Hover: cell is in hovered row or hovered column
+                            const isRowHovered = hoveredRow === rowIndex && cell !== null;
+                            const isColHovered = hoveredCol === colIndex && cell !== null;
+                            const showHover = isRowHovered || isColHovered;
 
-                        return matrix.flatMap((row, rowIndex) =>
-                            row.map((cell, colIndex) => {
-                                // Hover: cell is in hovered row/col, OR belongs to a group in hovered row/col
-                                const isRowHovered = hoveredRow === rowIndex && cell !== null;
-                                const isColHovered = hoveredCol === colIndex && cell !== null;
-                                const isGroupHovered = cell?.groupId && hoveredGroupIds.has(cell.groupId);
-                                const showHover = isRowHovered || isColHovered || isGroupHovered;
+                            // Draw animation highlight — row mode
+                            const isRowScanning = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === colIndex;
+                            const isRowSettled = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'settled' && drawAnimState.finalColIndex === colIndex;
+                            const isScanRow = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && cell !== null && drawAnimState.phase === 'scanning';
 
-                                // Draw animation highlight — row mode
-                                const isRowScanning = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === colIndex;
-                                const isRowSettled = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'settled' && drawAnimState.finalColIndex === colIndex;
-                                const isScanRow = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && cell !== null && drawAnimState.phase === 'scanning';
+                            // Draw animation highlight — column mode
+                            const isColScanning = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === rowIndex;
+                            const isColSettled = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'settled' && drawAnimState.finalRowIndex === rowIndex;
+                            const isScanCol = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && cell !== null && drawAnimState.phase === 'scanning';
 
-                                // Draw animation highlight — column mode
-                                const isColScanning = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === rowIndex;
-                                const isColSettled = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'settled' && drawAnimState.finalRowIndex === rowIndex;
-                                const isScanCol = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && cell !== null && drawAnimState.phase === 'scanning';
+                            const isScanning = isRowScanning || isColScanning;
+                            const isSettled = isRowSettled || isColSettled;
+                            const isScanLine = isScanRow || isScanCol;
 
-                                const isScanning = isRowScanning || isColScanning;
-                                const isSettled = isRowSettled || isColSettled;
-                                const isScanLine = isScanRow || isScanCol;
+                            const dropDist = gravityDrops?.[`${rowIndex}-${colIndex}`] || 0;
 
-                                const dropDist = gravityDrops?.[`${rowIndex}-${colIndex}`] || 0;
-
-                                return (
-                                    <GridCell
-                                        key={`${rowIndex}-${colIndex}`}
-                                        cell={cell}
-                                        cellContent={getCellContent(cell)}
-                                        t={t}
-                                        language={language}
-                                        rowIndex={rowIndex}
-                                        colIndex={colIndex}
-                                        adjacency={getAdjacency(rowIndex, colIndex)}
-                                        highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanLine ? 'scan-row' : showHover ? 'hover' : null}
-                                        gravityDrop={dropDist}
-                                    />
-                                );
-                            })
-                        );
-                    })()}
+                            return (
+                                <GridCell
+                                    key={`${rowIndex}-${colIndex}`}
+                                    cell={cell}
+                                    cellContent={getCellContent(cell)}
+                                    t={t}
+                                    language={language}
+                                    rowIndex={rowIndex}
+                                    colIndex={colIndex}
+                                    highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanLine ? 'scan-row' : showHover ? 'hover' : null}
+                                    gravityDrop={dropDist}
+                                />
+                            );
+                        })
+                    )}
                 </div>
 
             </div>
