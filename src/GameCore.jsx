@@ -11,6 +11,7 @@ import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from './data/v2Config';
 import { Link } from 'react-router-dom';
 import { GameGuide } from './components/ui/GameGuide';
+import RoundTransition from './components/ui/RoundTransition';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -22,6 +23,8 @@ const GameCore = () => {
     const [debugOpen, setDebugOpen] = useState(false);
     const [debugSelectedItem, setDebugSelectedItem] = useState(null);
     const [guideOpen, setGuideOpen] = useState(false);
+    const [transitionKey, setTransitionKey] = useState(0);
+    const [transitionLabel, setTransitionLabel] = useState('');
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -87,6 +90,14 @@ const GameCore = () => {
         const timer = setTimeout(() => setFlyingItem(null), 550);
         return () => clearTimeout(timer);
     }, [flyingItem]);
+
+    // --- Round transition overlay ---
+    useEffect(() => {
+        if (expeditionNumber > 0 && phase === 'drawing') {
+            setTransitionLabel(language === 'en' ? `Round ${expeditionNumber}` : `第 ${expeditionNumber} 场`);
+            setTransitionKey(k => k + 1);
+        }
+    }, [expeditionNumber, phase, language]);
 
     // --- Doom grid cell style (with animation highlights) ---
     const getDoomCellClass = (cell, cellIndex) => {
@@ -732,6 +743,9 @@ const GameCore = () => {
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
+
+                {/* Round transition overlay */}
+                <RoundTransition trigger={transitionKey} label={transitionLabel} />
             </div>
         </div>
     );
