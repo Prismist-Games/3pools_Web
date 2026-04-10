@@ -175,6 +175,16 @@ body {
     100% { transform: translateY(0); }
 }
 
+@keyframes rotation-move {
+    0%   { transform: translate(var(--rot-from-x), var(--rot-from-y)); }
+    100% { transform: translate(0, 0); }
+}
+
+@keyframes center-rotate-idle {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 @layer utilities {
   .scrollbar-hide::-webkit-scrollbar {
       display: none;

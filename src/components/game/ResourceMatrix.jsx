@@ -105,7 +105,7 @@ const HALF = GAP / 2;
 const TRACK = CELL_SIZE + GAP;
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop }) => {
+const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
@@ -167,6 +167,13 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         '--gravity-from': `${-gravityDrop * TRACK}px`,
     } : {};
 
+    const rotationStyle = rotationMove ? {
+        animation: `rotation-move 0.3s cubic-bezier(0.2, 0, 0.6, 1) forwards`,
+        '--rot-from-x': `${(rotationMove.fromCol - colIndex) * TRACK}px`,
+        '--rot-from-y': `${(rotationMove.fromRow - rowIndex) * TRACK}px`,
+        zIndex: 15,
+    } : {};
+
     return (
         <div
             ref={ref}
@@ -178,6 +185,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
                 height: CELL_SIZE,
                 boxShadow: extraShadow,
                 ...gravityStyle,
+                ...rotationStyle,
             }}
             onMouseEnter={hasTip ? () => setHovered(true) : undefined}
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
@@ -196,7 +204,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 /**
  * Wall grid display for turn-based prototype (size from MATRIX_CONFIG.gridSize).
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, gravityDrops }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, gravityDrops, rotationMoves }) => {
     const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -388,12 +396,39 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 {/* Wall grid — zero-gap CSS Grid, margins create visual spacing */}
                 <div
                     style={{
+                        position: 'relative',
                         display: 'grid',
                         gridTemplateColumns: `repeat(${MATRIX_CONFIG.gridSize}, ${TRACK}px)`,
                         gridTemplateRows: `repeat(${MATRIX_CONFIG.gridSize}, ${TRACK}px)`,
                         /* no gap — margins on cells handle spacing */
                     }}
                 >
+                    {/* Center rotate modifier: idle indicator on center 2×2 */}
+                    {wallType?.id === 'center_rotate' && (() => {
+                        const r0 = Math.floor(MATRIX_CONFIG.gridSize / 2) - 1;
+                        return (
+                            <div
+                                className="pointer-events-none absolute flex items-center justify-center"
+                                style={{
+                                    top: `${r0 * TRACK}px`,
+                                    left: `${r0 * TRACK}px`,
+                                    width: `${2 * TRACK}px`,
+                                    height: `${2 * TRACK}px`,
+                                    zIndex: 5,
+                                }}
+                            >
+                                <div
+                                    className="text-[72px] leading-none text-kitchen-gold/25 font-black select-none"
+                                    style={{
+                                        animation: 'center-rotate-idle 6s linear infinite',
+                                        textShadow: '0 0 8px rgba(232,168,48,0.2)',
+                                    }}
+                                >
+                                    ↻
+                                </div>
+                            </div>
+                        );
+                    })()}
                     {matrix.flatMap((row, rowIndex) =>
                         row.map((cell, colIndex) => {
                             // Hover: cell is in hovered row or hovered column
@@ -416,6 +451,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             const isScanLine = isScanRow || isScanCol;
 
                             const dropDist = gravityDrops?.[`${rowIndex}-${colIndex}`] || 0;
+                            const rotMove = rotationMoves?.[`${rowIndex}-${colIndex}`] || null;
 
                             return (
                                 <GridCell
@@ -428,6 +464,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                     colIndex={colIndex}
                                     highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanLine ? 'scan-row' : showHover ? 'hover' : null}
                                     gravityDrop={dropDist}
+                                    rotationMove={rotMove}
                                 />
                             );
                         })
