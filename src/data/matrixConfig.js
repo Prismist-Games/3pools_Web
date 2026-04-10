@@ -10,16 +10,12 @@ export const MATRIX_CONFIG = {
   // Doom cells: independent cells on the grid (not items)
   doomCells: {
     resolution: {
-      icon: '💀',
+      icon: '🎲',
       name: '厄运结算',
     },
     accumulation: {
-      icon: '⬛',
+      icon: '☠',
       name: '厄运积累',
-    },
-    damage: {
-      icon: '💥',
-      name: '伤害',
     },
   },
 
@@ -37,6 +33,35 @@ export const MATRIX_CONFIG = {
     evacuation: {
       icon: '🚪',
       name: '撤离',
+    },
+    // --- Instant effect special cells ---
+    refresh: {
+      icon: '🔄',
+      name: '刷新',
+    },
+    order: {
+      icon: '📋',
+      name: '订单',
+    },
+    pass: {
+      icon: '🎫',
+      name: '通行证',
+    },
+    shield: {
+      icon: '🛡️',
+      name: '护盾',
+    },
+    bomb: {
+      icon: '💣',
+      name: '炸弹',
+    },
+    backpack: {
+      icon: '🎒',
+      name: '背包扩容',
+    },
+    fast_pass: {
+      icon: '⏩',
+      name: '快速通道',
     },
   },
 

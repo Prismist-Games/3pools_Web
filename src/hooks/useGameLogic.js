@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES } from '../data/v2Config';
-import { WALL_COLORS, UNLOCK_TEMPLATES, DOOM_PHASES, DOOM_RESOLUTION_DRAWS, V3_INITIAL_STATE } from '../data/v3Config';
+import { WALL_COLORS, WALL_FUNCTIONS, UNLOCK_TEMPLATES, DOOM_RESOLUTION_DRAWS, V3_INITIAL_STATE, getDoomTurnEvents } from '../data/v3Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -12,6 +12,28 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 function generateUID() {
     return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+}
+
+// Add a new danger to the doom grid, or upgrade a random existing danger
+// when the danger count is already at the cap.
+function addDangerOrUpgrade(grid, maxDangers) {
+    const newGrid = grid.map(c => ({ ...c }));
+    const dangerIndexes = [];
+    for (let i = 0; i < newGrid.length; i++) {
+        if (newGrid[i].type === 'danger') dangerIndexes.push(i);
+    }
+    if (dangerIndexes.length < maxDangers) {
+        for (let i = 0; i < newGrid.length; i++) {
+            if (newGrid[i].type === 'empty') {
+                newGrid[i] = { type: 'danger', level: 0 };
+                return { grid: newGrid, upgraded: false };
+            }
+        }
+    }
+    if (dangerIndexes.length === 0) return { grid: newGrid, upgraded: false };
+    const idx = dangerIndexes[Math.floor(Math.random() * dangerIndexes.length)];
+    newGrid[idx] = { ...newGrid[idx], level: (newGrid[idx].level || 0) + 1 };
+    return { grid: newGrid, upgraded: true };
 }
 
 function weightedRandom(weights) {
@@ -64,9 +86,11 @@ export const useGameLogic = (config) => {
     // --- Configuration ---
     const doomConfig = config.doom || DOOM_CONFIG;
     const turnConfig = config.turn || TURN_CONFIG;
-    const orderConfig = config.order || { bulletinCapacity: 5, maxActive: 3, newPerTurn: 1, initialCount: 2 };
+    const orderConfig = config.order || { bulletinCapacity: 3, maxActive: 3, newPerTurn: 1, initialCount: 3 };
     const expeditionConfig = config.expedition || { expeditionCount: 3, scoreToWin: 30 };
-    const maxInventorySize = config.inventorySize || config.stages[0].inventorySize;
+    const baseInventorySize = config.inventorySize || config.stages[0].inventorySize;
+    const [inventoryBonus, setInventoryBonus] = useState(0);
+    const maxInventorySize = baseInventorySize + inventoryBonus;
 
     // --- Expedition State ---
     const [expeditionNumber, setExpeditionNumber] = useState(0);
@@ -85,18 +109,30 @@ export const useGameLogic = (config) => {
     const [currentWallType, setCurrentWallType] = useState(null);
     const [lastDrawDirection, setLastDrawDirection] = useState(null);
     const [currentWallColor, setCurrentWallColor] = useState(null);
+    const [currentWallFunction, setCurrentWallFunction] = useState(null);
 
     // --- Draw Count State ---
     const [drawCount, setDrawCount] = useState(0);          // draws on current wall
     const [totalDrawCount, setTotalDrawCount] = useState(0); // total draws this expedition
     const [refreshCount, setRefreshCount] = useState(V3_INITIAL_STATE.refreshCount);
 
+    // --- Wall Function State ---
+    const [acquiredLongTerms, setAcquiredLongTerms] = useState([]);
+    const [acquiredPersistents, setAcquiredPersistents] = useState([]);
+    const [shieldCount, setShieldCount] = useState(0);         // 护盾次数
+    const [fastPassCount, setFastPassCount] = useState(0); // 快速通道累积次数
+    const [safetyNetCount, setSafetyNetCount] = useState(0); // 安全网叠加层数（每层=紧急撤离时可保护1物品）
+    const [emergencyEvacMode, setEmergencyEvacMode] = useState(false); // 紧急撤离选物模式
+    const [emergencyEvacProtected, setEmergencyEvacProtected] = useState(new Set()); // 已选保护物品索引
+    const [wallDrawLimit, setWallDrawLimit] = useState(Infinity); // 当前墙抽取次数上限
+    const drawLimitReached = drawCount >= wallDrawLimit;
+
     // --- Doom State ---
     const [hp, setHp] = useState(doomConfig.initialHP);
     const [doomGrid, setDoomGrid] = useState(() => {
         const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
         for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-            grid[i] = { type: 'danger' };
+            grid[i] = { type: 'danger', level: 0 };
         }
         return grid;
     });
@@ -143,34 +179,47 @@ export const useGameLogic = (config) => {
     // --- v3 Wall Candidate Generation ---
     const wallColorValues = Object.values(WALL_COLORS);
 
-    const generateWallCandidates = () => {
+    const generateWallCandidates = (plain = false) => {
         const candidates = [];
-        for (let i = 0; i < 3; i++) {
+        const usedFunctionIds = new Set();
+        let attempts = 0;
+        while (candidates.length < 3 && attempts < 30) {
+            attempts++;
             const wallColor = wallColorValues[Math.floor(Math.random() * wallColorValues.length)];
-            const stickerRange = wallColor.stickerRange || [2, 4];
+
+            let wallFunction = null;
+            let gridCells;
+            if (plain) {
+                // Plain walls: no function, no special cells
+                gridCells = undefined;
+            } else {
+                // Pick a function not already used in this batch
+                const colorFunctions = (WALL_FUNCTIONS[wallColor.id] || []).filter(f => !usedFunctionIds.has(f.id));
+                if (colorFunctions.length === 0) continue;
+                wallFunction = colorFunctions[Math.floor(Math.random() * colorFunctions.length)];
+                usedFunctionIds.add(wallFunction.id);
+                const gc = wallFunction.gridCells || {};
+                gridCells = Object.keys(gc).length > 0 ? gc : undefined;
+            }
+
+            const stickerRange = wallColor.stickerRange || [3, 4];
             const stickers = pickWallStickers(STICKER_TYPES, stickerRange[0], stickerRange[1]);
+            const { grid, cellCounts } = generateWall(stickers, wallColor, gridCells);
 
-            // Build the baseDistribution wrapper that generateWall expects
-            const evacuationBase = wallColor.evacuationRange
-                ? (wallColor.evacuationRange[0] + wallColor.evacuationRange[1]) / 2
-                : 0;
-            const wallColorForGen = {
-                baseDistribution: {
-                    sticker: wallColor.sticker,
-                    gold: wallColor.gold,
-                    negative: wallColor.negative,
-                    evacuation: evacuationBase,
-                },
-                negativeBreakdown: wallColor.negativeBreakdown,
-            };
+            // Pre-generate orders for order cells so tooltips can show order info
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < grid[r].length; c++) {
+                    if (grid[r][c]?.type === 'order') {
+                        grid[r][c].order = generateOrder();
+                    }
+                }
+            }
 
-            const { grid, cellCounts } = generateWall(stickers, wallColorForGen);
+            // Unlock conditions temporarily disabled for playtesting
+            const unlock = {};
 
-            // Generate unlock condition
-            const templates = Math.random() < 0.5 ? UNLOCK_TEMPLATES.drawOnly : UNLOCK_TEMPLATES.drawAndGold;
-            const unlock = { ...templates[Math.floor(Math.random() * templates.length)] };
-
-            candidates.push({ stickers, grid, cellCounts, wallColor, unlockCondition: unlock });
+            const drawLimit = wallFunction?.drawLimit ?? 5;
+            candidates.push({ stickers, grid, cellCounts, wallColor, unlockCondition: unlock, wallFunction, drawLimit });
         }
         return candidates;
     };
@@ -179,38 +228,15 @@ export const useGameLogic = (config) => {
     // TURN FLOW
     // =============================================
 
-    /** Start a new turn: generate grid */
+    /** Prepare wall selection (called at game start and never again — subsequent walls are picked inline) */
     const startNewTurn = () => {
-        const newTurnNumber = turnNumber + 1;
-        setTurnNumber(newTurnNumber);
         setLastDrawResult(null);
         setDoomResolutionResult(null);
-
-        // Doom accumulation — phase-based (not on first turn)
-        if (newTurnNumber > 1) {
-            const doomPhase = DOOM_PHASES.find(p => newTurnNumber >= p.turnRange[0] && newTurnNumber <= p.turnRange[1]);
-            if (doomPhase && doomPhase.interval !== Infinity) {
-                const turnsInPhase = newTurnNumber - doomPhase.turnRange[0];
-                if (turnsInPhase % doomPhase.interval === 0) {
-                    setDoomGrid(prev => {
-                        const newGrid = [...prev];
-                        for (let i = 0; i < newGrid.length; i++) {
-                            if (newGrid[i].type === 'empty') {
-                                newGrid[i] = { type: 'danger' };
-                                break;
-                            }
-                        }
-                        return newGrid;
-                    });
-                }
-            }
-        }
-
-        // Reset draw direction
         setLastDrawDirection(null);
 
-        // 3-choose-1 wall selection with colors and unlock conditions
-        setWallCandidates(generateWallCandidates());
+        // First turn: plain walls — no unlock, no function, no special cells
+        const candidates = generateWallCandidates(true);
+        setWallCandidates(candidates);
         setPhase('wall_choice');
     };
 
@@ -251,10 +277,9 @@ export const useGameLogic = (config) => {
         resolveDoom('end_turn');
     };
 
-    /** Continue to next turn — show incoming order first, then wall choice */
+    /** Continue drawing — go back to the current wall */
     const continueToNextTurn = () => {
-        setIncomingOrder(generateOrder());
-        setPhase('incoming_order');
+        setPhase('drawing');
     };
 
     /** Check if a wall candidate can be unlocked (draws + gold requirements) */
@@ -267,6 +292,7 @@ export const useGameLogic = (config) => {
 
     /** Select one of the wall candidates to play with */
     const selectWall = (index) => {
+        if (isDoomResolving || isDrawAnimating) return;
         if (!wallCandidates || !wallCandidates[index]) return;
         const chosen = wallCandidates[index];
         if (!canUnlockWall(chosen)) return;
@@ -276,16 +302,249 @@ export const useGameLogic = (config) => {
             setGold(prev => prev - chosen.unlockCondition.gold);
         }
 
+        // Entering a new wall = advancing to next turn
+        // Doom accumulation and turn increment
+        const newTurnNumber = turnNumber + 1;
+        setTurnNumber(newTurnNumber);
+        setLastDrawResult(null);
+        setDoomResolutionResult(null);
+
+        // Doom events for this turn (accumulate / resolve / both)
+        const doomEvents = getDoomTurnEvents(newTurnNumber);
+        if (doomEvents.accumulate) {
+            const willUpgrade = dangerCount >= doomConfig.maxDangerCount;
+            setDoomGrid(prev => addDangerOrUpgrade(prev, doomConfig.maxDangerCount).grid);
+            showToast(willUpgrade ? `☠ ${t('厄运升级')}` : `☠ ${t('厄运积累')} +1`, 'warning');
+        }
+        if (doomEvents.resolve) {
+            // Auto-resolution will be triggered after wall setup (deferred)
+            setTimeout(() => resolveDoom(), 500);
+        }
+
+        // Normal evacuation countdown — decrement on wall entry
+        if (evacuationCountdown > 0) {
+            const remaining = evacuationCountdown - 1;
+            setEvacuationCountdown(remaining);
+            if (remaining <= 0) {
+                // Auto-evacuate
+                finishEvacuation(inventory, 'evacuated');
+                return;
+            }
+            showToast(t('普通撤离倒计时') + ` ${remaining}`, 'info');
+        }
+
         setCurrentWallColor(chosen.wallColor);
-        setCurrentWallType(null);  // keep for compat, will be null
+        setCurrentWallFunction(chosen.wallFunction || null);
+        setCurrentWallType(null);
         setMatrix(chosen.grid);
-        setWallCandidates(null);
-        setDrawCount(0);  // reset per-wall draw count
+        setDrawCount(0);
+        setWallDrawLimit(chosen.drawLimit ?? chosen.wallFunction?.drawLimit ?? 5);
+        setLastDrawDirection(null);
+        setFastPassCount(0);
+
+        // --- Apply wall function ---
+        if (chosen.wallFunction) {
+            applyWallFunction(chosen.wallFunction, chosen.wallColor);
+        }
+
+        // --- Apply persistent effect bonuses for this wall's color ---
+        const colorId = chosen.wallColor.id;
+        for (const effect of acquiredPersistents) {
+            if (effect.targetColor === colorId && effect.goldBonus) {
+                setGold(prev => prev + effect.goldBonus);
+                showToast(`💰 ${t(effect.name)}: +${effect.goldBonus} ${t('金币')}`, 'success');
+            }
+            if (effect.targetColor === colorId && effect.stickerBonus) {
+                // Random sticker from this wall's sticker types
+                const wallStickers = chosen.stickers;
+                if (wallStickers && wallStickers.length > 0) {
+                    const sticker = wallStickers[Math.floor(Math.random() * wallStickers.length)];
+                    const uid = Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+                    const newItem = { name: sticker.name, icon: sticker.icon, stickerId: sticker.id, isSticker: true, uid };
+                    if (inventory.length < maxInventorySize) {
+                        setInventory(prev => [...prev, newItem]);
+                    } else {
+                        setPendingItems(prev => [...prev, newItem]);
+                    }
+                    showToast(`🎁 ${t(effect.name)}: ${sticker.icon} ${t(sticker.name)}`, 'success');
+                }
+            }
+        }
+
+        // Kaleidoscope: auto +1 refresh every 3 turns
+        if (newTurnNumber > 0 && newTurnNumber % 3 === 0) {
+            const hasKaleidoscope = acquiredPersistents.some(e => e.id === 'kaleidoscope');
+            if (hasKaleidoscope) {
+                setRefreshCount(prev => prev + 1);
+                showToast(`🔄 ${t('万花筒')}: ${t('刷新')} +1`, 'success');
+            }
+        }
+
+        setWallCandidates(generateWallCandidates());
         setPhase('drawing');
+    };
+
+    // --- Wall-active function actions (brown walls) ---
+    const [pawnshopMode, setPawnshopMode] = useState(false);
+    const [pawnshopSelected, setPawnshopSelected] = useState(new Set());
+
+    const startPawnshop = () => {
+        const stickers = inventory.filter(i => i.isSticker);
+        if (stickers.length < 1) { showToast(t('贴纸不足'), 'warning'); return; }
+        setPawnshopMode(true);
+        setPawnshopSelected(new Set());
+    };
+
+    const togglePawnshopItem = (index) => {
+        if (!pawnshopMode) return;
+        if (!inventory[index]?.isSticker) return;
+        setPawnshopSelected(prev => {
+            const next = new Set(prev);
+            if (next.has(index)) { next.delete(index); }
+            else { next.add(index); }
+            return next;
+        });
+    };
+
+    const confirmPawnshop = () => {
+        const count = pawnshopSelected.size;
+        if (count === 0) return;
+        setInventory(prev => prev.filter((_, i) => !pawnshopSelected.has(i)));
+        setGold(prev => prev + count);
+        setPawnshopMode(false);
+        setPawnshopSelected(new Set());
+        showToast(`${t('典当行')}: -${count}${t('贴纸')} → +${count}💰`, 'success');
+    };
+
+    const cancelPawnshop = () => {
+        setPawnshopMode(false);
+        setPawnshopSelected(new Set());
+    };
+
+    const [clinicUsed, setClinicUsed] = useState(false);
+
+    const useClinic = () => {
+        if (clinicUsed) { showToast(t('已使用过'), 'info'); return; }
+        if (gold < 3) { showToast(t('金币不足！'), 'warning'); return; }
+        if (hp >= doomConfig.initialHP) { showToast(t('生命值已满'), 'info'); return; }
+        setGold(prev => prev - 3);
+        setHp(prev => Math.min(doomConfig.initialHP, prev + 1));
+        setClinicUsed(true);
+        showToast(`${t('急救站')}: -3💰 → +1❤️`, 'success');
+    };
+
+    // Shop (杂货铺): 3 sticker packs (1/2/3 different stickers) + 1 refresh, no restock
+    const [shopStock, setShopStock] = useState([]); // [{ type: 'pack'|'refresh', stickers?, sold, cost }]
+    const PACK_PRICES = { 1: 2, 2: 4, 3: 6 };
+
+    const buyShopItem = (index) => {
+        const item = shopStock[index];
+        if (!item || item.sold) return;
+        if (gold < item.cost) { showToast(t('金币不足！'), 'warning'); return; }
+        setGold(prev => prev - item.cost);
+        setShopStock(prev => prev.map((s, i) => i === index ? { ...s, sold: true } : s));
+        if (item.type === 'pack') {
+            const newItems = item.stickers.map(s => ({
+                name: s.name, icon: s.icon, stickerId: s.id, isSticker: true,
+                uid: Math.random().toString(36).substr(2, 9) + Date.now().toString(36),
+            }));
+            for (const newItem of newItems) {
+                if (inventory.length < maxInventorySize) {
+                    setInventory(prev => [...prev, newItem]);
+                } else {
+                    setPendingItems(prev => [...prev, newItem]);
+                }
+            }
+            const icons = item.stickers.map(s => s.icon).join('');
+            showToast(`🏪 ${icons}`, 'success');
+        } else if (item.type === 'refresh') {
+            setRefreshCount(prev => prev + 1);
+            showToast(`🏪 🔄 ${t('刷新')} +1`, 'success');
+        }
+    };
+
+    // Black market: 3 random items per entry, no restock, each can only be bought once
+    const [blackmarketSold, setBlackmarketSold] = useState(new Set());
+    const [blackmarketStock, setBlackmarketStock] = useState([]);
+
+    const useBlackmarket = (itemDef) => {
+        const prices = { 1: 8, 2: 14, 3: 20 };
+        const cost = prices[itemDef.score];
+        if (!cost) { showToast(t('此物品不可购买'), 'warning'); return; }
+        if (blackmarketSold.has(itemDef.id)) { showToast(t('已售罄'), 'info'); return; }
+        if (gold < cost) { showToast(t('金币不足！'), 'warning'); return; }
+        setGold(prev => prev - cost);
+        setBlackmarketSold(prev => new Set(prev).add(itemDef.id));
+        const uid = Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        const newItem = { id: itemDef.id, name: itemDef.name, icon: itemDef.icon, score: itemDef.score, isOutOfGame: true, uid };
+        if (inventory.length < maxInventorySize) {
+            setInventory(prev => [...prev, newItem]);
+        } else {
+            setPendingItems(prev => [...prev, newItem]);
+        }
+        showToast(`${t('黑市')}: ${itemDef.icon} -${cost}💰`, 'success');
+    };
+
+    /** Apply the wall's function effect */
+    const applyWallFunction = (fn, wallColor) => {
+        if (fn.type === 'wall_active') {
+            if (fn.id === 'clinic') {
+                setClinicUsed(false);
+            } else if (fn.id === 'blackmarket') {
+                const eligible = OUT_OF_GAME_ITEMS.filter(i => [1, 2, 3].includes(i.score));
+                const shuffled = [...eligible].sort(() => Math.random() - 0.5);
+                setBlackmarketStock(shuffled.slice(0, 3));
+                setBlackmarketSold(new Set());
+            } else if (fn.id === 'shop') {
+                // Generate shop stock: 3 sticker packs (1/2/3 different stickers each) + 1 refresh
+                const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
+                // Need 1+2+3 = 6 unique stickers
+                const picked = shuffledStickers.slice(0, 6);
+                const packSizes = [1, 2, 3].sort(() => Math.random() - 0.5);
+                const stock = [];
+                let offset = 0;
+                for (const size of packSizes) {
+                    stock.push({
+                        type: 'pack',
+                        stickers: picked.slice(offset, offset + size),
+                        sold: false,
+                        cost: PACK_PRICES[size],
+                    });
+                    offset += size;
+                }
+                stock.push({ type: 'refresh', sold: false, cost: 3 });
+                setShopStock(stock);
+            }
+            showToast(`🏪 ${t(fn.name)}`, 'info');
+        } else if (fn.type === 'persistent') {
+            // Safety Net is the stacking exception — tracked as a counter, not in acquiredPersistents
+            if (fn.id === 'safety_net') {
+                setSafetyNetCount(prev => {
+                    const next = prev + 1;
+                    showToast(`✨ ${t(fn.name)} ×${next}`, 'success');
+                    return next;
+                });
+            } else {
+                // Add persistent effect (same name+color doesn't stack, different color does)
+                setAcquiredPersistents(prev => {
+                    const hasSame = prev.some(f => f.id === fn.id);
+                    if (hasSame) {
+                        showToast(`${t(fn.name)} ${t('已拥有，不叠加')}`, 'info');
+                        return prev;
+                    }
+                    showToast(`✨ ${t('获得持久效果')}: ${t(fn.name)}`, 'success');
+                    return [...prev, { ...fn, colorId: wallColor.id }];
+                });
+            }
+        } else if (fn.type === 'instant') {
+            // Instant effects are grid-based — extra cells already injected during wall generation
+            showToast(`⚡ ${t(fn.name)}`, 'info');
+        }
     };
 
     /** Refresh wall candidates (limited uses per expedition) */
     const refreshWallCandidates = () => {
+        if (isDoomResolving || isDrawAnimating) return;
         if (refreshCount <= 0) return;
         setRefreshCount(prev => prev - 1);
         setWallCandidates(generateWallCandidates());
@@ -301,6 +560,7 @@ export const useGameLogic = (config) => {
     const selectRow = (rowIndex) => {
         if (phase !== 'drawing') return;
         if (isDoomResolving || isDrawAnimating) return;
+        if (drawLimitReached) return;
         if (!matrix || !matrix[rowIndex]) return;
 
         setDoomResolutionResult(null);
@@ -348,6 +608,7 @@ export const useGameLogic = (config) => {
     const selectColumn = (colIndex) => {
         if (phase !== 'drawing') return;
         if (isDoomResolving || isDrawAnimating) return;
+        if (drawLimitReached) return;
         if (!matrix) return;
 
         setDoomResolutionResult(null);
@@ -420,28 +681,21 @@ export const useGameLogic = (config) => {
         if (drawnCell.type === 'item' || drawnCell.type === 'sticker' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
         } else if (drawnCell.type === 'doom_resolution') {
-            doomEffects.resolutions = 1 * mult;
+            if (shieldCount > 0) {
+                setShieldCount(prev => prev - 1);
+                showToast(`🛡️ ${t('护盾抵消了厄运结算')}`, 'info');
+            } else {
+                doomEffects.resolutions = 1 * mult;
+            }
         } else if (drawnCell.type === 'doom_accumulation') {
-            setDoomGrid(prev => {
-                const newGrid = [...prev];
-                for (let i = 0; i < newGrid.length; i++) {
-                    if (newGrid[i].type === 'empty') {
-                        newGrid[i] = { type: 'danger' };
-                        break;
-                    }
-                }
-                return newGrid;
-            });
-            showToast(t('厄运积累') + ' +1', 'warning');
-        } else if (drawnCell.type === 'damage') {
-            setHp(prev => {
-                const newHp = Math.max(0, prev - 1);
-                if (newHp <= 0) {
-                    handleGameOver();
-                }
-                return newHp;
-            });
-            showToast('💥 -1 HP', 'error');
+            if (shieldCount > 0) {
+                setShieldCount(prev => prev - 1);
+                showToast(`🛡️ ${t('护盾抵消了厄运积累')}`, 'info');
+            } else {
+                const willUpgrade = dangerCount >= doomConfig.maxDangerCount;
+                setDoomGrid(prev => addDangerOrUpgrade(prev, doomConfig.maxDangerCount).grid);
+                showToast(willUpgrade ? t('厄运升级') : t('厄运积累') + ' +1', 'warning');
+            }
         } else if (drawnCell.type === 'evacuation') {
             isEvacuationOffer = true;
             showToast(t('撤离机会'), 'info');
@@ -449,6 +703,43 @@ export const useGameLogic = (config) => {
             const goldGain = drawnCell.goldAmount * mult;
             setGold(prev => prev + goldGain);
             showToast(`${t('金币')} +${goldGain}${mult > 1 ? ' (\u00d7' + mult + ')' : ''}`, 'success');
+        } else if (drawnCell.type === 'refresh') {
+            setRefreshCount(prev => prev + 1);
+            showToast(`🔄 ${t('刷新')} +1`, 'success');
+        } else if (drawnCell.type === 'order') {
+            const order = drawnCell.order || generateOrder();
+            if (activeOrders.length < orderConfig.maxActive) {
+                setActiveOrders(prev => [...prev, order]);
+                showToast(`📋 ${t('获得新订单')}`, 'success');
+            } else {
+                // Active orders full — let player pick one to replace.
+                // Tag the pending order so confirmReplaceOrder knows to skip
+                // gold cost and bulletin refill (drawn orders are free and
+                // don't originate from the bulletin).
+                setPendingAcceptOrder({ ...order, _fromDraw: true });
+                showToast(`📋 ${t('订单已满，选择要替换的订单')}`, 'info');
+            }
+        } else if (drawnCell.type === 'pass') {
+            // Immediately boost a random currently-shown candidate's drawLimit
+            setWallCandidates(prev => {
+                if (!prev || prev.length === 0) return prev;
+                const idx = Math.floor(Math.random() * prev.length);
+                return prev.map((w, i) => i === idx
+                    ? { ...w, drawLimit: (w.drawLimit ?? w.wallFunction?.drawLimit ?? 5) + 1 }
+                    : w);
+            });
+            showToast(`🎫 ${t('通行证')} +1`, 'success');
+        } else if (drawnCell.type === 'shield') {
+            setShieldCount(prev => prev + 1);
+            showToast(`🛡️ ${t('护盾')} +1`, 'success');
+        } else if (drawnCell.type === 'backpack') {
+            setInventoryBonus(prev => prev + 1);
+            showToast(`🎒 ${t('背包容量')} +1`, 'success');
+        } else if (drawnCell.type === 'fast_pass') {
+            setFastPassCount(prev => prev + 1);
+            showToast(`⏩ ${t('普通撤离等待')} -1`, 'success');
+        } else if (drawnCell.type === 'bomb') {
+            // Bomb handled in matrix update below
         }
 
         // Remove drawn cell(s) from matrix
@@ -466,6 +757,33 @@ export const useGameLogic = (config) => {
                 }
             } else {
                 newMatrix[finalRowIndex][finalColIndex] = null;
+            }
+
+            // Bomb: destroy adjacent 8 cells
+            if (drawnCell.type === 'bomb') {
+                const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+                const destroyGroups = new Set();
+                for (const [dr, dc] of dirs) {
+                    const nr = finalRowIndex + dr;
+                    const nc = finalColIndex + dc;
+                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length && newMatrix[nr][nc]) {
+                        if (newMatrix[nr][nc].groupId) {
+                            destroyGroups.add(newMatrix[nr][nc].groupId);
+                        } else {
+                            newMatrix[nr][nc] = null;
+                        }
+                    }
+                }
+                if (destroyGroups.size > 0) {
+                    for (let r = 0; r < newMatrix.length; r++) {
+                        for (let c = 0; c < newMatrix[r].length; c++) {
+                            if (newMatrix[r][c]?.groupId && destroyGroups.has(newMatrix[r][c].groupId)) {
+                                newMatrix[r][c] = null;
+                            }
+                        }
+                    }
+                }
+                showToast('💣 ' + t('炸弹爆炸！'), 'warning');
             }
 
             return newMatrix;
@@ -622,25 +940,49 @@ export const useGameLogic = (config) => {
     // --- Pending accept for replace flow ---
     const [pendingAcceptOrder, setPendingAcceptOrder] = useState(null);
 
-    /** Move an order from bulletin board to active orders */
+    // v3 order pricing by difficulty
+    const ORDER_GOLD_COST = { easy: 1, medium: 2, hard: 3, extreme: 4 };
+
+    /** Buy an order from bulletin board (costs gold, auto-refills bulletin) */
     const acceptOrder = (orderId) => {
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return;
+        const cost = ORDER_GOLD_COST[order.difficulty] || 3;
+        if (gold < cost) {
+            showToast(t('金币不足！'), 'warning');
+            return;
+        }
         if (activeOrders.length >= orderConfig.maxActive) {
-            // Full — enter replace mode
             setPendingAcceptOrder(order);
             return;
         }
-        setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
+        setGold(prev => prev - cost);
+        // Remove from bulletin and auto-refill
+        setBulletinBoard(prev => {
+            const updated = prev.filter(o => o.id !== orderId);
+            updated.push(generateOrder()); // auto-refill
+            return updated;
+        });
         setActiveOrders(prev => [...prev, order]);
     };
 
     /** Replace an active order with the pending one */
     const confirmReplaceOrder = (activeOrderId) => {
         if (!pendingAcceptOrder) return;
-        setBulletinBoard(prev => prev.filter(o => o.id !== pendingAcceptOrder.id));
+        // Strip the internal source marker before committing to state
+        const { _fromDraw, ...cleanOrder } = pendingAcceptOrder;
+        if (!_fromDraw) {
+            // Bulletin-bought order: charge gold and refill bulletin slot
+            const cost = ORDER_GOLD_COST[cleanOrder.difficulty] || 3;
+            setGold(prev => prev - cost);
+            setBulletinBoard(prev => {
+                const updated = prev.filter(o => o.id !== cleanOrder.id);
+                updated.push(generateOrder());
+                return updated;
+            });
+        }
         setActiveOrders(prev => prev.map(o =>
-            o.id === activeOrderId ? pendingAcceptOrder : o
+            o.id === activeOrderId ? cleanOrder : o
         ));
         setPendingAcceptOrder(null);
     };
@@ -648,6 +990,23 @@ export const useGameLogic = (config) => {
     /** Cancel the pending accept */
     const cancelReplaceOrder = () => {
         setPendingAcceptOrder(null);
+    };
+
+    /** Pay 3 gold to refresh all bulletin orders */
+    const refreshBulletin = () => {
+        if (gold < 3) { showToast(t('金币不足！'), 'warning'); return; }
+        setGold(prev => prev - 3);
+        const newOrders = [];
+        const usedKeys = new Set();
+        let attempts = 0;
+        while (newOrders.length < orderConfig.bulletinCapacity && attempts < 50) {
+            const order = generateOrder();
+            const key = order.rewards.map(r => r.id).sort().join(',');
+            if (!usedKeys.has(key)) { usedKeys.add(key); newOrders.push(order); }
+            attempts++;
+        }
+        setBulletinBoard(newOrders);
+        showToast(`🔄 ${t('公告牌已刷新')}`, 'success');
     };
 
     /** Check if player has required stickers to submit an order */
@@ -723,9 +1082,11 @@ export const useGameLogic = (config) => {
         let hpLoss = 0;
         for (let i = 0; i < draws; i++) {
             const cellIndex = Math.floor(Math.random() * doomConfig.gridSize);
-            const isHit = doomGrid[cellIndex].type === 'danger';
-            if (isHit) hpLoss++;
-            finalSelections.push({ index: cellIndex, isHit });
+            const cell = doomGrid[cellIndex];
+            const isHit = cell.type === 'danger';
+            const damage = isHit ? 1 + (cell.level || 0) : 0;
+            hpLoss += damage;
+            finalSelections.push({ index: cellIndex, isHit, damage });
         }
 
         // Start with random spinning positions
@@ -737,7 +1098,7 @@ export const useGameLogic = (config) => {
         setDoomAnimState({
             phase: 'spinning',
             tick: 0,
-            totalTicks: 12,
+            totalTicks: 8,
             spinningPositions,
             finalSelections,
             hpLoss,
@@ -782,7 +1143,7 @@ export const useGameLogic = (config) => {
         }
 
         setDoomResolutionResult({
-            hits: finalSelections.map(s => ({ index: s.index, result: s.isHit ? 'danger' : 'empty' })),
+            hits: finalSelections.map(s => ({ index: s.index, result: s.isHit ? 'danger' : 'empty', damage: s.damage || 0 })),
             hpLoss,
         });
         setDoomAnimState(null);
@@ -798,17 +1159,105 @@ export const useGameLogic = (config) => {
     // EVACUATION & GAME OVER
     // =============================================
 
-    const handleEvacuate = () => {
-        const outOfGameItems = inventory.filter(i => i.isOutOfGame);
+    // --- Normal evacuation countdown ---
+    const [evacuationCountdown, setEvacuationCountdown] = useState(0); // 0 = not evacuating
+
+    /** Calculate score from current inventory */
+    const calcScore = (items) => {
+        const outOfGameItems = items.filter(i => i.isOutOfGame);
         const bonusMap = new Map(bonusItems.map(b => [b.id, b.bonusValue || 2]));
         const baseScore = outOfGameItems.reduce((sum, item) => sum + (item.score || 0), 0);
         const bonusScore = outOfGameItems.reduce((sum, item) => sum + (bonusMap.get(item.id) || 0), 0);
-        const score = baseScore + bonusScore;
+        return { score: baseScore + bonusScore, baseScore, bonusScore, outOfGameItems };
+    };
+
+    /** Complete evacuation — score out-of-game items, end expedition */
+    const finishEvacuation = (finalInventory, modalType = 'evacuated') => {
+        const { score, baseScore, bonusScore, outOfGameItems } = calcScore(finalInventory);
         setExpeditionScores(prev => [...prev, { score, baseScore, bonusScore, items: outOfGameItems }]);
         setTotalScore(prev => prev + score);
-        setModalContent('evacuated');
+        setModalContent(modalType);
         setPhase('game_over');
     };
+
+    /** 1. 抽中撤离 — triggered by 🚪 cell, immediate, free */
+    const handleDrawEvacuate = () => {
+        finishEvacuation(inventory);
+    };
+
+    /** 2. 金币撤离 — costs 12 gold, immediate */
+    const handleGoldEvacuate = () => {
+        if (gold < 12) {
+            showToast(t('金币不足！'), 'warning');
+            return;
+        }
+        setGold(prev => prev - 12);
+        finishEvacuation(inventory);
+    };
+
+    /** 3. 普通撤离 — 3 turns countdown, no cancel. fast_pass reduces by 1 (min 1). */
+    const handleNormalEvacuate = () => {
+        const countdown = Math.max(1, 3 - fastPassCount);
+        setEvacuationCountdown(countdown);
+        showToast(t('普通撤离已发起，剩余') + ` ${countdown} ` + t('回合'), 'info');
+    };
+
+    /** Run the emergency evac with a set of protected indices (0..N from safetyNetCount). */
+    const runEmergencyEvacuation = (protectedIdxSet) => {
+        const protectedItems = inventory.filter((_, i) => protectedIdxSet.has(i));
+        const remaining = inventory.filter((_, i) => !protectedIdxSet.has(i));
+        const shuffled = [...remaining].sort(() => Math.random() - 0.5);
+        const keepCount = Math.ceil(shuffled.length / 2);
+        const randomlyKept = shuffled.slice(0, keepCount);
+        const kept = [...protectedItems, ...randomlyKept];
+        setInventory(kept);
+        finishEvacuation(kept, 'emergency_evacuated');
+    };
+
+    /** 4. 紧急撤离 — if safetyNetCount > 0, open picker; else immediate. */
+    const handleEmergencyEvacuate = () => {
+        if (safetyNetCount > 0 && inventory.length > 0) {
+            // Auto-protect everything if stacks ≥ inventory
+            if (safetyNetCount >= inventory.length) {
+                const all = new Set(inventory.map((_, i) => i));
+                runEmergencyEvacuation(all);
+                return;
+            }
+            setEmergencyEvacMode(true);
+            setEmergencyEvacProtected(new Set());
+            return;
+        }
+        runEmergencyEvacuation(new Set());
+    };
+
+    const toggleEmergencyEvacItem = (index) => {
+        if (!emergencyEvacMode) return;
+        setEmergencyEvacProtected(prev => {
+            const next = new Set(prev);
+            if (next.has(index)) {
+                next.delete(index);
+            } else if (next.size < safetyNetCount) {
+                next.add(index);
+            }
+            return next;
+        });
+    };
+
+    const confirmEmergencyEvacuate = () => {
+        if (!emergencyEvacMode) return;
+        const protectedSet = new Set(emergencyEvacProtected);
+        setEmergencyEvacMode(false);
+        setEmergencyEvacProtected(new Set());
+        runEmergencyEvacuation(protectedSet);
+    };
+
+    const cancelEmergencyEvacuate = () => {
+        setEmergencyEvacMode(false);
+        setEmergencyEvacProtected(new Set());
+    };
+
+    /** Legacy single evacuate (for 🚪 cell and backward compat) */
+    const handleEvacuate = handleDrawEvacuate;
 
     const handleGameOver = () => {
         setInventory([]);
@@ -825,15 +1274,27 @@ export const useGameLogic = (config) => {
         setWallCandidates(null);
         setCurrentWallType(null);
         setCurrentWallColor(null);
+        setCurrentWallFunction(null);
         setLastDrawDirection(null);
         setDrawCount(0);
         setTotalDrawCount(0);
         setRefreshCount(V3_INITIAL_STATE.refreshCount);
+        setEvacuationCountdown(0);
+        setAcquiredLongTerms([]);
+        setAcquiredPersistents([]);
+        setShieldCount(0);
+        setFastPassCount(0);
+        setSafetyNetCount(0);
+        setEmergencyEvacMode(false);
+        setEmergencyEvacProtected(new Set());
+        setWallDrawLimit(Infinity);
+        setInventoryBonus(0);
+        setBlackmarketSold(new Set());
         setHp(doomConfig.initialHP);
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
             for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger' };
+                grid[i] = { type: 'danger', level: 0 };
             }
             return grid;
         });
@@ -866,15 +1327,27 @@ export const useGameLogic = (config) => {
         setWallCandidates(null);
         setCurrentWallType(null);
         setCurrentWallColor(null);
+        setCurrentWallFunction(null);
         setLastDrawDirection(null);
         setDrawCount(0);
         setTotalDrawCount(0);
         setRefreshCount(V3_INITIAL_STATE.refreshCount);
+        setEvacuationCountdown(0);
+        setAcquiredLongTerms([]);
+        setAcquiredPersistents([]);
+        setShieldCount(0);
+        setFastPassCount(0);
+        setSafetyNetCount(0);
+        setEmergencyEvacMode(false);
+        setEmergencyEvacProtected(new Set());
+        setWallDrawLimit(Infinity);
+        setInventoryBonus(0);
+        setBlackmarketSold(new Set());
         setHp(doomConfig.initialHP);
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
             for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger' };
+                grid[i] = { type: 'danger', level: 0 };
             }
             return grid;
         });
@@ -929,13 +1402,18 @@ export const useGameLogic = (config) => {
         wallCandidates,
         lastDrawResult,
         currentWallType,
-        currentWallColor,
+        currentWallColor, currentWallFunction,
+        pawnshopMode, pawnshopSelected, startPawnshop, togglePawnshopItem, confirmPawnshop, cancelPawnshop,
+        useClinic, clinicUsed, useBlackmarket, blackmarketSold, blackmarketStock,
+        shopStock, buyShopItem,
         lastDrawDirection,
 
         // v3 draw/economy state
         drawCount,
         totalDrawCount,
         refreshCount,
+        wallDrawLimit,
+        drawLimitReached,
         canUnlockWall,
         refreshWallCandidates,
         getDoomDraws,
@@ -944,6 +1422,7 @@ export const useGameLogic = (config) => {
         hp,
         doomGrid,
         dangerCount,
+        maxDangerCount: doomConfig.maxDangerCount,
         isDoomResolving,
         doomAnimState,
         doomResolutionResult,
@@ -974,7 +1453,12 @@ export const useGameLogic = (config) => {
         endTurn,
         continueToNextTurn,
         selectWall,
-        handleEvacuate,
+        handleEvacuate, handleDrawEvacuate, handleGoldEvacuate, handleNormalEvacuate, handleEmergencyEvacuate,
+        evacuationCountdown,
+        acquiredLongTerms, acquiredPersistents, shieldCount, fastPassCount,
+        safetyNetCount,
+        emergencyEvacMode, emergencyEvacProtected,
+        toggleEmergencyEvacItem, confirmEmergencyEvacuate, cancelEmergencyEvacuate,
         handleReset,
         startNextExpedition,
         tickDoomResolution,
@@ -985,7 +1469,7 @@ export const useGameLogic = (config) => {
         discardInventoryItem,
         debugAddItem,
         discardPendingItem,
-        acceptOrder,
+        acceptOrder, refreshBulletin,
         submitOrder,
         canSubmitOrder,
         incomingOrder,

@@ -52,24 +52,27 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "幸运之墙 Wall of Fort
 - **Config-driven**: Game balance, items, skills — all defined in `src/data/constants.js`. Edit config values, not logic.
 - **i18n**: Chinese is the source language. Wrap all UI strings with `t()` from `useLanguage()`. Add English translations to `src/utils/translations.js`. Never hardcode English in components.
 
-### Game Concepts (Turn-Based Prototype v2)
+### Game Concepts (Turn-Based Prototype v3)
 
 - **Setting**: TV game show. Player faces a Prize Wall (奖品墙) each turn.
 - **Game Structure**: 3 expeditions per game. Each expedition: multiple turns of drawing → evacuate. Victory: ≥30 points across 3 evacuations.
-- **Turn Structure**: Prize Wall ready → draw using gold (5/turn, 1 per draw) → doom accumulates → bulletin board adds order → 3-choose-1 next wall → continue or evacuate.
-- **Prize Wall**: 5×5 wall, player selects row OR column, random draw 1 cell. Cell types: stickers (main), 💀 doom resolution, ⬆️ doom upgrade, export items (rare), order cells, gold cells. Hidden cells revealed by drawing adjacent cells. All items have Tetris-like shapes.
-- **Stickers**: 8 types of local-only materials (⭐🌸⚡🔥🌙🍀🎵🦋). Each wall has 2-3 types. Consumed when submitting orders.
-- **Orders**: Bulletin board shows 5 orders (reward + difficulty only). Accept to reveal requirements. Max 3 held. Orders need specific sticker types/quantities. Submit anytime, no cost.
-- **Export Items**: Score items from completing orders (1/2/3/5 pts, 3 items per tier). Also rarely appear on wall. Evacuate to convert to score.
-- **Doom System**: 10-cell Doom Grid, +1 danger/turn. 💀 triggers resolution (cursor hits N cells, N = doom level). ⬆️ increases doom level. HP = 5; at 0 = lose entire backpack, forced evacuation.
+- **Turn Structure**: Free draws on current wall → meet unlock conditions → choose next wall from 3 candidates → continue or evacuate.
+- **Prize Wall**: 5×5 wall, player selects row OR column, random draw 1 cell. Cell types: stickers (main), 💀 doom resolution, ⬛ doom accumulation, 💥 damage, 🚪 evacuation, gold cells. All items have Tetris-like shapes.
+- **Wall Colors**: 5 colors (🟫 brown, 🟨 yellow, 🟩 green, 🟥 red, 🟦 blue) with different content ratios. Each wall has unlock conditions (draw count + optional gold cost). Colors can repeat in 3-choose-1.
+- **Economy**: Draws are FREE. Gold is a strategic resource that persists across turns (starting 5/expedition). Used for wall unlock costs, buying orders, long-term function costs.
+- **Stickers**: 8 types of local-only materials (⭐🌸⚡🔥🌙🍀🎵🦋). Each wall has 2-4 types. Consumed when submitting orders.
+- **Orders**: Bulletin board shows 5 orders. Accept to reveal requirements. Max 3 held. Orders need specific sticker types/quantities. Submit anytime, no cost.
+- **Export Items**: Score items from completing orders (1/2/3/5 pts, 3 items per tier). Evacuate to convert to score.
+- **Doom System**: 10-cell Doom Grid, phase-based accumulation (safe 1-4, slow 5-8, fast 9-12, danger 13+). 💀 triggers resolution (N draws based on turn: 1/2/3). ⬛ adds danger directly. 💥 deals -1 HP. HP = 5; at 0 = lose entire backpack, forced evacuation.
+- **Refresh**: Spend refresh count to re-roll 3 wall candidates. Start with 1/expedition.
 - **Backpack**: 15 slots shared by stickers and export items.
-- **Wall Types**: Basic, Hidden (many hidden cells), Drift (cells shift after draw), Multiplier (visible multiplier markers), Alternating (must alternate row/column).
-- **Planned systems (not in prototype)**: Sticker exchange system, functional wall types (shop), item abilities, doom expansion, evacuation expansion.
+- **Planned systems (not in prototype)**: Wall functions (long-term/persistent/instant effects), order gold cost, 4 evacuation types, sticker exchange.
 
 ### Workflow Rules
 
 - **Design discussions → doc sync**: When a conversation produces design decisions, rule changes, or new conclusions about any game system, proactively ask the user whether to update the relevant design documents (`game_rules.md`, `gameplay_progress.md`, etc.) before moving on.
 - **Implementation → read docs first**: When the user asks to implement or modify a gameplay feature, always read the relevant design documents first to understand the current design intent, status, and constraints — then proceed.
+- **Doc before code**: When asked to implement something that differs from the current design documents, **always update the design docs first**, then implement. Never leave docs and code out of sync.
 
 ### Lessons Learned
 

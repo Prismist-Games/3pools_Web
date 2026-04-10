@@ -8,6 +8,8 @@ const DIFFICULTY_STYLE = {
     extreme: { bg: 'bg-red-100',   text: 'text-red-700' },
 };
 
+const ORDER_GOLD_COST = { easy: 1, medium: 2, hard: 3, extreme: 4 };
+
 const SCORE_STYLE = {
     1: { border: 'border-green-400',  bg: 'from-green-50 to-white',  badge: 'bg-green-500' },
     2: { border: 'border-blue-400',   bg: 'from-blue-50 to-white',   badge: 'bg-blue-500' },
@@ -32,74 +34,50 @@ const RewardCard = ({ reward, size = 'md', bonusValue }) => {
     );
 };
 
-const BulletinBoard = ({ orders, onAccept, incomingOrder, onConfirmIncoming, onDiscardIncoming, onReplaceIncoming, bonusItemMap }) => {
+const BulletinBoard = ({ orders, onAccept, onRefresh, gold, bonusItemMap }) => {
     const { t } = useLanguage();
-    const isFull = orders.length >= 5;
-    const hasIncoming = !!incomingOrder;
 
     return (
         <div className="bg-white rounded-lg shadow-sm border">
-            {/* Panel header */}
             <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('公告牌')}</h3>
-                <span className="text-[10px] text-gray-300 font-medium">{orders.length}/5</span>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('可接取订单')}</h3>
+                <div className="flex items-center gap-2">
+                    <button onClick={onRefresh} disabled={gold < 3}
+                        className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold transition-colors ${
+                            gold >= 3 ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}>
+                        🔄 3💰
+                    </button>
+                </div>
             </div>
 
             <div className="p-2">
-                {/* Incoming order banner */}
-                {hasIncoming && (
-                    <div className="mb-2 p-2.5 bg-blue-50 border-2 border-blue-300 rounded-lg">
-                        <div className="text-[11px] font-bold text-blue-600 mb-1.5">{t('新订单')}</div>
-                        <div className="flex items-center gap-1 mb-2">
-                            {incomingOrder.rewards.map((r, i) => (
-                                <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
-                            ))}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {isFull ? (
-                                <span className="text-[10px] text-amber-600">{t('公告牌已满，选择下方订单替换')}</span>
-                            ) : (
-                                <button onClick={onConfirmIncoming}
-                                    className="text-[10px] px-2.5 py-1 rounded-md font-bold bg-blue-500 text-white hover:bg-blue-600 transition-colors">
-                                    {t('加入公告牌')}
-                                </button>
-                            )}
-                            <button onClick={onDiscardIncoming}
-                                className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">
-                                {t('放弃')}
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {orders.length === 0 && !hasIncoming ? (
+                {orders.length === 0 ? (
                     <p className="text-[11px] text-gray-300 text-center py-3">{t('暂无订单')}</p>
                 ) : (
                     <div className="flex flex-col gap-1.5">
                         {orders.map(order => {
                             const ds = DIFFICULTY_STYLE[order.difficulty] || DIFFICULTY_STYLE.easy;
+                            const cost = ORDER_GOLD_COST[order.difficulty] || 3;
+                            const canAfford = gold >= cost;
                             return (
-                                <div key={order.id}
-                                    onClick={() => hasIncoming && isFull && onReplaceIncoming(order.id)}
-                                    className={`p-2 rounded-lg border ${
-                                        hasIncoming && isFull
-                                            ? 'border-amber-400 bg-amber-50 cursor-pointer hover:bg-red-50 hover:border-red-400 transition-colors'
-                                            : 'border-gray-100 bg-gray-50/50'
-                                    }`}>
-                                    {/* Row 1: difficulty + action */}
+                                <div key={order.id} className="p-2 rounded-lg border border-gray-100 bg-gray-50/50">
+                                    {/* Row 1: difficulty + buy button with cost */}
                                     <div className="flex items-center justify-between mb-1.5">
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-[9px] text-gray-300">{t('难度')}</span>
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>
-                                                {t(order.difficulty)}
-                                            </span>
-                                        </div>
-                                        {!hasIncoming && (
-                                            <button onClick={() => onAccept(order.id)}
-                                                className="text-[10px] px-2 py-0.5 rounded-md font-bold bg-blue-500 text-white hover:bg-blue-600 transition-colors">
-                                                {t('接取')}
-                                            </button>
-                                        )}
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>
+                                            {t(order.difficulty)}
+                                        </span>
+                                        <button
+                                            onClick={() => onAccept(order.id)}
+                                            disabled={!canAfford}
+                                            className={`text-[10px] px-2 py-0.5 rounded-md font-bold transition-colors ${
+                                                canAfford
+                                                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                            }`}
+                                        >
+                                            {t('接取')} 💰{cost}
+                                        </button>
                                     </div>
                                     {/* Row 2: rewards */}
                                     <div className="flex items-center gap-1">

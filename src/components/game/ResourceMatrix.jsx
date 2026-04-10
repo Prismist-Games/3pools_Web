@@ -1,6 +1,7 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { RewardCard, DIFFICULTY_STYLE } from './BulletinBoard';
 
 /** Tooltip for grid cells — Portal-based, same style as ToolItemTooltip */
 const CellTooltip = ({ cell, anchorRef, visible, t }) => {
@@ -37,14 +38,71 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时厄运网格+1危险符号');
-    } else if (cell.type === 'damage') {
-        icon = cell.icon;
-        name = t(cell.name);
-        desc = t('抽中时直接-1生命值');
     } else if (cell.type === 'evacuation') {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时可选择立即撤离');
+    } else if (cell.type === 'refresh') {
+        icon = cell.icon;
+        name = t(cell.name);
+        desc = t('抽中时获得1次刷新次数');
+    } else if (cell.type === 'order') {
+        icon = cell.icon;
+        name = t(cell.name);
+        // Show pre-generated order info if available
+        if (cell.order) {
+            const order = cell.order;
+            const ds = DIFFICULTY_STYLE[order.difficulty] || DIFFICULTY_STYLE.easy;
+            return createPortal(
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: pos.top,
+                        left: pos.left,
+                        transform: 'translate(-50%, -100%)',
+                        zIndex: 99999,
+                        pointerEvents: 'none',
+                    }}
+                    className="animate-in fade-in zoom-in-95 duration-150"
+                >
+                    <div className="bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border border-amber-400/30 min-w-[180px] max-w-[260px]">
+                        <div className="flex items-center gap-2 mb-1.5 border-b border-slate-700 pb-1.5">
+                            <span className="text-lg">{icon}</span>
+                            <span className="font-black text-amber-300 text-sm">{name}</span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(order.difficulty)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 mb-1">
+                            <span className="text-[10px] text-slate-400 mr-0.5">{t('奖励')}</span>
+                            {order.rewards.map((r, i) => (
+                                <RewardCard key={i} reward={r} size="sm" />
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-slate-400">{t('抽中时免费获得此订单')}</p>
+                    </div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                        <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-slate-900" />
+                    </div>
+                </div>,
+                document.body
+            );
+        }
+        desc = t('抽中时获得一个免费订单');
+    } else if (cell.type === 'pass') {
+        icon = cell.icon;
+        name = t(cell.name);
+        desc = t('立即给当前三选一中随机1面墙抽取次数+1');
+    } else if (cell.type === 'shield') {
+        icon = cell.icon;
+        name = t(cell.name);
+        desc = t('抽中后抵消1次厄运格效果');
+    } else if (cell.type === 'bomb') {
+        icon = cell.icon;
+        name = t(cell.name);
+        desc = t('抽中时爆炸，摧毁周围所有格子');
+    } else if (cell.type === 'fast_pass') {
+        icon = cell.icon;
+        name = t(cell.name);
+        desc = t('普通撤离等待回合数-1');
     } else {
         return null;
     }
@@ -88,8 +146,9 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_accumulation'
-        || cell.type === 'damage' || cell.type === 'gold' || cell.type === 'evacuation'
-        || cell.type === 'out_of_game');
+        || cell.type === 'gold' || cell.type === 'evacuation' || cell.type === 'out_of_game'
+        || cell.type === 'refresh' || cell.type === 'order' || cell.type === 'pass' || cell.type === 'shield' || cell.type === 'bomb'
+        || cell.type === 'backpack' || cell.type === 'fast_pass');
     const { top, bottom, left, right } = adjacency;
 
     // Rounded corners — only on external corners
@@ -124,10 +183,22 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         const sc = { 1: 'bg-green-50 border-green-400', 2: 'bg-blue-50 border-blue-400', 3: 'bg-purple-50 border-purple-400', 5: 'bg-orange-50 border-orange-400' };
         bgClass = sc[cell.item?.score] || 'bg-pink-100 border-pink-400';
     } else if (cell.type === 'doom_accumulation') {
-        bgClass = 'bg-gray-800 border-gray-600';
-    } else if (cell.type === 'damage') {
-        bgClass = 'bg-orange-100 border-orange-400';
+        bgClass = 'bg-red-100 border-red-400';
     } else if (cell.type === 'evacuation') {
+        bgClass = 'bg-emerald-100 border-emerald-400';
+    } else if (cell.type === 'refresh') {
+        bgClass = 'bg-indigo-100 border-indigo-400';
+    } else if (cell.type === 'order') {
+        bgClass = 'bg-blue-50 border-blue-300';
+    } else if (cell.type === 'pass') {
+        bgClass = 'bg-cyan-100 border-cyan-400';
+    } else if (cell.type === 'shield') {
+        bgClass = 'bg-violet-100 border-violet-400';
+    } else if (cell.type === 'bomb') {
+        bgClass = 'bg-gray-800 border-gray-900';
+    } else if (cell.type === 'backpack') {
+        bgClass = 'bg-amber-100 border-amber-300';
+    } else if (cell.type === 'fast_pass') {
         bgClass = 'bg-emerald-100 border-emerald-400';
     } else {
         bgClass = 'bg-white border-gray-300';
@@ -143,10 +214,12 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         highlightClass = 'ring-2 ring-yellow-300 z-10 transition-all duration-75';
     } else if (highlight === 'scan-row') {
         highlightClass = 'ring-1 ring-blue-200 transition-all duration-75';
-    } else if (highlight === 'hover') {
+    } else if (highlight === 'hover-row' || highlight === 'hover-col') {
         highlightClass = 'scale-105 z-10 transition-all duration-150';
-        // Build directional ring only on external (non-connected) sides
-        const ringColor = 'rgba(96,165,250,0.6)';
+        // Axis-specific ring color: rows = warm orange, columns = cool sky blue
+        const ringColor = highlight === 'hover-row'
+            ? 'rgba(249,115,22,0.75)'   // orange-500
+            : 'rgba(14,165,233,0.75)';  // sky-500
         const ringW = 2.5;
         const parts = ['0 4px 6px -1px rgba(0,0,0,0.1)', '0 2px 4px -2px rgba(0,0,0,0.1)']; // shadow-md
         if (!top) parts.push(`inset 0 ${ringW}px 0 0 ${ringColor}`);
@@ -176,6 +249,11 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
             {cell !== null && (cell.type === 'item' || cell.type === 'sticker') && !cell.hidden && (
                 <span className="text-[9px] text-gray-600 leading-none mt-0.5 truncate max-w-[48px] font-medium">
                     {t(cell.item.name)}
+                </span>
+            )}
+            {cell !== null && cell.type !== 'item' && cell.type !== 'sticker' && cell.type !== 'out_of_game' && cell.name && (
+                <span className="text-[8px] text-gray-500 leading-none mt-0.5 truncate max-w-[48px]">
+                    {t(cell.name)}
                 </span>
             )}
             {hasTip && <CellTooltip cell={cell} anchorRef={ref} visible={hovered} t={t} />}
@@ -317,7 +395,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
                                 flex items-center justify-center
                                 transition-all duration-150 shadow-sm
                                 ${colClickable
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 cursor-pointer'
+                                    ? 'bg-sky-500 text-white hover:bg-sky-600 hover:scale-105 cursor-pointer'
                                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                 }
                             `}
@@ -349,7 +427,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
                                     flex items-center justify-center
                                     transition-all duration-150 shadow-sm
                                     ${rowClickable
-                                        ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 cursor-pointer'
+                                        ? 'bg-orange-500 text-white hover:bg-orange-600 hover:scale-105 cursor-pointer'
                                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                     }
                                 `}
@@ -408,6 +486,12 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
                                 const isSettled = isRowSettled || isColSettled;
                                 const isScanLine = isScanRow || isScanCol;
 
+                                // Axis-aware hover: row hover takes precedence if both set
+                                // (in practice only one is ever set at a time)
+                                const hoverKind = showHover
+                                    ? (hoveredRow !== null ? 'hover-row' : 'hover-col')
+                                    : null;
+
                                 return (
                                     <GridCell
                                         key={`${rowIndex}-${colIndex}`}
@@ -417,7 +501,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
                                         rowIndex={rowIndex}
                                         colIndex={colIndex}
                                         adjacency={getAdjacency(rowIndex, colIndex)}
-                                        highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanLine ? 'scan-row' : showHover ? 'hover' : null}
+                                        highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanLine ? 'scan-row' : hoverKind}
                                     />
                                 );
                             })

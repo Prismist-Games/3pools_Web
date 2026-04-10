@@ -565,7 +565,8 @@ export const SCORE_PROGRESS_CONFIG = {
 // --- 厄运系统配置 ---
 export const DOOM_CONFIG = {
     gridSize: 10,              // 厄运网格格子数
-    initialDangerCount: 0,     // 初始"危险"格子数
+    initialDangerCount: 1,     // 初始1个危险，让厄运从一开始就有压迫感
+    maxDangerCount: 5,         // 厄运格数量上限；超过时已有厄运升级而非新增
     initialHP: 5,              // 初始生命值
     // initialDoomLevel removed: doom draws are now turn-based (see v3Config DOOM_RESOLUTION_DRAWS)
     // dangerPerTurn removed: accumulation is now phase-based (see v3Config DOOM_PHASES)

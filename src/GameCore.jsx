@@ -8,7 +8,10 @@ import ActiveOrders from './components/game/ActiveOrders';
 import ScoreBoard from './components/game/ScoreBoard';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
+import GameTooltip from './components/ui/GameTooltip';
+import WallFunctionPanel from './components/game/WallFunctionPanel';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from './data/v2Config';
+import { DOOM_RESOLUTION_DRAWS, getDoomTurnEvents } from './data/v3Config';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -19,6 +22,8 @@ const GameCore = () => {
     const [recycleSelected, setRecycleSelected] = useState(new Set());
     const [debugOpen, setDebugOpen] = useState(false);
     const [debugSelectedItem, setDebugSelectedItem] = useState(null);
+    const [evacOpen, setEvacOpen] = useState(false);
+    const [effectsOpen, setEffectsOpen] = useState(true);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -29,36 +34,53 @@ const GameCore = () => {
         [state.bonusItems]
     );
 
+    const normalEvacWait = Math.max(1, 3 - (state.fastPassCount ?? 0));
+
     const {
         expeditionNumber, expeditionScores, totalScore, expeditionConfig, bonusItems,
         turnNumber, gold, phase,
-        drawCount, totalDrawCount, refreshCount, currentWallColor,
+        drawCount, totalDrawCount, refreshCount, wallDrawLimit, drawLimitReached,
+        currentWallColor, currentWallFunction,
         canUnlockWall, refreshWallCandidates, getDoomDraws,
         matrix, wallCandidates, lastDrawResult, currentWallType, lastDrawDirection,
-        hp, doomGrid, dangerCount,
+        hp, doomGrid, dangerCount, maxDangerCount,
         isDoomResolving, doomAnimState, doomResolutionResult,
         inventory, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating,
         startGame, selectRow, selectColumn, endTurn, continueToNextTurn, selectWall,
-        handleEvacuate, handleReset, startNextExpedition,
+        handleEvacuate, handleDrawEvacuate, handleGoldEvacuate, handleNormalEvacuate, handleEmergencyEvacuate,
+        evacuationCountdown,
+        acquiredLongTerms, acquiredPersistents, shieldCount, fastPassCount,
+        safetyNetCount, emergencyEvacMode, emergencyEvacProtected,
+        toggleEmergencyEvacItem, confirmEmergencyEvacuate, cancelEmergencyEvacuate,
+        pawnshopMode, pawnshopSelected, startPawnshop, togglePawnshopItem, confirmPawnshop, cancelPawnshop,
+        useClinic, clinicUsed, useBlackmarket, blackmarketSold, blackmarketStock,
+        shopStock, buyShopItem,
+        handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
         replaceInventoryItem, discardInventoryItem, discardPendingItem, debugAddItem,
         bulletinBoard, activeOrders,
-        acceptOrder, submitOrder, canSubmitOrder,
+        acceptOrder, refreshBulletin, submitOrder, canSubmitOrder,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         pendingAcceptOrder, confirmReplaceOrder, cancelReplaceOrder,
     } = state;
 
     // --- Doom animation interval ---
     useEffect(() => {
-        if (!doomAnimState || doomAnimState.phase !== 'spinning') return;
-        const progress = doomAnimState.tick / doomAnimState.totalTicks;
-        const interval = 60 + progress * 120;
-        const timer = setTimeout(tickDoomResolution, interval);
-        return () => clearTimeout(timer);
+        if (!doomAnimState) return;
+        if (doomAnimState.phase === 'spinning') {
+            const progress = doomAnimState.tick / doomAnimState.totalTicks;
+            const interval = 40 + progress * 80;
+            const timer = setTimeout(tickDoomResolution, interval);
+            return () => clearTimeout(timer);
+        }
+        if (doomAnimState.phase === 'settled') {
+            const timer = setTimeout(completeDoomResolution, 600);
+            return () => clearTimeout(timer);
+        }
     }, [doomAnimState]);
 
     // --- Draw scanning animation interval ---
@@ -87,8 +109,11 @@ const GameCore = () => {
 
     // --- Doom grid cell style (with animation highlights) ---
     const getDoomCellClass = (cell, cellIndex) => {
+        const level = cell.level || 0;
         const base = cell.type === 'danger'
-            ? 'bg-red-100 border-red-300 text-red-600 font-bold'
+            ? (level >= 2 ? 'bg-red-300 border-red-600 text-red-900 font-bold'
+                : level >= 1 ? 'bg-red-200 border-red-500 text-red-800 font-bold'
+                : 'bg-red-100 border-red-300 text-red-600 font-bold')
             : 'bg-gray-50 border-gray-200 text-gray-300';
 
         if (!doomAnimState) return base;
@@ -157,33 +182,60 @@ const GameCore = () => {
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                         </div>
                     </div>
-                    {/* Row 2: In-game Resources */}
-                    <div className="flex items-center gap-5 px-4 py-2">
-                        <div className="flex items-center gap-1">
-                            <span className="text-rose-400 text-xs">❤️</span>
-                            <span className="text-sm font-black text-rose-600">{hp}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-amber-400 text-xs">💰</span>
-                            <span className="text-sm font-black text-amber-600">{gold}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-slate-400 text-xs">💀</span>
-                            <span className="text-sm font-black text-slate-600">×{getDoomDraws(turnNumber)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-indigo-400 text-xs">🔄</span>
-                            <span className="text-sm font-black text-indigo-600">{refreshCount}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-cyan-400 text-xs">🎯</span>
-                            <span className="text-sm font-black text-cyan-600">{drawCount}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-teal-400 text-xs">🎒</span>
-                            <span className="text-sm font-black text-teal-600">{inventory.length}<span className="text-xs font-normal text-gray-400">/{maxInventorySize}</span></span>
-                        </div>
+                    {/* Row 2: Resources */}
+                    <div className="flex items-center gap-4 px-4 py-2">
+                        <GameTooltip icon="❤️" title={t('生命值')} text={t('归零时撤离失败，失去全部物品')}>
+                            <span className="text-sm font-black text-rose-600">❤️ {hp}</span>
+                        </GameTooltip>
+                        <GameTooltip icon="💰" title={t('金币')} text={t('用于解锁墙、解锁订单')}>
+                            <span className="text-sm font-black text-amber-600">💰 {gold}</span>
+                        </GameTooltip>
+                        <GameTooltip icon="🛡️" title={t('护盾')} text={t('抵消厄运格效果，当前') + ` ${shieldCount} ` + t('次')}>
+                            <span className="text-sm font-black text-violet-600">🛡️ {shieldCount}</span>
+                        </GameTooltip>
                     </div>
+                    {/* Row 3: Doom Timeline — centered */}
+                    {turnNumber > 0 && (
+                        <div className="flex items-center justify-center gap-1.5 px-4 py-1.5 border-t border-gray-100">
+                            <span className="text-[10px] text-gray-400 font-bold mr-1">☠ {t('厄运预报')}</span>
+                            {[0, 1, 2, 3, 4].map(offset => {
+                                const tn = turnNumber + offset;
+                                const isCurrent = offset === 0;
+                                const events = getDoomTurnEvents(tn);
+                                const resEntry = DOOM_RESOLUTION_DRAWS.find(e => tn >= e.turnRange[0] && tn <= e.turnRange[1]);
+                                const draws = resEntry?.draws || 3;
+                                // Markers
+                                const markers = [];
+                                if (events.accumulate) markers.push('☠');
+                                if (events.resolve) markers.push('🎲');
+                                const hasThreat = events.accumulate || events.resolve;
+                                const bgColor = hasThreat
+                                    ? 'bg-red-100 border-red-400 text-red-700'
+                                    : 'bg-gray-100 border-gray-300 text-gray-500';
+                                // Tooltip — only actual events
+                                const tooltipLines = [];
+                                if (events.accumulate) tooltipLines.push(language === 'zh' ? '☠ 厄运+1' : '☠ Doom +1');
+                                if (events.resolve) tooltipLines.push((language === 'zh' ? '🎲 自动结算 ×' : '🎲 Auto resolve ×') + draws);
+
+                                return tooltipLines.length > 0 ? (
+                                    <GameTooltip key={tn} icon="☠" title={`${language === 'zh' ? '回合' : 'Turn'} ${tn}`} text={tooltipLines.join('\n')}>
+                                        <div className={`w-8 h-8 rounded-md border-2 flex flex-col items-center justify-center text-[9px] font-bold transition-all ${bgColor} ${
+                                            isCurrent ? 'ring-2 ring-offset-1 ring-slate-500 scale-110' : 'opacity-60'
+                                        }`}>
+                                            <span className="leading-none">{tn}</span>
+                                            <span className="leading-none text-[8px]">{markers.join('')}</span>
+                                        </div>
+                                    </GameTooltip>
+                                ) : (
+                                    <div key={tn} className={`w-8 h-8 rounded-md border-2 flex items-center justify-center text-[9px] font-bold transition-all ${bgColor} ${
+                                        isCurrent ? 'ring-2 ring-offset-1 ring-slate-500 scale-110' : 'opacity-60'
+                                    }`}>
+                                        <span>{tn}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 {/* Pre-game state */}
@@ -204,7 +256,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'drawing' || phase === 'between_turns') && (
+                {(phase === 'wall_choice' || phase === 'drawing' || phase === 'between_turns') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -212,10 +264,8 @@ const GameCore = () => {
                                 <BulletinBoard
                                     orders={bulletinBoard}
                                     onAccept={acceptOrder}
-                                    incomingOrder={phase === 'incoming_order' ? null : incomingOrder}
-                                    onConfirmIncoming={confirmIncomingOrder}
-                                    onDiscardIncoming={discardIncomingOrder}
-                                    onReplaceIncoming={replaceBulletinOrder}
+                                    onRefresh={refreshBulletin}
+                                    gold={gold}
                                     bonusItemMap={bonusItemMap}
                                 />
                             )}
@@ -231,6 +281,123 @@ const GameCore = () => {
                                     hoveredStickerIds={hoveredStickerIds}
                                     bonusItemMap={bonusItemMap}
                                 />
+                            )}
+
+                            {/* Evacuation — collapsible */}
+                            {phase === 'drawing' && (
+                                <div className="bg-white rounded-lg shadow-sm border">
+                                    <button onClick={() => setEvacOpen(o => !o)}
+                                        className="w-full flex items-center justify-between px-3 py-2 border-b border-gray-100">
+                                        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('撤离')}</h3>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] font-bold text-gray-500">
+                                                📦 {inventory.filter(i => i.isOutOfGame).reduce((s, i) => s + i.score, 0)} {t('分')}
+                                            </span>
+                                            <span className="text-[10px] text-gray-400">{evacOpen ? '▲' : '▼'}</span>
+                                        </div>
+                                    </button>
+                                    {evacOpen && (
+                                        <div className="p-2">
+                                            {/* 🚪 cell evacuation offer */}
+                                            {lastDrawResult?.isEvacuationOffer && !isDoomResolving && !isDrawAnimating && (
+                                                <div className="mb-2 p-2 bg-emerald-50 border border-emerald-300 rounded-lg flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-emerald-700">🚪 {t('撤离机会')}</span>
+                                                    <div className="flex gap-1.5">
+                                                        <button onClick={handleEvacuate}
+                                                            className="px-3 py-1 bg-emerald-500 text-white rounded-md text-[11px] font-bold hover:bg-emerald-600 transition-colors">
+                                                            {t('撤离')}
+                                                        </button>
+                                                        <button onClick={() => {}}
+                                                            className="px-3 py-1 bg-gray-200 text-gray-500 rounded-md text-[11px] font-bold hover:bg-gray-300 transition-colors">
+                                                            {t('继续')}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* Countdown banner */}
+                                            {evacuationCountdown > 0 && (
+                                                <div className="mb-2 p-2 bg-amber-50 border border-amber-300 rounded-lg text-center">
+                                                    <span className="text-xs font-bold text-amber-600">
+                                                        ⏳ {t('普通撤离倒计时')} {evacuationCountdown} {t('回合')}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {/* Emergency evac picker prompt */}
+                                            {emergencyEvacMode && (
+                                                <div className="mb-2 p-2 bg-red-50 border border-red-300 rounded-lg">
+                                                    <p className="text-[11px] font-bold text-red-700 mb-1.5 leading-snug">
+                                                        🛟 {t('安全网')}: {t('选择保护物品')} ({emergencyEvacProtected.size}/{safetyNetCount})
+                                                    </p>
+                                                    <p className="text-[10px] text-red-500 mb-2 leading-snug">{t('未选物品将随机失去一半')}</p>
+                                                    <div className="flex gap-1.5">
+                                                        <button onClick={confirmEmergencyEvacuate}
+                                                            className="flex-1 px-2 py-1 bg-red-500 text-white rounded-md text-[11px] font-bold hover:bg-red-600 transition-colors">
+                                                            {t('确认撤离')}
+                                                        </button>
+                                                        <button onClick={cancelEmergencyEvacuate}
+                                                            className="flex-1 px-2 py-1 bg-gray-200 text-gray-600 rounded-md text-[11px] font-bold hover:bg-gray-300 transition-colors">
+                                                            {t('取消')}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* Evacuation buttons: 普通 → 金币 → 紧急 */}
+                                            {evacuationCountdown <= 0 && (
+                                                <div className="flex gap-2">
+                                                    <GameTooltip icon="🕐" title={t('普通撤离')} text={
+                                                        fastPassCount > 0
+                                                            ? `${normalEvacWait} ${t('回合后自动撤离，不可取消')} (⏩ ×${fastPassCount})`
+                                                            : t('3回合后自动撤离，不可取消')
+                                                    }>
+                                                        <button onClick={handleNormalEvacuate}
+                                                            disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
+                                                            className={`flex-1 px-2 py-1.5 rounded-lg transition-colors flex flex-col items-center leading-tight ${
+                                                                !isDoomResolving && !isDrawAnimating
+                                                                    ? 'bg-green-600 text-white hover:bg-green-700'
+                                                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                            }`}>
+                                                            <span className="text-[11px] font-bold">{t('普通撤离')}</span>
+                                                            <span className="text-[9px] font-semibold opacity-90">
+                                                                {normalEvacWait}{t('回合')}
+                                                                {fastPassCount > 0 && <span className="ml-0.5">⏩</span>}
+                                                            </span>
+                                                        </button>
+                                                    </GameTooltip>
+                                                    <GameTooltip icon="💰" title={t('金币撤离')} text={t('立即撤离，花费12金币')}>
+                                                        <button onClick={handleGoldEvacuate}
+                                                            disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || gold < 12}
+                                                            className={`flex-1 px-2 py-1.5 rounded-lg transition-colors flex flex-col items-center leading-tight ${
+                                                                gold >= 12 && !isDoomResolving && !isDrawAnimating
+                                                                    ? 'bg-amber-500 text-white hover:bg-amber-600'
+                                                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                            }`}>
+                                                            <span className="text-[11px] font-bold">{t('金币撤离')}</span>
+                                                            <span className="text-[9px] font-semibold opacity-90">-12💰</span>
+                                                        </button>
+                                                    </GameTooltip>
+                                                    <GameTooltip icon="⚠️" title={t('紧急撤离')} text={
+                                                        safetyNetCount > 0
+                                                            ? `${t('立即撤离，随机失去一半物品')} (🛟 ${t('安全网')} ×${safetyNetCount}: ${t('可保护')} ${safetyNetCount} ${t('个物品')})`
+                                                            : t('立即撤离，随机失去一半物品')
+                                                    }>
+                                                        <button onClick={handleEmergencyEvacuate}
+                                                            disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || emergencyEvacMode}
+                                                            className={`flex-1 px-2 py-1.5 rounded-lg transition-colors flex flex-col items-center leading-tight ${
+                                                                !isDoomResolving && !isDrawAnimating && !emergencyEvacMode
+                                                                    ? 'bg-red-500 text-white hover:bg-red-600'
+                                                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                            }`}>
+                                                            <span className="text-[11px] font-bold">{t('紧急撤离')}</span>
+                                                            <span className="text-[9px] font-semibold opacity-90">
+                                                                {safetyNetCount > 0 ? <>-1/2 <span className="ml-0.5">🛟×{safetyNetCount}</span></> : <>-1/2</>}
+                                                            </span>
+                                                        </button>
+                                                    </GameTooltip>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </div>
 
@@ -314,24 +481,75 @@ const GameCore = () => {
                                     refreshCount={refreshCount}
                                     drawCount={drawCount}
                                     gold={gold}
+                                    disabled={isDoomResolving || isDrawAnimating}
                                 />
                             )}
 
                             {/* Drawing phase */}
                             {phase === 'drawing' && matrix && (
                                 <div className="flex flex-col items-center">
-                                    <ResourceMatrix
-                                        matrix={matrix}
-                                        onSelectRow={selectRow}
-                                        onSelectColumn={selectColumn}
-                                        phase={phase}
-                                        disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
-                                        drawAnimState={drawAnimState}
-                                        wallType={currentWallType}
-                                        lastDrawDirection={lastDrawDirection}
-                                        onHoverStickerIds={setHoveredStickerIds}
-                                        bonusItemMap={bonusItemMap}
-                                    />
+                                    {/* Candidate walls shown above grid during drawing */}
+                                    {wallCandidates && (
+                                        <WallPicker
+                                            candidates={wallCandidates}
+                                            onSelect={selectWall}
+                                            onRefresh={refreshWallCandidates}
+                                            refreshCount={refreshCount}
+                                            drawCount={drawCount}
+                                            gold={gold}
+                                            compact
+                                            disabled={isDoomResolving || isDrawAnimating}
+                                        />
+                                    )}
+                                    {/* Current wall info (left) + Grid (right) */}
+                                    <div className="flex items-start gap-4">
+                                        {/* Left: wall info panel */}
+                                        {currentWallColor && (
+                                            <div className="w-44 flex-shrink-0 flex flex-col gap-2">
+                                                {/* Wall name */}
+                                                <div className={`px-3 py-2 rounded-lg border-2 ${
+                                                    currentWallFunction
+                                                        ? ({ brown: 'bg-[#ead8bf] border-[#8b5a2b]', yellow: 'bg-yellow-50 border-yellow-400', green: 'bg-emerald-50 border-emerald-400', red: 'bg-red-50 border-red-400', blue: 'bg-blue-50 border-blue-400' }[currentWallColor.id] || 'bg-gray-50 border-gray-300')
+                                                        : 'bg-gray-50 border-gray-300'
+                                                }`}>
+                                                    <div className="text-sm font-black mb-0.5">{currentWallFunction ? currentWallColor.icon : '🧱'} {currentWallFunction ? t(currentWallFunction.name) : t('普通奖品墙')}</div>
+                                                    {currentWallFunction?.desc && (
+                                                        <div className="text-[10px] text-gray-500 font-medium leading-snug">{t(currentWallFunction.desc)}</div>
+                                                    )}
+                                                </div>
+                                                {/* Draw count */}
+                                                <div className={`px-3 py-1.5 rounded-lg border text-center ${drawLimitReached ? 'bg-red-50 border-red-300 text-red-500' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
+                                                    <div className="text-[10px] font-medium opacity-70">{t('剩余抽取')}</div>
+                                                    <div className="text-sm font-bold">🎯 {Math.max(0, wallDrawLimit - drawCount)} / {wallDrawLimit}</div>
+                                                    {drawLimitReached && <div className="text-[10px] text-red-400 font-medium">{t('已达上限')}</div>}
+                                                </div>
+                                                {/* Wall function panel */}
+                                                <WallFunctionPanel
+                                                    wallFunction={currentWallFunction}
+                                                    gold={gold} hp={hp} inventory={inventory}
+                                                    pawnshopMode={pawnshopMode} pawnshopSelected={pawnshopSelected}
+                                                    startPawnshop={startPawnshop} togglePawnshopItem={togglePawnshopItem}
+                                                    confirmPawnshop={confirmPawnshop} cancelPawnshop={cancelPawnshop}
+                                                    useClinic={useClinic} clinicUsed={clinicUsed}
+                                                    useBlackmarket={useBlackmarket} blackmarketSold={blackmarketSold} blackmarketStock={blackmarketStock}
+                                                    shopStock={shopStock} buyShopItem={buyShopItem}
+                                                />
+                                            </div>
+                                        )}
+                                        {/* Right: grid */}
+                                        <ResourceMatrix
+                                            matrix={matrix}
+                                            onSelectRow={selectRow}
+                                            onSelectColumn={selectColumn}
+                                            phase={phase}
+                                            disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || drawLimitReached}
+                                            drawAnimState={drawAnimState}
+                                            wallType={currentWallType}
+                                            lastDrawDirection={lastDrawDirection}
+                                            onHoverStickerIds={setHoveredStickerIds}
+                                            bonusItemMap={bonusItemMap}
+                                        />
+                                    </div>
 
                                     {/* Draw result feedback */}
                                     {lastDrawResult && !isDoomResolving && !isDrawAnimating && (
@@ -347,37 +565,6 @@ const GameCore = () => {
                                         </div>
                                     )}
 
-                                    {/* Evacuation offer from 🚪 cell */}
-                                    {lastDrawResult?.isEvacuationOffer && !isDoomResolving && !isDrawAnimating && (
-                                        <div className="mt-3 p-3 bg-emerald-50 border-2 border-emerald-400 rounded-lg text-center">
-                                            <p className="text-sm font-bold text-emerald-700 mb-2">🚪 {t('是否撤离？')}</p>
-                                            <div className="flex gap-2 justify-center">
-                                                <button onClick={handleEvacuate}
-                                                    className="px-4 py-1.5 bg-emerald-500 text-white rounded-lg text-sm font-bold hover:bg-emerald-600 transition-colors">
-                                                    {t('撤离')}
-                                                </button>
-                                                <button onClick={() => {/* just dismiss */}}
-                                                    className="px-4 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-300 transition-colors">
-                                                    {t('继续')}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* End turn button */}
-                                    <div className="mt-4 flex gap-2">
-                                        <button
-                                            onClick={endTurn}
-                                            disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
-                                            className={`px-6 py-2 rounded-lg font-bold transition-colors ${
-                                                isDoomResolving || isDrawAnimating || pendingItems.length > 0
-                                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                                    : 'bg-gray-700 text-white hover:bg-gray-800'
-                                            }`}
-                                        >
-                                            {t('结束回合')}
-                                        </button>
-                                    </div>
                                 </div>
                             )}
 
@@ -430,6 +617,7 @@ const GameCore = () => {
                                     <div className="grid grid-cols-5 gap-1">
                                         {doomGrid.map((cell, i) => {
                                             const cursors = getDoomCellCursors(i);
+                                            const level = cell.level || 0;
                                             return (
                                                 <div
                                                     key={i}
@@ -437,6 +625,11 @@ const GameCore = () => {
                                                         ${getDoomCellClass(cell, i)}`}
                                                 >
                                                     {cell.type === 'danger' ? '☠' : '·'}
+                                                    {cell.type === 'danger' && level > 0 && (
+                                                        <span className="absolute -bottom-1 -right-1 bg-red-700 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white leading-none">
+                                                            {level + 1}
+                                                        </span>
+                                                    )}
                                                     {cursors > 0 && (
                                                         <span className="absolute -top-1 -right-1 bg-yellow-400 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                                                             {cursors}
@@ -447,14 +640,14 @@ const GameCore = () => {
                                         })}
                                     </div>
                                     <div className="flex justify-between mt-1.5 text-[10px] text-gray-300">
-                                        <span>{t('危险')} {dangerCount}/{doomGrid.length}</span>
+                                        <span>{t('危险')} {dangerCount}/{maxDangerCount}</span>
                                         <span>{t('抽取')} ×{getDoomDraws(turnNumber)}</span>
                                     </div>
 
                                     {/* Doom animation result + confirm */}
                                     {doomAnimState?.phase === 'settled' && (
                                         <div className="mt-2 pt-2 border-t border-gray-100">
-                                            <div className="flex items-center gap-1 mb-2">
+                                            <div className="flex items-center gap-1">
                                                 {doomAnimState.finalSelections.map((s, i) => (
                                                     <span key={i} className={`text-lg ${s.isHit ? 'animate-bounce' : ''}`}>
                                                         {s.isHit ? '💀' : '✅'}
@@ -464,16 +657,62 @@ const GameCore = () => {
                                                     <span className="text-red-500 font-bold text-xs ml-1">-{doomAnimState.hpLoss} HP</span>
                                                 )}
                                             </div>
-                                            <button
-                                                onClick={completeDoomResolution}
-                                                className="w-full py-1.5 bg-slate-700 text-white rounded-md text-xs font-bold hover:bg-slate-800 transition-colors"
-                                            >
-                                                {t('确认')}
-                                            </button>
                                         </div>
                                     )}
                                 </div>
                             </div>
+
+                            {/* Acquired Effects */}
+                            {(acquiredLongTerms.length > 0 || acquiredPersistents.length > 0 || fastPassCount > 0 || safetyNetCount > 0) && (
+                                <div className="bg-white rounded-lg shadow-sm border">
+                                    <button onClick={() => setEffectsOpen(o => !o)}
+                                        className="w-full flex items-center justify-between px-3 py-2 border-b border-gray-100">
+                                        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('已获得效果')}</h3>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] text-gray-400 font-medium">{acquiredLongTerms.length + acquiredPersistents.length + (fastPassCount > 0 ? 1 : 0) + (safetyNetCount > 0 ? 1 : 0)}</span>
+                                            <span className="text-[10px] text-gray-400">{effectsOpen ? '▲' : '▼'}</span>
+                                        </div>
+                                    </button>
+                                    {effectsOpen && (
+                                        <div className="p-2 flex flex-col gap-1">
+                                            {acquiredLongTerms.map(fn => (
+                                                <div key={fn.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-50 border border-amber-200">
+                                                    <span className="text-xs">🏪</span>
+                                                    <span className="text-[11px] font-bold text-amber-700">{t(fn.name)}</span>
+                                                    <span className="text-[9px] text-amber-500 truncate">{t(fn.desc)}</span>
+                                                </div>
+                                            ))}
+                                            {acquiredPersistents.map(fn => (
+                                                <div key={fn.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-indigo-50 border border-indigo-200">
+                                                    <span className="text-xs">✨</span>
+                                                    <span className="text-[11px] font-bold text-indigo-700">{t(fn.name)}</span>
+                                                    <span className="text-[9px] text-indigo-500 truncate">{t(fn.desc)}</span>
+                                                </div>
+                                            ))}
+                                            {fastPassCount > 0 && (
+                                                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200">
+                                                    <span className="text-xs">⏩</span>
+                                                    <span className="text-[11px] font-bold text-emerald-700">
+                                                        {t('快速通道')}
+                                                        {fastPassCount > 1 && <span className="ml-1 text-emerald-500">×{fastPassCount}</span>}
+                                                    </span>
+                                                    <span className="text-[9px] text-emerald-500 truncate">{t('普通撤离等待')} {normalEvacWait}{t('回合')}</span>
+                                                </div>
+                                            )}
+                                            {safetyNetCount > 0 && (
+                                                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-rose-50 border border-rose-200">
+                                                    <span className="text-xs">🛟</span>
+                                                    <span className="text-[11px] font-bold text-rose-700">
+                                                        {t('安全网')}
+                                                        <span className="ml-1 text-rose-500">×{safetyNetCount}</span>
+                                                    </span>
+                                                    <span className="text-[9px] text-rose-500 truncate">{t('紧急撤离可保护')} {safetyNetCount} {t('个物品')}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Inventory */}
                             <div ref={inventoryRef} className="bg-white rounded-lg shadow-sm border">
@@ -535,14 +774,22 @@ const GameCore = () => {
                                     <div className="grid grid-cols-5 gap-1">
                                         {Array.from({ length: maxInventorySize }).map((_, i) => {
                                             const item = inventory[i];
-                                            const canReplace = pendingItem && item && !recycleMode;
+                                            const canReplace = pendingItem && item && !recycleMode && !pawnshopMode && !emergencyEvacMode;
                                             const isRecycleSelected = recycleMode && recycleSelected.has(i);
+                                            const isPawnshopSelected = pawnshopMode && pawnshopSelected.has(i);
+                                            const isPawnshopEligible = pawnshopMode && item?.isSticker;
+                                            const isEvacProtected = emergencyEvacMode && emergencyEvacProtected.has(i);
+                                            const isEvacEligible = emergencyEvacMode && item;
                                             const sc = item?.isOutOfGame ? (SCORE_STYLE[item.score] || SCORE_STYLE[1]) : null;
                                             return (
                                                 <div
                                                     key={i}
                                                     onClick={() => {
-                                                        if (recycleMode && item) {
+                                                        if (emergencyEvacMode && item) {
+                                                            toggleEmergencyEvacItem(i);
+                                                        } else if (pawnshopMode && item?.isSticker) {
+                                                            togglePawnshopItem(i);
+                                                        } else if (recycleMode && item) {
                                                             setRecycleSelected(prev => {
                                                                 const next = new Set(prev);
                                                                 next.has(i) ? next.delete(i) : next.add(i);
@@ -553,11 +800,15 @@ const GameCore = () => {
                                                         }
                                                     }}
                                                     className={`w-10 h-10 rounded flex items-center justify-center text-lg border-2 relative transition-all duration-150
-                                                        ${isRecycleSelected ? 'bg-red-100 border-red-400 scale-95 opacity-60'
+                                                        ${isEvacProtected ? 'bg-emerald-100 border-emerald-500 scale-95 ring-2 ring-emerald-400'
+                                                            : isPawnshopSelected ? 'bg-amber-200 border-amber-500 scale-95 ring-2 ring-amber-400'
+                                                            : isRecycleSelected ? 'bg-red-100 border-red-400 scale-95 opacity-60'
                                                             : !item ? 'bg-gray-50 border-gray-200'
                                                             : sc ? `bg-gradient-to-b ${sc.bg} ${sc.border}`
                                                             : 'bg-white border-gray-300'}
-                                                        ${canReplace ? 'cursor-pointer hover:bg-red-50 hover:border-red-400 hover:scale-110'
+                                                        ${isEvacEligible && !isEvacProtected ? 'cursor-pointer hover:border-emerald-400 hover:bg-emerald-50'
+                                                            : isPawnshopEligible && !isPawnshopSelected ? 'cursor-pointer hover:border-amber-400 hover:bg-amber-50'
+                                                            : canReplace ? 'cursor-pointer hover:bg-red-50 hover:border-red-400 hover:scale-110'
                                                             : recycleMode && item ? 'cursor-pointer hover:border-red-400' : ''}`}
                                                     title={item ? t(item.name) : ''}
                                                 >
@@ -586,6 +837,11 @@ const GameCore = () => {
                     <div className="text-center py-12">
                         {modalContent === 'evacuated' ? (
                             <h2 className="text-xl font-bold mb-4">{t('安全撤离')}</h2>
+                        ) : modalContent === 'emergency_evacuated' ? (
+                            <>
+                                <h2 className="text-xl font-bold mb-2 text-amber-600">⚠️ {t('紧急撤离')}</h2>
+                                <p className="text-amber-500 mb-4">{t('失去了一半物品')}</p>
+                            </>
                         ) : (
                             <>
                                 <h2 className="text-xl font-bold mb-2 text-red-600">{t('游戏结束')}</h2>
@@ -659,7 +915,9 @@ const GameCore = () => {
                             💀 {t('厄运结算')}:
                             {doomResolutionResult.hits.map((hit, i) => (
                                 <span key={i} className={`ml-1 ${hit.result === 'danger' ? 'text-red-400' : 'text-gray-400'}`}>
-                                    {hit.result === 'danger' ? '💥' : '·'}
+                                    {hit.result === 'danger'
+                                        ? (hit.damage > 1 ? `💥×${hit.damage}` : '💥')
+                                        : '·'}
                                 </span>
                             ))}
                             {doomResolutionResult.hpLoss > 0 && (

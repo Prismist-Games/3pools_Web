@@ -69,10 +69,10 @@ export const EXPEDITION_CONFIG = {
 
 // --- 订单配置 ---
 export const ORDER_CONFIG = {
-    bulletinCapacity: 5,    // 公告板最大订单数
+    bulletinCapacity: 3,    // 公告板最大订单数
     maxActive: 3,           // 玩家最多持有订单数
     newPerTurn: 1,          // 每回合新增订单数
-    initialCount: 4,        // 游戏开始时的初始订单数
+    initialCount: 3,        // v3: 公告牌初始满3个订单
 };
 
 // --- 墙贴纸数量范围 ---
