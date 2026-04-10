@@ -517,11 +517,13 @@ export const EN_TRANSLATIONS = {
     "乾坤大挪移": "Shuffle",
     "双倍惊喜": "Double or Nothing",
     "交叉问答": "Zigzag",
+    "转盘中心": "Carousel Core",
     "标准规则，行列自由选择": "Standard rules, free row/column selection",
     "部分格子内容隐藏，抽到相邻格时揭示": "Some cells are hidden, revealed when adjacent cells are drawn",
     "每次抽取后，剩余格子随机移位": "Remaining cells shuffle randomly after each draw",
     "部分格子效果翻倍（贴纸×2，厄运×2）": "Some cells have doubled effects (stickers ×2, doom ×2)",
     "必须行列交替选择": "Must alternate between row and column selection",
+    "每次抽取后，中心四格顺时针旋转一格": "The center 2×2 cells rotate clockwise one step after each draw",
 
     // --- Level-related UI ---
     "特殊地形关卡": "Special terrain level",

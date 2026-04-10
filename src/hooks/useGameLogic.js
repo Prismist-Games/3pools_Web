@@ -101,6 +101,7 @@ export const useGameLogic = (config) => {
     // --- Board Effect State ---
     const [gravityActive, setGravityActive] = useState(false);
     const [gravityDrops, setGravityDrops] = useState(null); // { "row-col": dropDistance } for animation
+    const [rotationMoves, setRotationMoves] = useState(null); // { "row-col": {fromRow, fromCol} } for center-rotate animation
 
     // --- Sub-Level State ---
     const [wallStack, setWallStack] = useState([]); // stack of { matrix, gold, wallType }
@@ -585,6 +586,37 @@ export const useGameLogic = (config) => {
                 for (let i = 0; i < cells.length; i++) {
                     const [r, c] = allPositions[i];
                     newMatrix[r][c] = cells[i];
+                }
+            }
+
+            // Center rotate wall: rotate the center 2×2 clockwise by one step
+            if (currentWallType?.id === 'center_rotate') {
+                const rows = newMatrix.length;
+                const cols = newMatrix[0].length;
+                // Center 2×2 for 4×4: rows [1,2] × cols [1,2]
+                const r0 = Math.floor(rows / 2) - 1;
+                const c0 = Math.floor(cols / 2) - 1;
+                if (r0 >= 0 && c0 >= 0 && r0 + 1 < rows && c0 + 1 < cols) {
+                    // Clockwise: TL→TR, TR→BR, BR→BL, BL→TL
+                    const tl = newMatrix[r0][c0];
+                    const tr = newMatrix[r0][c0 + 1];
+                    const br = newMatrix[r0 + 1][c0 + 1];
+                    const bl = newMatrix[r0 + 1][c0];
+                    newMatrix[r0][c0 + 1] = tl;       // TL → TR
+                    newMatrix[r0 + 1][c0 + 1] = tr;   // TR → BR
+                    newMatrix[r0 + 1][c0] = br;       // BR → BL
+                    newMatrix[r0][c0] = bl;           // BL → TL
+
+                    // Build moves map for animation — only non-null cells
+                    const moves = {};
+                    if (tl) moves[`${r0}-${c0 + 1}`]     = { fromRow: r0,     fromCol: c0     };
+                    if (tr) moves[`${r0 + 1}-${c0 + 1}`] = { fromRow: r0,     fromCol: c0 + 1 };
+                    if (br) moves[`${r0 + 1}-${c0}`]     = { fromRow: r0 + 1, fromCol: c0 + 1 };
+                    if (bl) moves[`${r0}-${c0}`]         = { fromRow: r0 + 1, fromCol: c0     };
+                    if (Object.keys(moves).length > 0) {
+                        setRotationMoves(moves);
+                        setTimeout(() => setRotationMoves(null), 350);
+                    }
                 }
             }
 
@@ -1109,6 +1141,7 @@ export const useGameLogic = (config) => {
 
         // Board Effects
         gravityDrops,
+        rotationMoves,
 
         // Sub-Level
         isInSubLevel, wallStack,
