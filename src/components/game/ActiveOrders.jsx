@@ -7,31 +7,31 @@ const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcce
     const { t } = useLanguage();
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border">
+        <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
             {/* Panel header */}
-            <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('已接订单')}</h3>
-                <span className="text-[10px] text-gray-300 font-medium">{orders.length}/3</span>
+            <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-kitchen-text-body">📋 {t('已接订单')}</h3>
+                <span className="text-[10px] text-kitchen-text-muted font-medium">{orders.length}/3</span>
             </div>
 
             <div className="p-2">
                 {/* Replace mode hint */}
                 {pendingAcceptOrder && (
-                    <div className="mb-2 p-2.5 bg-amber-50 border-2 border-amber-300 rounded-lg">
-                        <div className="text-[11px] font-bold text-amber-600 mb-1.5">{t('选择要替换的订单')}</div>
+                    <div className="mb-2 p-2.5 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-lg">
+                        <div className="text-[11px] font-bold text-kitchen-gold-deep mb-1.5">{t('选择要替换的订单')}</div>
                         <div className="flex items-center gap-1 mb-2">
                             {pendingAcceptOrder.rewards.map((r, i) => (
                                 <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
                             ))}
                         </div>
-                        <button onClick={onCancelReplace} className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">
+                        <button onClick={onCancelReplace} className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">
                             {t('取消')}
                         </button>
                     </div>
                 )}
 
                 {orders.length === 0 && !pendingAcceptOrder && (
-                    <p className="text-[11px] text-gray-300 text-center py-3">{t('暂无已接订单')}</p>
+                    <p className="text-[11px] text-kitchen-text-muted text-center py-3">{t('暂无已接订单')}</p>
                 )}
 
                 <div className="flex flex-col gap-1.5">
@@ -44,14 +44,14 @@ const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcce
                                 onClick={() => pendingAcceptOrder && onConfirmReplace(order.id)}
                                 className={`p-2 rounded-lg border ${
                                     pendingAcceptOrder
-                                        ? 'border-amber-400 bg-amber-50 cursor-pointer hover:bg-red-50 hover:border-red-400 transition-colors'
-                                        : submittable ? 'border-green-300 bg-green-50/50' : 'border-gray-100 bg-gray-50/50'
+                                        ? 'border-kitchen-gold bg-[#FFF8E0] cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger transition-colors'
+                                        : submittable ? 'border-kitchen-success bg-[#F0FFF8]' : 'border-kitchen-gold-border-muted/50 bg-kitchen-card/80'
                                 }`}
                             >
                                 {/* Row 1: difficulty + rewards + action */}
                                 <div className="flex items-center justify-between mb-1.5">
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] text-gray-300">{t('难度')}</span>
+                                        <span className="text-[9px] text-kitchen-text-muted">{t('难度')}</span>
                                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>
                                             {t(order.difficulty)}
                                         </span>
@@ -66,7 +66,7 @@ const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcce
                                             onClick={() => onSubmit(order.id)}
                                             disabled={!submittable}
                                             className={`text-[10px] px-2 py-0.5 rounded-md font-bold transition-colors
-                                                ${submittable ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                                                ${submittable ? 'bg-kitchen-gold text-kitchen-text-title hover:bg-kitchen-gold-dark' : 'bg-[#F5F0E8] text-kitchen-text-muted cursor-not-allowed'}`}
                                         >
                                             {t('提交')}
                                         </button>
@@ -74,7 +74,7 @@ const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcce
                                 </div>
                                 {/* Row 2: sticker requirements */}
                                 <div className="flex gap-1.5 flex-wrap items-center">
-                                    <span className="text-[9px] text-gray-300 uppercase tracking-wide">{t('需要')}</span>
+                                    <span className="text-[9px] text-kitchen-text-muted uppercase tracking-wide">{t('需要')}</span>
                                     {order.requirements.map((req, i) => {
                                         const owned = inventory.filter(item => item.stickerId === req.stickerId).length;
                                         const enough = owned >= req.count;
@@ -99,18 +99,35 @@ const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcce
                                             }>
                                                 <div className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
                                                     <div className={`w-7 h-7 rounded border ${
-                                                        isHovered ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-300'
-                                                        : enough ? 'border-green-400 bg-green-50'
-                                                        : 'border-gray-300 bg-white'
+                                                        isHovered ? 'border-kitchen-gold bg-[#FFF8E0] ring-2 ring-kitchen-gold/40'
+                                                        : enough ? 'border-kitchen-success bg-[#F0FFF8]'
+                                                        : 'border-kitchen-gold-border-muted bg-kitchen-card'
                                                     } flex items-center justify-center text-sm shadow-sm`}>
                                                         {req.icon}
                                                     </div>
-                                                    <span className={`text-[10px] font-bold ${isHovered ? 'text-blue-600' : enough ? 'text-green-600' : 'text-gray-400'}`}>{owned}<span className="font-normal text-gray-300">/{req.count}</span></span>
+                                                    <span className={`text-[10px] font-bold ${isHovered ? 'text-kitchen-gold-deep' : enough ? 'text-kitchen-success-border' : 'text-kitchen-text-muted'}`}>{owned}<span className={`font-normal text-kitchen-text-muted`}>/{req.count}</span></span>
                                                 </div>
                                             </Tooltip>
                                         );
                                     })}
                                 </div>
+                                {/* Progress bar */}
+                                {(() => {
+                                    const total = order.requirements.reduce((s, r) => s + r.count, 0);
+                                    const owned = order.requirements.reduce((s, r) => {
+                                        const have = inventory.filter(item => item.stickerId === r.stickerId).length;
+                                        return s + Math.min(have, r.count);
+                                    }, 0);
+                                    const pct = total > 0 ? Math.round((owned / total) * 100) : 0;
+                                    return (
+                                        <div className="mt-1.5 h-1.5 bg-[#F5F0E8] rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-kitchen-gold to-[#F2C040] transition-all duration-300"
+                                                style={{ width: `${pct}%` }}
+                                            />
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         );
                     })}
