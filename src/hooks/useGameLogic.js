@@ -3,6 +3,7 @@ import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { pickTemplate, LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
+import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
@@ -256,7 +257,17 @@ export const useGameLogic = (config) => {
     const selectWall = (index) => {
         if (!wallCandidates || !wallCandidates[index]) return;
         const chosen = wallCandidates[index];
-        const wallType = chosen.wallType;
+        let wallType = chosen.wallType;
+        // Conveyor modifier: roll random axis/index/direction per instance
+        if (wallType?.id === 'conveyor') {
+            const size = MATRIX_CONFIG.gridSize;
+            wallType = {
+                ...wallType,
+                conveyorAxis: Math.random() < 0.5 ? 'row' : 'col',
+                conveyorIndex: Math.floor(Math.random() * size),
+                conveyorDirection: Math.random() < 0.5 ? 1 : -1, // +1 = right/down, -1 = left/up
+            };
+        }
         setCurrentWallType(wallType);
 
         // Apply wall-type mutations to the grid before setting it
@@ -586,6 +597,39 @@ export const useGameLogic = (config) => {
                 for (let i = 0; i < cells.length; i++) {
                     const [r, c] = allPositions[i];
                     newMatrix[r][c] = cells[i];
+                }
+            }
+
+            // Conveyor wall: cycle the chosen row/column by one step in its fixed direction
+            if (currentWallType?.id === 'conveyor') {
+                const { conveyorAxis, conveyorIndex, conveyorDirection } = currentWallType;
+                const rows = newMatrix.length;
+                const cols = newMatrix[0].length;
+                const len = conveyorAxis === 'row' ? cols : rows;
+
+                // Extract the current line
+                const line = [];
+                for (let i = 0; i < len; i++) {
+                    const r = conveyorAxis === 'row' ? conveyorIndex : i;
+                    const c = conveyorAxis === 'row' ? i : conveyorIndex;
+                    line.push(newMatrix[r][c]);
+                }
+
+                // Cyclic shift: new[i] = old[(i - direction + len) % len]
+                const moves = {};
+                for (let i = 0; i < len; i++) {
+                    const fromI = ((i - conveyorDirection) % len + len) % len;
+                    const r = conveyorAxis === 'row' ? conveyorIndex : i;
+                    const c = conveyorAxis === 'row' ? i : conveyorIndex;
+                    const fromR = conveyorAxis === 'row' ? conveyorIndex : fromI;
+                    const fromC = conveyorAxis === 'row' ? fromI : conveyorIndex;
+                    newMatrix[r][c] = line[fromI];
+                    if (line[fromI]) moves[`${r}-${c}`] = { fromRow: fromR, fromCol: fromC };
+                }
+
+                if (Object.keys(moves).length > 0) {
+                    setRotationMoves(moves);
+                    setTimeout(() => setRotationMoves(null), 350);
                 }
             }
 
