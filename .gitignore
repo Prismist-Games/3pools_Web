@@ -134,3 +134,6 @@ Desktop.ini
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Superpowers brainstorm workspace (visual companion + session state)
+.superpowers/
