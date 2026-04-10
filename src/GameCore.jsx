@@ -6,6 +6,7 @@ import WallPicker from './components/game/WallPicker';
 import BulletinBoard, { SCORE_STYLE, RewardCard, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
 import ActiveOrders from './components/game/ActiveOrders';
 import ScoreBoard from './components/game/ScoreBoard';
+import DispatchJudgment from './components/game/DispatchJudgment';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from './data/v2Config';
@@ -26,6 +27,7 @@ const GameCore = () => {
     const [transitionKey, setTransitionKey] = useState(0);
     const [transitionLabel, setTransitionLabel] = useState('');
     const prevTurnRef = useRef(0);
+    const [dispatchOpen, setDispatchOpen] = useState(false);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -171,6 +173,7 @@ const GameCore = () => {
                             <button onClick={() => setGuideOpen(true)} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">❓</button>
                             <button onClick={toggleLanguage} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
                             <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#FFF0F0] border border-kitchen-danger text-kitchen-danger-text hover:bg-red-100 transition-colors">{t('重置')}</button>
+                            <button onClick={() => setDispatchOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-800 text-amber-200 border border-amber-600 hover:bg-amber-700 transition-colors">{t('派遣')}</button>
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                             <Link to="/editor" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors no-underline">📐</Link>
                         </div>
@@ -746,6 +749,9 @@ const GameCore = () => {
 
                 {/* Game Guide */}
                 {guideOpen && <GameGuide onClose={() => setGuideOpen(false)} />}
+
+                {/* Dispatch Judgment Modal */}
+                {dispatchOpen && <DispatchJudgment onClose={() => setDispatchOpen(false)} />}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}

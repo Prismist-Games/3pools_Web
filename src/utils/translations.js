@@ -634,4 +634,21 @@ export const EN_TRANSLATIONS = {
     "继续": "Continue",
     "世事无常，行情不佳，餐厅在几经挣扎之后还是走到了倒闭的边缘。": "Times changed, luck ran out — and despite every effort, your restaurant teetered on the edge of closing for good.",
     "prologue_challenge": "Each day, the show sends a random audience member to your restaurant with specific requests. Using only the limited ingredients you win from the show, you must do your best to satisfy their demands and earn their approval.",
+
+    // --- Dispatch Judgment ---
+    "派遣判定": "Dispatch Judgment",
+    "派遣": "Dispatch",
+    "英雄数值": "Hero Stats",
+    "任务要求": "Mission Req.",
+    "健康": "Health",
+    "香气": "Aroma",
+    "口感": "Texture",
+    "味道": "Flavor",
+    "外观": "Appearance",
+    "开始判定": "Start Judgment",
+    "判定中...": "Judging...",
+    "判定成功": "SUCCESS",
+    "判定失败": "FAILURE",
+    "关闭": "Close",
+    "覆盖率": "Coverage",
 };
