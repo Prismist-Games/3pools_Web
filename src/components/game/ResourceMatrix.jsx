@@ -429,6 +429,66 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             </div>
                         );
                     })()}
+
+                    {/* Conveyor modifier: animated stripe + arrow overlay on the chosen row/column */}
+                    {wallType?.id === 'conveyor' && (() => {
+                        const isRow = wallType.conveyorAxis === 'row';
+                        const idx = wallType.conveyorIndex;
+                        const dir = wallType.conveyorDirection;
+                        const size = MATRIX_CONFIG.gridSize;
+                        const arrowChar = isRow ? (dir > 0 ? '→' : '←') : (dir > 0 ? '↓' : '↑');
+                        const gradientAngle = isRow ? '60deg' : '150deg';
+                        const OVERFLOW = 40; // extra margin so the translating layer never exposes its edge
+                        return (
+                            <div
+                                className="pointer-events-none absolute"
+                                style={{
+                                    top: isRow ? `${idx * TRACK}px` : '0px',
+                                    left: isRow ? '0px' : `${idx * TRACK}px`,
+                                    width: isRow ? `${size * TRACK}px` : `${TRACK}px`,
+                                    height: isRow ? `${TRACK}px` : `${size * TRACK}px`,
+                                    overflow: 'hidden',
+                                    borderRadius: '6px',
+                                    zIndex: 3,
+                                }}
+                            >
+                                {/* Inner layer: oversized stripe background translated via GPU transform */}
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        top: `-${OVERFLOW}px`,
+                                        left: `-${OVERFLOW}px`,
+                                        right: `-${OVERFLOW}px`,
+                                        bottom: `-${OVERFLOW}px`,
+                                        background: `repeating-linear-gradient(${gradientAngle}, rgba(232,168,48,0.20) 0 10px, transparent 10px 28px)`,
+                                        animation: `${isRow ? 'conveyor-slide-h' : 'conveyor-slide-v'} 1.2s linear infinite${dir < 0 ? ' reverse' : ''}`,
+                                        willChange: 'transform',
+                                    }}
+                                />
+                                {/* Arrow: static, not affected by the sliding transform */}
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <span
+                                        className="text-kitchen-gold/40 font-black select-none"
+                                        style={{
+                                            fontSize: '40px',
+                                            lineHeight: 1,
+                                            textShadow: '0 0 6px rgba(232,168,48,0.25)',
+                                        }}
+                                    >
+                                        {arrowChar}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })()}
                     {matrix.flatMap((row, rowIndex) =>
                         row.map((cell, colIndex) => {
                             // Hover: cell is in hovered row or hovered column

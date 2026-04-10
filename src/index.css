@@ -185,6 +185,22 @@ body {
     100% { transform: rotate(360deg); }
 }
 
+/* Conveyor stripe translation.
+   Scroll distance = stripe period (28px) / cos(30°) = exactly one
+   diagonal period. Uses CSS cos() so the browser computes the
+   exact value; the animation is a GPU-composited transform on an
+   inner layer, which avoids the sub-pixel background-position
+   jitter that produced visible seams at the loop boundary. */
+@keyframes conveyor-slide-h {
+    from { transform: translateX(0); }
+    to   { transform: translateX(calc(28px / cos(30deg))); }
+}
+
+@keyframes conveyor-slide-v {
+    from { transform: translateY(0); }
+    to   { transform: translateY(calc(28px / cos(30deg))); }
+}
+
 @layer utilities {
   .scrollbar-hide::-webkit-scrollbar {
       display: none;
