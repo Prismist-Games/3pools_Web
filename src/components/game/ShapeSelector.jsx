@@ -30,7 +30,7 @@ const renderShapePreview = (shape) => {
             const isPivot = key === pivotKey;
             gridCols.push(
                 <div key={key} className={`w-2.5 h-2.5 rounded-sm ${
-                    isPivot ? 'bg-blue-500' : filled ? 'bg-slate-500' : 'bg-transparent'
+                    isPivot ? 'bg-kitchen-gold-deep' : filled ? 'bg-kitchen-text-body' : 'bg-transparent'
                 }`} />
             );
         }
@@ -45,8 +45,8 @@ const ShapeSelector = ({ activeShapeId, onSelect, onCancel }) => {
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4">
-                <h3 className="text-lg font-black text-slate-800 text-center mb-4">{t("选择搜刮形状")}</h3>
+            <div className="bg-kitchen-card rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4">
+                <h3 className="text-lg font-black text-kitchen-text-title text-center mb-4">{t("选择搜刮形状")}</h3>
                 <div className="flex flex-wrap justify-center gap-3">
                     {SHAPE_DEFINITIONS.map(shape => (
                         <button
@@ -55,8 +55,8 @@ const ShapeSelector = ({ activeShapeId, onSelect, onCancel }) => {
                             className={`flex flex-col items-center justify-between gap-2
                                 w-24 h-32 px-2 py-3 rounded-xl border-2 transition-all duration-150 select-none
                                 ${shape.id === activeShapeId
-                                    ? 'ring-2 ring-blue-500 border-blue-400 bg-blue-50'
-                                    : 'border-slate-200 bg-white hover:border-slate-300'}
+                                    ? 'ring-2 ring-kitchen-gold border-kitchen-gold-border bg-[#FFF8E0]'
+                                    : 'border-kitchen-gold-border-muted bg-kitchen-card hover:border-kitchen-gold-border'}
                                 cursor-pointer active:scale-95
                             `}
                         >
@@ -64,15 +64,15 @@ const ShapeSelector = ({ activeShapeId, onSelect, onCancel }) => {
                                 {renderShapePreview(shape)}
                             </div>
                             <div className="flex flex-col items-center gap-0.5">
-                                <span className="text-xs font-semibold text-slate-700">{t(shape.name)}</span>
-                                <span className="text-[10px] text-slate-400">{t(shape.desc)}</span>
+                                <span className="text-xs font-semibold text-kitchen-text-title">{t(shape.name)}</span>
+                                <span className="text-[10px] text-kitchen-text-secondary">{t(shape.desc)}</span>
                             </div>
                         </button>
                     ))}
                 </div>
                 <button
                     onClick={onCancel}
-                    className="mt-4 w-full py-2 text-sm font-bold text-slate-500 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+                    className="mt-4 w-full py-2 text-sm font-bold text-kitchen-text-secondary bg-[#FFF8F0] rounded-xl hover:bg-[#FFFAF2] transition-colors"
                 >
                     {t("取消")}
                 </button>

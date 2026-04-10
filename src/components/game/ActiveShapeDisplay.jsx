@@ -36,8 +36,8 @@ const ActiveShapeDisplay = ({ shape, direction }) => {
                 <div
                     key={key}
                     className={`w-3 h-3 rounded-sm ${
-                        isPivot ? 'bg-blue-500' :
-                        filled ? 'bg-blue-300' : 'bg-transparent'
+                        isPivot ? 'bg-kitchen-gold-deep' :
+                        filled ? 'bg-kitchen-gold-border' : 'bg-transparent'
                     }`}
                 />
             );
@@ -46,13 +46,13 @@ const ActiveShapeDisplay = ({ shape, direction }) => {
     }
 
     return (
-        <div className="flex items-center gap-2 px-2 py-1.5 bg-white border border-slate-200 rounded-lg">
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-kitchen-card border border-kitchen-gold-border-muted rounded-lg">
             <div className="flex flex-col gap-px items-center">
                 {gridRows}
             </div>
             <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] font-bold text-slate-700 leading-tight">{t(shape.name)} {DIRECTION_ARROWS[direction]}</span>
-                <span className="text-[9px] text-slate-400 leading-tight">{t(shape.desc)}</span>
+                <span className="text-[10px] font-bold text-kitchen-text-title leading-tight">{t(shape.name)} {DIRECTION_ARROWS[direction]}</span>
+                <span className="text-[9px] text-kitchen-text-secondary leading-tight">{t(shape.desc)}</span>
             </div>
         </div>
     );

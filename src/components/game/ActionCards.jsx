@@ -12,7 +12,7 @@ const CARD_ICONS = {
 };
 
 const CARD_COLORS = {
-    [ACTION_TYPES.MOVE_FORWARD]: 'border-blue-300 bg-blue-50 hover:border-blue-400 hover:bg-blue-100',
+    [ACTION_TYPES.MOVE_FORWARD]: 'border-kitchen-gold-border bg-[#FFF8E0] hover:border-kitchen-gold hover:bg-[#FFF8F0]',
     [ACTION_TYPES.MOVE_BACKWARD]: 'border-cyan-300 bg-cyan-50 hover:border-cyan-400 hover:bg-cyan-100',
     [ACTION_TYPES.TURN_LEFT]: 'border-amber-300 bg-amber-50 hover:border-amber-400 hover:bg-amber-100',
     [ACTION_TYPES.TURN_RIGHT]: 'border-orange-300 bg-orange-50 hover:border-orange-400 hover:bg-orange-100',
@@ -41,15 +41,15 @@ const ActionCards = ({ cards, actionsRemaining, onUseCard, onEndTurn, disabled }
                                 w-16 h-20 md:w-20 md:h-24
                                 rounded-xl border-2 transition-all duration-150 select-none
                                 ${card.used
-                                    ? 'bg-slate-100 border-slate-200 opacity-30 cursor-default'
+                                    ? 'bg-[#FFF8F0] border-kitchen-gold-border-muted opacity-30 cursor-default'
                                     : isUsable
                                         ? `${CARD_COLORS[card.type]} cursor-pointer active:scale-95 shadow-sm`
-                                        : 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'
+                                        : 'bg-[#FFF8F0] border-kitchen-gold-border-muted opacity-50 cursor-not-allowed'
                                 }
                             `}
                         >
-                            <Icon size={20} className={card.used ? 'text-slate-300' : 'text-slate-600'} />
-                            <span className={`text-[10px] md:text-xs font-bold leading-tight ${card.used ? 'text-slate-300' : 'text-slate-700'}`}>
+                            <Icon size={20} className={card.used ? 'text-kitchen-text-muted' : 'text-kitchen-text-body'} />
+                            <span className={`text-[10px] md:text-xs font-bold leading-tight ${card.used ? 'text-kitchen-text-muted' : 'text-kitchen-text-title'}`}>
                                 {t(def.name)}
                             </span>
                         </button>
@@ -58,7 +58,7 @@ const ActionCards = ({ cards, actionsRemaining, onUseCard, onEndTurn, disabled }
             </div>
 
             <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-slate-500">
+                <span className="text-xs font-bold text-kitchen-text-body">
                     {t("剩余行动")}: {actionsRemaining}
                 </span>
                 <button
@@ -68,7 +68,7 @@ const ActionCards = ({ cards, actionsRemaining, onUseCard, onEndTurn, disabled }
                         flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 font-bold text-sm
                         transition-all duration-150 select-none
                         ${disabled
-                            ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                            ? 'bg-[#FFF8F0] border-kitchen-gold-border-muted text-kitchen-text-secondary cursor-not-allowed'
                             : 'bg-green-500 border-green-600 text-white hover:bg-green-600 cursor-pointer active:scale-95 shadow-md'
                         }
                     `}

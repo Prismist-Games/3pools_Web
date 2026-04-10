@@ -7,7 +7,7 @@ export const Toast = ({ message, type = 'info', onClose }) => {
         return () => clearTimeout(timer);
     }, [onClose]);
 
-    const bgColor = type === 'error' ? 'bg-red-500' : 'bg-slate-800';
+    const bgColor = type === 'error' ? 'bg-kitchen-danger' : 'bg-kitchen-gold';
 
     return (
         <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[200] ${bgColor} text-white px-6 py-2 rounded-full shadow-lg flex items-center gap-2 animate-in slide-in-from-top-4 fade-in`}>
