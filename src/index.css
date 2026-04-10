@@ -66,7 +66,7 @@ body {
 
 @keyframes crt-transition-in {
   0% { opacity: 1; }
-  15% { opacity: 1; }
+  55.75% { opacity: 1; }
   100% { opacity: 0; pointer-events: none; }
 }
 

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 
 /**
- * Brief black-screen + static noise + channel-switch transition.
- * Shows for ~0.8s when `trigger` changes to a new value.
- * Displays the round/expedition label during the flash.
+ * Black-screen + static noise + channel-switch transition.
+ * Holds fully opaque for ~0.63s, then fades out (~0.5s).
+ * Total duration ~1.13s.
  */
 const RoundTransition = ({ trigger, label }) => {
     const [visible, setVisible] = useState(false);
@@ -11,7 +11,7 @@ const RoundTransition = ({ trigger, label }) => {
     useEffect(() => {
         if (!trigger) return;
         setVisible(true);
-        const timer = setTimeout(() => setVisible(false), 800);
+        const timer = setTimeout(() => setVisible(false), 1130);
         return () => clearTimeout(timer);
     }, [trigger]);
 
@@ -22,7 +22,7 @@ const RoundTransition = ({ trigger, label }) => {
             className="fixed inset-0 z-[300] pointer-events-none flex items-center justify-center"
             style={{
                 background: '#1A1A1A',
-                animation: 'crt-transition-in 0.8s ease-out forwards',
+                animation: 'crt-transition-in 1.13s ease-out forwards',
             }}
         >
             {/* Static noise overlay */}
