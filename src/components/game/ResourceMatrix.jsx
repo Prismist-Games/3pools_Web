@@ -2,6 +2,7 @@ import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
+import { MATRIX_CONFIG } from '../../data/matrixConfig';
 
 /** Tooltip for grid cells — Portal-based, same style as ToolItemTooltip */
 const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
@@ -220,7 +221,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacenc
 };
 
 /**
- * 5×5 grid display for turn-based prototype.
+ * Wall grid display for turn-based prototype (size from MATRIX_CONFIG.gridSize).
  */
 const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, gravityDrops }) => {
     const { t, language } = useLanguage();
@@ -364,7 +365,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
 
             {/* Column buttons row — offset by row-button area */}
             <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
-                {Array.from({ length: 5 }, (_, colIndex) => {
+                {Array.from({ length: MATRIX_CONFIG.gridSize }, (_, colIndex) => {
                     const hasActive = matrix.some(row => row[colIndex] !== null);
                     const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
                     const colClickable = canDraw && hasActive && !altBlocked;
@@ -425,12 +426,12 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                     })}
                 </div>
 
-                {/* 5×5 grid — zero-gap CSS Grid, margins create visual spacing */}
+                {/* Wall grid — zero-gap CSS Grid, margins create visual spacing */}
                 <div
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: `repeat(5, ${TRACK}px)`,
-                        gridTemplateRows: `repeat(5, ${TRACK}px)`,
+                        gridTemplateColumns: `repeat(${MATRIX_CONFIG.gridSize}, ${TRACK}px)`,
+                        gridTemplateRows: `repeat(${MATRIX_CONFIG.gridSize}, ${TRACK}px)`,
                         /* no gap — margins on cells handle spacing */
                     }}
                 >

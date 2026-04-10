@@ -198,7 +198,7 @@ export function fillEmptyCellsWithStickers(grid, wallStickers, gridSize) {
 }
 
 /**
- * Generate a fully procedural 5x5 wall (original behavior, now delegates to extracted helpers).
+ * Generate a fully procedural wall (size from MATRIX_CONFIG.gridSize; delegates to extracted helpers).
  */
 export function generateWall(wallStickers) {
   const { gridSize } = MATRIX_CONFIG;

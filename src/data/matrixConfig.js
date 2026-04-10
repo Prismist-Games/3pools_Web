@@ -1,11 +1,11 @@
 /**
  * Matrix Configuration - Turn-Based Prototype
- * 5×5 grid. Each cell is an item or a doom cell.
+ * 4×4 grid. Each cell is an item or a doom cell.
  * Items can span 1-4 cells in Tetris-like shapes.
  */
 
 export const MATRIX_CONFIG = {
-  gridSize: 5,
+  gridSize: 4,
 
   // Doom cells: independent cells on the grid (not items)
   doomCells: {
