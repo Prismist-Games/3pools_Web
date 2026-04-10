@@ -275,28 +275,14 @@ export const useGameLogic = (config) => {
         }
 
         if (wallType.id === 'hidden') {
-            // Mark ~30% of groups/single cells as hidden (whole group hides together)
+            // Mark ~30% of sticker cells as hidden (independent per cell).
             const ratio = wallType.hiddenRatio || 0.3;
-            const hiddenGroups = new Set();
             for (let r = 0; r < grid.length; r++) {
                 for (let c = 0; c < grid[r].length; c++) {
                     const cell = grid[r][c];
                     if (!cell || (cell.type !== 'sticker' && cell.type !== 'item')) continue;
-                    if (cell.groupId && hiddenGroups.has(cell.groupId)) continue; // already decided
                     if (Math.random() < ratio) {
-                        if (cell.groupId) {
-                            hiddenGroups.add(cell.groupId);
-                        } else {
-                            cell.hidden = true;
-                        }
-                    }
-                }
-            }
-            // Apply group hiding
-            for (let r = 0; r < grid.length; r++) {
-                for (let c = 0; c < grid[r].length; c++) {
-                    if (grid[r][c]?.groupId && hiddenGroups.has(grid[r][c].groupId)) {
-                        grid[r][c].hidden = true;
+                        cell.hidden = true;
                     }
                 }
             }
@@ -531,50 +517,24 @@ export const useGameLogic = (config) => {
         setMatrix(prev => {
             const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
 
-            // Remove drawn cell(s)
-            if (drawnCell.groupId) {
-                for (let r = 0; r < newMatrix.length; r++) {
-                    for (let c = 0; c < newMatrix[r].length; c++) {
-                        if (newMatrix[r][c]?.groupId === drawnCell.groupId) {
-                            newMatrix[r][c] = null;
-                        }
-                    }
-                }
-            } else {
-                newMatrix[finalRowIndex][finalColIndex] = null;
-            }
+            // Remove drawn cell
+            newMatrix[finalRowIndex][finalColIndex] = null;
 
             // Bomb: destroy all adjacent cells (8 directions)
             if (drawnCell.type === 'bomb') {
                 const bombDirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-                const destroyGroups = new Set();
                 for (const [dr, dc] of bombDirs) {
                     const nr = finalRowIndex + dr;
                     const nc = finalColIndex + dc;
                     if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length && newMatrix[nr][nc]) {
-                        if (newMatrix[nr][nc].groupId) {
-                            destroyGroups.add(newMatrix[nr][nc].groupId);
-                        } else {
-                            newMatrix[nr][nc] = null;
-                        }
-                    }
-                }
-                // Destroy entire groups touched by explosion
-                if (destroyGroups.size > 0) {
-                    for (let r = 0; r < newMatrix.length; r++) {
-                        for (let c = 0; c < newMatrix[r].length; c++) {
-                            if (newMatrix[r][c]?.groupId && destroyGroups.has(newMatrix[r][c].groupId)) {
-                                newMatrix[r][c] = null;
-                            }
-                        }
+                        newMatrix[nr][nc] = null;
                     }
                 }
                 showToast('💣 ' + t('炸弹爆炸！'), 'warning');
             }
 
-            // Hidden wall: reveal adjacent hidden cells (whole group reveals together)
+            // Hidden wall: reveal adjacent hidden cells (independent per cell)
             if (currentWallType?.id === 'hidden') {
-                const revealGroups = new Set();
                 const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
                 for (const [dr, dc] of dirs) {
                     const nr = finalRowIndex + dr;
@@ -582,21 +542,7 @@ export const useGameLogic = (config) => {
                     if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length) {
                         const neighbor = newMatrix[nr][nc];
                         if (neighbor?.hidden) {
-                            if (neighbor.groupId) {
-                                revealGroups.add(neighbor.groupId);
-                            } else {
-                                neighbor.hidden = false;
-                            }
-                        }
-                    }
-                }
-                // Reveal entire groups
-                if (revealGroups.size > 0) {
-                    for (let r = 0; r < newMatrix.length; r++) {
-                        for (let c = 0; c < newMatrix[r].length; c++) {
-                            if (newMatrix[r][c]?.groupId && revealGroups.has(newMatrix[r][c].groupId)) {
-                                newMatrix[r][c].hidden = false;
-                            }
+                            neighbor.hidden = false;
                         }
                     }
                 }
@@ -642,7 +588,7 @@ export const useGameLogic = (config) => {
                 }
             }
 
-            // Gravity: all cells fall down, polyominos move as a unit
+            // Gravity: all cells fall down independently, one step per iteration
             // Iterative bottom-up: process from bottom row upward so lower things settle first
             if (gravityActive || drawnCell.type === 'gravity') {
                 const rows = newMatrix.length;
@@ -662,46 +608,16 @@ export const useGameLogic = (config) => {
                 let moved = true;
                 while (moved) {
                     moved = false;
-                    const processedGroups = new Set();
 
                     for (let r = rows - 2; r >= 0; r--) {
                         for (let c = 0; c < cols; c++) {
                             const cell = newMatrix[r][c];
                             if (!cell || cell.type === 'empty') continue;
 
-                            if (cell.groupId && cell.shapeSize > 1) {
-                                if (processedGroups.has(cell.groupId)) continue;
-                                processedGroups.add(cell.groupId);
-
-                                const groupMembers = [];
-                                for (let gr = 0; gr < rows; gr++) {
-                                    for (let gc = 0; gc < cols; gc++) {
-                                        if (newMatrix[gr][gc]?.groupId === cell.groupId) {
-                                            groupMembers.push({ r: gr, c: gc });
-                                        }
-                                    }
-                                }
-
-                                const canDrop = groupMembers.every(({ r: gr, c: gc }) => {
-                                    const below = gr + 1;
-                                    if (below >= rows) return false;
-                                    return isFree(below, gc) || groupMembers.some(m => m.r === below && m.c === gc);
-                                });
-
-                                if (canDrop) {
-                                    const sorted = [...groupMembers].sort((a, b) => b.r - a.r);
-                                    for (const { r: gr, c: gc } of sorted) {
-                                        newMatrix[gr + 1][gc] = newMatrix[gr][gc];
-                                        newMatrix[gr][gc] = null;
-                                    }
-                                    moved = true;
-                                }
-                            } else {
-                                if (isFree(r + 1, c)) {
-                                    newMatrix[r + 1][c] = cell;
-                                    newMatrix[r][c] = null;
-                                    moved = true;
-                                }
+                            if (isFree(r + 1, c)) {
+                                newMatrix[r + 1][c] = cell;
+                                newMatrix[r][c] = null;
+                                moved = true;
                             }
                         }
                     }
@@ -734,7 +650,6 @@ export const useGameLogic = (config) => {
             setFlyingItem({
                 icon: obtainedItem.item.icon,
                 name: obtainedItem.item.name,
-                shapeSize: obtainedItem.shapeSize || 1,
                 rowIndex: finalRowIndex,
                 colIndex: finalColIndex,
                 id: Date.now(),
