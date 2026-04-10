@@ -99,6 +99,17 @@ body {
   animation: cell-flip 0.5s ease-in-out;
 }
 
+/* Hidden cell — kitchen towel stripe pattern */
+.cell-hidden-pattern {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #F5E6D0,
+    #F5E6D0 4px,
+    #E8D8B8 4px,
+    #E8D8B8 8px
+  );
+}
+
 .animate-signal-shake {
   animation: signal-shake 0.3s ease-in-out 3;
 }

@@ -125,7 +125,9 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacenc
 
     // Cell background
     let bgClass;
-    if (cell === null || cell.type === 'empty') {
+    if (cell && cell.hidden) {
+        bgClass = 'cell-hidden-pattern border-kitchen-gold-border-muted';
+    } else if (cell === null || cell.type === 'empty') {
         bgClass = 'bg-[#F8F4EC] border-[#D4C8B0]';
     } else if (cell.type === 'doom_resolution') {
         bgClass = 'bg-[#FFF0EE] border-kitchen-danger';
@@ -166,7 +168,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, adjacenc
     let extraShadow = undefined;
 
     if (highlight === 'settled') {
-        highlightClass = 'ring-3 ring-kitchen-gold scale-110 z-20 shadow-lg shadow-[rgba(232,168,48,0.3)] transition-all duration-200';
+        highlightClass = 'ring-3 ring-kitchen-gold scale-110 z-20 shadow-lg shadow-[rgba(232,168,48,0.3)] transition-all duration-200 animate-cell-flip';
     } else if (highlight === 'scanning') {
         highlightClass = 'ring-2 ring-kitchen-gold/60 z-10 transition-all duration-75';
     } else if (highlight === 'scan-row') {
