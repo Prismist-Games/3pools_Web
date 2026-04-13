@@ -18,22 +18,49 @@ export const STICKER_TYPES = [
 // --- 食材与厨具 ---
 // 按分值分成4个tier：1/2/3/5分
 export const OUT_OF_GAME_ITEMS = [
-    // 1分 — 基础调料
-    { id: 'salt',     icon: '🧂', name: '盐',     score: 1 },
-    { id: 'ginger',   icon: '🫚', name: '姜',     score: 1 },
-    { id: 'butter',   icon: '🧈', name: '黄油',   score: 1 },
+    // 1分 — 调料 & 酱料
+    { id: 'salt',      icon: '🧂', name: '盐',     score: 1 },
+    { id: 'butter',    icon: '🧈', name: '黄油',   score: 1 },
+    { id: 'soy',       icon: '🫗', name: '酱油',   score: 1 },
+    { id: 'olive_oil', icon: '🫒', name: '橄榄油', score: 1 },
+    { id: 'cream',     icon: '🥛', name: '奶油',   score: 1 },
+    { id: 'vinegar',   icon: '🍶', name: '醋',     score: 1 },
+    { id: 'sugar',     icon: '🍬', name: '糖',     score: 1 },
+    // 2分 — 香料 & 蔬果
+    { id: 'garlic',    icon: '🧄', name: '大蒜',   score: 2 },
+    { id: 'ginger',    icon: '🫚', name: '姜',     score: 2 },
+    { id: 'chili',     icon: '🌶️', name: '辣椒',   score: 2 },
+    { id: 'onion',     icon: '🧅', name: '洋葱',   score: 2 },
+    { id: 'tomato',    icon: '🍅', name: '番茄',   score: 2 },
+    { id: 'lemon',     icon: '🍋', name: '柠檬',   score: 2 },
+    { id: 'mushroom',  icon: '🍄', name: '蘑菇',   score: 2 },
+    { id: 'potato',    icon: '🥔', name: '土豆',   score: 2 },
+    { id: 'veggie',    icon: '🥬', name: '蔬菜',   score: 2 },
+    { id: 'corn',      icon: '🌽', name: '玉米',   score: 2 },
+    // 1分 — 主食 & 基底
+    { id: 'rice',      icon: '🍚', name: '米饭',   score: 1 },
+    { id: 'noodle',    icon: '🍜', name: '面条',   score: 1 },
+    { id: 'flour',     icon: '🌾', name: '面粉',   score: 1 },
     // 2分 — 普通食材
-    { id: 'egg',      icon: '🥚', name: '鸡蛋',   score: 2 },
-    { id: 'fish',     icon: '🐟', name: '鲜鱼',   score: 2 },
-    { id: 'veggie',   icon: '🥬', name: '蔬菜',   score: 2 },
-    // 3分 — 珍稀食材
-    { id: 'steak',    icon: '🥩', name: '牛排',   score: 3 },
-    { id: 'lobster',  icon: '🦞', name: '龙虾',   score: 3 },
-    { id: 'truffle',  icon: '🍄', name: '松露',   score: 3 },
+    { id: 'bread',     icon: '🍞', name: '面包',   score: 2 },
+    { id: 'cheese',    icon: '🧀', name: '芝士',   score: 2 },
+    { id: 'tofu',      icon: '🫘', name: '豆腐',   score: 2 },
+    { id: 'egg',       icon: '🥚', name: '鸡蛋',   score: 2 },
+    { id: 'chicken',   icon: '🍗', name: '鸡肉',   score: 2 },
+    { id: 'pork',      icon: '🥓', name: '猪肉',   score: 2 },
+    // 3分 — 优质食材
+    { id: 'beef',      icon: '🥩', name: '牛肉',   score: 3 },
+    { id: 'lamb',      icon: '🍖', name: '羊肉',   score: 3 },
+    { id: 'fish',      icon: '🐟', name: '鱼',     score: 3 },
+    { id: 'shrimp',    icon: '🦐', name: '虾',     score: 3 },
+    { id: 'salmon',    icon: '🍣', name: '三文鱼', score: 3 },
+    // 5分 — 珍稀食材
+    { id: 'lobster',   icon: '🦞', name: '龙虾',   score: 5 },
+    { id: 'truffle',   icon: '🫕', name: '松露',   score: 5 },
     // 5分 — 厨具
-    { id: 'knife',    icon: '🔪', name: '主厨刀', score: 5 },
-    { id: 'pan',      icon: '🍳', name: '铸铁锅', score: 5 },
-    { id: 'pot',      icon: '🫕', name: '砂锅',   score: 5 },
+    { id: 'knife',     icon: '🔪', name: '主厨刀', score: 5 },
+    { id: 'pan',       icon: '🍳', name: '铸铁锅', score: 5 },
+    { id: 'pot',       icon: '🫕', name: '砂锅',   score: 5 },
 ];
 
 // --- 订单模板 ---

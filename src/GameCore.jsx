@@ -7,6 +7,7 @@ import BulletinBoard, { SCORE_STYLE, RewardCard, DIFFICULTY_STYLE } from './comp
 import ActiveOrders from './components/game/ActiveOrders';
 import ScoreBoard from './components/game/ScoreBoard';
 import DispatchJudgment from './components/game/DispatchJudgment';
+import AICooking, { pickRandomCustomer } from './components/game/AICooking';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from './data/v2Config';
@@ -21,6 +22,8 @@ const GameCore = () => {
     const [debugOpen, setDebugOpen] = useState(false);
     const [debugSelectedItem, setDebugSelectedItem] = useState(null);
     const [dispatchOpen, setDispatchOpen] = useState(false);
+    const [aiCookingOpen, setAiCookingOpen] = useState(false);
+    const [aiCustomer, setAiCustomer] = useState(pickRandomCustomer);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -50,6 +53,7 @@ const GameCore = () => {
         acceptOrder, submitOrder, canSubmitOrder,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         pendingAcceptOrder, confirmReplaceOrder, cancelReplaceOrder,
+        debugAddStorageItems,
     } = state;
 
     // --- Doom animation interval ---
@@ -155,6 +159,7 @@ const GameCore = () => {
                             <button onClick={toggleLanguage} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-600 border border-indigo-200 hover:bg-indigo-200 transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
                             <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-100 text-red-500 border border-red-200 hover:bg-red-200 transition-colors">{t('重置')}</button>
                             <button onClick={() => setDispatchOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-800 text-amber-200 border border-amber-600 hover:bg-amber-700 transition-colors">{t('派遣')}</button>
+                            <button onClick={() => setAiCookingOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-orange-600 text-orange-100 border border-orange-500 hover:bg-orange-500 transition-colors">🍳 AI炼菜</button>
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                         </div>
                     </div>
@@ -709,6 +714,9 @@ const GameCore = () => {
 
                 {/* Dispatch Judgment Modal */}
                 {dispatchOpen && <DispatchJudgment onClose={() => setDispatchOpen(false)} />}
+
+                {/* AI Cooking Modal */}
+                {aiCookingOpen && <AICooking onClose={() => setAiCookingOpen(false)} expeditionScores={expeditionScores} onUpdateStorage={debugAddStorageItems} customer={aiCustomer} onNewCustomer={() => setAiCustomer(pickRandomCustomer())} />}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
