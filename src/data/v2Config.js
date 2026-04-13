@@ -5,14 +5,26 @@
 
 // --- 贴纸类型 ---
 export const STICKER_TYPES = [
-    { id: 'mountain', icon: '🏔️', name: '山' },
-    { id: 'sea',      icon: '🌊', name: '海' },
-    { id: 'field',    icon: '🌾', name: '田' },
-    { id: 'forest',   icon: '🌲', name: '林' },
-    { id: 'sky',      icon: '🌤️', name: '空' },
-    { id: 'island',   icon: '🏝️', name: '岛' },
-    { id: 'desert',   icon: '🏜️', name: '沙' },
-    { id: 'snow',     icon: '❄️', name: '雪' },
+    { id: 'mountain',  icon: '🏔️', name: '山' },
+    { id: 'sea',       icon: '🌊', name: '海' },
+    { id: 'field',     icon: '🌾', name: '田' },
+    { id: 'forest',    icon: '🌲', name: '林' },
+    { id: 'sky',       icon: '🌤️', name: '空' },
+    { id: 'island',    icon: '🏝️', name: '岛' },
+    { id: 'desert',    icon: '🏜️', name: '沙' },
+    { id: 'snow',      icon: '❄️', name: '雪' },
+    { id: 'fire',      icon: '🔥', name: '火' },
+    { id: 'lightning', icon: '⚡', name: '电' },
+    { id: 'star',      icon: '⭐', name: '星' },
+    { id: 'moon',      icon: '🌙', name: '月' },
+    { id: 'flower',    icon: '🌸', name: '花' },
+    { id: 'wind',      icon: '🌪️', name: '风' },
+    { id: 'rain',      icon: '🌧️', name: '雨' },
+    { id: 'sun',       icon: '☀️', name: '日' },
+    { id: 'river',     icon: '🏞️', name: '河' },
+    { id: 'volcano',   icon: '🌋', name: '岩' },
+    { id: 'rainbow',   icon: '🌈', name: '虹' },
+    { id: 'crystal',   icon: '💎', name: '晶' },
 ];
 
 // --- 食材与厨具 ---
