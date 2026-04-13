@@ -207,7 +207,10 @@ export const useGameLogic = (config) => {
                 const wallType = pickWallType();
                 if (usedIds.has('wall:' + wallType.id)) continue;
                 usedIds.add('wall:' + wallType.id);
-                const stickers = pickWallStickers(STICKER_TYPES);
+                // Yin-yang modifier: force exactly 2 sticker types
+                const stickers = wallType.id === 'yin_yang'
+                    ? pickWallStickers(STICKER_TYPES, 2, 2)
+                    : pickWallStickers(STICKER_TYPES);
                 const { grid, doomCellCount } = generateWall(stickers);
                 candidates.push({ stickers, grid, doomCellCount, wallType, level: null });
             }
@@ -268,6 +271,10 @@ export const useGameLogic = (config) => {
                 conveyorIndex: Math.floor(Math.random() * size),
                 conveyorDirection: Math.random() < 0.5 ? 1 : -1, // +1 = right/down, -1 = left/up
             };
+        }
+        // Yin-yang modifier: embed the chosen 2 sticker types for the swap logic
+        if (wallType?.id === 'yin_yang') {
+            wallType = { ...wallType, yinYangStickers: chosen.stickers };
         }
         setCurrentWallType(wallType);
 
@@ -544,6 +551,24 @@ export const useGameLogic = (config) => {
                     }
                 }
                 showToast('💣 ' + t('炸弹爆炸！'), 'warning');
+            }
+
+            // Yin-yang wall: drawing one of the two sticker types spawns the
+            // other type at the drawn position. Non-sticker draws are ignored.
+            if (currentWallType?.id === 'yin_yang'
+                && drawnCell.type === 'sticker'
+                && Array.isArray(currentWallType.yinYangStickers)
+                && currentWallType.yinYangStickers.length === 2) {
+                const [a, b] = currentWallType.yinYangStickers;
+                const drawnId = drawnCell.item?.id;
+                const other = drawnId === a.id ? b : drawnId === b.id ? a : null;
+                if (other) {
+                    newMatrix[finalRowIndex][finalColIndex] = {
+                        type: 'sticker',
+                        item: { ...other },
+                        uid: generateUID(),
+                    };
+                }
             }
 
             // Blast heal wall: any non-bomb draw leaves a fresh bomb at the

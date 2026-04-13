@@ -521,6 +521,7 @@ export const EN_TRANSLATIONS = {
     "传送带": "Conveyor",
     "野蛮生长": "Savage Growth",
     "爆裂愈合": "Blast Heal",
+    "阴阳轮转": "Yin-Yang",
     "标准规则，行列自由选择": "Standard rules, free row/column selection",
     "部分格子内容隐藏，抽到相邻格时揭示": "Some cells are hidden, revealed when adjacent cells are drawn",
     "每次抽取后，剩余格子随机移位": "Remaining cells shuffle randomly after each draw",
@@ -530,6 +531,7 @@ export const EN_TRANSLATIONS = {
     "某一行或一列固定朝一个方向循环移动，每次抽取推进一格": "One row or column cycles in a fixed direction — one step per draw",
     "每次抽取后，被抽中格子的上下左右邻居都会变成抽到的东西": "After each draw, the 4 orthogonal neighbors of the drawn cell become copies of whatever was drawn",
     "抽取后，原处会再长出一颗炸弹；抽到炸弹本身除外": "After each draw, a bomb spawns where the drawn cell was — except when drawing a bomb itself",
+    "墙上只有两种贴纸，抽其一会在原地生成另一种": "Only two sticker types on the wall — drawing one regrows the other in its place",
 
     // --- Level-related UI ---
     "特殊地形关卡": "Special terrain level",

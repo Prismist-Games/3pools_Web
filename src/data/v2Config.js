@@ -68,6 +68,7 @@ export const WALL_TYPES = [
     { id: 'conveyor',      name: '传送带',   icon: '➡️', desc: '某一行或一列固定朝一个方向循环移动，每次抽取推进一格', weight: 15 },
     { id: 'savage_growth', name: '野蛮生长', icon: '🌱', desc: '每次抽取后，被抽中格子的上下左右邻居都会变成抽到的东西', weight: 15 },
     { id: 'blast_heal',    name: '爆裂愈合', icon: '💣', desc: '抽取后，原处会再长出一颗炸弹；抽到炸弹本身除外', weight: 15 },
+    { id: 'yin_yang',      name: '阴阳轮转', icon: '☯️', desc: '墙上只有两种贴纸，抽其一会在原地生成另一种', weight: 15 },
 ];
 
 // --- 远征配置 ---
