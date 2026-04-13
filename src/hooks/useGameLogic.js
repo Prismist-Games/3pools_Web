@@ -546,6 +546,20 @@ export const useGameLogic = (config) => {
                 showToast('💣 ' + t('炸弹爆炸！'), 'warning');
             }
 
+            // Blast heal wall: any non-bomb draw leaves a fresh bomb at the
+            // drawn position. Drawing a bomb itself does NOT regenerate the
+            // bomb — the explosion already cleared 8 neighbors and re-seeding
+            // would make bombs immortal.
+            if (currentWallType?.id === 'blast_heal' && drawnCell.type !== 'bomb') {
+                const bombCfg = MATRIX_CONFIG.specialCells.bomb;
+                newMatrix[finalRowIndex][finalColIndex] = {
+                    type: 'bomb',
+                    icon: bombCfg.icon,
+                    name: bombCfg.name,
+                    uid: generateUID(),
+                };
+            }
+
             // Savage growth wall: overwrite the 4 orthogonal neighbors of the
             // drawn cell with a fresh copy of the drawn cell. Empty neighbors
             // are skipped (rule: nothing grows into empty). If the draw was a
