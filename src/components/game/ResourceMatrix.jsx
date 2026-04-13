@@ -105,7 +105,7 @@ const HALF = GAP / 2;
 const TRACK = CELL_SIZE + GAP;
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove }) => {
+const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
@@ -174,6 +174,11 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         zIndex: 15,
     } : {};
 
+    const growthStyle = growthFlash ? {
+        animation: `growth-flash 0.4s cubic-bezier(0.2, 0, 0.4, 1) forwards`,
+        zIndex: 12,
+    } : {};
+
     return (
         <div
             ref={ref}
@@ -186,6 +191,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
                 boxShadow: extraShadow,
                 ...gravityStyle,
                 ...rotationStyle,
+                ...growthStyle,
             }}
             onMouseEnter={hasTip ? () => setHovered(true) : undefined}
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
@@ -204,7 +210,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 /**
  * Wall grid display for turn-based prototype (size from MATRIX_CONFIG.gridSize).
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, gravityDrops, rotationMoves }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, gravityDrops, rotationMoves, growthFlashes }) => {
     const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -512,6 +518,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
 
                             const dropDist = gravityDrops?.[`${rowIndex}-${colIndex}`] || 0;
                             const rotMove = rotationMoves?.[`${rowIndex}-${colIndex}`] || null;
+                            const flash = growthFlashes?.has(`${rowIndex}-${colIndex}`) || false;
 
                             return (
                                 <GridCell
@@ -525,6 +532,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                     highlight={isSettled ? 'settled' : isScanning ? 'scanning' : isScanLine ? 'scan-row' : showHover ? 'hover' : null}
                                     gravityDrop={dropDist}
                                     rotationMove={rotMove}
+                                    growthFlash={flash}
                                 />
                             );
                         })

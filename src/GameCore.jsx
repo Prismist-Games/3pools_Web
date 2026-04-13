@@ -45,7 +45,7 @@ const GameCore = () => {
         inventory, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
-        drawAnimState, isDrawAnimating, gravityDrops, rotationMoves,
+        drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
         startGame, selectRow, selectColumn, endTurn, continueToNextTurn, selectWall,
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
@@ -345,6 +345,7 @@ const GameCore = () => {
                                             bonusItemMap={bonusItemMap}
                                             gravityDrops={gravityDrops}
                                             rotationMoves={rotationMoves}
+                                            growthFlashes={growthFlashes}
                                         />
 
                                         {/* Draw result feedback */}

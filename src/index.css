@@ -201,6 +201,12 @@ body {
     to   { transform: translateY(calc(28px / cos(30deg))); }
 }
 
+@keyframes growth-flash {
+    0%   { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.0); transform: scale(1); }
+    30%  { box-shadow: 0 0 14px 4px rgba(74, 222, 128, 0.85); transform: scale(1.12); }
+    100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.0); transform: scale(1); }
+}
+
 @layer utilities {
   .scrollbar-hide::-webkit-scrollbar {
       display: none;
