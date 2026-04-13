@@ -437,6 +437,35 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                         );
                     })()}
 
+                    {/* Mirror modifier: vertical divider between left and right halves */}
+                    {wallType?.id === 'mirror' && (() => {
+                        const size = MATRIX_CONFIG.gridSize;
+                        const midX = (size / 2) * TRACK; // boundary between col 1 and col 2 for size=4
+                        return (
+                            <div
+                                className="pointer-events-none absolute flex flex-col items-center justify-between"
+                                style={{
+                                    top: '0px',
+                                    left: `${midX - 9}px`,
+                                    width: '18px',
+                                    height: `${size * TRACK}px`,
+                                    zIndex: 4,
+                                }}
+                            >
+                                <span className="text-base leading-none text-kitchen-gold/70 select-none" style={{ marginTop: '-4px' }}>🪞</span>
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        width: '0',
+                                        borderLeft: '2px dashed rgba(232, 168, 48, 0.55)',
+                                        margin: '2px 0',
+                                    }}
+                                />
+                                <span className="text-base leading-none text-kitchen-gold/70 select-none" style={{ marginBottom: '-4px' }}>🪞</span>
+                            </div>
+                        );
+                    })()}
+
                     {/* Conveyor modifier: animated stripe + arrow overlay on the chosen row/column */}
                     {wallType?.id === 'conveyor' && (() => {
                         const isRow = wallType.conveyorAxis === 'row';
