@@ -409,17 +409,20 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                         /* no gap — margins on cells handle spacing */
                     }}
                 >
-                    {/* Center rotate modifier: idle indicator on center 2×2 */}
+                    {/* Center rotate modifier: pulsing frame around the 2×2 + rotating ↻ hint */}
                     {wallType?.id === 'center_rotate' && (() => {
                         const r0 = Math.floor(MATRIX_CONFIG.gridSize / 2) - 1;
                         return (
                             <div
                                 className="pointer-events-none absolute flex items-center justify-center"
                                 style={{
-                                    top: `${r0 * TRACK}px`,
-                                    left: `${r0 * TRACK}px`,
-                                    width: `${2 * TRACK}px`,
-                                    height: `${2 * TRACK}px`,
+                                    top: `${r0 * TRACK + HALF}px`,
+                                    left: `${r0 * TRACK + HALF}px`,
+                                    width: `${2 * TRACK - GAP}px`,
+                                    height: `${2 * TRACK - GAP}px`,
+                                    border: '2px dashed rgba(232, 168, 48, 0.6)',
+                                    borderRadius: '10px',
+                                    animation: 'center-rotate-frame-pulse 1.8s ease-in-out infinite',
                                     zIndex: 5,
                                 }}
                             >
