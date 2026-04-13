@@ -66,6 +66,7 @@ export const WALL_TYPES = [
     { id: 'alternating', name: '交叉问答', icon: '🔀', desc: '必须行列交替选择', weight: 20 },
     { id: 'center_rotate', name: '转盘中心', icon: '🎡', desc: '每次抽取后，中心四格顺时针旋转一格', weight: 15 },
     { id: 'conveyor',      name: '传送带',   icon: '➡️', desc: '某一行或一列固定朝一个方向循环移动，每次抽取推进一格', weight: 15 },
+    { id: 'savage_growth', name: '野蛮生长', icon: '🌱', desc: '每次抽取后，被抽中格子的上下左右邻居都会变成抽到的东西', weight: 15 },
 ];
 
 // --- 远征配置 ---

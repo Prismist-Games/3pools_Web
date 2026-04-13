@@ -519,6 +519,7 @@ export const EN_TRANSLATIONS = {
     "交叉问答": "Zigzag",
     "转盘中心": "Carousel Core",
     "传送带": "Conveyor",
+    "野蛮生长": "Savage Growth",
     "标准规则，行列自由选择": "Standard rules, free row/column selection",
     "部分格子内容隐藏，抽到相邻格时揭示": "Some cells are hidden, revealed when adjacent cells are drawn",
     "每次抽取后，剩余格子随机移位": "Remaining cells shuffle randomly after each draw",
@@ -526,6 +527,7 @@ export const EN_TRANSLATIONS = {
     "必须行列交替选择": "Must alternate between row and column selection",
     "每次抽取后，中心四格顺时针旋转一格": "The center 2×2 cells rotate clockwise one step after each draw",
     "某一行或一列固定朝一个方向循环移动，每次抽取推进一格": "One row or column cycles in a fixed direction — one step per draw",
+    "每次抽取后，被抽中格子的上下左右邻居都会变成抽到的东西": "After each draw, the 4 orthogonal neighbors of the drawn cell become copies of whatever was drawn",
 
     // --- Level-related UI ---
     "特殊地形关卡": "Special terrain level",

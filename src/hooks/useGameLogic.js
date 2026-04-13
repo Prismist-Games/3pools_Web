@@ -103,6 +103,7 @@ export const useGameLogic = (config) => {
     const [gravityActive, setGravityActive] = useState(false);
     const [gravityDrops, setGravityDrops] = useState(null); // { "row-col": dropDistance } for animation
     const [rotationMoves, setRotationMoves] = useState(null); // { "row-col": {fromRow, fromCol} } for center-rotate animation
+    const [growthFlashes, setGrowthFlashes] = useState(null); // Set of "row-col" keys for savage-growth flash feedback
 
     // --- Sub-Level State ---
     const [wallStack, setWallStack] = useState([]); // stack of { matrix, gold, wallType }
@@ -543,6 +544,30 @@ export const useGameLogic = (config) => {
                     }
                 }
                 showToast('💣 ' + t('炸弹爆炸！'), 'warning');
+            }
+
+            // Savage growth wall: overwrite the 4 orthogonal neighbors of the
+            // drawn cell with a fresh copy of the drawn cell. Empty neighbors
+            // are skipped (rule: nothing grows into empty). If the draw was a
+            // bomb, the explosion above already cleared all 8 neighbors, so
+            // this block naturally does nothing.
+            if (currentWallType?.id === 'savage_growth' && drawnCell) {
+                const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+                const flashes = [];
+                for (const [dr, dc] of dirs) {
+                    const nr = finalRowIndex + dr;
+                    const nc = finalColIndex + dc;
+                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length) {
+                        if (newMatrix[nr][nc] !== null) {
+                            newMatrix[nr][nc] = { ...drawnCell, uid: generateUID() };
+                            flashes.push(`${nr}-${nc}`);
+                        }
+                    }
+                }
+                if (flashes.length > 0) {
+                    setGrowthFlashes(new Set(flashes));
+                    setTimeout(() => setGrowthFlashes(null), 400);
+                }
             }
 
             // Hidden wall: reveal adjacent hidden cells (independent per cell)
@@ -1186,6 +1211,7 @@ export const useGameLogic = (config) => {
         // Board Effects
         gravityDrops,
         rotationMoves,
+        growthFlashes,
 
         // Sub-Level
         isInSubLevel, wallStack,
