@@ -67,6 +67,7 @@ export const WALL_TYPES = [
     { id: 'savage_growth', name: '野蛮生长', icon: '🌱', desc: '每次抽取后，被抽中格子的上下左右邻居都会变成抽到的东西', weight: 15 },
     { id: 'blast_heal',    name: '爆裂愈合', icon: '💣', desc: '抽取后，原处会再长出一颗炸弹；抽到炸弹本身除外', weight: 15 },
     { id: 'yin_yang',      name: '阴阳轮转', icon: '☯️', desc: '墙上只有两种贴纸，抽其一会在原地生成另一种', weight: 15 },
+    { id: 'mirror',        name: '镜花水月', icon: '🪞', desc: '左右两半镜像相连，抽一格同时结算对侧镜像格；仅 3 金币', weight: 15, goldOverride: 3 },
 ];
 
 // --- 远征配置 ---

@@ -520,6 +520,7 @@ export const EN_TRANSLATIONS = {
     "野蛮生长": "Savage Growth",
     "爆裂愈合": "Blast Heal",
     "阴阳轮转": "Yin-Yang",
+    "镜花水月": "Looking Glass",
     "部分格子内容隐藏，抽到相邻格时揭示": "Some cells are hidden, revealed when adjacent cells are drawn",
     "部分格子效果翻倍（贴纸×2，厄运×2）": "Some cells have doubled effects (stickers ×2, doom ×2)",
     "必须行列交替选择": "Must alternate between row and column selection",
@@ -528,6 +529,8 @@ export const EN_TRANSLATIONS = {
     "每次抽取后，被抽中格子的上下左右邻居都会变成抽到的东西": "After each draw, the 4 orthogonal neighbors of the drawn cell become copies of whatever was drawn",
     "抽取后，原处会再长出一颗炸弹；抽到炸弹本身除外": "After each draw, a bomb spawns where the drawn cell was — except when drawing a bomb itself",
     "墙上只有两种贴纸，抽其一会在原地生成另一种": "Only two sticker types on the wall — drawing one regrows the other in its place",
+    "左右两半镜像相连，抽一格同时结算对侧镜像格；仅 3 金币": "Left and right halves mirror each other — drawing one cell also resolves its mirror. Only 3 coins.",
+    "镜像": "Mirror",
 
     // --- Level-related UI ---
     "特殊地形关卡": "Special terrain level",

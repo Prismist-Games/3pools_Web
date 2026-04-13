@@ -281,6 +281,11 @@ export const useGameLogic = (config) => {
         // Apply wall-type mutations to the grid before setting it
         const grid = chosen.grid.map(r => r.map(c => c ? { ...c } : null));
 
+        // Modifier-specific gold override (e.g., mirror only gives 3 coins)
+        if (wallType?.goldOverride !== undefined) {
+            setGold(wallType.goldOverride);
+        }
+
         // Level-specific gold override
         if (chosen.level?.settings?.gold !== undefined) {
             setGold(chosen.level.settings.gold);
@@ -533,6 +538,59 @@ export const useGameLogic = (config) => {
             return; // Skip the normal post-draw flow
         }
 
+        // Mirror modifier: also resolve the cell on the opposite side of the
+        // wall (same row, mirrored column). Cached from the live matrix so we
+        // see the cell as the player saw it before any mutations.
+        let mirrorRow = null;
+        let mirrorCol = null;
+        let mirrorCell = null;
+        if (currentWallType?.id === 'mirror' && drawnCell.type !== 'entrance' && matrix) {
+            mirrorRow = finalRowIndex;
+            mirrorCol = matrix[0].length - 1 - finalColIndex;
+            if (mirrorCol !== finalColIndex) {
+                mirrorCell = matrix[mirrorRow]?.[mirrorCol] || null;
+            }
+        }
+
+        if (mirrorCell) {
+            const mMult = mirrorCell.multiplier || 1;
+            if (mirrorCell.type === 'item' || mirrorCell.type === 'sticker' || mirrorCell.type === 'out_of_game') {
+                if (mMult > 1 && (mirrorCell.type === 'sticker' || mirrorCell.type === 'item')) {
+                    for (let i = 0; i < mMult; i++) {
+                        addToInventory({ ...mirrorCell, uid: generateUID() });
+                    }
+                } else {
+                    addToInventory({ ...mirrorCell, uid: generateUID() });
+                }
+                const itemName = mirrorCell.item?.name || mirrorCell.name;
+                showToast(`🪞 ${t('镜像')}: ${mirrorCell.item?.icon || mirrorCell.icon || ''} ${t(itemName)}`, 'success');
+            } else if (mirrorCell.type === 'doom_resolution') {
+                doomEffects.resolutions += 1 * mMult;
+            } else if (mirrorCell.type === 'doom_upgrade') {
+                doomEffects.upgrades += 1 * mMult;
+            } else if (mirrorCell.type === 'gold') {
+                const g = mirrorCell.goldAmount * mMult;
+                setGold(prev => prev + g);
+                showToast(`🪞 ${t('镜像')} ${t('金币')} +${g}`, 'success');
+            } else if (mirrorCell.type === 'order_cell') {
+                addBulletinOrder();
+                showToast(`🪞 ${t('镜像')}: ${t('获得新订单')}`, 'info');
+            } else if (mirrorCell.type === 'heal') {
+                const a = (mirrorCell.healAmount || 1) * mMult;
+                setHp(prev => Math.min(prev + a, doomConfig.initialHP));
+                showToast(`🪞 ${t('镜像')} ❤️‍🩹 HP +${a}`, 'success');
+            } else if (mirrorCell.type === 'backpack_expand') {
+                const a = (mirrorCell.expandAmount || 1) * mMult;
+                setInventoryBonus(prev => prev + a);
+                showToast(`🪞 ${t('镜像')} 🎒 ${t('菜篮')} +${a}`, 'success');
+            } else if (mirrorCell.type === 'gravity') {
+                setGravityActive(true);
+                showToast(`🪞 ${t('镜像')} ⬇️ ${t('重力开关！')}`, 'info');
+            }
+            // bomb mirror handled in setMatrix below
+            // entrance mirror skipped (entrance only on hand-crafted levels, not mirror walls)
+        }
+
         // Remove drawn cell(s) + hidden reveal + drift shuffle
         setMatrix(prev => {
             const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
@@ -540,16 +598,34 @@ export const useGameLogic = (config) => {
             // Remove drawn cell
             newMatrix[finalRowIndex][finalColIndex] = null;
 
-            // Bomb: destroy all adjacent cells (8 directions)
-            if (drawnCell.type === 'bomb') {
-                const bombDirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+            // Mirror modifier: remove mirror cell as well. Bomb explosion
+            // handled later (we want to also explode the drawn bomb first).
+            if (mirrorCell && mirrorRow !== null && mirrorCol !== null) {
+                newMatrix[mirrorRow][mirrorCol] = null;
+            }
+
+            // Bomb: destroy all adjacent cells (8 directions). Runs for the
+            // drawn cell and (if mirror modifier) for the mirror cell too.
+            const bombDirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+            const explodeAt = (br, bc) => {
                 for (const [dr, dc] of bombDirs) {
-                    const nr = finalRowIndex + dr;
-                    const nc = finalColIndex + dc;
+                    const nr = br + dr;
+                    const nc = bc + dc;
                     if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length && newMatrix[nr][nc]) {
                         newMatrix[nr][nc] = null;
                     }
                 }
+            };
+            let bombFired = false;
+            if (drawnCell.type === 'bomb') {
+                explodeAt(finalRowIndex, finalColIndex);
+                bombFired = true;
+            }
+            if (mirrorCell?.type === 'bomb') {
+                explodeAt(mirrorRow, mirrorCol);
+                bombFired = true;
+            }
+            if (bombFired) {
                 showToast('💣 ' + t('炸弹爆炸！'), 'warning');
             }
 
