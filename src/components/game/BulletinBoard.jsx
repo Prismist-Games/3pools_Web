@@ -73,11 +73,24 @@ const BulletinBoard = ({ orders, onAccept, incomingOrder, onConfirmIncoming, onD
                 {hasIncoming && (
                     <div className="mb-2 p-2.5 bg-blue-50 border-2 border-blue-300 rounded-lg">
                         <div className="text-[11px] font-bold text-blue-600 mb-1.5">{t('新订单')}</div>
-                        <div className="flex items-center gap-1 mb-2">
+                        <div className="flex items-center gap-1 mb-1.5">
                             {incomingOrder.rewards.map((r, i) => (
                                 <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
                             ))}
                         </div>
+                        {incomingOrder.requirements && incomingOrder.requirements.length > 0 && (
+                            <div className="flex gap-1.5 flex-wrap items-center mb-2">
+                                <span className="text-[9px] text-gray-300 uppercase tracking-wide">{t('需要')}</span>
+                                {incomingOrder.requirements.map((req, i) => (
+                                    <div key={i} className="flex items-center gap-0.5">
+                                        <div className="w-6 h-6 rounded border border-blue-300 bg-blue-50 flex items-center justify-center text-xs shadow-sm">
+                                            {req.icon}
+                                        </div>
+                                        <span className="text-[10px] font-bold text-blue-500">x{req.count}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                         <div className="flex items-center gap-2">
                             {isFull ? (
                                 <span className="text-[10px] text-amber-600">{t('货架已满，选择下方订单替换')}</span>
@@ -131,6 +144,20 @@ const BulletinBoard = ({ orders, onAccept, incomingOrder, onConfirmIncoming, onD
                                             <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
                                         ))}
                                     </div>
+                                    {/* Row 3: sticker requirements */}
+                                    {order.requirements && order.requirements.length > 0 && (
+                                        <div className="flex gap-1.5 flex-wrap items-center mt-1.5">
+                                            <span className="text-[9px] text-gray-300 uppercase tracking-wide">{t('需要')}</span>
+                                            {order.requirements.map((req, i) => (
+                                                <div key={i} className="flex items-center gap-0.5">
+                                                    <div className="w-6 h-6 rounded border border-gray-300 bg-white flex items-center justify-center text-xs shadow-sm">
+                                                        {req.icon}
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-gray-500">x{req.count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}

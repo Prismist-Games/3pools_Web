@@ -19,11 +19,24 @@ const ActiveOrders = ({ orders, inventory, onSubmit, canSubmitOrder, pendingAcce
                 {pendingAcceptOrder && (
                     <div className="mb-2 p-2.5 bg-amber-50 border-2 border-amber-300 rounded-lg">
                         <div className="text-[11px] font-bold text-amber-600 mb-1.5">{t('选择要替换的订单')}</div>
-                        <div className="flex items-center gap-1 mb-2">
+                        <div className="flex items-center gap-1 mb-1.5">
                             {pendingAcceptOrder.rewards.map((r, i) => (
                                 <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
                             ))}
                         </div>
+                        {pendingAcceptOrder.requirements && pendingAcceptOrder.requirements.length > 0 && (
+                            <div className="flex gap-1.5 flex-wrap items-center mb-2">
+                                <span className="text-[9px] text-gray-300 uppercase tracking-wide">{t('需要')}</span>
+                                {pendingAcceptOrder.requirements.map((req, i) => (
+                                    <div key={i} className="flex items-center gap-0.5">
+                                        <div className="w-6 h-6 rounded border border-amber-300 bg-amber-50 flex items-center justify-center text-xs shadow-sm">
+                                            {req.icon}
+                                        </div>
+                                        <span className="text-[10px] font-bold text-amber-600">x{req.count}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                         <button onClick={onCancelReplace} className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">
                             {t('取消')}
                         </button>
