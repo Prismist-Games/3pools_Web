@@ -624,46 +624,6 @@ export const useGameLogic = (config) => {
                 }
             }
 
-            // Drift wall: shuffle remaining non-null cells to random positions
-            if (currentWallType?.id === 'drift') {
-                const cells = [];
-                const positions = [];
-                for (let r = 0; r < newMatrix.length; r++) {
-                    for (let c = 0; c < newMatrix[r].length; c++) {
-                        if (newMatrix[r][c] !== null) {
-                            cells.push(newMatrix[r][c]);
-                            positions.push([r, c]);
-                        }
-                    }
-                }
-                // Shuffle cells array
-                for (let i = cells.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [cells[i], cells[j]] = [cells[j], cells[i]];
-                }
-                // Clear all non-null positions
-                for (const [r, c] of positions) {
-                    newMatrix[r][c] = null;
-                }
-                // Redistribute: collect ALL positions (null and non-null)
-                const allPositions = [];
-                for (let r = 0; r < newMatrix.length; r++) {
-                    for (let c = 0; c < newMatrix[r].length; c++) {
-                        allPositions.push([r, c]);
-                    }
-                }
-                // Shuffle all positions
-                for (let i = allPositions.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [allPositions[i], allPositions[j]] = [allPositions[j], allPositions[i]];
-                }
-                // Place cells into first N shuffled positions
-                for (let i = 0; i < cells.length; i++) {
-                    const [r, c] = allPositions[i];
-                    newMatrix[r][c] = cells[i];
-                }
-            }
-
             // Conveyor wall: cycle the chosen row/column by one step in its fixed direction
             if (currentWallType?.id === 'conveyor') {
                 const { conveyorAxis, conveyorIndex, conveyorDirection } = currentWallType;
