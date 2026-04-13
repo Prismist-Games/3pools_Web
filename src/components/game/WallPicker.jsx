@@ -82,11 +82,16 @@ const WallPicker = ({ candidates, onSelect }) => {
 
                             <div className="px-4 pb-4">
                                 <div className="text-[9px] text-kitchen-text-muted uppercase tracking-wide mb-1">{t('贴纸')}</div>
-                                <div className="flex gap-1 mb-3">
-                                    {wall.stickers.map(s => (
-                                        <div key={s.id} className="w-8 h-8 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex items-center justify-center text-base shadow-sm" title={t(s.name)}>
-                                            {s.icon}
-                                        </div>
+                                <div className="flex gap-1 mb-3 items-center">
+                                    {wall.stickers.map((s, i) => (
+                                        <React.Fragment key={s.id}>
+                                            {wall.wallType?.id === 'yin_yang' && i > 0 && (
+                                                <span className="text-kitchen-gold-deep font-black text-sm select-none" aria-hidden>↔</span>
+                                            )}
+                                            <div className="w-8 h-8 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex items-center justify-center text-base shadow-sm" title={t(s.name)}>
+                                                {s.icon}
+                                            </div>
+                                        </React.Fragment>
                                     ))}
                                 </div>
 
