@@ -1435,8 +1435,5 @@ export const useGameLogic = (config) => {
         confirmIncomingOrder,
         discardIncomingOrder,
         replaceBulletinOrder,
-        debugAddStorageItems: (items) => {
-            setExpeditionScores(prev => [...prev, { score: 0, baseScore: 0, bonusScore: 0, items }]);
-        },
     };
 };
