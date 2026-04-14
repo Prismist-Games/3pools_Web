@@ -586,6 +586,6 @@ export const INITIAL_GAME_CONFIG = {
     turn: TURN_CONFIG,
     expedition: EXPEDITION_CONFIG,
     order: ORDER_CONFIG,
-    inventorySize: 15,
+    inventorySize: 10,
 };
 
