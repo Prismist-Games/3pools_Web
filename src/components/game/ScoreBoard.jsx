@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { RARITY_STYLE } from './BulletinBoard';
+import { RARITY_STYLE, IngredientTip } from './BulletinBoard';
+import Tooltip from '../ui/Tooltip';
 
 const ScoreBoard = ({ expeditionNumber, expeditionScores, totalScore, victoryScore, bonusItems }) => {
     const { t, language } = useLanguage();
@@ -21,13 +22,14 @@ const ScoreBoard = ({ expeditionNumber, expeditionScores, totalScore, victorySco
                             {bonusItems.map((item, i) => {
                                 const sc = RARITY_STYLE[item.rarity || item.score] || RARITY_STYLE[1];
                                 return (
-                                    <div key={i} className={`relative w-7 h-7 rounded border ${sc.border} bg-gradient-to-b ${sc.bg} flex items-center justify-center text-sm`}
-                                        title={`${t(item.name)} (+${item.bonusValue || 2})`}>
-                                        {item.icon}
-                                        <span className="absolute -top-1 -right-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center">
-                                            +{item.bonusValue || 2}
-                                        </span>
-                                    </div>
+                                    <Tooltip key={i} content={<IngredientTip item={item} />}>
+                                        <div className={`relative w-7 h-7 rounded border ${sc.border} bg-gradient-to-b ${sc.bg} flex items-center justify-center text-sm`}>
+                                            {item.icon}
+                                            <span className="absolute -top-1 -right-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center">
+                                                +{item.bonusValue || 2}
+                                            </span>
+                                        </div>
+                                    </Tooltip>
                                 );
                             })}
                         </div>

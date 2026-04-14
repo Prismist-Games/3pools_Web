@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
-import BulletinBoard, { SCORE_STYLE, RewardCard, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
+import BulletinBoard, { SCORE_STYLE, RewardCard, IngredientTip, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
+import Tooltip from './components/ui/Tooltip';
 // ActiveOrders removed — order submit is now on BulletinBoard directly
 import ScoreBoard from './components/game/ScoreBoard';
 import DispatchJudgment from './components/game/DispatchJudgment';
@@ -351,7 +352,7 @@ const GameCore = () => {
                                             onClick={handleEvacuate}
                                             className="px-8 py-3 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition-colors"
                                         >
-                                            {t('撤离')}（{inventory.filter(i => i.isOutOfGame).reduce((s, i) => s + i.score, 0)} {t('分')}）
+                                            {t('撤离')}（{inventory.filter(i => i.isOutOfGame).reduce((s, i) => s + (i.rarity || i.score || 0), 0)} {t('分')}）
                                         </button>
                                     </div>
                                 </div>
@@ -465,15 +466,19 @@ const GameCore = () => {
                                             </div>
                                             <div className="flex flex-wrap gap-1.5 mb-2">
                                                 {pendingItems.map((pItem, idx) => {
-                                                    const pSc = pItem.isOutOfGame ? (SCORE_STYLE[pItem.score] || SCORE_STYLE[1]) : null;
-                                                    return (
-                                                        <div key={pItem.uid || idx} className={`relative w-9 h-9 rounded border-2 flex items-center justify-center text-lg shadow-sm
+                                                    const pSc = pItem.isOutOfGame ? (SCORE_STYLE[pItem.rarity || pItem.score] || SCORE_STYLE[1]) : null;
+                                                    const inner = (
+                                                        <div className={`relative w-9 h-9 rounded border-2 flex items-center justify-center text-lg shadow-sm
                                                             ${idx === 0 ? 'ring-2 ring-kitchen-gold' : 'opacity-60'}
                                                             ${pSc ? `${pSc.border} bg-gradient-to-b ${pSc.bg}` : 'border-kitchen-gold-border-muted bg-kitchen-card'}`}>
+
                                                             {pItem.icon}
-                                                            {pSc && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center shadow`}>{pItem.score}</span>}
+                                                            {pSc && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center shadow`}>{pItem.rarity || pItem.score}</span>}
                                                         </div>
                                                     );
+                                                    return pItem.isOutOfGame
+                                                        ? <Tooltip key={pItem.uid || idx} content={<IngredientTip item={pItem} />}>{inner}</Tooltip>
+                                                        : <div key={pItem.uid || idx}>{inner}</div>;
                                                 })}
                                             </div>
                                             <p className="text-[11px] text-kitchen-gold-deep mb-1.5">{t('菜篮已满，点击下方物品替换')}</p>
@@ -485,10 +490,9 @@ const GameCore = () => {
                                             const item = inventory[i];
                                             const canReplace = pendingItem && item && !recycleMode;
                                             const isRecycleSelected = recycleMode && recycleSelected.has(i);
-                                            const sc = item?.isOutOfGame ? (SCORE_STYLE[item.score] || SCORE_STYLE[1]) : null;
-                                            return (
+                                            const sc = item?.isOutOfGame ? (SCORE_STYLE[item.rarity || item.score] || SCORE_STYLE[1]) : null;
+                                            const cell = (
                                                 <div
-                                                    key={i}
                                                     onClick={() => {
                                                         if (recycleMode && item) {
                                                             setRecycleSelected(prev => {
@@ -507,12 +511,11 @@ const GameCore = () => {
                                                             : 'bg-kitchen-card border-kitchen-gold-border-muted'}
                                                         ${canReplace ? 'cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:scale-110'
                                                             : recycleMode && item ? 'cursor-pointer hover:border-kitchen-danger' : ''}`}
-                                                    title={item ? t(item.name) : ''}
                                                 >
                                                     {item ? item.icon : ''}
                                                     {sc && (
                                                         <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow`}>
-                                                            {item.score}
+                                                            {item.rarity || item.score}
                                                         </span>
                                                     )}
                                                     {item?.isOutOfGame && bonusItemMap.has(item.id) && (
@@ -520,6 +523,9 @@ const GameCore = () => {
                                                     )}
                                                 </div>
                                             );
+                                            return item?.isOutOfGame
+                                                ? <Tooltip key={i} content={<IngredientTip item={item} />}>{cell}</Tooltip>
+                                                : <div key={i}>{cell}</div>;
                                         })}
                                     </div>
                                 </div>
@@ -556,14 +562,14 @@ const GameCore = () => {
                                     {exp.items.length > 0 ? (
                                         <div className="flex flex-wrap gap-3">
                                             {exp.items.map((item, j) => {
-                                                const sc = SCORE_STYLE[item.score] || SCORE_STYLE[1];
+                                                const sc = SCORE_STYLE[item.rarity || item.score] || SCORE_STYLE[1];
                                                 return (
                                                     <div key={j} className="relative flex flex-col items-center">
                                                         <div className={`w-14 h-14 rounded-lg border-2 ${sc.border} bg-gradient-to-b ${sc.bg} shadow-sm flex items-center justify-center text-2xl`}>
                                                             {item.icon}
                                                         </div>
                                                         <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow`}>
-                                                            +{item.score}
+                                                            +{item.rarity || item.score}
                                                         </span>
                                                         <span className="text-[10px] text-kitchen-text-secondary mt-1 truncate max-w-[56px] text-center">{t(item.name)}</span>
                                                     </div>
@@ -669,7 +675,7 @@ const GameCore = () => {
                                     <div>
                                         <div className="text-xs text-gray-300 mb-2 text-center">
                                             {debugSelectedItem.icon} {t(debugSelectedItem.name)}
-                                            {debugSelectedItem.score && <span className="text-gray-500 ml-1">({debugSelectedItem.score}pts)</span>}
+                                            {(debugSelectedItem.rarity || debugSelectedItem.score) && <span className="text-gray-500 ml-1">({'★'.repeat(debugSelectedItem.rarity || debugSelectedItem.score)})</span>}
                                         </div>
                                         <div className="flex gap-2">
                                             <button onClick={() => debugAddItem(debugSelectedItem, 1)}
