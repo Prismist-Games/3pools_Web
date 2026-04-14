@@ -20,33 +20,40 @@ const SCORE_STYLE = RARITY_STYLE;
 
 const RARITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
 
+/** Shared tooltip content for any ingredient/food item */
+const IngredientTip = ({ item }) => {
+    const rarity = item.rarity || item.score || 1;
+    const s = RARITY_STYLE[rarity] || RARITY_STYLE[1];
+    return (
+        <>
+            <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-2xl leading-none">{item.icon}</span>
+                <div>
+                    <div className="font-bold text-sm leading-tight">{item.name}</div>
+                    <div className={`text-[10px] ${s.labelColor}`}>{RARITY_STARS[rarity]}</div>
+                </div>
+            </div>
+            {item.tags && item.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                    {item.tags.map(tag => (
+                        <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">{tag}</span>
+                    ))}
+                </div>
+            )}
+            {item.nameEn && (
+                <p className="text-[10px] text-gray-500 italic mt-1.5">{item.nameEn}</p>
+            )}
+        </>
+    );
+};
+
 const RewardCard = ({ reward, size = 'md', bonusValue }) => {
     const rarity = reward.rarity || reward.score || 1;
     const s = RARITY_STYLE[rarity] || RARITY_STYLE[1];
     const dim = size === 'sm' ? 'w-8 h-8 text-base' : 'w-9 h-9 text-lg';
     const badgeDim = size === 'sm' ? 'w-3 h-3 text-[7px]' : 'w-3.5 h-3.5 text-[8px]';
 
-    const tipContent = (
-        <>
-            <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-2xl leading-none">{reward.icon}</span>
-                <div>
-                    <div className="font-bold text-sm leading-tight">{reward.name}</div>
-                    <div className={`text-[10px] ${s.labelColor}`}>{RARITY_STARS[rarity]}</div>
-                </div>
-            </div>
-            {reward.tags && reward.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                    {reward.tags.map(tag => (
-                        <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">{tag}</span>
-                    ))}
-                </div>
-            )}
-            {reward.nameEn && (
-                <p className="text-[10px] text-gray-500 italic mt-1.5">{reward.nameEn}</p>
-            )}
-        </>
-    );
+    const tipContent = <IngredientTip item={reward} />;
 
     return (
         <Tooltip content={tipContent}>
@@ -244,4 +251,4 @@ const BulletinBoard = ({
 };
 
 export default BulletinBoard;
-export { RewardCard, RARITY_STYLE, SCORE_STYLE, DIFFICULTY_STYLE };
+export { RewardCard, IngredientTip, RARITY_STYLE, SCORE_STYLE, DIFFICULTY_STYLE };

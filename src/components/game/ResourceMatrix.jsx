@@ -39,8 +39,25 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         desc = t('抽中时获得一个新订单');
     } else if (cell.type === 'out_of_game') {
         icon = cell.icon;
-        name = t(cell.name);
-        desc = t('抽中时直接获得局外物品');
+        name = cell.item?.name || t(cell.name);
+        const rarityStars = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
+        const r = cell.item?.rarity || cell.item?.score || 1;
+        const tags = cell.item?.tags || [];
+        desc = (
+            <>
+                <span>{rarityStars[r]}</span>
+                {tags.length > 0 && (
+                    <span className="ml-2">
+                        {tags.map(tag => (
+                            <span key={tag} className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 mr-1">{tag}</span>
+                        ))}
+                    </span>
+                )}
+                {cell.item?.nameEn && (
+                    <span className="block text-[10px] text-slate-400 italic mt-1">{cell.item.nameEn}</span>
+                )}
+            </>
+        );
     } else if (cell.type === 'bomb') {
         icon = cell.icon;
         name = t(cell.name);
@@ -229,13 +246,14 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             );
         }
         if (cell.type === 'out_of_game') {
-            const badgeColor = { 1: 'bg-green-500', 2: 'bg-blue-500', 3: 'bg-purple-500', 5: 'bg-orange-500' };
+            const badgeColor = { 1: 'bg-green-500', 2: 'bg-blue-500', 3: 'bg-purple-500', 4: 'bg-orange-500' };
+            const r = cell.item?.rarity || cell.item?.score || 1;
             const bonusVal = bonusItemMap?.get(cell.item?.id);
             return (
                 <>
                     <span className="text-xl">{cell.item?.icon || cell.icon}</span>
-                    <span className={`absolute -bottom-1 -right-1 ${badgeColor[cell.item?.score] || 'bg-amber-500'} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10`}>
-                        {cell.item?.score}
+                    <span className={`absolute -bottom-1 -right-1 ${badgeColor[r] || 'bg-amber-500'} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10`}>
+                        {r}
                     </span>
                     {bonusVal && (
                         <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusVal}</span>

@@ -638,7 +638,7 @@ export const useGameLogic = (config) => {
     const debugAddItem = (itemDef, count) => {
         const makeItem = () => itemDef.isSticker
             ? { name: itemDef.name, icon: itemDef.icon, stickerId: itemDef.id, isSticker: true, uid: generateUID() }
-            : { id: itemDef.id, name: itemDef.name, icon: itemDef.icon, score: itemDef.score, isOutOfGame: true, uid: generateUID() };
+            : { ...itemDef, score: itemDef.rarity || itemDef.score, isOutOfGame: true, uid: generateUID() };
 
         const toInventory = [];
         const toPending = [];
