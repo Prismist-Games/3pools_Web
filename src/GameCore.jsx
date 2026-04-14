@@ -4,7 +4,7 @@ import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
 import WallPicker from './components/game/WallPicker';
 import BulletinBoard, { SCORE_STYLE, RewardCard, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
-import ActiveOrders from './components/game/ActiveOrders';
+// ActiveOrders removed — order submit is now on BulletinBoard directly
 import ScoreBoard from './components/game/ScoreBoard';
 import DispatchJudgment from './components/game/DispatchJudgment';
 import AICooking, { pickRandomCustomer } from './components/game/AICooking';
@@ -56,10 +56,9 @@ const GameCore = () => {
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
         replaceInventoryItem, discardInventoryItem, discardPendingItem, debugAddItem,
-        bulletinBoard, activeOrders,
-        acceptOrder, submitOrder, canSubmitOrder,
+        bulletinBoard, pendingChosenOrder,
+        submitOrder, canSubmitOrder,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
-        pendingAcceptOrder, confirmReplaceOrder, cancelReplaceOrder,
         isInSubLevel, wallStack,
         enterSubLevel, exitSubLevel,
         debugAddStorageItems,
@@ -217,23 +216,14 @@ const GameCore = () => {
                             {bulletinBoard && (
                                 <BulletinBoard
                                     orders={bulletinBoard}
-                                    onAccept={acceptOrder}
-                                    incomingOrder={phase === 'incoming_order' ? null : incomingOrder}
-                                    onConfirmIncoming={confirmIncomingOrder}
-                                    onDiscardIncoming={discardIncomingOrder}
-                                    onReplaceIncoming={replaceBulletinOrder}
-                                    bonusItemMap={bonusItemMap}
-                                />
-                            )}
-                            {activeOrders && (
-                                <ActiveOrders
-                                    orders={activeOrders}
                                     inventory={inventory}
                                     onSubmit={submitOrder}
                                     canSubmitOrder={canSubmitOrder}
-                                    pendingAcceptOrder={pendingAcceptOrder}
-                                    onConfirmReplace={confirmReplaceOrder}
-                                    onCancelReplace={cancelReplaceOrder}
+                                    incomingOrder={phase !== 'incoming_order' ? incomingOrder : null}
+                                    onConfirmIncoming={confirmIncomingOrder}
+                                    onDiscardIncoming={discardIncomingOrder}
+                                    pendingChosenOrder={pendingChosenOrder}
+                                    onReplaceIncoming={replaceBulletinOrder}
                                     hoveredStickerIds={hoveredStickerIds}
                                     bonusItemMap={bonusItemMap}
                                 />
@@ -242,71 +232,50 @@ const GameCore = () => {
 
                         {/* CENTER — changes by phase */}
                         <div className="flex-1 min-w-0">
-                            {/* Incoming order phase */}
-                            {phase === 'incoming_order' && incomingOrder && (
+                            {/* Incoming order phase — two candidates to choose from */}
+                            {phase === 'incoming_order' && incomingOrder && incomingOrder.candidates && (
                                 <div className="flex justify-center py-8">
-                                    <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_4px_0_#D4B896] p-6 max-w-sm text-center self-start">
+                                    <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_4px_0_#D4B896] p-6 max-w-lg text-center self-start">
                                         <h2 className="text-base font-bold mb-1 text-kitchen-text-title">{t('新订单')}</h2>
-                                        <p className="text-[11px] text-kitchen-text-body mb-4">{t('选择是否加入货架')}</p>
-                                        <div className="flex items-center justify-center gap-2 mb-4">
-                                            {incomingOrder.rewards.map((r, i) => {
-                                                const sc = SCORE_STYLE[r.score] || SCORE_STYLE[1];
+                                        <p className="text-[11px] text-kitchen-text-body mb-4">{t('选择一个加入货架')}</p>
+                                        <div className="flex gap-4 mb-4">
+                                            {incomingOrder.candidates.map((candidate, ci) => {
+                                                const ds = DIFFICULTY_STYLE[candidate.difficulty] || DIFFICULTY_STYLE.easy;
                                                 return (
-                                                    <div key={i} className={`relative w-14 h-14 rounded-lg border-2 ${sc.border} bg-gradient-to-b ${sc.bg} flex items-center justify-center text-2xl shadow-sm`}>
-                                                        {r.icon}
-                                                        <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow`}>+{r.score}</span>
-                                                    </div>
+                                                    <button key={candidate.id}
+                                                        onClick={() => confirmIncomingOrder(candidate)}
+                                                        className="flex-1 p-3 rounded-lg border-2 border-gray-200 bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left">
+                                                        <div className="flex items-center gap-1.5 mb-2">
+                                                            <span className="text-[9px] text-gray-300">{t('难度')}</span>
+                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 mb-2">
+                                                            <span className="text-[9px] text-gray-300 uppercase tracking-wide mr-0.5">{t('奖励')}</span>
+                                                            {candidate.rewards.map((r, i) => (
+                                                                <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                                                            ))}
+                                                        </div>
+                                                        {candidate.requirements && candidate.requirements.length > 0 && (
+                                                            <div className="flex gap-1.5 flex-wrap items-center">
+                                                                <span className="text-[9px] text-gray-300 uppercase tracking-wide">{t('需要')}</span>
+                                                                {candidate.requirements.map((req, i) => (
+                                                                    <div key={i} className="flex items-center gap-0.5">
+                                                                        <div className="w-6 h-6 rounded border border-gray-300 bg-white flex items-center justify-center text-xs shadow-sm">
+                                                                            {req.icon}
+                                                                        </div>
+                                                                        <span className="text-[10px] font-bold text-gray-500">x{req.count}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </button>
                                                 );
                                             })}
                                         </div>
-                                        <div className="text-[11px] text-gray-400 mb-3">
-                                            <span className={`font-bold px-1.5 py-0.5 rounded-md ${
-                                                incomingOrder.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                                                incomingOrder.difficulty === 'medium' ? 'bg-blue-100 text-blue-700' :
-                                                incomingOrder.difficulty === 'hard' ? 'bg-purple-100 text-purple-700' :
-                                                'bg-red-100 text-red-700'
-                                            }`}>{t(incomingOrder.difficulty)}</span>
-                                        </div>
-                                        {bulletinBoard.length < 5 ? (
-                                            <div className="flex gap-2 justify-center">
-                                                <button onClick={confirmIncomingOrder}
-                                                    className="px-5 py-2 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body text-sm font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors">
-                                                    {t('加入货架')}
-                                                </button>
-                                                <button onClick={discardIncomingOrder}
-                                                    className="px-5 py-2 bg-[#F5F0E8] border-2 border-kitchen-gold-border-muted text-kitchen-text-secondary text-sm font-bold rounded-xl shadow-[0_2px_0_#D4B896] hover:bg-[#EDE8E0] transition-colors">
-                                                    {t('放弃')}
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div>
-                                                <p className="text-xs text-amber-600 mb-3">{t('货架已满，选择一个替换')}</p>
-                                                <div className="flex flex-wrap gap-2 mb-3 text-left">
-                                                    {bulletinBoard.map(order => {
-                                                        const ds = DIFFICULTY_STYLE[order.difficulty] || DIFFICULTY_STYLE.easy;
-                                                        return (
-                                                            <button key={order.id} onClick={() => replaceBulletinOrder(order.id)}
-                                                                className="p-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-400 transition-colors text-left">
-                                                                <div className="flex items-center gap-1.5 mb-1">
-                                                                    <span className="text-[9px] text-gray-300">{t('难度')}</span>
-                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(order.difficulty)}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1">
-                                                                    <span className="text-[9px] text-gray-300 uppercase tracking-wide mr-0.5">{t('奖励')}</span>
-                                                                    {order.rewards.map((r, i) => (
-                                                                        <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
-                                                                    ))}
-                                                                </div>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <button onClick={discardIncomingOrder}
-                                                    className="px-5 py-2 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-300 transition-colors">
-                                                    {t('放弃')}
-                                                </button>
-                                            </div>
-                                        )}
+                                        <button onClick={discardIncomingOrder}
+                                            className="px-5 py-2 bg-[#F5F0E8] border-2 border-kitchen-gold-border-muted text-kitchen-text-secondary text-sm font-bold rounded-xl shadow-[0_2px_0_#D4B896] hover:bg-[#EDE8E0] transition-colors">
+                                            {t('放弃')}
+                                        </button>
                                     </div>
                                 </div>
                             )}

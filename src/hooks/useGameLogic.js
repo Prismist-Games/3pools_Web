@@ -93,7 +93,7 @@ export const useGameLogic = (config) => {
     // --- Configuration ---
     const doomConfig = config.doom || DOOM_CONFIG;
     const turnConfig = config.turn || TURN_CONFIG;
-    const orderConfig = config.order || { bulletinCapacity: 5, maxActive: 3, newPerTurn: 1, initialCount: 2 };
+    const orderConfig = config.order || { bulletinCapacity: 5, newPerTurn: 1, initialCount: 2 };
     const expeditionConfig = config.expedition || { expeditionCount: 3, scoreToWin: 30 };
     const baseInventorySize = config.inventorySize || config.stages[0].inventorySize;
     const [inventoryBonus, setInventoryBonus] = useState(0);
@@ -149,7 +149,7 @@ export const useGameLogic = (config) => {
 
     // --- Order State ---
     const [bulletinBoard, setBulletinBoard] = useState([]);
-    const [activeOrders, setActiveOrders] = useState([]);
+    // activeOrders removed — bulletinBoard is now the only order list
 
     // --- Incoming Order (flies to bulletin between turns) ---
     const [incomingOrder, setIncomingOrder] = useState(null);
@@ -268,9 +268,9 @@ export const useGameLogic = (config) => {
         resolveDoom('end_turn');
     };
 
-    /** Continue to next turn — show incoming order first, then wall choice */
+    /** Continue to next turn — show incoming order first (two candidates), then wall choice */
     const continueToNextTurn = () => {
-        setIncomingOrder(generateOrder());
+        setIncomingOrder({ candidates: [generateOrder(), generateOrder()] });
         setPhase('incoming_order');
     };
 
@@ -576,10 +576,10 @@ export const useGameLogic = (config) => {
             setGold(prev => prev + goldGain);
             showToast(`${t('金币')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'order_cell') {
-            for (let i = 0; i < mult; i++) {
-                addBulletinOrder();
-            }
-            showToast(`${t('获得新订单')}${mult > 1 ? ' ×' + mult : ''}`, 'info');
+            // Popcorn multiplier does not apply to order draws (they spawn a 2-candidate
+            // picker, which wouldn't compose cleanly with ×N).
+            addBulletinOrder();
+            showToast(t('获得新订单'), 'info');
         } else if (drawnCell.type === 'heal') {
             const amount = (drawnCell.healAmount || 1) * mult;
             setHp(prev => Math.min(prev + amount, doomConfig.initialHP));
@@ -1021,9 +1021,9 @@ export const useGameLogic = (config) => {
     // ORDER SYSTEM
     // =============================================
 
-    /** Queue a new order as incoming (player must manually accept/discard) */
+    /** Queue a new order as incoming with two candidates (player picks one) */
     const addBulletinOrder = () => {
-        setIncomingOrder(generateOrder());
+        setIncomingOrder({ candidates: [generateOrder(), generateOrder()] });
     };
 
     /** Resolve incoming order and proceed to wall choice */
@@ -1034,63 +1034,39 @@ export const useGameLogic = (config) => {
         }
     };
 
-    /** Accept the incoming order into the bulletin board */
-    const confirmIncomingOrder = () => {
+    /** Player picks one of the two incoming candidates. If shelf not full, add directly.
+     *  If shelf is full, store the chosen order as pendingChosenOrder for replacement step. */
+    const [pendingChosenOrder, setPendingChosenOrder] = useState(null);
+
+    const confirmIncomingOrder = (chosenOrder) => {
         if (!incomingOrder) return;
         if (bulletinBoard.length >= orderConfig.bulletinCapacity) {
-            // Bulletin full — need to replace, handled by replaceBulletinOrder
+            // Shelf full — store chosen order, player must pick which to replace
+            setPendingChosenOrder(chosenOrder);
+            setIncomingOrder(null);
             return;
         }
-        setBulletinBoard(prev => [...prev, incomingOrder]);
+        setBulletinBoard(prev => [...prev, chosenOrder]);
         resolveIncomingAndProceed();
     };
 
-    /** Replace a bulletin order with the incoming one (when bulletin is full) */
+    /** Replace a shelf order with the pending chosen order (when shelf is full) */
     const replaceBulletinOrder = (orderId) => {
-        if (!incomingOrder) return;
-        setBulletinBoard(prev => prev.map(o => o.id === orderId ? incomingOrder : o));
+        if (!pendingChosenOrder) return;
+        setBulletinBoard(prev => prev.map(o => o.id === orderId ? pendingChosenOrder : o));
+        setPendingChosenOrder(null);
         resolveIncomingAndProceed();
     };
 
-    /** Discard the incoming order */
+    /** Discard the incoming order (skip both candidates) */
     const discardIncomingOrder = () => {
+        setPendingChosenOrder(null);
         resolveIncomingAndProceed();
     };
 
-    // --- Pending accept for replace flow ---
-    const [pendingAcceptOrder, setPendingAcceptOrder] = useState(null);
-
-    /** Move an order from bulletin board to active orders */
-    const acceptOrder = (orderId) => {
-        const order = bulletinBoard.find(o => o.id === orderId);
-        if (!order) return;
-        if (activeOrders.length >= orderConfig.maxActive) {
-            // Full — enter replace mode
-            setPendingAcceptOrder(order);
-            return;
-        }
-        setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
-        setActiveOrders(prev => [...prev, order]);
-    };
-
-    /** Replace an active order with the pending one */
-    const confirmReplaceOrder = (activeOrderId) => {
-        if (!pendingAcceptOrder) return;
-        setBulletinBoard(prev => prev.filter(o => o.id !== pendingAcceptOrder.id));
-        setActiveOrders(prev => prev.map(o =>
-            o.id === activeOrderId ? pendingAcceptOrder : o
-        ));
-        setPendingAcceptOrder(null);
-    };
-
-    /** Cancel the pending accept */
-    const cancelReplaceOrder = () => {
-        setPendingAcceptOrder(null);
-    };
-
-    /** Check if player has required stickers to submit an order */
+    /** Check if player has required stickers to submit an order (checks bulletinBoard) */
     const canSubmitOrder = (orderId) => {
-        const order = activeOrders.find(o => o.id === orderId);
+        const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return false;
         const stickerCounts = {};
         for (const item of inventory) {
@@ -1101,9 +1077,9 @@ export const useGameLogic = (config) => {
         return order.requirements.every(req => (stickerCounts[req.stickerId] || 0) >= req.count);
     };
 
-    /** Submit a completed order: consume stickers, add reward to inventory */
+    /** Submit a completed order: consume stickers, add reward to inventory (from bulletinBoard) */
     const submitOrder = (orderId) => {
-        const order = activeOrders.find(o => o.id === orderId);
+        const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return;
         if (!canSubmitOrder(orderId)) {
             showToast(t('贴纸不足'), 'warning');
@@ -1140,8 +1116,8 @@ export const useGameLogic = (config) => {
             return remaining;
         });
 
-        // Remove order from active
-        setActiveOrders(prev => prev.filter(o => o.id !== orderId));
+        // Remove order from shelf
+        setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
         showToast(t('订单完成'), 'success');
     };
 
@@ -1277,8 +1253,7 @@ export const useGameLogic = (config) => {
         setAfterDoomAction(null);
         setInventory([]);
         setBulletinBoard([]);
-        setActiveOrders([]);
-        setPendingAcceptOrder(null);
+        setPendingChosenOrder(null);
         setIncomingOrder(null);
         setToast(null);
         setLastDrawResult(null);
@@ -1321,8 +1296,7 @@ export const useGameLogic = (config) => {
         setDrawAnimState(null);
         setPendingItems([]);
         setBulletinBoard([]);
-        setActiveOrders([]);
-        setPendingAcceptOrder(null);
+        setPendingChosenOrder(null);
         setPhase('pre_game');
     };
 
@@ -1388,7 +1362,7 @@ export const useGameLogic = (config) => {
 
         // Orders
         bulletinBoard,
-        activeOrders,
+        pendingChosenOrder,
 
         // UI
         toast,
@@ -1417,16 +1391,12 @@ export const useGameLogic = (config) => {
         discardInventoryItem,
         debugAddItem,
         discardPendingItem,
-        acceptOrder,
         submitOrder,
         canSubmitOrder,
         incomingOrder,
         confirmIncomingOrder,
         discardIncomingOrder,
         replaceBulletinOrder,
-        pendingAcceptOrder,
-        confirmReplaceOrder,
-        cancelReplaceOrder,
         debugAddStorageItems: (items) => {
             setExpeditionScores(prev => [...prev, { score: 0, baseScore: 0, bonusScore: 0, items }]);
         },
