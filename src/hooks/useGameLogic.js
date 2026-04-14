@@ -699,10 +699,10 @@ export const useGameLogic = (config) => {
     /** Evacuate — resolve slot cards and finish evacuation flow */
     const evacuate = () => {
         if (!canEvacuate) return;
-        // Resolve slot cards (profit cards convert rewards, etc.)
-        resolveSlotCardsAtEvacuation();
-        // Finish evacuation with current inventory
-        finishEvacuation(inventory, 'evacuated');
+        const { rewardItems } = resolveSlotCardsAtEvacuation();
+        const capacityRemaining = Math.max(0, maxInventorySize - inventory.length);
+        const finalInventory = [...inventory, ...rewardItems.slice(0, capacityRemaining)];
+        finishEvacuation(finalInventory, 'evacuated');
     };
 
     /** Collect out-of-game items from inventory */
@@ -772,7 +772,6 @@ export const useGameLogic = (config) => {
         setPendingItems([]);
         setLives(INITIAL_LIVES);
 
-        // No evacuation card — passive sticker count check
         setSlotCards([]);
 
         setPhase('pre_game');
