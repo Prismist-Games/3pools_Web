@@ -8,8 +8,9 @@ import { Toast } from './components/ui/Toast';
 import GameTooltip from './components/ui/GameTooltip';
 import GameCard from './components/ui/GameCard';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from './data/v2Config';
-import { RISK_CONFIG, AP_CONFIG } from './data/v3Config';
+import { AP_CONFIG } from './data/v3Config';
 import { canSatisfyCard, getRequirements, getStickerTypeInfo } from './data/slotCards';
+import CardDock from './components/game/CardDock';
 
 
 /** Wall card for the shop — compact layout for 5-in-a-row */
@@ -99,11 +100,8 @@ const GameCore = () => {
         revealedPools, displayedProfitCards, canRefreshWalls, refreshWalls,
         enterPool, exitPool, canEnterPool, takeDisplayCard, canTakeCard,
         // Pool state
-        currentPool, drawLimitReached, enterDangerWall, exitDangerWallView, pendingFlippedPool, resolvePoolOverflow,
-        growthOrdersView, submitGrowthOrder,
-        doomCounter, hp,
-        risk, lives, wallDepth, turnHeat, cumulativeExposure, dangerWalls, nextDrawRiskIncrement,
-        removeEncounter,
+        currentPool, drawLimitReached,
+        lives,
         matrix, lastDrawResult, lastDrawDirection,
         drawCount, totalDrawCount, canDraw,
         drawAnimState, isDrawAnimating,
@@ -232,28 +230,8 @@ const GameCore = () => {
                             </span>
                         </GameTooltip>
 
-                        {/* Spacer — push heat/lives to the right for visual grouping */}
+                        {/* Spacer — push lives to the right for visual grouping */}
                         <div className="flex-1" />
-
-                        {/* Heat gauge — shows current turn heat */}
-                        <GameTooltip icon="🌡️" title={t('热度')} text={t('回合结束时，热度越高越可能出现危险墙')}>
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border-2 shadow-sm font-black text-sm ${
-                                turnHeat >= 50 ? 'bg-red-50 border-red-300 text-red-600' :
-                                turnHeat >= 25 ? 'bg-amber-50 border-amber-300 text-amber-600' :
-                                'bg-gray-50 border-gray-200 text-gray-500'
-                            }`}>
-                                <span>🌡️</span>
-                                <span className="tabular-nums">{turnHeat}</span>
-                            </span>
-                        </GameTooltip>
-
-                        {/* Danger walls count — shown if any active */}
-                        {dangerWalls.length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border-2 shadow-sm font-black text-sm bg-orange-50 border-orange-300 text-orange-600">
-                                <span>🔥</span>
-                                <span className="tabular-nums">{dangerWalls.length}</span>
-                            </span>
-                        )}
 
                         {/* Lives */}
                         <GameTooltip icon="❤️" title={t('生命')} text={t('归零时失去全部物品，强制离场')}>
@@ -304,44 +282,6 @@ const GameCore = () => {
                                     {t('结束回合')}
                                 </button>
 
-                                {/* Danger walls — compact sidebar view */}
-                                {dangerWalls.length > 0 && (
-                                    <div className="bg-red-50 rounded-lg border border-red-200 shadow-sm">
-                                        <div className="px-2.5 py-1.5 border-b border-red-100">
-                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-wide">
-                                                🔥 {t('危险墙')} ({dangerWalls.length})
-                                            </span>
-                                        </div>
-                                        <div className="p-2 flex flex-col gap-1.5">
-                                            {dangerWalls.map(dw => (
-                                                <div key={dw.id} className="relative group rounded-md border border-red-300 bg-white px-2 py-1.5">
-                                                    <button
-                                                        onClick={() => {
-                                                            if (window.confirm(t('移除危险将扣 1 条命'))) {
-                                                                removeEncounter('danger_wall', dw.id);
-                                                            }
-                                                        }}
-                                                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-all z-10 shadow"
-                                                        title={t('移除危险将扣 1 条命')}
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                    <div className="flex items-center gap-1 mb-1">
-                                                        {dw.grid[0].map((cell, ci) => (
-                                                            <span key={ci} className="text-xs">{cell.icon}</span>
-                                                        ))}
-                                                    </div>
-                                                    <button
-                                                        onClick={() => enterDangerWall(dw.id)}
-                                                        className="w-full px-2 py-1 rounded text-[10px] font-bold bg-red-500 text-white hover:bg-red-600 transition-colors"
-                                                    >
-                                                        {t('进入危险墙')}
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
 
                             {/* CENTER: Wall Shop + Profit Card Display */}
@@ -484,7 +424,7 @@ const GameCore = () => {
                         {/* LEFT SIDEBAR — wall info + exit + end turn */}
                         <div className="w-52 flex-shrink-0 flex flex-col gap-3 self-start">
                             {/* Wall info — draw count / limit */}
-                            {currentPool && !currentPool.isDangerWall && (
+                            {currentPool && (
                                 <div className="rounded-xl border-2 border-green-300 bg-green-50 p-3">
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="text-2xl">{currentPool.poolType?.icon || '🏷️'}</span>
@@ -518,26 +458,6 @@ const GameCore = () => {
                                 </div>
                             )}
 
-                            {/* Danger wall info — when inside a danger wall */}
-                            {currentPool?.isDangerWall && (
-                                <div className="rounded-xl border-2 border-red-400 bg-red-50 p-3">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-2xl">🔥</span>
-                                        <span className="font-black text-base text-red-800">{t('危险墙')}</span>
-                                    </div>
-                                    <div className="text-[11px] text-red-500 font-medium">
-                                        {t('抽取')}: {drawCount}/{currentPool.poolType.drawLimit}
-                                    </div>
-                                    <button
-                                        onClick={exitDangerWallView}
-                                        disabled={isDrawAnimating}
-                                        className="mt-2 w-full px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-rose-300 text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors disabled:opacity-50"
-                                    >
-                                        {t('退出危险墙')}
-                                    </button>
-                                </div>
-                            )}
-
                             {/* End Turn */}
                             <button
                                 onClick={endTurn}
@@ -546,45 +466,6 @@ const GameCore = () => {
                             >
                                 {t('结束回合')}
                             </button>
-
-                            {/* Danger walls — compact sidebar view (only when not inside one) */}
-                            {dangerWalls.length > 0 && !currentPool?.isDangerWall && (
-                                <div className="bg-red-50 rounded-lg border border-red-200 shadow-sm">
-                                    <div className="px-2.5 py-1.5 border-b border-red-100">
-                                        <span className="text-[10px] font-bold text-red-500 uppercase tracking-wide">
-                                            🔥 {t('危险墙')} ({dangerWalls.length})
-                                        </span>
-                                    </div>
-                                    <div className="p-2 flex flex-col gap-1.5">
-                                        {dangerWalls.map(dw => (
-                                            <div key={dw.id} className="relative group rounded-md border border-red-300 bg-white px-2 py-1.5">
-                                                <button
-                                                    onClick={() => {
-                                                        if (window.confirm(t('移除危险将扣 1 条命'))) {
-                                                            removeEncounter('danger_wall', dw.id);
-                                                        }
-                                                    }}
-                                                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-all z-10 shadow"
-                                                    title={t('移除危险将扣 1 条命')}
-                                                >
-                                                    ✕
-                                                </button>
-                                                <div className="flex items-center gap-1 mb-1">
-                                                    {dw.grid[0].map((cell, ci) => (
-                                                        <span key={ci} className="text-xs">{cell.icon}</span>
-                                                    ))}
-                                                </div>
-                                                <button
-                                                    onClick={() => enterDangerWall(dw.id)}
-                                                    className="w-full px-2 py-1 rounded text-[10px] font-bold bg-red-500 text-white hover:bg-red-600 transition-colors"
-                                                >
-                                                    {t('进入危险墙')}
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {/* CENTER: Grid */}

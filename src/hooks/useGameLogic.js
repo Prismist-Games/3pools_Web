@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { generatePoolGrid, applyGravityAndRefill } from '../utils/matrixHelpers';
-import { DOOM_CONFIG } from '../data/constants';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from '../data/v2Config';
-import { V3_INITIAL_STATE, AP_CONFIG, RISK_CONFIG } from '../data/v3Config';
+import { V3_INITIAL_STATE, AP_CONFIG } from '../data/v3Config';
 import { POOL_TYPES, generateWallShop, buildBiasedStickerWeights } from '../data/poolTypes';
-import { GROWTH_ORDERS, isOrderReady, getOrderProgress, generateScoreOrder } from '../data/growthOrders';
 import { generateSlotCard, canSatisfyCard, EVACUATION_PROFIT_REQUIREMENT } from '../data/slotCards';
 
 import { useLanguage } from '../contexts/LanguageContext';
@@ -21,9 +19,8 @@ export const useGameLogic = (config) => {
     const { t } = useLanguage();
 
     // --- Configuration ---
-    const doomConfig = config.doom || DOOM_CONFIG;
     const expeditionConfig = config.expedition || { expeditionCount: 3 };
-    const baseInventorySize = config.inventorySize || 15;
+    const baseInventorySize = config.inventorySize ?? 10;
     const [inventoryBonus, setInventoryBonus] = useState(0);
     const maxInventorySize = baseInventorySize + inventoryBonus;
 
@@ -47,22 +44,9 @@ export const useGameLogic = (config) => {
     // --- Pool State ---
     const [currentPool, setCurrentPool] = useState(null);   // { uid, poolType, grid, cellCounts } or null
 
-    // --- Doom State (legacy — kept for backward compat, ignored by new risk system) ---
-    const [doomCounter, setDoomCounter] = useState(0);
-    const [hp, setHp] = useState(doomConfig.initialHP);
-
-    // --- Risk System State ---
-    const [risk, setRisk] = useState(RISK_CONFIG.RISK_FLOOR); // kept for backward compat, no longer drives danger
-    const [wallDepth, setWallDepth] = useState(0);
-    const [lives, setLives] = useState(RISK_CONFIG.INITIAL_LIVES);
-
-    // --- Heat / Danger Wall System (replaces danger cards) ---
-    const [turnHeat, setTurnHeat] = useState(0);                 // accumulates per turn, resets each turn
-    const [cumulativeExposure, setCumulativeExposure] = useState(0); // accumulates per expedition, resets on evacuation
-    const [dangerWalls, setDangerWalls] = useState([]);           // array of danger wall encounters
-
-    // --- Score Order Encounters State ---
-    const [scoreOrderEncounters, setScoreOrderEncounters] = useState([]);
+    // --- Lives ---
+    const INITIAL_LIVES = 5;
+    const [lives, setLives] = useState(INITIAL_LIVES);
 
     // --- Slot Cards State ---
     const [slotCards, setSlotCards] = useState([]); // array of slot card objects (profit + danger)
@@ -86,13 +70,6 @@ export const useGameLogic = (config) => {
     const [flyingItem, setFlyingItem] = useState(null);
     const [drawAnimState, setDrawAnimState] = useState(null);
 
-    // --- Pool Overflow State ---
-    const [pendingFlippedPool, setPendingFlippedPool] = useState(null);
-
-    // --- Growth Orders State ---
-    // completedOrderIds: Set-like array of order ids that have been submitted
-    const [completedOrderIds, setCompletedOrderIds] = useState([]);
-
     // --- 印花墙 per-instance biased stickers ---
     // Each 印花墙 card in the deck carries its own independently-rolled 2-id bias pair
     // (stored on the pool type as `_bias`). No global state needed — bias travels with
@@ -100,34 +77,9 @@ export const useGameLogic = (config) => {
 
     // --- Derived State ---
     const isDrawAnimating = drawAnimState !== null;
-    const canFlipOrder = actionPoints >= AP_CONFIG.flipCost
-        && pendingFlippedPool === null;
     const drawLimitReached = currentPool ? drawCount >= (currentPool.poolType?.drawLimit ?? Infinity) : false;
     const canDraw = actionPoints >= AP_CONFIG.drawCost && phase === 'drawing' && !drawLimitReached;
     const canRefreshWalls = actionPoints >= AP_CONFIG.refreshCost && phase === 'pool_selection';
-
-    // Risk system: derive coefficient from riskLabel via config lookup
-    const getRiskCoeff = (poolType) => {
-        const label = poolType?.riskLabel || '低';
-        return RISK_CONFIG.RISK_COEFFICIENTS[label] || 1;
-    };
-    // Risk tier: plateau shrinks as you draw deeper (4, 3, 2, 1, 1, 1...)
-    const getRiskTier = (depth) => {
-        if (depth <= 4) return 1;
-        if (depth <= 7) return 2;
-        if (depth <= 9) return 3;
-        return depth - 6; // 10→4, 11→5, 12→6...
-    };
-    const currentPoolRiskCoeff = getRiskCoeff(currentPool?.poolType);
-    const nextDrawRiskIncrement = getRiskTier(wallDepth + 1) * currentPoolRiskCoeff;
-
-    // --- Growth Orders: derived view ---
-    const growthOrdersView = GROWTH_ORDERS.map(order => {
-        const completed = completedOrderIds.includes(order.id);
-        const locked = false;
-        const ready = !completed && isOrderReady(order, inventory);
-        return { order, completed, locked, ready };
-    });
 
     // =============================================
     // WALL SHOP
@@ -135,7 +87,6 @@ export const useGameLogic = (config) => {
 
     // --- Slot card constants ---
     const MAX_PROFIT_CARDS = 5;
-    const FLIP_HEAT = 3;
 
     // Cost-to-drawLimit mapping for wall shop
     const COST_DRAW_LIMIT = { 1: 3, 2: 5, 3: 7 };
@@ -206,7 +157,6 @@ export const useGameLogic = (config) => {
         setDrawCount(0);
         setLastDrawResult(null);
         setLastDrawDirection(null);
-        setWallDepth(0);
         setPhase('drawing');
     };
 
@@ -249,158 +199,6 @@ export const useGameLogic = (config) => {
         return actionPoints >= AP_CONFIG.takeCardCost
             && profitCount < MAX_PROFIT_CARDS
             && phase === 'pool_selection';
-    };
-
-    /** Flip Order — costs AP. Produces a score order.
-     *  Results go to Order Area.
-     */
-    const flipOrder = () => {
-        if (!canFlipOrder) return;
-        if (isDrawAnimating) return;
-
-        setActionPoints(prev => prev - AP_CONFIG.flipCost);
-
-        // Add heat on flip
-        setTurnHeat(prev => prev + FLIP_HEAT);
-
-        // Generate a score order
-        const order = generateScoreOrder();
-        const scoreEncounter = { type: 'score_order', id: order.id, order };
-
-        // Order area overflow check
-        const orderAreaCount = scoreOrderEncounters.length;
-        if (orderAreaCount >= AP_CONFIG.maxRevealedOrders) {
-            // Score orders can be discarded when overflow — use pending mechanism
-            setPendingFlippedPool({ uid: scoreEncounter.id, poolType: null, isScoreOrder: true, scoreEncounter });
-        } else {
-            setScoreOrderEncounters(prev => [...prev, scoreEncounter]);
-        }
-        showToast(`📋 ${t('得分订单出现')}!`, 'info');
-    };
-
-    /** Resolve pool overflow — player chooses to accept or discard a pending score order.
-     *  action: 'replace' | 'discard'
-     */
-    const resolvePoolOverflow = (action) => {
-        if (!pendingFlippedPool) return;
-
-        // If the pending item is a score order (from score order overflow)
-        if (pendingFlippedPool.isScoreOrder) {
-            if (action !== 'discard') {
-                setScoreOrderEncounters(prev => [...prev, pendingFlippedPool.scoreEncounter]);
-            }
-            // If discarded, score order is simply dropped (no penalty)
-            setPendingFlippedPool(null);
-            return;
-        }
-
-        setPendingFlippedPool(null);
-    };
-
-    // =============================================
-    // GROWTH ORDERS
-    // =============================================
-
-    /** Submit a growth order — consume stickers, grant a perk (TODO) or placeholder reward.
-     *  Called only after a confirmation click in the UI. Under the new architecture,
-     *  orders no longer unlock walls — they give perks or gold. All walls are reachable
-     *  via the rarity-weighted flip roll controlled by the player tier.
-     */
-    const submitGrowthOrder = (orderId) => {
-        const order = GROWTH_ORDERS.find(o => o.id === orderId);
-        if (!order) return;
-        if (completedOrderIds.includes(orderId)) return;
-        // No inter-order gating in the new design — any order can be submitted when ready.
-        if (!isOrderReady(order, inventory)) {
-            showToast(t('印花不足'), 'warning');
-            return;
-        }
-
-        // Consume stickers — for each group, remove `count` stickers matching any of stickerIds
-        setInventory(prev => {
-            const remaining = [...prev];
-            for (const group of order.groups) {
-                let toRemove = group.count;
-                for (let i = remaining.length - 1; i >= 0 && toRemove > 0; i--) {
-                    const it = remaining[i];
-                    if (it?.isSticker && group.stickerIds.includes(it.stickerId)) {
-                        remaining.splice(i, 1);
-                        toRemove--;
-                    }
-                }
-            }
-            return remaining;
-        });
-
-        // TODO (perk system): replace this stub with actual perk / gold rewards.
-        // For now, completing an order just marks it done. No reward is granted.
-        // When perks are designed, consume `order.reward` (or a new field) and apply here.
-
-        // Mark completed
-        setCompletedOrderIds(prev => [...prev, orderId]);
-        showToast(`✨ ${t('订单完成')}: ${t(order.name)}`, 'success');
-    };
-
-    // =============================================
-    // SCORE ORDERS
-    // =============================================
-
-    /** Submit a score order — consume stickers, add reward items to inventory, remove encounter. */
-    const submitScoreOrder = (orderId) => {
-        const encounter = scoreOrderEncounters.find(e => e.id === orderId);
-        if (!encounter) return;
-        const order = encounter.order;
-        if (!isOrderReady(order, inventory)) {
-            showToast(t('印花不足'), 'warning');
-            return;
-        }
-
-        // Consume stickers
-        setInventory(prev => {
-            const remaining = [...prev];
-            for (const group of order.groups) {
-                let toRemove = group.count;
-                for (let i = remaining.length - 1; i >= 0 && toRemove > 0; i--) {
-                    const it = remaining[i];
-                    if (it?.isSticker && group.stickerIds.includes(it.stickerId)) {
-                        remaining.splice(i, 1);
-                        toRemove--;
-                    }
-                }
-            }
-            return remaining;
-        });
-
-        // Add reward items to inventory
-        const rewardInventoryItems = order.rewardItems.map(item => ({
-            id: item.id,
-            name: item.name,
-            icon: item.icon,
-            stars: item.stars,
-            isOutOfGame: true,
-            uid: generateUID(),
-        }));
-
-        // Check if items fit; overflow to pending if needed
-        setInventory(prev => {
-            const newInv = [...prev];
-            const toPending = [];
-            for (const item of rewardInventoryItems) {
-                if (newInv.length < maxInventorySize) {
-                    newInv.push(item);
-                } else {
-                    toPending.push(item);
-                }
-            }
-            if (toPending.length > 0) {
-                setPendingItems(prevP => [...prevP, ...toPending]);
-            }
-            return newInv;
-        });
-
-        // Remove the score order encounter
-        setScoreOrderEncounters(prev => prev.filter(e => e.id !== orderId));
-        showToast(`📋 ${t('得分订单完成')}!`, 'success');
     };
 
     // =============================================
@@ -536,87 +334,6 @@ export const useGameLogic = (config) => {
     const freeCapacity = Math.max(0, maxInventorySize - usedCapacity);
 
     // =============================================
-    // DANGER WALL SYSTEM
-    // =============================================
-
-    /**
-     * Generate a danger wall grid based on cumulative exposure.
-     * Returns a small grid (1x3) with resolve and hit cells.
-     * TODO (tuning): thresholds are placeholders.
-     */
-    const generateDangerGrid = (exposure) => {
-        let resolveCount, hitCount;
-        if (exposure < 20) {
-            resolveCount = 2; hitCount = 1;
-        } else if (exposure < 50) {
-            resolveCount = 1; hitCount = 2;
-        } else {
-            resolveCount = 0; hitCount = 3;
-        }
-        const cells = [];
-        for (let i = 0; i < resolveCount; i++) {
-            cells.push({ type: 'danger_resolve', icon: '\uD83D\uDEE1\uFE0F', name: '\u5316\u89E3' });
-        }
-        for (let i = 0; i < hitCount; i++) {
-            cells.push({ type: 'danger_hit', icon: '\uD83D\uDC80', name: '\u547D\u4E2D' });
-        }
-        // Shuffle cells
-        for (let i = cells.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [cells[i], cells[j]] = [cells[j], cells[i]];
-        }
-        // Return as 1-row grid (1x3) for draw mechanics compatibility
-        return [cells];
-    };
-
-    /** Enter a danger wall — set up small grid, use normal draw mechanics */
-    const enterDangerWall = (dangerWallId) => {
-        if (isDrawAnimating) return;
-        const dw = dangerWalls.find(d => d.id === dangerWallId);
-        if (!dw) return;
-
-        setWallDepth(0);
-
-        setCurrentPool({
-            uid: dw.id,
-            poolType: {
-                id: 'danger_wall',
-                name: '\u5371\u9669\u5899',
-                icon: '\uD83D\uDD25',
-                tier: 'danger',
-                color: 'bg-red-50 border-red-400 text-red-800',
-                cardBg: 'from-red-50 to-red-100',
-                entryCost: {},
-                riskLabel: '\u9AD8',
-                drawLimit: dw.drawLimit,
-                isDangerWall: true,
-            },
-            cellCounts: {},
-            isDangerWall: true,
-            dangerWallId: dw.id,
-        });
-        setMatrix(dw.grid);
-        setDrawCount(0);
-        setLastDrawDirection(null);
-        setLastDrawResult(null);
-        setPhase('drawing');
-    };
-
-    /** Exit a danger wall — return to pool_selection. */
-    const exitDangerWallView = () => {
-        if (!currentPool) return;
-        if (currentPool.isDangerWall) {
-            setDangerWalls(prev => prev.filter(d => d.id !== currentPool.dangerWallId));
-        }
-        setCurrentPool(null);
-        setMatrix(null);
-        setDrawCount(0);
-        setLastDrawResult(null);
-        setLastDrawDirection(null);
-        setPhase('pool_selection');
-    };
-
-    // =============================================
     // TURN FLOW
     // =============================================
 
@@ -630,20 +347,12 @@ export const useGameLogic = (config) => {
         }
         setExpeditionNumber(prev => prev + 1);
         setActionPoints(AP_CONFIG.maxAP);
-        setDoomCounter(0);
         setDrawCount(0);
         setTotalDrawCount(0);
         setTurnNumber(1);
-        setCompletedOrderIds([]);
 
-        // Risk / heat system: reset to clean state
-        setRisk(RISK_CONFIG.RISK_FLOOR);
-        setWallDepth(0);
-        setLives(RISK_CONFIG.INITIAL_LIVES);
-        setTurnHeat(0);
-        setCumulativeExposure(0);
-        setDangerWalls([]);
-        setScoreOrderEncounters([]);
+        // Reset lives
+        setLives(INITIAL_LIVES);
 
         // Create initial slot cards: turn 1 danger only (profit cards now come from display)
         const turn1DangerCount = Math.ceil(1 / 2); // Turn 1: 1 danger card
@@ -671,34 +380,8 @@ export const useGameLogic = (config) => {
         startNextTurn();
     };
 
-    /** Start a new turn — check turn-end danger from heat, reset AP */
+    /** Start a new turn — reset AP, generate new danger cards */
     const startNextTurn = () => {
-        // --- Turn-end danger check using turnHeat ---
-        // P(danger) = turnHeat / (turnHeat + RISK_K)
-        const currentHeat = turnHeat;
-        const dangerProb = currentHeat / (currentHeat + RISK_CONFIG.RISK_K);
-
-        // Update cumulative exposure before resetting heat
-        setCumulativeExposure(prev => prev + currentHeat);
-
-        if (Math.random() < dangerProb) {
-            // Generate a danger wall based on cumulative exposure
-            const grid = generateDangerGrid(cumulativeExposure + currentHeat);
-            const drawLimit = grid[0].length; // draw limit = number of cells
-            const dw = {
-                type: 'danger_wall',
-                id: generateUID(),
-                grid,
-                drawLimit,
-                resolved: false,
-            };
-            setDangerWalls(prev => [...prev, dw]);
-            showToast(`\u26A0\uFE0F ${t('\u5371\u9669\u5899\u51FA\u73B0')}!`, 'warning');
-        }
-
-        // Reset turn heat
-        setTurnHeat(0);
-
         const nextTurn = turnNumber + 1;
         setTurnNumber(nextTurn);
         setActionPoints(AP_CONFIG.maxAP);
@@ -844,92 +527,14 @@ export const useGameLogic = (config) => {
 
         let obtainedItem = null;
 
-        // --- Danger wall draw handling ---
-        if (currentPool?.isDangerWall) {
-            if (drawnCell?.type === 'danger_resolve') {
-                showToast(`\uD83D\uDEE1\uFE0F ${t('\u5371\u9669\u5316\u89E3')}!`, 'success');
-                // Remove drawn cell from grid
-                setMatrix(prev => {
-                    const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
-                    newMatrix[finalRowIndex][finalColIndex] = null;
-                    return newMatrix;
-                });
-                // Remove danger wall and exit automatically
-                setDangerWalls(prev => prev.filter(d => d.id !== currentPool.dangerWallId));
-                setLastDrawResult({ rowIndex: finalRowIndex, colIndex: finalColIndex, obtained: null });
-                setDrawAnimState(null);
-                // Auto-exit after brief delay — return to pool selection
-                setTimeout(() => {
-                    setLastDrawResult(null);
-                    setLastDrawDirection(null);
-                    setDrawCount(0);
-                    setCurrentPool(null);
-                    setMatrix(null);
-                    setPhase('pool_selection');
-                }, 600);
-                return;
-            } else if (drawnCell?.type === 'danger_hit') {
-                showToast(`\uD83D\uDC80 ${t('\u547D\u4E2D')} -1 \u2764\uFE0F`, 'warning');
-                setLives(prev => {
-                    const newLives = prev - 1;
-                    if (newLives <= 0) {
-                        showToast(`\uD83D\uDC80 ${t('\u751F\u547D\u8017\u5C3D')}! ${t('\u5931\u53BB\u4E86\u5168\u90E8\u7269\u54C1')}`, 'warning');
-                        setInventory([]);
-                        setTimeout(() => finishEvacuation([], 'game_over'), 500);
-                    }
-                    return Math.max(0, newLives);
-                });
-            }
-            // Remove drawn cell, set last result, clear anim
-            setMatrix(prev => {
-                const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
-                newMatrix[finalRowIndex][finalColIndex] = null;
-                return newMatrix;
-            });
-            // Check if draw limit reached — auto-exit danger wall
-            const newDrawCount = drawCount + 1;
-            const dw = dangerWalls.find(d => d.id === currentPool.dangerWallId);
-            if (dw && newDrawCount >= dw.drawLimit) {
-                setDangerWalls(prev => prev.filter(d => d.id !== currentPool.dangerWallId));
-                setLastDrawResult({ rowIndex: finalRowIndex, colIndex: finalColIndex, obtained: null });
-                setDrawAnimState(null);
-                setTimeout(() => {
-                    setLastDrawResult(null);
-                    setLastDrawDirection(null);
-                    setDrawCount(0);
-                    setCurrentPool(null);
-                    setMatrix(null);
-                    setPhase('pool_selection');
-                }, 600);
-                return;
-            }
-            setLastDrawResult({ rowIndex: finalRowIndex, colIndex: finalColIndex, obtained: null });
-            setDrawAnimState(null);
-            return;
-        }
-
         // --- Normal wall draw handling ---
         if (drawnCell === null || drawnCell.type === 'blank') {
             showToast(t('\u7A7A\u683C'), 'info');
         } else if (drawnCell.type === 'item' || drawnCell.type === 'sticker' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
-        } else if (drawnCell.type === 'gold') {
-            // Gold cells no longer grant gold (gold removed). Treat as empty.
-            showToast(t('\u7A7A\u683C'), 'info');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: destroy adjacent 8 cells
         }
-
-        // --- Heat accumulation on draw ---
-        // Add risk-based heat to turnHeat
-        setWallDepth(prev => {
-            const newDepth = prev + 1;
-            const poolType = currentPool?.poolType;
-            const coeff = getRiskCoeff(poolType);
-            const increment = getRiskTier(newDepth) * coeff;
-            setTurnHeat(prevHeat => prevHeat + increment);
-            return newDepth;
-        });
 
         // Phase 1: Null drawn cells (show gap), then Phase 2: gravity + refill after delay.
         // Multi-cell shapes: all cells in the group become null.
@@ -1115,31 +720,6 @@ export const useGameLogic = (config) => {
         setPhase('game_over');
     };
 
-    /** Remove any encounter from the revealed area.
-     *  type: 'pool' | 'danger_wall' | 'score_order'
-     *  id: uid of the encounter to remove
-     */
-    const removeEncounter = (type, id) => {
-        if (type === 'danger_wall') {
-            // Remove danger wall — costs 1 life
-            setLives(prev => {
-                const newLives = prev - 1;
-                if (newLives <= 0) {
-                    showToast(`\uD83D\uDC80 ${t('\u751F\u547D\u8017\u5C3D')}! ${t('\u5931\u53BB\u4E86\u5168\u90E8\u7269\u54C1')}`, 'warning');
-                    setInventory([]);
-                    setTimeout(() => finishEvacuation([], 'game_over'), 500);
-                } else {
-                    showToast(`\uD83D\uDC80 ${t('\u79FB\u9664\u5371\u9669')} -1 \u2764\uFE0F`, 'warning');
-                }
-                return Math.max(0, newLives);
-            });
-            setDangerWalls(prev => prev.filter(d => d.id !== id));
-        } else if (type === 'score_order') {
-            // Remove score order — no penalty
-            setScoreOrderEncounters(prev => prev.filter(e => e.id !== id));
-        }
-    };
-
     const handleGameOver = () => {
         setInventory([]);
         setExpeditionScores(prev => [...prev, { items: [] }]);
@@ -1155,12 +735,10 @@ export const useGameLogic = (config) => {
         setRevealedPools([]);
         setDisplayedProfitCards([]);
         setActionPoints(AP_CONFIG.maxAP);
-        setDoomCounter(0);
         setLastDrawDirection(null);
         setDrawCount(0);
         setTotalDrawCount(0);
         setInventoryBonus(0);
-        setHp(doomConfig.initialHP);
         setInventory([]);
         setToast(null);
         setLastDrawResult(null);
@@ -1168,19 +746,10 @@ export const useGameLogic = (config) => {
         setFlyingItem(null);
         setDrawAnimState(null);
         setPendingItems([]);
-        setPendingFlippedPool(null);
         setExpeditionNumber(0);
         setExpeditionScores([]);
         setBonusItems([]);
-        setCompletedOrderIds([]);
-        // Risk / heat system reset
-        setRisk(RISK_CONFIG.RISK_FLOOR);
-        setWallDepth(0);
-        setLives(RISK_CONFIG.INITIAL_LIVES);
-        setTurnHeat(0);
-        setCumulativeExposure(0);
-        setDangerWalls([]);
-        setScoreOrderEncounters([]);
+        setLives(INITIAL_LIVES);
         setSlotCards([]);
     };
 
@@ -1191,12 +760,10 @@ export const useGameLogic = (config) => {
         setRevealedPools([]);
         setDisplayedProfitCards([]);
         setActionPoints(AP_CONFIG.maxAP);
-        setDoomCounter(0);
         setLastDrawDirection(null);
         setDrawCount(0);
         setTotalDrawCount(0);
         setInventoryBonus(0);
-        setHp(doomConfig.initialHP);
         setInventory([]);
         setToast(null);
         setLastDrawResult(null);
@@ -1204,16 +771,7 @@ export const useGameLogic = (config) => {
         setFlyingItem(null);
         setDrawAnimState(null);
         setPendingItems([]);
-        setPendingFlippedPool(null);
-        setCompletedOrderIds([]);
-        // Risk / heat system reset
-        setRisk(RISK_CONFIG.RISK_FLOOR);
-        setWallDepth(0);
-        setLives(RISK_CONFIG.INITIAL_LIVES);
-        setTurnHeat(0);
-        setCumulativeExposure(0);
-        setDangerWalls([]);
-        setScoreOrderEncounters([]);
+        setLives(INITIAL_LIVES);
 
         // No evacuation card — passive sticker count check
         setSlotCards([]);
@@ -1267,23 +825,6 @@ export const useGameLogic = (config) => {
         // Pool state
         currentPool,
         drawLimitReached,
-        enterDangerWall,
-        exitDangerWallView,
-        pendingFlippedPool,
-        resolvePoolOverflow,
-
-        // Order Area
-        canFlipOrder,
-        flipOrder,
-
-        // Growth orders
-        growthOrdersView,
-        completedOrderIds,
-        submitGrowthOrder,
-
-        // Score orders
-        scoreOrderEncounters,
-        submitScoreOrder,
 
         // Slot cards (passive matching)
         slotCards,
@@ -1298,20 +839,8 @@ export const useGameLogic = (config) => {
         removeSlotCard,
         evacuate,
 
-        // Doom (legacy)
-        doomCounter,
-        hp,
-
-        // Risk / heat system
-        risk,
+        // Lives
         lives,
-        wallDepth,
-        turnHeat,
-        cumulativeExposure,
-        dangerWalls,
-        nextDrawRiskIncrement,
-
-        removeEncounter,
 
         // Grid
         matrix,
