@@ -1,6 +1,6 @@
 /**
  * v3Config.js — v3 data foundations
- * Wall colors, unlock templates, doom phases, initial state
+ * Wall colors, wall functions, unlock templates, AP config, initial lives
  */
 
 // --- 墙颜色配置 ---
@@ -122,8 +122,3 @@ export const AP_CONFIG = {
 
 // --- v3 初始状态 ---
 export const INITIAL_LIVES = 5;
-
-export const V3_INITIAL_STATE = {
-    refreshCount: 1,
-    backpackCapacity: 10,
-};

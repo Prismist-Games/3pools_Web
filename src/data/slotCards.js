@@ -1,14 +1,15 @@
 /**
  * slotCards.js — Passive Matching Card System
  *
- * Three card types:
+ * Two card types:
  *   - 利润卡 (profit): auto-checked at evacuation — if inventory satisfies requirements, rewards are granted
  *   - 危险卡 (danger): auto-checked at turn end — if inventory satisfies requirements, safe; otherwise lose 1 life
- *   - 撤离条件在 useGameLogic 中检查 (need EVACUATION_PROFIT_REQUIREMENT satisfied profit cards)
+ *
+ * Evacuation is gated in useGameLogic on EVACUATION_PROFIT_REQUIREMENT satisfied profit cards.
  *
  * Cards have requirements (sticker types/counts) but stickers are NEVER consumed.
  * The same sticker can satisfy multiple cards simultaneously.
- * The constraint is backpack SPACE (15 slots), not sticker consumption.
+ * The constraint is backpack space, not sticker consumption.
  */
 
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES } from './v2Config';
@@ -176,7 +177,6 @@ export function generateSlotCard(type, options = {}) {
 
 /**
  * Get the requirements map for a card: { [stickerType]: count }.
- * For evacuation cards, returns { any: slotCount }.
  */
 export function getRequirements(card) {
     const reqs = {};

@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
-import ScoreBoard from './components/game/ScoreBoard';
+
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
-import GameTooltip from './components/ui/GameTooltip';
+
 import GameCard from './components/ui/GameCard';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from './data/v2Config';
 import { AP_CONFIG } from './data/v3Config';
@@ -179,76 +179,69 @@ const GameCore = () => {
         };
     })();
 
+    // Compute sticker count for CardDock evacuation display
+
+
     return (
         <div className="min-h-screen bg-slate-100 p-4">
             <div className="max-w-6xl mx-auto">
-                {/* ===== Header ===== */}
-                <div className="mb-4 bg-white rounded-xl shadow-md border border-gray-200">
-                    {/* Row 1: Title + Meta */}
-                    <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                        <h1 className="text-base font-black tracking-tight">{t('幸运之墙')}</h1>
-                        <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[11px] font-bold">
-                                {t('场次')} {expeditionNumber}/{expeditionConfig.expeditionCount}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
-                                {t('回合')} {turnNumber}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
-                                {t('第')} {expeditionNumber} {t('场')}
-                            </span>
-                            <button onClick={toggleLanguage} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-600 border border-indigo-200 hover:bg-indigo-200 transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
-                            <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-100 text-red-500 border border-red-200 hover:bg-red-200 transition-colors">{t('重置')}</button>
-                            <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
-                        </div>
-                    </div>
-                    {/* Row 2: Resources — AP, Heat, Lives */}
-                    <div className="flex items-center gap-4 px-4 py-2">
-                        {/* AP Display — adapts size: smaller in header when drawing (big contextual AP shown near grid) */}
-                        <GameTooltip icon="⚡" title={t('行动点')} text={`${t('每回合')} ${maxAP}。${t('抽取消耗')} ${apDrawCost}。`}>
-                            <span
-                                className={`relative inline-flex items-center gap-1 px-3 py-1 rounded-lg border-2 shadow-sm font-black transition-all text-lg ${
-                                    Math.max(0, actionPoints) > 5
-                                        ? 'bg-sky-50 border-sky-400 text-sky-700'
-                                        : Math.max(0, actionPoints) > 0
-                                        ? 'bg-amber-50 border-amber-400 text-amber-700'
-                                        : 'bg-red-50 border-red-400 text-red-600 animate-pulse'
-                                }`}
-                            >
-                                <span>⚡</span>
-                                <span className="tabular-nums">{Math.max(0, actionPoints)}</span>
-                                <span className="text-xs font-medium opacity-60">/{maxAP}</span>
-                                {apDelta && (
-                                    <span
-                                        key={apDelta.id}
-                                        className="absolute left-1/2 -translate-x-1/2 -top-5 text-sm font-black pointer-events-none animate-in fade-in slide-in-from-bottom-1 duration-200 text-rose-500"
-                                        style={{ textShadow: '0 1px 2px rgba(255,255,255,0.9)' }}
-                                    >
-                                        {apDelta.value}
-                                    </span>
-                                )}
-                            </span>
-                        </GameTooltip>
+                {/* ===== Header — single-row resource bar ===== */}
+                <div className="mb-2 bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div className="flex items-center gap-3 px-4 py-2">
+                        {/* Left: title + meta */}
+                        <h1 className="text-sm font-black tracking-tight">{t('幸运之墙')}</h1>
+                        <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-bold">
+                            {t('场次')} {expeditionNumber}/{expeditionConfig.expeditionCount}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[10px] font-bold">
+                            {t('回合')} {turnNumber}
+                        </span>
 
-                        {/* Spacer — push lives to the right for visual grouping */}
                         <div className="flex-1" />
 
-                        {/* Lives */}
-                        <GameTooltip icon="❤️" title={t('生命')} text={t('归零时失去全部物品，强制离场')}>
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border-2 shadow-sm font-black text-sm ${
-                                lives <= 2 ? 'bg-red-50 border-red-300 text-red-600' : 'bg-rose-50 border-rose-200 text-rose-600'
-                            }`}>
-                                <span>❤️</span>
-                                <span className="tabular-nums">{lives}</span>
-                            </span>
-                        </GameTooltip>
+                        {/* Right: resources + actions */}
+                        <span className={`relative inline-flex items-center gap-1 px-2 py-1 rounded-lg border-2 shadow-sm font-black text-sm ${
+                            Math.max(0, actionPoints) > 5
+                                ? 'bg-sky-50 border-sky-400 text-sky-700'
+                                : Math.max(0, actionPoints) > 0
+                                ? 'bg-amber-50 border-amber-400 text-amber-700'
+                                : 'bg-red-50 border-red-400 text-red-600 animate-pulse'
+                        }`}>
+                            <span>⚡</span>
+                            <span className="tabular-nums">{Math.max(0, actionPoints)}</span>
+                            <span className="text-[10px] font-medium opacity-60">/{maxAP}</span>
+                            {apDelta && (
+                                <span
+                                    key={apDelta.id}
+                                    className="absolute left-1/2 -translate-x-1/2 -top-5 text-sm font-black pointer-events-none text-rose-500"
+                                    style={{ textShadow: '0 1px 2px rgba(255,255,255,0.9)' }}
+                                >
+                                    {apDelta.value}
+                                </span>
+                            )}
+                        </span>
+
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border-2 shadow-sm font-black text-sm ${
+                            lives <= 2 ? 'bg-red-50 border-red-300 text-red-600' : 'bg-rose-50 border-rose-200 text-rose-600'
+                        }`}>
+                            <span>❤️</span>
+                            <span className="tabular-nums">{lives}</span>
+                        </span>
+
+                        {(phase === 'pool_selection' || phase === 'drawing') && (
+                            <button
+                                onClick={endTurn}
+                                disabled={isDrawAnimating}
+                                className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-gray-400 text-white hover:bg-gray-500 transition-colors disabled:opacity-50"
+                            >
+                                {t('结束回合')}
+                            </button>
+                        )}
+
+                        <button onClick={toggleLanguage} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 border border-indigo-200 hover:bg-indigo-200 transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
+                        <button onClick={handleReset} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-500 border border-red-200 hover:bg-red-200 transition-colors">{t('重置')}</button>
+                        <button onClick={() => setDebugOpen(prev => !prev)} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                     </div>
-                    {/* Row 3: Evacuation — passive sticker count check */}
-                    {(phase === 'pool_selection' || phase === 'drawing') && (
-                        <div className="px-4 py-1.5 border-t border-gray-100">
-                            {renderEvacuationBar()}
-                        </div>
-                    )}
                 </div>
 
                 {/* ===== Pre-game ===== */}
@@ -270,30 +263,18 @@ const GameCore = () => {
 
                 {/* ===== Pool Selection Phase ===== */}
                 {phase === 'pool_selection' && (
-                    <div className="flex flex-col gap-4">
-                        <div className="flex gap-4">
-                            {/* LEFT SIDEBAR — end turn + danger walls */}
-                            <div className="w-52 flex-shrink-0 flex flex-col gap-3 self-start">
-                                {/* End Turn */}
-                                <button
-                                    onClick={endTurn}
-                                    className="w-full px-4 py-2 rounded-lg text-xs font-bold bg-gray-400 text-white hover:bg-gray-500 transition-colors"
-                                >
-                                    {t('结束回合')}
-                                </button>
-
-                            </div>
-
-                            {/* CENTER: Wall Shop + Profit Card Display */}
-                            <div className="flex-1 min-w-0 flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex gap-3">
+                            {/* Main Action Area */}
+                            <div className="flex-1 min-w-0 flex flex-col gap-3">
                                 {/* Wall Shop */}
-                                <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h3 className="text-sm font-black uppercase tracking-wide text-gray-600">🏪 {t('奖品墙商店')}</h3>
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-xs font-black uppercase tracking-wide text-gray-600">🏪 {t('奖品墙商店')}</h3>
                                         <button
                                             onClick={refreshWalls}
                                             disabled={!canRefreshWalls}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${
                                                 canRefreshWalls
                                                     ? 'bg-sky-500 text-white hover:bg-sky-600'
                                                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -314,15 +295,15 @@ const GameCore = () => {
                                             />
                                         ))}
                                         {revealedPools.length === 0 && (
-                                            <div className="text-center py-8 text-gray-400 text-sm w-full">{t('没有奖品墙')}</div>
+                                            <div className="text-center py-6 text-gray-400 text-sm w-full">{t('没有奖品墙')}</div>
                                         )}
                                     </div>
                                 </div>
 
-                                {/* Profit Card Display */}
-                                <div className="bg-white rounded-xl shadow-md border border-blue-200 p-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h3 className="text-sm font-black uppercase tracking-wide text-blue-500">💎 {t('兑换券商店')}</h3>
+                                {/* Voucher Shop */}
+                                <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-xs font-black uppercase tracking-wide text-blue-500">💎 {t('兑换券商店')}</h3>
                                         <span className="text-[10px] text-blue-400 font-medium">{t('获取')} {AP_CONFIG.takeCardCost}⚡</span>
                                     </div>
                                     <div className="flex gap-3">
@@ -330,17 +311,15 @@ const GameCore = () => {
                                             const reqs = getRequirements(card);
                                             const satisfied = canSatisfyCard(card, inventory);
                                             const canTake = canTakeCard(card.id);
-
                                             return (
-                                                <div key={card.id} className={`flex-1 min-w-0 rounded-lg border-2 p-3 flex flex-col gap-2 ${
+                                                <div key={card.id} className={`flex-1 min-w-0 rounded-lg border-2 p-2.5 flex flex-col gap-1.5 ${
                                                     satisfied
                                                         ? 'border-emerald-400 bg-gradient-to-b from-emerald-50 to-green-50'
                                                         : 'border-blue-300 bg-gradient-to-b from-blue-50 to-indigo-50'
                                                 }`}>
-                                                    {/* Header */}
                                                     <div className="flex items-center gap-1.5">
-                                                        <span className="text-lg leading-none">💎</span>
-                                                        <span className="font-black text-xs text-blue-800">{t('物品兑换券')}</span>
+                                                        <span className="text-base leading-none">💎</span>
+                                                        <span className="font-black text-[11px] text-blue-800">{t('物品兑换券')}</span>
                                                         <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded border ${
                                                             satisfied
                                                                 ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
@@ -349,34 +328,27 @@ const GameCore = () => {
                                                             {satisfied ? `✓ ${t('已满足')}` : `✗ ${t('未满足')}`}
                                                         </span>
                                                     </div>
-
-                                                    {/* Requirements */}
                                                     <div className="flex items-center gap-1.5 flex-wrap">
                                                         {Object.entries(reqs).map(([stickerType, count]) => {
                                                             const info = getStickerTypeInfo(stickerType);
                                                             const invCount = inventory.filter(i => i?.isSticker && i.stickerId === stickerType).length;
                                                             const typeSatisfied = invCount >= count;
                                                             return (
-                                                                <div
-                                                                    key={stickerType}
-                                                                    className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center text-base relative ${
-                                                                        typeSatisfied
-                                                                            ? 'border-emerald-400 bg-emerald-50 shadow-sm'
-                                                                            : 'border-dashed border-gray-300 bg-white/50 opacity-60'
-                                                                    }`}
-                                                                >
+                                                                <div key={stickerType} className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center text-sm relative ${
+                                                                    typeSatisfied
+                                                                        ? 'border-emerald-400 bg-emerald-50 shadow-sm'
+                                                                        : 'border-dashed border-gray-300 bg-white/50 opacity-60'
+                                                                }`}>
                                                                     <span className={typeSatisfied ? '' : 'opacity-40'}>{info?.icon || '?'}</span>
                                                                     {count > 1 && (
-                                                                        <span className="text-[8px] font-black text-gray-500 absolute -bottom-0.5 -right-0.5">x{count}</span>
+                                                                        <span className="text-[7px] font-black text-gray-500 absolute -bottom-0.5 -right-0.5">x{count}</span>
                                                                     )}
                                                                 </div>
                                                             );
                                                         })}
                                                     </div>
-
-                                                    {/* Reward section */}
                                                     {card.reward?.items && (
-                                                        <div className="bg-amber-50/60 border border-amber-200 rounded-md px-1.5 py-1">
+                                                        <div className="bg-amber-50/60 border border-amber-200 rounded px-1.5 py-1">
                                                             <div className="text-[8px] font-bold text-amber-500 mb-0.5">{t('撤离获得')}</div>
                                                             <div className="flex items-center gap-1 flex-wrap">
                                                                 {card.reward.items.map((item, i) => (
@@ -385,12 +357,10 @@ const GameCore = () => {
                                                             </div>
                                                         </div>
                                                     )}
-
-                                                    {/* Take button */}
                                                     <button
                                                         onClick={() => takeDisplayCard(card.id)}
                                                         disabled={!canTake}
-                                                        className={`w-full px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                                                        className={`w-full px-2 py-1 rounded-lg text-[11px] font-bold transition-colors ${
                                                             canTake
                                                                 ? 'bg-blue-500 text-white hover:bg-blue-600'
                                                                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -402,108 +372,122 @@ const GameCore = () => {
                                             );
                                         })}
                                         {displayedProfitCards.length === 0 && (
-                                            <div className="text-center py-4 text-gray-400 text-sm w-full">{t('暂无兑换券')}</div>
+                                            <div className="text-center py-3 text-gray-400 text-sm w-full">{t('暂无兑换券')}</div>
                                         )}
                                     </div>
                                 </div>
+
                             </div>
 
-                            {/* RIGHT SIDEBAR — inventory + danger */}
-                            <div className="w-72 flex-shrink-0 flex flex-col gap-3 self-start">
+                            {/* Inventory (right panel) */}
+                            <div className="w-72 flex-shrink-0 self-start">
                                 {renderInventory()}
-                                {renderDangerCards()}
                             </div>
                         </div>
+
+                        {/* Card Dock */}
+                        <CardDock
+                            dangerCards={dangerCards}
+                            profitCards={profitCards}
+                            inventory={inventory}
+                            canEvacuate={canEvacuate}
+                            satisfiedProfitCount={satisfiedProfitCount}
+                            evacuationProfitRequirement={evacuationProfitRequirement}
+                            evacuate={evacuate}
+                            removeSlotCard={removeSlotCard}
+                            phase={phase}
+                            t={t}
+                        />
                     </div>
                 )}
 
                 {/* ===== Drawing Phase ===== */}
                 {phase === 'drawing' && matrix && (
-                    <div className="flex flex-col gap-4">
-                    <div className="flex gap-4">
-                        {/* LEFT SIDEBAR — wall info + exit + end turn */}
-                        <div className="w-52 flex-shrink-0 flex flex-col gap-3 self-start">
-                            {/* Wall info — draw count / limit */}
-                            {currentPool && (
-                                <div className="rounded-xl border-2 border-green-300 bg-green-50 p-3">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-2xl">{currentPool.poolType?.icon || '🏷️'}</span>
-                                        <span className="font-black text-base">{t(currentPool.poolType?.name || '奖品墙')}</span>
+                    <div className="flex flex-col gap-2">
+                        <div className="flex gap-3">
+                            {/* Main: grid area */}
+                            <div className="flex-1 min-w-0 flex flex-col gap-3">
+                                {/* Wall info bar */}
+                                {currentPool && (
+                                    <div className="flex items-center gap-3 px-3 py-2 rounded-lg border-2 border-green-300 bg-green-50">
+                                        <span className="text-xl">{currentPool.poolType?.icon || '🏷️'}</span>
+                                        <span className="font-black text-sm">{t(currentPool.poolType?.name || '奖品墙')}</span>
+                                        {currentPool.poolType?._bias && (
+                                            <div className="flex items-center gap-0.5">
+                                                {currentPool.poolType._bias.map(biasId => {
+                                                    const info = getStickerTypeInfo(biasId);
+                                                    return info ? <span key={biasId} className="text-sm">{info.icon}</span> : null;
+                                                })}
+                                            </div>
+                                        )}
+                                        <span className="text-[11px] text-gray-500 font-medium">
+                                            {t('抽取')}: {drawCount}/{currentPool.poolType?.drawLimit ?? '∞'}
+                                        </span>
+                                        {drawLimitReached && (
+                                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                                {t('已达上限')}
+                                            </span>
+                                        )}
+                                        <div className="flex-1" />
+                                        <button
+                                            onClick={exitPool}
+                                            disabled={isDrawAnimating}
+                                            className="px-3 py-1 rounded-lg text-[11px] font-bold border-2 border-gray-300 text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                        >
+                                            {t('退出奖品墙')}
+                                        </button>
                                     </div>
-                                    {/* Sticker bias */}
-                                    {currentPool.poolType?._bias && (
-                                        <div className="flex items-center gap-1 mb-1">
-                                            <span className="text-[10px] text-gray-400 font-bold">{t('偏好')}:</span>
-                                            {currentPool.poolType._bias.map(biasId => {
-                                                const info = getStickerTypeInfo(biasId);
-                                                return info ? <span key={biasId} className="text-sm">{info.icon}</span> : null;
-                                            })}
-                                        </div>
-                                    )}
-                                    <div className="text-[11px] text-gray-500 font-medium">
-                                        {t('抽取')}: {drawCount}/{currentPool.poolType?.drawLimit ?? '∞'}
+                                )}
+                                {/* Draw grid */}
+                                <div className="flex justify-center">
+                                    <ResourceMatrix
+                                        matrix={matrix}
+                                        onSelectRow={selectRow}
+                                        onSelectColumn={selectColumn}
+                                        phase={phase}
+                                        disabled={isDrawAnimating || pendingItems.length > 0 || !canDraw}
+                                        disabledReason={drawLimitReached ? t('已达上限') : !canDraw ? t('行动点不足') : null}
+                                        drawAnimState={drawAnimState}
+                                        wallType={null}
+                                        lastDrawDirection={lastDrawDirection}
+                                        bonusItemMap={bonusItemMap}
+                                    />
+                                </div>
+
+                                {lastDrawResult && !isDrawAnimating && (
+                                    <div className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                                        lastDrawResult.obtained
+                                            ? 'bg-green-50 text-green-700 border border-green-200'
+                                            : 'bg-gray-50 text-gray-400 border border-gray-200'
+                                    }`}>
+                                        {lastDrawResult.obtained
+                                            ? `${t('获得')}: ${lastDrawResult.obtained.item?.icon || ''} ${t(lastDrawResult.obtained.item?.name || '')}`
+                                            : t('未获得物品')
+                                        }
                                     </div>
-                                    {drawLimitReached && (
-                                        <div className="mt-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">
-                                            {t('已达上限')}
-                                        </div>
-                                    )}
-                                    <button
-                                        onClick={exitPool}
-                                        disabled={isDrawAnimating}
-                                        className="mt-2 w-full px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-gray-300 text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors disabled:opacity-50"
-                                    >
-                                        {t('退出奖品墙')}
-                                    </button>
-                                </div>
-                            )}
+                                )}
 
-                            {/* End Turn */}
-                            <button
-                                onClick={endTurn}
-                                disabled={isDrawAnimating}
-                                className="w-full px-4 py-2 rounded-lg text-xs font-bold bg-gray-400 text-white hover:bg-gray-500 transition-colors disabled:opacity-50"
-                            >
-                                {t('结束回合')}
-                            </button>
+                            </div>
+
+                            {/* Inventory (right panel) */}
+                            <div className="w-72 flex-shrink-0 self-start">
+                                {renderInventory()}
+                            </div>
                         </div>
 
-                        {/* CENTER: Grid */}
-                        <div className="flex-1 min-w-0 flex flex-col items-center">
-                            <ResourceMatrix
-                                matrix={matrix}
-                                onSelectRow={selectRow}
-                                onSelectColumn={selectColumn}
-                                phase={phase}
-                                disabled={isDrawAnimating || pendingItems.length > 0 || !canDraw}
-                                disabledReason={drawLimitReached ? t('已达上限') : !canDraw ? t('行动点不足') : null}
-                                drawAnimState={drawAnimState}
-                                wallType={null}
-                                lastDrawDirection={lastDrawDirection}
-                                bonusItemMap={bonusItemMap}
-                            />
-
-                            {/* Draw result feedback */}
-                            {lastDrawResult && !isDrawAnimating && (
-                                <div className={`mt-3 px-3 py-2 rounded-lg text-sm font-medium ${
-                                    lastDrawResult.obtained
-                                        ? 'bg-green-50 text-green-700 border border-green-200'
-                                        : 'bg-gray-50 text-gray-400 border border-gray-200'
-                                }`}>
-                                    {lastDrawResult.obtained
-                                        ? `${t('获得')}: ${lastDrawResult.obtained.item?.icon || ''} ${t(lastDrawResult.obtained.item?.name || '')}`
-                                        : t('未获得物品')
-                                    }
-                                </div>
-                            )}
-                        </div>
-
-                        {/* RIGHT SIDEBAR — inventory + danger */}
-                        <div className="w-72 flex-shrink-0 flex flex-col gap-3 self-start">
-                            {renderInventory()}
-                            {renderDangerCards()}
-                        </div>
-                    </div>
+                        {/* Card Dock */}
+                        <CardDock
+                            dangerCards={dangerCards}
+                            profitCards={profitCards}
+                            inventory={inventory}
+                            canEvacuate={canEvacuate}
+                            satisfiedProfitCount={satisfiedProfitCount}
+                            evacuationProfitRequirement={evacuationProfitRequirement}
+                            evacuate={evacuate}
+                            removeSlotCard={removeSlotCard}
+                            phase={phase}
+                            t={t}
+                        />
                     </div>
                 )}
 
@@ -562,9 +546,6 @@ const GameCore = () => {
                         )}
                     </div>
                 )}
-
-                {/* ===== Bottom Bar — Profit Cards (passive) ===== */}
-                {(phase === 'pool_selection' || phase === 'drawing') && renderProfitCardsPassive()}
 
                 {/* Flying item animation */}
                 {flyingItem && flyStyle && (
@@ -644,223 +625,6 @@ const GameCore = () => {
             </div>
         </div>
     );
-
-    // --- Evacuation Bar — passive sticker count (header) ---
-    function renderEvacuationBar() {
-        const satisfied = canEvacuate;
-        const required = evacuationProfitRequirement;
-        const current = satisfiedProfitCount;
-        const percent = Math.min(100, (current / required) * 100);
-        return (
-            <div
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 transition-all ${
-                    satisfied
-                        ? 'border-amber-500 bg-gradient-to-r from-amber-100 to-yellow-100 shadow-md'
-                        : 'border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50'
-                }`}
-            >
-                <span className="text-lg leading-none">🚪</span>
-                <span className="text-[10px] font-black text-amber-800 whitespace-nowrap">{t('撤离')}</span>
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                    satisfied ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-amber-100 text-amber-700 border-amber-300'
-                }`}>
-                    {current}/{required} {satisfied ? '✓' : ''}
-                </span>
-
-                {/* Progress bar */}
-                <div className="flex-1 h-2 bg-amber-100 rounded-full overflow-hidden">
-                    <div
-                        className={`h-full transition-all rounded-full ${satisfied ? 'bg-emerald-400' : 'bg-amber-400'}`}
-                        style={{ width: `${percent}%` }}
-                    />
-                </div>
-
-                <span className="text-[9px] text-amber-600 font-medium whitespace-nowrap">
-                    {t('满足')} {required} {t('张兑换券')}
-                </span>
-
-                {/* Evacuate button */}
-                {satisfied && (
-                    <button
-                        onClick={evacuate}
-                        className="ml-1 px-3 py-1 rounded-lg text-xs font-black bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 transition-colors shadow-md whitespace-nowrap"
-                    >
-                        🚪 {t('撤离')}
-                    </button>
-                )}
-            </div>
-        );
-    }
-
-    // --- Danger Cards — passive matching (right sidebar) ---
-    function renderDangerCards() {
-        if (dangerCards.length === 0) return null;
-
-        return (
-            <div className="rounded-lg border-2 border-red-300 bg-gradient-to-r from-red-50 to-rose-50 overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-red-200">
-                    <span className="text-base leading-none">⚠️</span>
-                    <span className="text-[10px] font-black text-red-800 whitespace-nowrap">{t('本回合威胁')}</span>
-                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold ${
-                        lives <= 2 ? 'bg-red-100 text-red-700 border-red-300' : 'bg-rose-50 text-rose-600 border-rose-200'
-                    }`}>
-                        ❤️ {lives}
-                    </span>
-                    {/* All-resolved badge */}
-                    {dangerCards.every(c => canSatisfyCard(c, inventory)) && (
-                        <span className="ml-auto text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded whitespace-nowrap">{t('已化解')}</span>
-                    )}
-                </div>
-                <div className="p-2 flex flex-col gap-1.5">
-                    {dangerCards.map(card => {
-                        const reqs = getRequirements(card);
-                        const satisfied = canSatisfyCard(card, inventory);
-
-                        return (
-                            <div
-                                key={card.id}
-                                className={`flex items-center gap-2 px-2 py-1.5 rounded-md border transition-all ${
-                                    satisfied
-                                        ? 'border-emerald-300 bg-emerald-50'
-                                        : 'border-red-300 bg-red-50 animate-pulse'
-                                }`}
-                            >
-                                {/* Requirement icons */}
-                                <div className="flex items-center gap-1">
-                                    {Object.entries(reqs).map(([stickerType, count]) => {
-                                        const info = getStickerTypeInfo(stickerType);
-                                        const invCount = inventory.filter(i => i?.isSticker && i.stickerId === stickerType).length;
-                                        const typeSatisfied = invCount >= count;
-                                        return (
-                                            <div
-                                                key={stickerType}
-                                                className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center text-base ${
-                                                    typeSatisfied
-                                                        ? 'border-emerald-400 bg-emerald-50 shadow-sm'
-                                                        : 'border-dashed border-gray-300 bg-white/50 opacity-60'
-                                                }`}
-                                            >
-                                                <span className={typeSatisfied ? '' : 'opacity-40'}>{info?.icon || '?'}</span>
-                                                {count > 1 && (
-                                                    <span className="text-[8px] font-black text-gray-500 absolute -bottom-0.5 -right-0.5">x{count}</span>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                {/* Status badge */}
-                                <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                    satisfied
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-red-100 text-red-700'
-                                }`}>
-                                    {satisfied ? '✓' : `✗ -1 ❤️`}
-                                </span>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        );
-    }
-
-    // --- Profit Cards — passive matching (bottom bar) ---
-    function renderProfitCardsPassive() {
-        if (profitCards.length === 0) return null;
-        return (
-            <div className="mt-4 bg-white rounded-xl shadow-md border border-blue-200">
-                <div className="px-4 py-2 border-b border-blue-100 flex items-center justify-between">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-blue-400">💎 {t('物品兑换券')}</h3>
-                    <span className="text-[10px] text-blue-300 font-medium">{profitCards.length}</span>
-                </div>
-                <div className="p-3 flex gap-3 overflow-x-auto">
-                    {profitCards.map(card => {
-                        const reqs = getRequirements(card);
-                        const satisfied = canSatisfyCard(card, inventory);
-                        // DEBUG: log matching for each card
-                        console.log(`Card ${card.id}:`, JSON.stringify(reqs), `satisfied=${satisfied}`, `inv stickers:`, inventory.filter(i => i?.isSticker).map(i => i.stickerId));
-
-                        return (
-                            <div key={card.id} className={`relative group flex-shrink-0 w-44 rounded-lg border-2 border-l-4 p-2 flex flex-col gap-1.5 ${
-                                satisfied
-                                    ? 'border-emerald-400 border-l-emerald-500 bg-gradient-to-b from-emerald-50 to-green-50'
-                                    : 'border-blue-300 border-l-blue-500 bg-gradient-to-b from-blue-50 to-indigo-50'
-                            }`}>
-                                {/* Remove button */}
-                                <button
-                                    onClick={() => removeSlotCard(card.id)}
-                                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-400 text-white text-[10px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-all z-10 shadow"
-                                    title={t('移除')}
-                                >
-                                    ✕
-                                </button>
-
-                                {/* Header */}
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-lg leading-none">💎</span>
-                                    <span className="font-black text-xs text-blue-800">{t('物品兑换券')}</span>
-                                    <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                                        satisfied
-                                            ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                                            : 'bg-blue-100 text-blue-600 border-blue-200'
-                                    }`}>
-                                        {satisfied ? `✓ ${t('已满足')}` : `✗ ${t('未满足')}`}
-                                    </span>
-                                </div>
-
-                                {/* Requirements — passive display */}
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                    {Object.entries(reqs).map(([stickerType, count]) => {
-                                        const info = getStickerTypeInfo(stickerType);
-                                        // Check if this specific type has enough in inventory
-                                        const invCount = inventory.filter(i => i?.isSticker && i.stickerId === stickerType).length;
-                                        const typeSatisfied = invCount >= count;
-
-                                        return (
-                                            <div
-                                                key={stickerType}
-                                                className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center text-base transition-all select-none ${
-                                                    typeSatisfied
-                                                        ? 'border-emerald-400 bg-emerald-50 shadow-sm'
-                                                        : 'border-dashed border-gray-300 bg-white/50 opacity-60'
-                                                }`}
-                                                title={`${t('需要')} ${count} ${info?.icon || ''} ${t(info?.name || '')} (${t('持有')} ${invCount})`}
-                                            >
-                                                <span className={typeSatisfied ? '' : 'opacity-40'}>{info?.icon || '?'}</span>
-                                                {count > 1 && (
-                                                    <span className="text-[8px] font-black text-gray-500 absolute -bottom-0.5 -right-0.5">x{count}</span>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                {/* Reward section */}
-                                {card.reward?.items && (
-                                    <div className="bg-amber-50/60 border border-amber-200 rounded-md px-1.5 py-1">
-                                        <div className="text-[8px] font-bold text-amber-500 mb-0.5">{t('撤离获得')}</div>
-                                        <div className="flex items-center gap-1 flex-wrap">
-                                            {card.reward.items.map((item, i) => (
-                                                <GameCard key={i} icon={item.icon} label={t(item.name)} stars={item.stars} size="sm" />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Satisfied badge */}
-                                {satisfied && (
-                                    <div className="text-[9px] font-bold text-center py-0.5 rounded bg-emerald-100 text-emerald-700">
-                                        {t('撤离时自动兑换')}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        );
-    }
 
     // --- Inventory render helper (simplified — no drag, no ghost items) ---
     function renderInventory() {

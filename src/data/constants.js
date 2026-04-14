@@ -563,27 +563,9 @@ export const SCORE_PROGRESS_CONFIG = {
 };
 
 // --- 厄运系统配置 ---
-export const DOOM_CONFIG = {
-    gridSize: 10,              // 厄运网格格子数
-    initialDangerCount: 1,     // 初始1个危险，让厄运从一开始就有压迫感
-    maxDangerCount: 5,         // 厄运格数量上限；超过时已有厄运升级而非新增
-    initialHP: 5,              // 初始生命值
-    // initialDoomLevel removed: doom draws are now turn-based (see v3Config DOOM_RESOLUTION_DRAWS)
-    // dangerPerTurn removed: accumulation is now phase-based (see v3Config DOOM_PHASES)
-};
-
-// --- 回合制配置 ---
-export const TURN_CONFIG = {
-    initialGold: 5,            // 初始金币（v3: 抽取免费，金币为战略资源）
-    // goldPerTurn removed: gold is no longer earned per turn in v3
-    // drawCost removed: draws are free in v3
-};
-
 export const INITIAL_GAME_CONFIG = {
     pools: INITIAL_POOLS_DATA,
     stages: INITIAL_STAGE_CONFIG,
-    doom: DOOM_CONFIG,
-    turn: TURN_CONFIG,
     expedition: EXPEDITION_CONFIG,
     order: ORDER_CONFIG,
     inventorySize: 10,
