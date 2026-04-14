@@ -343,6 +343,45 @@ export const useGameLogic = (config) => {
             }
         }
 
+        // Center rotate modifier: guarantee the center 2×2 contains at least
+        // one bomb or one buff_field so the rotating zone always has a
+        // decision-changing anchor (the original rotate-only version had no
+        // real effect on line evaluation).
+        if (wallType.id === 'center_rotate') {
+            const size = MATRIX_CONFIG.gridSize;
+            const r0 = Math.floor(size / 2) - 1;
+            const c0 = Math.floor(size / 2) - 1;
+            const centerPositions = [
+                [r0, c0], [r0, c0 + 1],
+                [r0 + 1, c0], [r0 + 1, c0 + 1],
+            ];
+            const hasAnchor = centerPositions.some(([r, c]) => {
+                const t = grid[r]?.[c]?.type;
+                return t === 'bomb' || t === 'buff_field';
+            });
+            if (!hasAnchor) {
+                const [pr, pc] = centerPositions[Math.floor(Math.random() * centerPositions.length)];
+                const pickBuff = Math.random() < 0.5;
+                if (pickBuff) {
+                    const bfCfg = MATRIX_CONFIG.specialCells.buffField;
+                    grid[pr][pc] = {
+                        type: 'buff_field',
+                        icon: bfCfg.icon,
+                        name: bfCfg.name,
+                        uid: generateUID(),
+                    };
+                } else {
+                    const bombCfg = MATRIX_CONFIG.specialCells.bomb;
+                    grid[pr][pc] = {
+                        type: 'bomb',
+                        icon: bombCfg.icon,
+                        name: bombCfg.name,
+                        uid: generateUID(),
+                    };
+                }
+            }
+        }
+
         setMatrix(grid);
         setWallCandidates(null);
         setPhase('drawing');
