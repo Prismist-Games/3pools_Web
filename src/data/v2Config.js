@@ -68,7 +68,7 @@ export const WALL_TYPES = [
     { id: 'blast_heal',    name: '爆裂愈合', icon: '💣', desc: '抽完之后，原地会冒出一颗新炸弹。越抽越多，越抽越危险！', weight: 15 },
     { id: 'yin_yang',      name: '阴阳轮转', icon: '☯️', desc: '墙上只有两种贴纸。抽到一种，它就会变成另一种。', weight: 15 },
     { id: 'mirror',        name: '镜花水月', icon: '🪞', desc: '左右两半像镜子里的倒影。抽一格，对面那格也一起到手。', weight: 15, goldOverride: 3 },
-    { id: 'blessing_heal', name: '祝福愈合', icon: '🙏', desc: '抽完之后，原地会爆出一颗膨化格。膨化格周围的东西，抽到都会变多哦！', weight: 15, goldOverride: 3 },
+    { id: 'blessing_heal', name: '祝福愈合', icon: '🙏', desc: '抽完之后，原地会爆出一颗膨化格。膨化格周围的东西，抽到都会变多哦！', weight: 15 },
 ];
 
 // --- 远征配置 ---
