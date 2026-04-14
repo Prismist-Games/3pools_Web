@@ -1,9 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { X, ChefHat, Loader2, Sparkles, Trash2, RefreshCw } from 'lucide-react';
-import { OUT_OF_GAME_ITEMS } from '../../data/v2Config';
-
-// Food ingredients only (exclude kitchenware / score 5)
-const INGREDIENTS = OUT_OF_GAME_ITEMS.filter(item => item.score < 5);
+import { INGREDIENTS } from '../../data/v2Config';
 
 // --- Customer templates ---
 // Structure: dish name (→ knowledge required) + category hint (→ protein/veggie) + flavor/life context (→ remaining ingredients)

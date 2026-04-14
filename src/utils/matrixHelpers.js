@@ -1,5 +1,5 @@
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { OUT_OF_GAME_ITEMS } from '../data/v2Config';
+import { INGREDIENTS } from '../data/v2Config';
 
 function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
@@ -135,7 +135,7 @@ export function generateWall(wallStickers) {
           uid: generateUID(),
         };
       } else if (roll < outOfGameChance) {
-        const item = OUT_OF_GAME_ITEMS[Math.floor(Math.random() * OUT_OF_GAME_ITEMS.length)];
+        const item = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
         grid[row][col] = {
           type: 'out_of_game',
           icon: item.icon,

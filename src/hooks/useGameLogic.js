@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
-import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
+import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -46,12 +46,13 @@ function pickWallType() {
 
 function generateOrder() {
     const template = pickWeightedTemplate();
-    // Pick a random out-of-game item for each reward tier
-    const rewards = template.rewardTiers.map(tierScore => {
-        const matching = OUT_OF_GAME_ITEMS.filter(i => i.score === tierScore);
-        return { ...matching[Math.floor(Math.random() * matching.length)] };
+    // Pick a random ingredient for each reward rarity tier
+    const rewards = template.rewardTiers.map(tier => {
+        const matching = INGREDIENTS.filter(i => i.rarity === tier);
+        const picked = matching[Math.floor(Math.random() * matching.length)];
+        return { ...picked, score: picked.rarity }; // score alias for backward compat
     });
-    const totalScore = rewards.reduce((s, r) => s + r.score, 0);
+    const totalScore = rewards.reduce((s, r) => s + r.rarity, 0);
     // Generate sticker requirements
     const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
     const selectedTypes = shuffledStickers.slice(0, template.stickerTypes);
@@ -185,7 +186,7 @@ export const useGameLogic = (config) => {
     const startGame = () => {
         // Pick bonus items on first expedition of a new game
         if (expeditionNumber === 0) {
-            const shuffled = [...OUT_OF_GAME_ITEMS].sort(() => Math.random() - 0.5);
+            const shuffled = [...INGREDIENTS].sort(() => Math.random() - 0.5);
             const bonusValues = [1, 2, 3];
             setBonusItems(shuffled.slice(0, 3).map((item, i) => ({ ...item, bonusValue: bonusValues[i] })));
         }
@@ -590,10 +591,8 @@ export const useGameLogic = (config) => {
             };
         } else if (itemCell.type === 'out_of_game') {
             newItem = {
-                id: itemCell.item.id,
-                name: itemCell.item.name,
-                icon: itemCell.item.icon,
-                score: itemCell.item.score,
+                ...itemCell.item,
+                score: itemCell.item.rarity, // backward compat alias
                 isOutOfGame: true,
                 uid: itemCell.uid,
             };

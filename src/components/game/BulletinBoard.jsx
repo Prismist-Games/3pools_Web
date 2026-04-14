@@ -9,15 +9,20 @@ const DIFFICULTY_STYLE = {
     extreme: { bg: 'bg-red-100',   text: 'text-red-700' },
 };
 
-const SCORE_STYLE = {
-    1: { border: 'border-green-400',  bg: 'from-green-50 to-white',  badge: 'bg-green-500', label: '基础调料', labelColor: 'text-green-400' },
-    2: { border: 'border-blue-400',   bg: 'from-blue-50 to-white',   badge: 'bg-blue-500',  label: '普通食材', labelColor: 'text-blue-400' },
-    3: { border: 'border-purple-400', bg: 'from-purple-50 to-white', badge: 'bg-purple-500', label: '珍稀食材', labelColor: 'text-purple-400' },
-    5: { border: 'border-orange-400', bg: 'from-orange-50 to-white', badge: 'bg-orange-500', label: '厨具',     labelColor: 'text-orange-400' },
+const RARITY_STYLE = {
+    1: { border: 'border-green-400',  bg: 'from-green-50 to-white',  badge: 'bg-green-500', label: '★',       labelColor: 'text-green-400',  tagBg: 'bg-green-100 text-green-700' },
+    2: { border: 'border-blue-400',   bg: 'from-blue-50 to-white',   badge: 'bg-blue-500',  label: '★★',      labelColor: 'text-blue-400',   tagBg: 'bg-blue-100 text-blue-700' },
+    3: { border: 'border-purple-400', bg: 'from-purple-50 to-white', badge: 'bg-purple-500', label: '★★★',     labelColor: 'text-purple-400', tagBg: 'bg-purple-100 text-purple-700' },
+    4: { border: 'border-orange-400', bg: 'from-orange-50 to-white', badge: 'bg-orange-500', label: '★★★★',    labelColor: 'text-orange-400', tagBg: 'bg-orange-100 text-orange-700' },
 };
+// Backward compat alias
+const SCORE_STYLE = RARITY_STYLE;
+
+const RARITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
 
 const RewardCard = ({ reward, size = 'md', bonusValue }) => {
-    const s = SCORE_STYLE[reward.score] || SCORE_STYLE[1];
+    const rarity = reward.rarity || reward.score || 1;
+    const s = RARITY_STYLE[rarity] || RARITY_STYLE[1];
     const dim = size === 'sm' ? 'w-8 h-8 text-base' : 'w-9 h-9 text-lg';
     const badgeDim = size === 'sm' ? 'w-3 h-3 text-[7px]' : 'w-3.5 h-3.5 text-[8px]';
 
@@ -27,16 +32,19 @@ const RewardCard = ({ reward, size = 'md', bonusValue }) => {
                 <span className="text-2xl leading-none">{reward.icon}</span>
                 <div>
                     <div className="font-bold text-sm leading-tight">{reward.name}</div>
-                    <div className={`text-[10px] ${s.labelColor}`}>{s.label}</div>
+                    <div className={`text-[10px] ${s.labelColor}`}>{RARITY_STARS[rarity]}</div>
                 </div>
             </div>
-            <div className="border-t border-gray-700/50 pt-1.5 mt-1">
-                <div className="flex justify-between text-[11px]">
-                    <span className="text-gray-400">撤离价值</span>
-                    <span className="font-bold text-yellow-300">{reward.score} 分</span>
+            {reward.tags && reward.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                    {reward.tags.map(tag => (
+                        <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">{tag}</span>
+                    ))}
                 </div>
-            </div>
-            <p className="text-[10px] text-gray-500 italic mt-1.5">详细描述待填写...</p>
+            )}
+            {reward.nameEn && (
+                <p className="text-[10px] text-gray-500 italic mt-1.5">{reward.nameEn}</p>
+            )}
         </>
     );
 
@@ -45,7 +53,7 @@ const RewardCard = ({ reward, size = 'md', bonusValue }) => {
             <div className={`relative ${dim} rounded border-2 ${s.border} bg-gradient-to-b ${s.bg} flex items-center justify-center shadow-sm`}>
                 {reward.icon}
                 <span className={`absolute -bottom-1 -right-1 ${s.badge} text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow`}>
-                    {reward.score}
+                    {rarity}
                 </span>
                 {bonusValue && (
                     <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusValue}</span>
@@ -236,4 +244,4 @@ const BulletinBoard = ({
 };
 
 export default BulletinBoard;
-export { RewardCard, SCORE_STYLE, DIFFICULTY_STYLE };
+export { RewardCard, RARITY_STYLE, SCORE_STYLE, DIFFICULTY_STYLE };

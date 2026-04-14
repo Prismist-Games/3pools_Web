@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { SCORE_STYLE } from './BulletinBoard';
+import { RARITY_STYLE } from './BulletinBoard';
 
 const ScoreBoard = ({ expeditionNumber, expeditionScores, totalScore, victoryScore, bonusItems }) => {
     const { t } = useLanguage();
@@ -19,7 +19,7 @@ const ScoreBoard = ({ expeditionNumber, expeditionScores, totalScore, victorySco
                         <div className="text-[9px] text-gray-300 uppercase tracking-wide mb-1.5">{t('额外加分')}</div>
                         <div className="flex gap-1.5">
                             {bonusItems.map((item, i) => {
-                                const sc = SCORE_STYLE[item.score] || SCORE_STYLE[1];
+                                const sc = RARITY_STYLE[item.rarity || item.score] || RARITY_STYLE[1];
                                 return (
                                     <div key={i} className={`relative w-7 h-7 rounded border ${sc.border} bg-gradient-to-b ${sc.bg} flex items-center justify-center text-sm`}
                                         title={`${item.name} (+${item.bonusValue || 2})`}>

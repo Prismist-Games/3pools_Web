@@ -65,7 +65,8 @@
       "WebFetch(domain:www.gcores.com)",
       "WebFetch(domain:www.zhihu.com)",
       "WebFetch(domain:dispatchgame.net)",
-      "Bash(curl -s http://localhost:5173/3pools_Web/)"
+      "Bash(curl -s http://localhost:5173/3pools_Web/)",
+      "Bash(node:*)"
     ]
   }
 }
