@@ -502,9 +502,6 @@ export const EN_TRANSLATIONS = {
     "牛排": "Steak",
     "龙虾": "Lobster",
     "松露": "Truffle",
-    "主厨刀": "Chef's Knife",
-    "铸铁锅": "Cast Iron Pan",
-    "砂锅": "Clay Pot",
     // --- Doom cell names ---
     "厄运结算": "Doom Resolution",
     "厄运升级": "Doom Upgrade",
@@ -613,9 +610,6 @@ export const EN_TRANSLATIONS = {
     "牛排": "Steak",
     "龙虾": "Lobster",
     "松露": "Truffle",
-    "主厨刀": "Chef's Knife",
-    "铸铁锅": "Cast Iron Pan",
-    "砂锅": "Clay Pot",
 
     // --- Tooltip labels ---
     "基础调料": "Basic Seasoning",

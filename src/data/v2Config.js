@@ -69,10 +69,6 @@ export const OUT_OF_GAME_ITEMS = [
     // 5分 — 珍稀食材
     { id: 'lobster',   icon: '🦞', name: '龙虾',   score: 5 },
     { id: 'truffle',   icon: '🫕', name: '松露',   score: 5 },
-    // 5分 — 厨具
-    { id: 'knife',     icon: '🔪', name: '主厨刀', score: 5 },
-    { id: 'pan',       icon: '🍳', name: '铸铁锅', score: 5 },
-    { id: 'pot',       icon: '🫕', name: '砂锅',   score: 5 },
 ];
 
 // --- 订单模板 ---
