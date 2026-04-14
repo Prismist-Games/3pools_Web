@@ -9,9 +9,10 @@ import Tooltip from './components/ui/Tooltip';
 import ScoreBoard from './components/game/ScoreBoard';
 import DispatchJudgment from './components/game/DispatchJudgment';
 import AICooking, { pickRandomCustomer } from './components/game/AICooking';
+import Kitchen from './components/game/Kitchen';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
-import { STICKER_TYPES, INGREDIENTS } from './data/v2Config';
+import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -28,6 +29,8 @@ const GameCore = () => {
     const [dispatchOpen, setDispatchOpen] = useState(false);
     const [aiCookingOpen, setAiCookingOpen] = useState(false);
     const [aiCustomer, setAiCustomer] = useState(pickRandomCustomer);
+    const [kitchenOpen, setKitchenOpen] = useState(false);
+    const [kitchenDishIdx, setKitchenDishIdx] = useState(0);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -163,6 +166,7 @@ const GameCore = () => {
                             <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-100 text-red-500 border border-red-200 hover:bg-red-200 transition-colors">{t('重置')}</button>
                             <button onClick={() => setDispatchOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-800 text-amber-200 border border-amber-600 hover:bg-amber-700 transition-colors">{t('派遣')}</button>
                             <button onClick={() => setAiCookingOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-orange-600 text-orange-100 border border-orange-500 hover:bg-orange-500 transition-colors">🍳 AI炼菜</button>
+                            <button onClick={() => setKitchenOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-600 text-red-100 border border-red-500 hover:bg-red-500 transition-colors">🍳 厨房</button>
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                         </div>
                     </div>
@@ -743,6 +747,9 @@ const GameCore = () => {
 
                 {/* AI Cooking Modal */}
                 {aiCookingOpen && <AICooking onClose={() => setAiCookingOpen(false)} expeditionScores={expeditionScores} onUpdateStorage={debugAddStorageItems} customer={aiCustomer} onNewCustomer={() => setAiCustomer(pickRandomCustomer())} />}
+
+                {/* Kitchen Modal */}
+                {kitchenOpen && <Kitchen inventory={inventory} dish={DISHES[kitchenDishIdx]} onCook={(result) => { setKitchenOpen(false); }} onClose={() => setKitchenOpen(false)} />}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}

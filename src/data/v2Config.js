@@ -116,13 +116,54 @@ export const INGREDIENTS = [
     { id: 'brioche',            icon: '🍞', name: '布里欧修',       nameEn: 'Brioche',             rarity: 4, tags: ['主食', '面包'] },
 ];
 
+// --- 菜品关卡 ---
+// 匹配逻辑：小类匹配 ×2, 大类匹配 ×1, 不匹配 ×0.5
+// 基础分 = rarity (暂定，后续调整)
+export const DISHES = [
+    {
+        id: 'ocean_threads',
+        name: '海洋线条',
+        nameEn: 'Lines of the Sea',
+        icon: '🍝',
+        baseline: 10,
+        slots: [
+            {
+                name: '主料', required: true, accept: '海鲜', prefer: '虾',
+                trigger: {
+                    whenTag: '贝',
+                    spawnSlot: { name: '主料', required: false, accept: '海鲜', prefer: '', exclude: '贝' },
+                },
+            },
+            { name: '基底', required: true,  accept: '主食', prefer: '面' },
+            { name: '汤汁', required: false, accept: '蔬菜', prefer: '菌菇' },
+            { name: '配料', required: false, accept: '', prefer: '' },
+        ],
+    },
+    {
+        id: 'ember_hearth',
+        name: '炉火慢歌',
+        nameEn: 'Ballad of the Ember Hearth',
+        icon: '🍛',
+        baseline: 10,
+        slots: [
+            { name: '主料', required: true, accept: '肉类', prefer: '牛' },
+            { name: '底',   required: true, accept: '主食', prefer: ['米', '面包'] },
+            {
+                name: '炖料', required: false, accept: '蔬菜', prefer: '根茎',
+                crossBonus: { requireSlot: '主料', requireTag: '牛', points: 3 },
+            },
+            { name: '配料', required: false, accept: '', prefer: '' },
+        ],
+    },
+];
+
 // --- 订单模板 ---
 // 每个订单奖励 1 个对应稀有度的食材
 export const ORDER_TEMPLATES = [
-    { id: 'a', difficulty: 'easy',    rewardTiers: [1], totalStickers: 2, stickerTypes: 1, weight: 5 },
-    { id: 'b', difficulty: 'medium',  rewardTiers: [2], totalStickers: 3, stickerTypes: 2, weight: 5 },
-    { id: 'c', difficulty: 'hard',    rewardTiers: [3], totalStickers: 4, stickerTypes: 3, weight: 5 },
-    { id: 'd', difficulty: 'extreme', rewardTiers: [4], totalStickers: 6, stickerTypes: 4, weight: 2 },
+    { id: 'a', difficulty: 'easy',    rewardTiers: [1], totalStickers: 2, stickerTypes: 1, weight: 40 },
+    { id: 'b', difficulty: 'medium',  rewardTiers: [2], totalStickers: 3, stickerTypes: 2, weight: 30 },
+    { id: 'c', difficulty: 'hard',    rewardTiers: [3], totalStickers: 4, stickerTypes: 3, weight: 20 },
+    { id: 'd', difficulty: 'extreme', rewardTiers: [4], totalStickers: 6, stickerTypes: 4, weight: 10 },
 ];
 
 // --- 墙类型定义 ---
@@ -151,5 +192,5 @@ export const ORDER_CONFIG = {
 // --- 墙贴纸数量范围 ---
 export const WALL_STICKER_COUNT = {
     min: 3,
-    max: 4,
+    max: 3,
 };
