@@ -22,6 +22,9 @@ const GameCore = () => {
     const [hoveredStickerIds, setHoveredStickerIds] = useState(null);
     const [recycleMode, setRecycleMode] = useState(false);
     const [recycleSelected, setRecycleSelected] = useState(new Set());
+    const [synthesizeMode, setSynthesizeMode] = useState(false);
+    const [synthesizeSelected, setSynthesizeSelected] = useState(new Set());
+    const [actionHint, setActionHint] = useState('recycle');
     const [debugOpen, setDebugOpen] = useState(false);
     const [debugSelectedItem, setDebugSelectedItem] = useState(null);
     const [guideOpen, setGuideOpen] = useState(false);
@@ -54,7 +57,7 @@ const GameCore = () => {
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
-        replaceInventoryItem, discardInventoryItem, discardPendingItem, debugAddItem,
+        replaceInventoryItem, discardInventoryItem, synthesizeItems, discardPendingItem, debugAddItem,
         bulletinBoard, pendingChosenOrder, refreshCharges,
         submitOrder, canSubmitOrder, triggerRefresh,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
@@ -431,7 +434,7 @@ const GameCore = () => {
                                     <span className="text-[10px] text-kitchen-text-muted font-medium">{inventory.length}/{maxInventorySize}</span>
                                 </div>
                                 <div className="p-2">
-                                    {/* Recycle card — always visible */}
+                                    {/* Recycle / Synthesize controls */}
                                     {recycleMode ? (
                                         <div className="mb-2 p-2 bg-[#FFF0EE] border-2 border-kitchen-danger rounded-lg">
                                             <p className="text-[11px] text-kitchen-danger-text mb-1.5">{t('点击选择要回收的物品')}</p>
@@ -450,15 +453,45 @@ const GameCore = () => {
                                                     className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">{t('取消')}</button>
                                             </div>
                                         </div>
+                                    ) : synthesizeMode ? (
+                                        <div className="mb-2 p-2 bg-[#F0F8FF] border-2 border-kitchen-info-border rounded-lg">
+                                            <p className="text-[11px] text-kitchen-info-border mb-1.5">{t('选择2个相同物品进行合成')}</p>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => {
+                                                    const synIndices = [...synthesizeSelected];
+                                                    if (synIndices.length === 2) {
+                                                        synthesizeItems(synIndices[0], synIndices[1]);
+                                                    }
+                                                    setSynthesizeMode(false); setSynthesizeSelected(new Set());
+                                                }}
+                                                    disabled={!(synthesizeSelected.size === 2 && (() => {
+                                                        const [a, b] = [...synthesizeSelected];
+                                                        return inventory[a]?.id === inventory[b]?.id && inventory[a]?.isOutOfGame;
+                                                    })())}
+                                                    className={`text-[10px] px-2 py-1 rounded-md font-bold transition-colors ${synthesizeSelected.size === 2 && (() => { const [a, b] = [...synthesizeSelected]; return inventory[a]?.id === inventory[b]?.id && inventory[a]?.isOutOfGame; })() ? 'bg-kitchen-info text-white hover:brightness-95' : 'bg-kitchen-card/60 text-kitchen-text-muted cursor-not-allowed border border-kitchen-gold-border-muted/60'}`}>
+                                                    {t('确认合成')} {synthesizeSelected.size > 0 && `(${synthesizeSelected.size}/2)`}
+                                                </button>
+                                                <button onClick={() => { setSynthesizeMode(false); setSynthesizeSelected(new Set()); }}
+                                                    className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#F0F8FF] hover:border-kitchen-info-border transition-colors">{t('取消')}</button>
+                                            </div>
+                                        </div>
                                     ) : !pendingItem && (
                                         <div className="mb-2 p-2 bg-[#FFF8F0] border border-kitchen-gold-border-muted rounded-lg flex items-center justify-between">
-                                            <span className="text-[11px] text-kitchen-text-secondary">{t('回收不需要的物品')}</span>
-                                            <button onClick={() => { setRecycleMode(true); setRecycleSelected(new Set()); }}
-                                                className="text-[10px] px-2 py-1 rounded-md font-bold text-kitchen-text-body bg-[#FFF3E0] border border-kitchen-gold-border hover:bg-[#FFF0EE] hover:text-kitchen-danger-text transition-colors">{t('回收')}</button>
+                                            <span className="text-[11px] text-kitchen-text-secondary">{actionHint === 'synthesize' ? t('合成为高品质物品') : t('回收不需要的物品')}</span>
+                                            <div className="flex gap-1.5">
+                                                <button
+                                                    onMouseEnter={() => setActionHint('recycle')}
+                                                    onClick={() => { setRecycleMode(true); setRecycleSelected(new Set()); setSynthesizeMode(false); setSynthesizeSelected(new Set()); }}
+                                                    className="text-[10px] px-2 py-1 rounded-md font-bold text-kitchen-text-body bg-[#FFF3E0] border border-kitchen-gold-border hover:bg-[#FFF0EE] hover:text-kitchen-danger-text transition-colors">{t('回收')}</button>
+                                                <button
+                                                    onMouseEnter={() => setActionHint('synthesize')}
+                                                    onClick={() => { setSynthesizeMode(true); setSynthesizeSelected(new Set()); setRecycleMode(false); setRecycleSelected(new Set()); }}
+                                                    className="text-[10px] px-2 py-1 rounded-md font-bold text-kitchen-text-body bg-[#FFF3E0] border border-kitchen-gold-border hover:bg-[#F0F8FF] hover:text-kitchen-info-border transition-colors">{t('合成')}</button>
+                                            </div>
                                         </div>
                                     )}
                                     {/* Pending items queue */}
-                                    {pendingItems.length > 0 && !recycleMode && (
+                                    {pendingItems.length > 0 && !recycleMode && !synthesizeMode && (
                                         <div className="mb-2 p-2 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-lg">
                                             <div className="flex items-center justify-between mb-1.5">
                                                 <span className="text-[11px] font-bold text-kitchen-gold-deep">{t('待处理物品')}</span>
@@ -488,8 +521,9 @@ const GameCore = () => {
                                     <div className="grid grid-cols-5 gap-1">
                                         {Array.from({ length: maxInventorySize }).map((_, i) => {
                                             const item = inventory[i];
-                                            const canReplace = pendingItem && item && !recycleMode;
+                                            const canReplace = pendingItem && item && !recycleMode && !synthesizeMode;
                                             const isRecycleSelected = recycleMode && recycleSelected.has(i);
+                                            const isSynthesizeSelected = synthesizeMode && synthesizeSelected.has(i);
                                             const sc = item?.isOutOfGame ? (SCORE_STYLE[item.rarity || item.score] || SCORE_STYLE[1]) : null;
                                             const cell = (
                                                 <div
@@ -500,17 +534,35 @@ const GameCore = () => {
                                                                 next.has(i) ? next.delete(i) : next.add(i);
                                                                 return next;
                                                             });
+                                                        } else if (synthesizeMode && item && item.isOutOfGame) {
+                                                            setSynthesizeSelected(prev => {
+                                                                const next = new Set(prev);
+                                                                if (next.has(i)) {
+                                                                    next.delete(i);
+                                                                } else {
+                                                                    next.add(i);
+                                                                    // Limit to 2 selections
+                                                                    if (next.size > 2) {
+                                                                        const arr = [...next];
+                                                                        arr.shift();
+                                                                        return new Set(arr);
+                                                                    }
+                                                                }
+                                                                return next;
+                                                            });
                                                         } else if (canReplace) {
                                                             replaceInventoryItem(i);
                                                         }
                                                     }}
                                                     className={`w-10 h-10 rounded flex items-center justify-center text-lg border-2 relative transition-all duration-150
                                                         ${isRecycleSelected ? 'bg-[#FFF0EE] border-kitchen-danger scale-95 opacity-60'
+                                                            : isSynthesizeSelected ? 'bg-[#F0F8FF] border-kitchen-info-border scale-95'
                                                             : !item ? 'bg-[#F8F4EC] border-kitchen-gold-border-muted'
                                                             : sc ? `bg-gradient-to-b ${sc.bg} ${sc.border}`
                                                             : 'bg-kitchen-card border-kitchen-gold-border-muted'}
                                                         ${canReplace ? 'cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:scale-110'
-                                                            : recycleMode && item ? 'cursor-pointer hover:border-kitchen-danger' : ''}`}
+                                                            : recycleMode && item ? 'cursor-pointer hover:border-kitchen-danger'
+                                                            : synthesizeMode && item?.isOutOfGame ? 'cursor-pointer hover:border-kitchen-info-border' : ''}`}
                                                 >
                                                     {item ? item.icon : ''}
                                                     {sc && (

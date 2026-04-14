@@ -426,6 +426,11 @@ export const EN_TRANSLATIONS = {
     "点击选择要回收的物品": "Click items to select for recycling",
     "确认回收": "Confirm Recycle",
     "回收不需要的物品": "Discard unwanted items",
+    "合成": "Synthesize",
+    "选择2个相同物品进行合成": "Select 2 identical items to synthesize",
+    "确认合成": "Confirm Synthesize",
+    "合成成功": "Synthesis successful",
+    "合成为高品质物品": "Merge into higher rarity",
     // --- V2: Orders & Stickers ---
     "货架": "Shelf",
     "暂无订单": "No orders available",

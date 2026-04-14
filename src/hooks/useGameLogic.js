@@ -988,6 +988,40 @@ export const useGameLogic = (config) => {
         setInventory(prev => prev.filter((_, i) => !idxSet.has(i)));
     };
 
+    /** Synthesize: merge 2 identical items into the next rarity tier */
+    const synthesizeItems = (index1, index2) => {
+        const item1 = inventory[index1];
+        const item2 = inventory[index2];
+        if (!item1 || !item2 || item1.id !== item2.id) return false;
+
+        // Find current item definition in INGREDIENTS
+        const currentDef = INGREDIENTS.find(ing => ing.id === item1.id);
+        if (!currentDef || currentDef.rarity >= 4) return false;
+
+        // Find next rarity in same sub-category (match both tags)
+        const subTag = currentDef.tags[1]; // e.g., '鸡'
+        const mainTag = currentDef.tags[0]; // e.g., '肉类'
+        const nextDef = INGREDIENTS.find(ing =>
+            ing.tags[0] === mainTag && ing.tags[1] === subTag && ing.rarity === currentDef.rarity + 1
+        );
+        if (!nextDef) return false;
+
+        // Remove 2 items, add 1 new item
+        setInventory(prev => {
+            const next = [...prev];
+            // Remove higher index first to avoid shifting
+            const [lo, hi] = index1 < index2 ? [index1, index2] : [index2, index1];
+            next.splice(hi, 1);
+            next.splice(lo, 1);
+            // Add new item
+            next.push({ ...nextDef, isOutOfGame: true, uid: generateUID() });
+            return next;
+        });
+
+        showToast(`${t('合成成功')}: ${nextDef.icon} ${nextDef.name}`, 'success');
+        return true;
+    };
+
     /** Debug: add items directly to inventory */
     const debugAddItem = (itemDef, count) => {
         const makeItem = () => itemDef.isSticker
@@ -1393,6 +1427,7 @@ export const useGameLogic = (config) => {
         completeDrawAnim,
         replaceInventoryItem,
         discardInventoryItem,
+        synthesizeItems,
         debugAddItem,
         discardPendingItem,
         submitOrder,
