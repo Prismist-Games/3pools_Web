@@ -807,6 +807,8 @@ export const EN_TRANSLATIONS = {
     "已抽取": "Draws taken",
     "印花": "Stamps",
     "印花不足": "Not enough stamps",
+    "满足": "Satisfy",
+    "张兑换券": "vouchers",
 
     // --- Star tiers ---
     "星级": "Stars",
@@ -936,7 +938,7 @@ export const EN_TRANSLATIONS = {
     "得分订单": "Score Order",
     "得分订单出现": "Score Order appeared",
     "得分订单完成": "Score Order Complete",
-    "完成获得": "Complete to receive",
+    "撤离获得": "Receive on evacuation",
     "简单": "Easy",
     "中等": "Medium",
     "困难": "Hard",
@@ -948,7 +950,7 @@ export const EN_TRANSLATIONS = {
     "卡槽": "Slots",
     "在卡槽中": "In slot",
     "行动力不足": "Not enough AP",
-    "利润卡": "Profit Card",
+    "物品兑换券": "Exchange Voucher",
     "危险卡": "Danger Card",
     "撤离卡": "Evacuation Card",
     "填满后可以撤离": "Fill to evacuate",
@@ -964,7 +966,12 @@ export const EN_TRANSLATIONS = {
     "本回合威胁": "This turn's threats",
     "危险卡未完成": "Danger card incomplete",
     "危险卡已化解": "Danger card resolved",
-    "利润卡兑换": "Profit card redeemed",
+    "物品兑换券兑换": "Voucher redeemed",
+    "已满足": "Satisfied",
+    "未满足": "Not satisfied",
+    "撤离时自动兑换": "Auto-redeemed on evacuation",
+    "持有": "Have",
+    "危险卡未满足": "Danger card unsatisfied",
 
     // --- Wall ---
     "奖品墙商店": "Wall Shop",
@@ -976,4 +983,14 @@ export const EN_TRANSLATIONS = {
     "退出危险墙": "Exit Danger Wall",
     "进入危险墙": "Enter Danger Wall",
     "危险墙": "Danger Wall",
+
+    // --- Wall Shop + Profit Card Display ---
+    "兑换券商店": "Voucher Shop",
+    "获取": "Acquire",
+    "获取兑换券": "Acquire Voucher",
+    "暂无兑换券": "No vouchers",
+    "兑换券已满": "Vouchers full",
+    "无法进入": "Cannot enter",
+    "退出奖品墙": "Exit Prize Wall",
+    "已达上限": "Limit reached",
 };

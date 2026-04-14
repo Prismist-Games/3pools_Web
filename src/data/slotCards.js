@@ -1,13 +1,14 @@
 /**
- * slotCards.js — 插槽卡系统 (Slot Card System)
+ * slotCards.js — Passive Matching Card System
  *
  * Three card types:
- *   - 利润卡 (profit): fill sticker slots → at evacuation, convert to out-of-game items
- *   - 危险卡 (danger): fill sticker slots before turn end → or lose 1 life (auto-generated each turn)
- *   - 撤离卡 (evacuation): fill all slots (any sticker type) → enables evacuation (one per expedition, cannot be removed)
+ *   - 利润卡 (profit): auto-checked at evacuation — if inventory satisfies requirements, rewards are granted
+ *   - 危险卡 (danger): auto-checked at turn end — if inventory satisfies requirements, safe; otherwise lose 1 life
+ *   - 撤离卡 (evacuation): evacuate when inventory has >= EVACUATION_STICKER_THRESHOLD stickers
  *
- * Cards carry slots that require specific sticker types (or 'any' for evacuation).
- * Players fill slots by consuming stickers from inventory. Unfilling returns the sticker.
+ * Cards have requirements (sticker types/counts) but stickers are NEVER consumed.
+ * The same sticker can satisfy multiple cards simultaneously.
+ * The constraint is backpack SPACE (15 slots), not sticker consumption.
  */
 
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES } from './v2Config';
@@ -16,7 +17,13 @@ import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES } from './v2Config';
 // CONFIGURATION
 // =============================================
 
-/** Slot counts by card type */
+/** Sticker threshold for evacuation (passive check: inventory sticker count >= this) */
+export const EVACUATION_STICKER_THRESHOLD = 8;
+
+/** Number of satisfied profit cards required to evacuate. */
+export const EVACUATION_PROFIT_REQUIREMENT = 3;
+
+/** Requirement counts by card type (how many sticker slots define requirements) */
 export const SLOT_CARD_CONFIG = {
     profit: {
         minSlots: 2,
@@ -27,6 +34,7 @@ export const SLOT_CARD_CONFIG = {
         maxSlots: 1,
     },
     evacuation: {
+        // No longer used for slot-based evacuation; kept for backward compat
         minSlots: 8,
         maxSlots: 8,
     },
@@ -190,58 +198,70 @@ export function generateSlotCard(type, options = {}) {
 }
 
 // =============================================
-// CARD QUERIES
+// CARD QUERIES — Passive Matching
 // =============================================
 
-/** Check if all slots on a card are filled */
+/**
+ * Get the requirements map for a card: { [stickerType]: count }.
+ * For evacuation cards, returns { any: slotCount }.
+ */
+export function getRequirements(card) {
+    const reqs = {};
+    for (const slot of card.slots) {
+        const key = slot.stickerType;
+        reqs[key] = (reqs[key] || 0) + 1;
+    }
+    return reqs;
+}
+
+/**
+ * Build an inventory sticker count map: { [stickerId]: count }
+ * Only counts items with isSticker === true.
+ */
+function buildInventoryCounts(inventory) {
+    const counts = {};
+    for (const item of inventory) {
+        if (item?.isSticker && item.stickerId) {
+            counts[item.stickerId] = (counts[item.stickerId] || 0) + 1;
+        }
+    }
+    return counts;
+}
+
+/**
+ * Check if the current inventory satisfies a card's requirements.
+ * Stickers are NOT consumed — just checked for presence.
+ * Each card is checked independently (same sticker can satisfy multiple cards).
+ *
+ * @param {object} card - A slot card with .slots array
+ * @param {object[]} inventory - Player's current inventory
+ * @returns {boolean} true if all requirements are met
+ */
+export function canSatisfyCard(card, inventory) {
+    const reqs = getRequirements(card);
+    const invCounts = buildInventoryCounts(inventory);
+
+    for (const [stickerType, needed] of Object.entries(reqs)) {
+        if (stickerType === 'any') {
+            // 'any' — needs that many stickers of ANY type total
+            const totalStickers = Object.values(invCounts).reduce((sum, n) => sum + n, 0);
+            if (totalStickers < needed) return false;
+        } else {
+            if ((invCounts[stickerType] || 0) < needed) return false;
+        }
+    }
+    return true;
+}
+
+/** Check if all slots on a card are filled (legacy — kept for backward compat) */
 export function isCardComplete(card) {
     return card.slots.every(s => s.filled);
 }
 
-/** Count filled / total slots */
+/** Count filled / total slots (legacy — kept for backward compat) */
 export function getCardProgress(card) {
     const filled = card.slots.filter(s => s.filled).length;
     return { filled, total: card.slots.length };
-}
-
-/**
- * Get a summary of sticker types needed (unfilled) on a card.
- * Returns: { [stickerType]: count }
- */
-export function getUnfilledRequirements(card) {
-    const needs = {};
-    for (const slot of card.slots) {
-        if (!slot.filled) {
-            const key = slot.stickerType; // 'any' will appear as a key for evacuation cards
-            needs[key] = (needs[key] || 0) + 1;
-        }
-    }
-    return needs;
-}
-
-/**
- * Check if a sticker from inventory can fill a specific slot on a card.
- * @param {object} card - The slot card
- * @param {number} slotIndex - Index of the slot to fill
- * @param {object} stickerItem - Inventory item (must have isSticker + stickerId)
- * @returns {boolean}
- */
-export function canFillSlot(card, slotIndex, stickerItem) {
-    const slot = card.slots[slotIndex];
-    if (!slot) return false;
-    if (slot.filled) return false;
-    if (!stickerItem?.isSticker) return false;
-    // 'any' type slots accept any sticker
-    if (slot.stickerType === 'any') return true;
-    return stickerItem.stickerId === slot.stickerType;
-}
-
-/**
- * Find the first unfilled slot on a card that matches a given sticker type.
- * Returns slot index, or -1 if none found.
- */
-export function findMatchingSlot(card, stickerType) {
-    return card.slots.findIndex(s => !s.filled && (s.stickerType === stickerType || s.stickerType === 'any'));
 }
 
 /**
