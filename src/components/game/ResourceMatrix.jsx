@@ -108,21 +108,19 @@ const GAP = 6;
 const HALF = GAP / 2;
 const TRACK = CELL_SIZE + GAP;
 
-/** Count how many buff_field cells are within the 8-neighbor range of (r, c).
- *  The buff_field cell itself does not count as covering itself. */
+/** Count how many buff_field cells are within the 4-neighbor (orthogonal) range
+ *  of (r, c). The buff_field cell itself does not count as covering itself. */
 function countBuffFieldCoverage(matrix, r, c) {
     if (!matrix) return 0;
     const rows = matrix.length;
     const cols = matrix[0]?.length || 0;
+    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
     let count = 0;
-    for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const nr = r + dr;
-            const nc = c + dc;
-            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-            if (matrix[nr][nc]?.type === 'buff_field') count++;
-        }
+    for (const [dr, dc] of dirs) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+        if (matrix[nr][nc]?.type === 'buff_field') count++;
     }
     return count;
 }

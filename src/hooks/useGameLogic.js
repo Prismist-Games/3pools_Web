@@ -12,21 +12,19 @@ import { useLanguage } from '../contexts/LanguageContext';
 // HELPER FUNCTIONS
 // =============================================
 
-/** Count buff_field cells in the 8-neighbor range of (r, c). The cell at
- *  (r, c) itself is not counted (even if it is a buff_field). */
+/** Count buff_field cells in the 4-neighbor (orthogonal) range of (r, c). The
+ *  cell at (r, c) itself is not counted (even if it is a buff_field). */
 function countBuffFieldCoverage(matrix, r, c) {
     if (!matrix) return 0;
     const rows = matrix.length;
     const cols = matrix[0]?.length || 0;
+    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
     let count = 0;
-    for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const nr = r + dr;
-            const nc = c + dc;
-            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-            if (matrix[nr][nc]?.type === 'buff_field') count++;
-        }
+    for (const [dr, dc] of dirs) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+        if (matrix[nr][nc]?.type === 'buff_field') count++;
     }
     return count;
 }
