@@ -59,16 +59,16 @@ export const ORDER_TEMPLATES = [
 
 // --- 墙类型定义 ---
 export const WALL_TYPES = [
-    { id: 'hidden',      name: '神秘面纱', icon: '🎭', desc: '部分格子内容隐藏，抽到相邻格时揭示', weight: 20, hiddenRatio: 0.3 },
-    { id: 'multiplier',  name: '双倍惊喜', icon: '✨', desc: '部分格子效果翻倍（贴纸×2，厄运×2）', weight: 15, multiplierRatio: 0.2 },
-    { id: 'alternating', name: '交叉问答', icon: '🔀', desc: '必须行列交替选择', weight: 20 },
-    { id: 'center_rotate', name: '转盘中心', icon: '🎡', desc: '每次抽取后，中心四格顺时针旋转一格', weight: 15 },
-    { id: 'conveyor',      name: '传送带',   icon: '➡️', desc: '某一行或一列固定朝一个方向循环移动，每次抽取推进一格', weight: 15 },
-    { id: 'savage_growth', name: '野蛮生长', icon: '🌱', desc: '每次抽取后，被抽中格子的上下左右邻居都会变成抽到的东西', weight: 15 },
-    { id: 'blast_heal',    name: '爆裂愈合', icon: '💣', desc: '抽取后，原处会再长出一颗炸弹；抽到炸弹本身除外', weight: 15 },
-    { id: 'yin_yang',      name: '阴阳轮转', icon: '☯️', desc: '墙上只有两种贴纸，抽其一会在原地生成另一种', weight: 15 },
-    { id: 'mirror',        name: '镜花水月', icon: '🪞', desc: '左右两半镜像相连，抽一格同时结算对侧镜像格；仅 3 金币', weight: 15, goldOverride: 3 },
-    { id: 'blessing_heal', name: '祝福愈合', icon: '🙏', desc: '抽取后，原处会长出一颗膨化格；抽到膨化格本身除外；仅 3 金币', weight: 15, goldOverride: 3 },
+    { id: 'hidden',      name: '神秘面纱', icon: '🎭', desc: '有些格子被面纱盖住。抽它们旁边的东西，面纱就会被掀开。', weight: 20, hiddenRatio: 0.3 },
+    { id: 'multiplier',  name: '双倍惊喜', icon: '✨', desc: '有些格子上画着加倍标记——抽到它们，收获变成两份！', weight: 15, multiplierRatio: 0.2 },
+    { id: 'alternating', name: '交叉问答', icon: '🔀', desc: '行和列不能连抽。抽完一行就得挑一列，反过来也一样。', weight: 20 },
+    { id: 'center_rotate', name: '转盘中心', icon: '🎡', desc: '中间四个格子是个小转盘。你每抽一次，它就顺时针转一格。', weight: 15 },
+    { id: 'conveyor',      name: '传送带',   icon: '➡️', desc: '其中一排像上了传送带——每抽一次就往前挪一格，走到尽头会从另一头绕回来。', weight: 15 },
+    { id: 'savage_growth', name: '野蛮生长', icon: '🌱', desc: '抽到什么东西，它旁边四个格子就会跟着变成一模一样的。', weight: 15 },
+    { id: 'blast_heal',    name: '爆裂愈合', icon: '💣', desc: '抽完之后，原地会冒出一颗新炸弹。越抽越多，越抽越危险！', weight: 15 },
+    { id: 'yin_yang',      name: '阴阳轮转', icon: '☯️', desc: '墙上只有两种贴纸。抽到一种，它就会变成另一种。', weight: 15 },
+    { id: 'mirror',        name: '镜花水月', icon: '🪞', desc: '左右两半像镜子里的倒影。抽一格，对面那格也一起到手。', weight: 15, goldOverride: 3 },
+    { id: 'blessing_heal', name: '祝福愈合', icon: '🙏', desc: '抽完之后，原地会爆出一颗膨化格。膨化格周围的东西，抽到都会变多哦！', weight: 15, goldOverride: 3 },
 ];
 
 // --- 远征配置 ---
