@@ -91,9 +91,11 @@ const GameCore = () => {
     }, [drawAnimState]);
 
     // --- Flying item cleanup ---
+    // Unmount at the exact animation end; CSS already fades opacity to 0
+    // so any micro-overlap is invisible.
     useEffect(() => {
         if (!flyingItem) return;
-        const timer = setTimeout(() => setFlyingItem(null), 550);
+        const timer = setTimeout(() => setFlyingItem(null), 500);
         return () => clearTimeout(timer);
     }, [flyingItem]);
 
