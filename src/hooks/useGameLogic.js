@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { generatePoolGrid, applyGravityAndRefill } from '../utils/matrixHelpers';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from '../data/v2Config';
-import { V3_INITIAL_STATE, AP_CONFIG } from '../data/v3Config';
+import { AP_CONFIG, INITIAL_LIVES } from '../data/v3Config';
 import { POOL_TYPES, generateWallShop, buildBiasedStickerWeights } from '../data/poolTypes';
 import { generateSlotCard, canSatisfyCard, EVACUATION_PROFIT_REQUIREMENT } from '../data/slotCards';
 
@@ -45,7 +45,6 @@ export const useGameLogic = (config) => {
     const [currentPool, setCurrentPool] = useState(null);   // { uid, poolType, grid, cellCounts } or null
 
     // --- Lives ---
-    const INITIAL_LIVES = 5;
     const [lives, setLives] = useState(INITIAL_LIVES);
 
     // --- Slot Cards State ---

@@ -107,45 +107,6 @@ export const UNLOCK_TEMPLATES = {
     ],
 };
 
-// --- 厄运事件配置 ---
-// 连续厄运回合递增：1连→2连→3连→4连(最大)，之后4连循环
-// 每连之间有1回合喘息
-export const DOOM_EVENTS = {
-    // T1-10: 手动定义 (1连/2连/3连 + 间隔)
-    accumulateTurns: [2, 5, 7, 9],    // ☠ 积累
-    resolveTurns: [4, 8],              // 🎲 结算
-    // T11+: 4连循环 (☠🎲☠🎲 + 1回合间隔，周期5)
-    cycleFromTurn: 11,
-};
-
-// --- 厄运结算抽取数（按回合数）---
-export const DOOM_RESOLUTION_DRAWS = [
-    { turnRange: [1, 6],   draws: 1 },
-    { turnRange: [7, 12],  draws: 2 },
-    { turnRange: [13, Infinity], draws: 3 },
-];
-
-// Helper: get doom events for a given turn
-export function getDoomTurnEvents(turn) {
-    const { accumulateTurns, resolveTurns, cycleFromTurn } = DOOM_EVENTS;
-    if (turn >= cycleFromTurn) {
-        const offset = (turn - cycleFromTurn) % 5;
-        if (offset === 4) return { accumulate: false, resolve: false }; // gap turn
-        return {
-            accumulate: offset % 2 === 0,  // pos 0,2: ☠
-            resolve: offset % 2 === 1,      // pos 1,3: 🎲
-        };
-    }
-    return {
-        accumulate: accumulateTurns.includes(turn),
-        resolve: resolveTurns.includes(turn),
-    };
-}
-
-// --- 金币经济常量 (DEPRECATED — gold system removed) ---
-export const DRAW_GOLD_COST = 0;
-export const TURN_GOLD_INCOME = 0;
-
 // --- Action Point (AP) 系统 ---
 export const AP_CONFIG = {
     maxAP: 10,          // AP per turn
@@ -159,35 +120,10 @@ export const AP_CONFIG = {
     maxRevealedOrders: 3, // max visible orders at once (order area)
 };
 
-// --- Risk System Configuration ---
-// TODO (tuning): all values are placeholders — adjust after playtesting.
-export const RISK_CONFIG = {
-    RISK_FLOOR: 5,              // minimum risk value, can never go below this
-    RISK_K: 233,                // denominator constant for P = R / (R + K); caps danger at ~30% when R=100
-    SAFE_FLIP_REDUCTION: 3,     // fixed risk reduction on safe flip (no danger triggered)
-    DANGER_STICKER_MIN: 2,      // min stickers required to resolve a danger card
-    DANGER_STICKER_MAX: 5,      // max stickers required to resolve a danger card
-    INITIAL_LIVES: 5,           // lives per expedition
-    // Risk coefficient per risk label — decoupled from star tier
-    // TODO (tuning): adjust per label
-    RISK_COEFFICIENTS: {
-        '低': 1,
-        '中': 2,
-        '高': 3,
-        '极高': 4,
-    },
-    // --- Evacuation encounter ---
-    // TODO (tuning): all evacuation values are placeholders — adjust after playtesting.
-    EVAC_FLIP_INTERVAL: 5,      // every N flips, evacuation becomes possible
-    EVAC_CHANCE: 0.5,           // probability of evacuation appearing once interval is met
-    EVAC_RISK_PER_TURN: 10,    // extra risk added each turn while evacuation is in the encounter area
-};
-
 // --- v3 初始状态 ---
+export const INITIAL_LIVES = 5;
+
 export const V3_INITIAL_STATE = {
-    hp: 5,
     refreshCount: 1,
     backpackCapacity: 10,
-    doomGridSize: 10,
-    initialDanger: 1,
 };

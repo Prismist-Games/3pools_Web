@@ -4,7 +4,7 @@
  * Three card types:
  *   - 利润卡 (profit): auto-checked at evacuation — if inventory satisfies requirements, rewards are granted
  *   - 危险卡 (danger): auto-checked at turn end — if inventory satisfies requirements, safe; otherwise lose 1 life
- *   - 撤离卡 (evacuation): evacuate when inventory has >= EVACUATION_STICKER_THRESHOLD stickers
+ *   - 撤离条件在 useGameLogic 中检查 (need EVACUATION_PROFIT_REQUIREMENT satisfied profit cards)
  *
  * Cards have requirements (sticker types/counts) but stickers are NEVER consumed.
  * The same sticker can satisfy multiple cards simultaneously.
@@ -16,9 +16,6 @@ import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES } from './v2Config';
 // =============================================
 // CONFIGURATION
 // =============================================
-
-/** Sticker threshold for evacuation (passive check: inventory sticker count >= this) */
-export const EVACUATION_STICKER_THRESHOLD = 8;
 
 /** Number of satisfied profit cards required to evacuate. */
 export const EVACUATION_PROFIT_REQUIREMENT = 3;
@@ -32,11 +29,6 @@ export const SLOT_CARD_CONFIG = {
     danger: {
         minSlots: 1,
         maxSlots: 1,
-    },
-    evacuation: {
-        // No longer used for slot-based evacuation; kept for backward compat
-        minSlots: 8,
-        maxSlots: 8,
     },
 };
 
@@ -106,7 +98,7 @@ function generateProfitReward(slotCount) {
 /**
  * Generate a slot card.
  *
- * @param {'profit' | 'danger' | 'evacuation'} type - Card type
+ * @param {'profit' | 'danger'} type - Card type
  * @param {object} [options]
  * @param {number} [options.slotCount] - Override slot count (otherwise random within range)
  * @param {number} [options.turnCreated] - Current turn number (for danger cards)
@@ -123,25 +115,6 @@ export function generateSlotCard(type, options = {}) {
     // Determine slot count
     const slotCount = options.slotCount
         ?? (config.minSlots + Math.floor(Math.random() * (config.maxSlots - config.minSlots + 1)));
-
-    // Evacuation cards: all slots accept any sticker type
-    if (type === 'evacuation') {
-        const slots = [];
-        for (let i = 0; i < slotCount; i++) {
-            slots.push({
-                stickerType: 'any',
-                filled: false,
-                filledStickerUid: null,
-                filledStickerType: null, // stores the actual sticker type placed (for display/unfill)
-            });
-        }
-
-        return {
-            id: `slot_${type}_${generateUID()}`,
-            type,
-            slots,
-        };
-    }
 
     // Determine how many distinct sticker types to spread across slots
     const maxTypes = type === 'profit'
@@ -251,17 +224,6 @@ export function canSatisfyCard(card, inventory) {
         }
     }
     return true;
-}
-
-/** Check if all slots on a card are filled (legacy — kept for backward compat) */
-export function isCardComplete(card) {
-    return card.slots.every(s => s.filled);
-}
-
-/** Count filled / total slots (legacy — kept for backward compat) */
-export function getCardProgress(card) {
-    const filled = card.slots.filter(s => s.filled).length;
-    return { filled, total: card.slots.length };
 }
 
 /**
