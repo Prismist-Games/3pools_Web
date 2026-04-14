@@ -47,7 +47,11 @@ export function fillDoomAndSpecials(grid, gridSize, constraints = {}) {
           name: specialCells.order.name, uid: generateUID(),
         };
       } else if (roll < outOfGameChance) {
-        const item = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
+        // Pick rarity first (★40%, ★★30%, ★★★20%, ★★★★10%), then uniform within that rarity
+        const rarityRoll = Math.random();
+        const rarity = rarityRoll < 0.4 ? 1 : rarityRoll < 0.7 ? 2 : rarityRoll < 0.9 ? 3 : 4;
+        const pool = INGREDIENTS.filter(i => i.rarity === rarity);
+        const item = pool[Math.floor(Math.random() * pool.length)];
         grid[row][col] = {
           type: 'out_of_game', icon: item.icon,
           name: item.name, item: { ...item }, uid: generateUID(),

@@ -1127,10 +1127,8 @@ export const useGameLogic = (config) => {
             // Add all reward items
             for (const reward of order.rewards) {
                 remaining.push({
-                    id: reward.id,
-                    name: reward.name,
-                    icon: reward.icon,
-                    score: reward.score,
+                    ...reward,
+                    score: reward.rarity || reward.score,
                     isOutOfGame: true,
                     uid: generateUID(),
                 });

@@ -8,9 +8,10 @@ import Tooltip from './components/ui/Tooltip';
 import ScoreBoard from './components/game/ScoreBoard';
 import DispatchJudgment from './components/game/DispatchJudgment';
 import AICooking, { pickRandomCustomer } from './components/game/AICooking';
+import Kitchen from './components/game/Kitchen';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
-import { STICKER_TYPES, INGREDIENTS } from './data/v2Config';
+import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
 import { Link } from 'react-router-dom';
 import { GameGuide } from './components/ui/GameGuide';
 import RoundTransition from './components/ui/RoundTransition';
@@ -33,6 +34,8 @@ const GameCore = () => {
     const [dispatchOpen, setDispatchOpen] = useState(false);
     const [aiCookingOpen, setAiCookingOpen] = useState(false);
     const [aiCustomer, setAiCustomer] = useState(pickRandomCustomer);
+    const [kitchenOpen, setKitchenOpen] = useState(false);
+    const [kitchenDishIdx, setKitchenDishIdx] = useState(0);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -200,6 +203,7 @@ const GameCore = () => {
                             <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#FFF0F0] border border-kitchen-danger text-kitchen-danger-text hover:bg-red-100 transition-colors">{t('重置')}</button>
                             <button onClick={() => setDispatchOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-800 text-amber-200 border border-amber-600 hover:bg-amber-700 transition-colors">{t('派遣')}</button>
                             <button onClick={() => setAiCookingOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-orange-600 text-orange-100 border border-orange-500 hover:bg-orange-500 transition-colors">🍳 AI炼菜</button>
+                            <button onClick={() => setKitchenOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🍳 {t('厨房')}</button>
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                             <Link to="/editor" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors no-underline">📐</Link>
                         </div>
@@ -754,6 +758,9 @@ const GameCore = () => {
 
                 {/* AI Cooking Modal */}
                 {aiCookingOpen && <AICooking onClose={() => setAiCookingOpen(false)} expeditionScores={expeditionScores} onUpdateStorage={debugAddStorageItems} customer={aiCustomer} onNewCustomer={() => setAiCustomer(pickRandomCustomer())} />}
+
+                {/* Kitchen Modal */}
+                {kitchenOpen && <Kitchen inventory={inventory} dish={DISHES[kitchenDishIdx]} onCook={(result) => { setKitchenOpen(false); }} onClose={() => setKitchenOpen(false)} />}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
