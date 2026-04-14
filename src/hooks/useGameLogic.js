@@ -12,6 +12,25 @@ import { useLanguage } from '../contexts/LanguageContext';
 // HELPER FUNCTIONS
 // =============================================
 
+/** Count buff_field cells in the 8-neighbor range of (r, c). The cell at
+ *  (r, c) itself is not counted (even if it is a buff_field). */
+function countBuffFieldCoverage(matrix, r, c) {
+    if (!matrix) return 0;
+    const rows = matrix.length;
+    const cols = matrix[0]?.length || 0;
+    let count = 0;
+    for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+            if (matrix[nr][nc]?.type === 'buff_field') count++;
+        }
+    }
+    return count;
+}
+
 function generateUID() {
     return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 }
@@ -500,7 +519,12 @@ export const useGameLogic = (config) => {
         // Track draw direction for alternating wall
         setLastDrawDirection(direction);
 
-        const mult = drawnCell.multiplier || 1;
+        // Buff field coverage at the drawn cell — bomb is explicitly unaffected.
+        const buffCov = drawnCell.type === 'bomb'
+            ? 0
+            : countBuffFieldCoverage(matrix, finalRowIndex, finalColIndex);
+        const buffMult = buffCov + 1;
+        const mult = (drawnCell.multiplier || 1) * buffMult;
         let obtainedItem = null;
         const doomEffects = { resolutions: 0, upgrades: 0 };
 
@@ -515,8 +539,10 @@ export const useGameLogic = (config) => {
             setGold(prev => prev + goldGain);
             showToast(`${t('金币')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'order_cell') {
-            addBulletinOrder();
-            showToast(t('获得新订单'), 'info');
+            for (let i = 0; i < mult; i++) {
+                addBulletinOrder();
+            }
+            showToast(`${t('获得新订单')}${mult > 1 ? ' ×' + mult : ''}`, 'info');
         } else if (drawnCell.type === 'heal') {
             const amount = (drawnCell.healAmount || 1) * mult;
             setHp(prev => Math.min(prev + amount, doomConfig.initialHP));
@@ -657,6 +683,20 @@ export const useGameLogic = (config) => {
                     type: 'bomb',
                     icon: bombCfg.icon,
                     name: bombCfg.name,
+                    uid: generateUID(),
+                };
+            }
+
+            // Blessing heal wall: any non-buff_field draw leaves a fresh
+            // buff_field at the drawn position. Drawing a buff_field itself
+            // just removes it — spawning a new one would make the aura
+            // indestructible.
+            if (currentWallType?.id === 'blessing_heal' && drawnCell.type !== 'buff_field') {
+                const bfCfg = MATRIX_CONFIG.specialCells.buffField;
+                newMatrix[finalRowIndex][finalColIndex] = {
+                    type: 'buff_field',
+                    icon: bfCfg.icon,
+                    name: bfCfg.name,
                     uid: generateUID(),
                 };
             }
@@ -830,8 +870,10 @@ export const useGameLogic = (config) => {
                 colIndex: finalColIndex,
                 id: Date.now(),
             });
-            // Multiplier: add to inventory multiple times for stickers
-            if (mult > 1 && (obtainedItem.type === 'sticker' || obtainedItem.type === 'item')) {
+            // Multiplier: add to inventory multiple times for stickers, items,
+            // and out_of_game (食材). The buff_field aura stacks (N+1)× on top
+            // of any per-cell multiplier, so mult may exceed 2.
+            if (mult > 1) {
                 for (let i = 0; i < mult; i++) {
                     addToInventory({ ...obtainedItem, uid: generateUID() });
                 }

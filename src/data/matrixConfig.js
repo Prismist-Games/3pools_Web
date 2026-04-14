@@ -43,5 +43,10 @@ export const MATRIX_CONFIG = {
       icon: '💣',
       name: '炸弹',
     },
+    buffField: {
+      spawnChance: 0,  // not spawned on random walls — only via modifiers
+      icon: '🌽',
+      name: '膨化格',
+    },
   },
 };

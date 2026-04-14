@@ -66,6 +66,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         name = useName || cell.subLevelId;
         const useDesc = language === 'en' && subLevel?.description_en ? subLevel.description_en : subLevel?.description;
         desc = useDesc || t('抽中时进入子关卡');
+    } else if (cell.type === 'buff_field') {
+        icon = cell.icon || '🌽';
+        name = t(cell.name || '膨化格');
+        desc = t('抽中时无效果，周围的增益消失');
     } else {
         return null;
     }
@@ -104,13 +108,33 @@ const GAP = 6;
 const HALF = GAP / 2;
 const TRACK = CELL_SIZE + GAP;
 
+/** Count how many buff_field cells are within the 8-neighbor range of (r, c).
+ *  The buff_field cell itself does not count as covering itself. */
+function countBuffFieldCoverage(matrix, r, c) {
+    if (!matrix) return 0;
+    const rows = matrix.length;
+    const cols = matrix[0]?.length || 0;
+    let count = 0;
+    for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+            if (matrix[nr][nc]?.type === 'buff_field') count++;
+        }
+    }
+    return count;
+}
+
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash }) => {
+const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
-        || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance');
+        || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
+        || cell.type === 'buff_field');
 
     // Cell background
     let bgClass;
@@ -142,6 +166,8 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         bgClass = 'bg-[#F0F8FF] border-kitchen-info';
     } else if (cell.type === 'entrance') {
         bgClass = 'bg-[#F0FFF8] border-kitchen-success-border';
+    } else if (cell.type === 'buff_field') {
+        bgClass = 'bg-[#FFFAE8] border-[#E8B840]';
     } else {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     }
@@ -179,6 +205,13 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         zIndex: 12,
     } : {};
 
+    // Buff field aura — only applies to cells that are NOT buff_field themselves,
+    // NOT empty, and covered by at least one buff_field.
+    const isBuffed = cell && cell.type !== 'buff_field' && cell.type !== 'empty' && buffCoverage > 0;
+    const mergedBoxShadow = isBuffed
+        ? `${extraShadow ? extraShadow + ', ' : ''}0 0 ${6 + buffCoverage * 4}px ${2 + buffCoverage}px rgba(232, 184, 64, ${0.35 + buffCoverage * 0.12})`
+        : extraShadow;
+
     return (
         <div
             ref={ref}
@@ -188,7 +221,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
                 margin: `${HALF}px`,
                 width: CELL_SIZE,
                 height: CELL_SIZE,
-                boxShadow: extraShadow,
+                boxShadow: mergedBoxShadow,
                 ...gravityStyle,
                 ...rotationStyle,
                 ...growthStyle,
@@ -197,6 +230,11 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
         >
             {cellContent}
+            {isBuffed && (
+                <span className="absolute -top-1 -left-1 bg-amber-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-20">
+                    ×{buffCoverage + 1}
+                </span>
+            )}
             {cell !== null && (cell.type === 'item' || cell.type === 'sticker') && !cell.hidden && (
                 <span className="text-[9px] text-gray-600 leading-none mt-0.5 truncate max-w-[48px] font-medium">
                     {t(cell.item.name)}
@@ -304,6 +342,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         }
         if (cell.type === 'entrance') {
             return <span className="text-xl">{cell.icon || '🚪'}</span>;
+        }
+        if (cell.type === 'buff_field') {
+            return <span className="text-xl">{cell.icon || '🌽'}</span>;
         }
         return (
             <>
@@ -549,6 +590,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             const dropDist = gravityDrops?.[`${rowIndex}-${colIndex}`] || 0;
                             const rotMove = rotationMoves?.[`${rowIndex}-${colIndex}`] || null;
                             const flash = growthFlashes?.has(`${rowIndex}-${colIndex}`) || false;
+                            const buffCov = countBuffFieldCoverage(matrix, rowIndex, colIndex);
 
                             return (
                                 <GridCell
@@ -563,6 +605,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                     gravityDrop={dropDist}
                                     rotationMove={rotMove}
                                     growthFlash={flash}
+                                    buffCoverage={buffCov}
                                 />
                             );
                         })

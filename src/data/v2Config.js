@@ -68,6 +68,7 @@ export const WALL_TYPES = [
     { id: 'blast_heal',    name: '爆裂愈合', icon: '💣', desc: '抽取后，原处会再长出一颗炸弹；抽到炸弹本身除外', weight: 15 },
     { id: 'yin_yang',      name: '阴阳轮转', icon: '☯️', desc: '墙上只有两种贴纸，抽其一会在原地生成另一种', weight: 15 },
     { id: 'mirror',        name: '镜花水月', icon: '🪞', desc: '左右两半镜像相连，抽一格同时结算对侧镜像格；仅 3 金币', weight: 15, goldOverride: 3 },
+    { id: 'blessing_heal', name: '祝福愈合', icon: '🙏', desc: '抽取后，原处会长出一颗膨化格；抽到膨化格本身除外；仅 3 金币', weight: 15, goldOverride: 3 },
 ];
 
 // --- 远征配置 ---
