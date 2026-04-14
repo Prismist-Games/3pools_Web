@@ -89,7 +89,6 @@ export const WALL_TYPES = [
     { id: 'conveyor',      name: '传送带',   icon: '➡️', desc: '其中一排像上了传送带——每抽一次就往前挪一格，走到尽头会从另一头绕回来。', weight: 15 },
     { id: 'savage_growth', name: '野蛮生长', icon: '🌱', desc: '抽到什么东西，它旁边四个格子就会跟着变成一模一样的。', weight: 15 },
     { id: 'blast_heal',    name: '爆裂愈合', icon: '💣', desc: '抽完之后，原地会冒出一颗新炸弹。越抽越多，越抽越危险！', weight: 15 },
-    { id: 'yin_yang',      name: '阴阳轮转', icon: '☯️', desc: '墙上只有两种贴纸。抽到一种，它就会变成另一种。', weight: 15 },
     { id: 'mirror',        name: '镜花水月', icon: '🪞', desc: '左右两半像镜子里的倒影。抽一格，对面那格也一起到手。', weight: 15, goldOverride: 3 },
     { id: 'blessing_heal', name: '祝福愈合', icon: '🙏', desc: '抽完之后，原地会爆出一颗膨化格。膨化格周围的东西，抽到都会变多哦！', weight: 15 },
 ];
@@ -101,11 +100,17 @@ export const EXPEDITION_CONFIG = {
 };
 
 // --- 订单配置 ---
+// 货架固定 5 槽，始终保持满员：完成订单会自动补 1（2 选 1），也可通过
+// 刷新按钮主动替换。每回合自动补 1 的老机制已移除。
 export const ORDER_CONFIG = {
-    bulletinCapacity: 5,    // 货架最大订单数
-    maxActive: 3,           // 玩家最多持有订单数
-    newPerTurn: 1,          // 每回合新增订单数
-    initialCount: 4,        // 游戏开始时的初始订单数
+    bulletinCapacity: 5,
+    initialCount: 5,
+};
+
+// --- 刷新配置 ---
+export const REFRESH_CONFIG = {
+    initialCharges: 3,
+    maxCharges: 5,
 };
 
 // --- 墙贴纸数量范围 ---

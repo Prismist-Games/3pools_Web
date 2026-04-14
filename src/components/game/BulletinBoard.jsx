@@ -59,19 +59,36 @@ const BulletinBoard = ({
     orders, inventory, onSubmit, canSubmitOrder,
     incomingOrder, onConfirmIncoming, onDiscardIncoming,
     pendingChosenOrder, onReplaceIncoming,
+    refreshCharges, onRefresh,
     hoveredStickerIds, bonusItemMap,
 }) => {
     const { t } = useLanguage();
     const isReplacing = !!pendingChosenOrder;
     const hasInlinePicker = !!incomingOrder && incomingOrder.candidates;
+    const refreshDisabled = !onRefresh || (refreshCharges ?? 0) <= 0 || hasInlinePicker || isReplacing;
 
     return (
         <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark rounded-xl border-2 border-kitchen-wood-border shadow-[0_3px_0_#C8A880]"
             style={{ backgroundImage: 'radial-gradient(circle, rgba(180,140,80,0.08) 1px, transparent 1px)', backgroundSize: '12px 12px' }}>
             {/* Panel header */}
-            <div className="px-3 py-2 border-b border-dashed border-kitchen-wood-border flex items-center justify-between">
+            <div className="px-3 py-2 border-b border-dashed border-kitchen-wood-border flex items-center justify-between gap-2">
                 <h3 className="text-sm font-bold text-kitchen-text-body">📌 {t('货架')}</h3>
-                <span className="text-[10px] text-kitchen-text-muted font-medium">{orders.length}/5</span>
+                <div className="flex items-center gap-2">
+                    {onRefresh && (
+                        <button
+                            onClick={onRefresh}
+                            disabled={refreshDisabled}
+                            title={t('刷新订单')}
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border transition-colors
+                                ${refreshDisabled
+                                    ? 'bg-kitchen-card/60 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
+                                    : 'bg-[#FFF8E0] border-kitchen-gold text-kitchen-gold-deep hover:bg-[#FFF3E0]'}`}
+                        >
+                            🔄 ×{refreshCharges ?? 0}
+                        </button>
+                    )}
+                    <span className="text-[10px] text-kitchen-text-muted font-medium">{orders.length}/5</span>
+                </div>
             </div>
 
             <div className="p-2">

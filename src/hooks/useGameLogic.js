@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
-import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
+import { generateWall } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { pickTemplate, LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
+import { STICKER_TYPES, OUT_OF_GAME_ITEMS, ORDER_TEMPLATES, WALL_TYPES, REFRESH_CONFIG } from '../data/v2Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -93,7 +93,7 @@ export const useGameLogic = (config) => {
     // --- Configuration ---
     const doomConfig = config.doom || DOOM_CONFIG;
     const turnConfig = config.turn || TURN_CONFIG;
-    const orderConfig = config.order || { bulletinCapacity: 5, newPerTurn: 1, initialCount: 2 };
+    const orderConfig = config.order || { bulletinCapacity: 5, initialCount: 5 };
     const expeditionConfig = config.expedition || { expeditionCount: 3, scoreToWin: 30 };
     const baseInventorySize = config.inventorySize || config.stages[0].inventorySize;
     const [inventoryBonus, setInventoryBonus] = useState(0);
@@ -108,12 +108,12 @@ export const useGameLogic = (config) => {
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
     const [gold, setGold] = useState(0);
-    const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'wall_choice' | 'drawing' | 'between_turns' | 'game_over'
+    const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'drawing' | 'between_turns' | 'game_over'
 
     // --- Grid State ---
     const [matrix, setMatrix] = useState(null);
-    const [wallCandidates, setWallCandidates] = useState(null);
     const [currentWallType, setCurrentWallType] = useState(null);
+    const [currentLevel, setCurrentLevel] = useState(null); // hand-crafted level for reveal overlay
     const [lastDrawDirection, setLastDrawDirection] = useState(null);
 
     // --- Board Effect State ---
@@ -149,7 +149,7 @@ export const useGameLogic = (config) => {
 
     // --- Order State ---
     const [bulletinBoard, setBulletinBoard] = useState([]);
-    // activeOrders removed — bulletinBoard is now the only order list
+    const [refreshCharges, setRefreshCharges] = useState(REFRESH_CONFIG.initialCharges);
 
     // --- Incoming Order (flies to bulletin between turns) ---
     const [incomingOrder, setIncomingOrder] = useState(null);
@@ -199,41 +199,41 @@ export const useGameLogic = (config) => {
         // Reset draw direction for alternating wall
         setLastDrawDirection(null);
 
-        // 3-choose-1 wall selection
-        // Each candidate is EITHER a wallType (procedural) OR a level (no wallType). Mutually exclusive.
-        const candidates = [];
-        const usedIds = new Set(); // track wallType ids and level ids to avoid duplicates
+        // Generate a single wall for this turn. Either a hand-crafted level
+        // (if the schedule picks one) or a procedural modifier wall. No
+        // 3-choose-1; the modifier is revealed on the click-to-dismiss
+        // overlay in GameCore.
         const currentExpedition = Math.max(1, expeditionNumber);
-
-        while (candidates.length < 3) {
-            // Try to pick a level first, then fall back to wallType
-            const template = pickTemplate(currentExpedition);
-
-            if (template) {
-                if (usedIds.has('level:' + template.id)) continue;
-                usedIds.add('level:' + template.id);
-                const result = generateWallFromTemplate(template);
-                candidates.push({
-                    stickers: result.stickers,
-                    grid: result.grid,
-                    doomCellCount: result.doomCellCount,
-                    wallType: null,
-                    level: template,
-                });
-            } else {
-                const wallType = pickWallType();
-                if (usedIds.has('wall:' + wallType.id)) continue;
-                usedIds.add('wall:' + wallType.id);
-                // Yin-yang modifier: force exactly 2 sticker types
-                const stickers = wallType.id === 'yin_yang'
-                    ? pickWallStickers(STICKER_TYPES, 2, 2)
-                    : pickWallStickers(STICKER_TYPES);
-                const { grid, doomCellCount } = generateWall(stickers);
-                candidates.push({ stickers, grid, doomCellCount, wallType, level: null });
+        const template = pickTemplate(currentExpedition);
+        let candidate;
+        if (template) {
+            const result = generateWallFromTemplate(template);
+            candidate = {
+                stickers: result.stickers,
+                grid: result.grid,
+                doomCellCount: result.doomCellCount,
+                wallType: null,
+                level: template,
+            };
+        } else {
+            const wallType = pickWallType();
+            // Collect sticker IDs required by current shelf orders. Every
+            // sticker cell on the wall will independently roll from this
+            // needed set (not a fixed 3-4-type pool). If there are no
+            // orders, fall back to the full sticker roster.
+            const neededIds = new Set();
+            for (const order of bulletinBoard) {
+                for (const req of (order.requirements || [])) {
+                    neededIds.add(req.stickerId);
+                }
             }
+            const stickers = neededIds.size > 0
+                ? STICKER_TYPES.filter(s => neededIds.has(s.id))
+                : STICKER_TYPES;
+            const { grid, doomCellCount } = generateWall(stickers);
+            candidate = { stickers, grid, doomCellCount, wallType, level: null };
         }
-        setWallCandidates(candidates);
-        setPhase('wall_choice');
+        applyWallCandidate(candidate);
     };
 
     /** Start the game (first turn) */
@@ -268,16 +268,18 @@ export const useGameLogic = (config) => {
         resolveDoom('end_turn');
     };
 
-    /** Continue to next turn — show incoming order first (two candidates), then wall choice */
+    /** Continue to next turn. Per-turn auto refill removed — shelf stays
+     *  full via completion-triggered auto refill and the manual refresh
+     *  button. */
     const continueToNextTurn = () => {
-        setIncomingOrder({ candidates: [generateOrder(), generateOrder()] });
-        setPhase('incoming_order');
+        startNewTurn();
     };
 
-    /** Select one of the wall candidates to play with */
-    const selectWall = (index) => {
-        if (!wallCandidates || !wallCandidates[index]) return;
-        const chosen = wallCandidates[index];
+    /** Apply a generated wall candidate: randomize per-instance modifier
+     *  params, mutate the grid for modifier effects, set state, and advance
+     *  to the drawing phase. Called from startNewTurn with a single auto-
+     *  generated candidate (3-choose-1 was removed). */
+    const applyWallCandidate = (chosen) => {
         let wallType = chosen.wallType;
         // Conveyor modifier: roll random axis/index/direction per instance
         if (wallType?.id === 'conveyor') {
@@ -289,11 +291,8 @@ export const useGameLogic = (config) => {
                 conveyorDirection: Math.random() < 0.5 ? 1 : -1, // +1 = right/down, -1 = left/up
             };
         }
-        // Yin-yang modifier: embed the chosen 2 sticker types for the swap logic
-        if (wallType?.id === 'yin_yang') {
-            wallType = { ...wallType, yinYangStickers: chosen.stickers };
-        }
         setCurrentWallType(wallType);
+        setCurrentLevel(chosen.level || null);
 
         // Apply wall-type mutations to the grid before setting it
         const grid = chosen.grid.map(r => r.map(c => c ? { ...c } : null));
@@ -311,7 +310,6 @@ export const useGameLogic = (config) => {
         // Level candidates have no wallType — skip modifier mutations
         if (!wallType) {
             setMatrix(grid);
-            setWallCandidates(null);
             setPhase('drawing');
             return;
         }
@@ -381,7 +379,6 @@ export const useGameLogic = (config) => {
         }
 
         setMatrix(grid);
-        setWallCandidates(null);
         setPhase('drawing');
     };
 
@@ -401,6 +398,7 @@ export const useGameLogic = (config) => {
             matrix: savedMatrix,
             gold,
             wallType: currentWallType,
+            level: currentLevel,
         }]);
 
         // Generate and load sub-level
@@ -409,6 +407,7 @@ export const useGameLogic = (config) => {
         setMatrix(result.grid);
         setGold(subGold);
         setCurrentWallType(null);
+        setCurrentLevel(null);
         setLastDrawResult(null);
         setDrawAnimState(null);
         setPhase('drawing_sub');
@@ -428,6 +427,7 @@ export const useGameLogic = (config) => {
             setMatrix(parent.matrix);
             setGold(parent.gold);
             setCurrentWallType(parent.wallType);
+            setCurrentLevel(parent.level || null);
             setLastDrawResult(null);
             setPhase('drawing');
         }, 280);
@@ -576,10 +576,16 @@ export const useGameLogic = (config) => {
             setGold(prev => prev + goldGain);
             showToast(`${t('金币')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'order_cell') {
-            // Popcorn multiplier does not apply to order draws (they spawn a 2-candidate
-            // picker, which wouldn't compose cleanly with ×N).
-            addBulletinOrder();
-            showToast(t('获得新订单'), 'info');
+            // Order cells now grant a refresh charge (capped). Popcorn
+            // multiplier does not apply — each cell is a single +1.
+            setRefreshCharges(prev => {
+                if (prev >= REFRESH_CONFIG.maxCharges) {
+                    showToast(t('刷新次数已满'), 'warning');
+                    return prev;
+                }
+                showToast(`🔄 ${t('刷新 +1')}`, 'info');
+                return prev + 1;
+            });
         } else if (drawnCell.type === 'heal') {
             const amount = (drawnCell.healAmount || 1) * mult;
             setHp(prev => Math.min(prev + amount, doomConfig.initialHP));
@@ -636,8 +642,11 @@ export const useGameLogic = (config) => {
                 setGold(prev => prev + g);
                 showToast(`🪞 ${t('镜像')} ${t('金币')} +${g}`, 'success');
             } else if (mirrorCell.type === 'order_cell') {
-                addBulletinOrder();
-                showToast(`🪞 ${t('镜像')}: ${t('获得新订单')}`, 'info');
+                setRefreshCharges(prev => {
+                    if (prev >= REFRESH_CONFIG.maxCharges) return prev;
+                    return prev + 1;
+                });
+                showToast(`🪞 ${t('镜像')}: 🔄 ${t('刷新 +1')}`, 'info');
             } else if (mirrorCell.type === 'heal') {
                 const a = (mirrorCell.healAmount || 1) * mMult;
                 setHp(prev => Math.min(prev + a, doomConfig.initialHP));
@@ -690,24 +699,6 @@ export const useGameLogic = (config) => {
             }
             if (bombFired) {
                 showToast('💣 ' + t('炸弹爆炸！'), 'warning');
-            }
-
-            // Yin-yang wall: drawing one of the two sticker types spawns the
-            // other type at the drawn position. Non-sticker draws are ignored.
-            if (currentWallType?.id === 'yin_yang'
-                && drawnCell.type === 'sticker'
-                && Array.isArray(currentWallType.yinYangStickers)
-                && currentWallType.yinYangStickers.length === 2) {
-                const [a, b] = currentWallType.yinYangStickers;
-                const drawnId = drawnCell.item?.id;
-                const other = drawnId === a.id ? b : drawnId === b.id ? a : null;
-                if (other) {
-                    newMatrix[finalRowIndex][finalColIndex] = {
-                        type: 'sticker',
-                        item: { ...other },
-                        uid: generateUID(),
-                    };
-                }
             }
 
             // Blast heal wall: any non-bomb draw leaves a fresh bomb at the
@@ -1026,12 +1017,10 @@ export const useGameLogic = (config) => {
         setIncomingOrder({ candidates: [generateOrder(), generateOrder()] });
     };
 
-    /** Resolve incoming order and proceed to wall choice */
+    /** Clear incoming order state. Phase transitions are no longer tied to
+     *  incoming orders — continue-to-next-turn goes straight to startNewTurn. */
     const resolveIncomingAndProceed = () => {
         setIncomingOrder(null);
-        if (phase === 'incoming_order') {
-            startNewTurn();
-        }
     };
 
     /** Player picks one of the two incoming candidates. If shelf not full, add directly.
@@ -1116,9 +1105,21 @@ export const useGameLogic = (config) => {
             return remaining;
         });
 
-        // Remove order from shelf
+        // Remove order from shelf and auto-spawn a 2-candidate incoming to
+        // fill the freed slot — shelf stays at capacity.
         setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
+        addBulletinOrder();
         showToast(t('订单完成'), 'success');
+    };
+
+    /** Manual refresh: consume 1 charge to generate 2 new candidates.
+     *  Since shelf is always at capacity, this always routes through the
+     *  replacement step (player picks which existing order to swap out). */
+    const triggerRefresh = () => {
+        if (refreshCharges <= 0) return;
+        if (incomingOrder) return; // don't double-queue
+        setRefreshCharges(c => c - 1);
+        addBulletinOrder();
     };
 
     // =============================================
@@ -1235,8 +1236,9 @@ export const useGameLogic = (config) => {
         setGold(0);
         setPhase('pre_game');
         setMatrix(null);
-        setWallCandidates(null);
+
         setCurrentWallType(null);
+        setCurrentLevel(null);
         setLastDrawDirection(null);
         setHp(doomConfig.initialHP);
         setDoomGrid(() => {
@@ -1254,6 +1256,7 @@ export const useGameLogic = (config) => {
         setInventory([]);
         setBulletinBoard([]);
         setPendingChosenOrder(null);
+        setRefreshCharges(REFRESH_CONFIG.initialCharges);
         setIncomingOrder(null);
         setToast(null);
         setLastDrawResult(null);
@@ -1272,8 +1275,9 @@ export const useGameLogic = (config) => {
         setTurnNumber(0);
         setGold(0);
         setMatrix(null);
-        setWallCandidates(null);
+
         setCurrentWallType(null);
+        setCurrentLevel(null);
         setLastDrawDirection(null);
         setHp(doomConfig.initialHP);
         setDoomGrid(() => {
@@ -1297,6 +1301,7 @@ export const useGameLogic = (config) => {
         setPendingItems([]);
         setBulletinBoard([]);
         setPendingChosenOrder(null);
+        setRefreshCharges(REFRESH_CONFIG.initialCharges);
         setPhase('pre_game');
     };
 
@@ -1331,9 +1336,9 @@ export const useGameLogic = (config) => {
 
         // Grid
         matrix,
-        wallCandidates,
         lastDrawResult,
         currentWallType,
+        currentLevel,
         lastDrawDirection,
 
         // Board Effects
@@ -1363,6 +1368,7 @@ export const useGameLogic = (config) => {
         // Orders
         bulletinBoard,
         pendingChosenOrder,
+        refreshCharges,
 
         // UI
         toast,
@@ -1379,7 +1385,6 @@ export const useGameLogic = (config) => {
         selectColumn,
         endTurn,
         continueToNextTurn,
-        selectWall,
         handleEvacuate,
         handleReset,
         startNextExpedition,
@@ -1393,6 +1398,7 @@ export const useGameLogic = (config) => {
         discardPendingItem,
         submitOrder,
         canSubmitOrder,
+        triggerRefresh,
         incomingOrder,
         confirmIncomingOrder,
         discardIncomingOrder,

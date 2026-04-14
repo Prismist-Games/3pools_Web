@@ -65,9 +65,13 @@ body {
 /* === Transition overlay === */
 
 @keyframes crt-transition-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes crt-transition-out {
   0% { opacity: 1; }
-  55.75% { opacity: 1; }
-  100% { opacity: 0; pointer-events: none; }
+  100% { opacity: 0; }
 }
 
 @keyframes static-noise {

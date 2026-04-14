@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
-import WallPicker from './components/game/WallPicker';
 import BulletinBoard, { SCORE_STYLE, RewardCard, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
 // ActiveOrders removed — order submit is now on BulletinBoard directly
 import ScoreBoard from './components/game/ScoreBoard';
@@ -25,8 +24,7 @@ const GameCore = () => {
     const [debugOpen, setDebugOpen] = useState(false);
     const [debugSelectedItem, setDebugSelectedItem] = useState(null);
     const [guideOpen, setGuideOpen] = useState(false);
-    const [transitionKey, setTransitionKey] = useState(0);
-    const [transitionLabel, setTransitionLabel] = useState('');
+    const [turnReveal, setTurnReveal] = useState(null); // { icon, name, desc, subtitle } | null
     const prevTurnRef = useRef(0);
     const [dispatchOpen, setDispatchOpen] = useState(false);
     const [aiCookingOpen, setAiCookingOpen] = useState(false);
@@ -44,20 +42,20 @@ const GameCore = () => {
     const {
         expeditionNumber, expeditionScores, totalScore, expeditionConfig, bonusItems,
         turnNumber, gold, phase,
-        matrix, wallCandidates, lastDrawResult, currentWallType, lastDrawDirection,
+        matrix, lastDrawResult, currentWallType, currentLevel, lastDrawDirection,
         hp, doomGrid, doomLevel, dangerCount,
         isDoomResolving, doomAnimState, doomResolutionResult,
         inventory, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
-        startGame, selectRow, selectColumn, endTurn, continueToNextTurn, selectWall,
+        startGame, selectRow, selectColumn, endTurn, continueToNextTurn,
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
         replaceInventoryItem, discardInventoryItem, discardPendingItem, debugAddItem,
-        bulletinBoard, pendingChosenOrder,
-        submitOrder, canSubmitOrder,
+        bulletinBoard, pendingChosenOrder, refreshCharges,
+        submitOrder, canSubmitOrder, triggerRefresh,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         isInSubLevel, wallStack,
         enterSubLevel, exitSubLevel,
@@ -100,15 +98,33 @@ const GameCore = () => {
     }, [flyingItem]);
 
     // --- Round transition overlay ---
-    // Fires when a new turn starts (phase becomes 'drawing' for a turn we haven't seen yet).
-    // Does NOT fire on sub-level exit (turnNumber stays the same, drawing_sub → drawing).
+    // Fires on each new turn with the wall's modifier/level info. Requires a
+    // click to dismiss. Does NOT fire on sub-level exit (turnNumber unchanged).
     useEffect(() => {
         if (turnNumber > 0 && phase === 'drawing' && turnNumber !== prevTurnRef.current) {
             prevTurnRef.current = turnNumber;
-            setTransitionLabel(language === 'en' ? `Round ${expeditionNumber}` : `第 ${expeditionNumber} 场`);
-            setTransitionKey(k => k + 1);
+            const subtitle = language === 'en'
+                ? `Round ${expeditionNumber} · Turn ${turnNumber}`
+                : `第 ${expeditionNumber} 场 · 第 ${turnNumber} 回合`;
+            if (currentLevel) {
+                setTurnReveal({
+                    subtitle,
+                    icon: currentLevel.icon || '📐',
+                    name: t(currentLevel.name) || currentLevel.id,
+                    desc: t(currentLevel.description) || t('特殊地形关卡'),
+                });
+            } else if (currentWallType) {
+                setTurnReveal({
+                    subtitle,
+                    icon: currentWallType.icon,
+                    name: t(currentWallType.name),
+                    desc: t(currentWallType.desc),
+                });
+            } else {
+                setTurnReveal({ subtitle, icon: '🎬', name: subtitle, desc: '' });
+            }
         }
-    }, [turnNumber, phase, expeditionNumber, language]);
+    }, [turnNumber, phase, expeditionNumber, language, currentWallType, currentLevel, t]);
 
     // --- Doom grid cell style (with animation highlights) ---
     const getDoomCellClass = (cell, cellIndex) => {
@@ -211,7 +227,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'between_turns') && (
+                {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'between_turns') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -221,11 +237,13 @@ const GameCore = () => {
                                     inventory={inventory}
                                     onSubmit={submitOrder}
                                     canSubmitOrder={canSubmitOrder}
-                                    incomingOrder={phase !== 'incoming_order' ? incomingOrder : null}
+                                    incomingOrder={incomingOrder}
                                     onConfirmIncoming={confirmIncomingOrder}
                                     onDiscardIncoming={discardIncomingOrder}
                                     pendingChosenOrder={pendingChosenOrder}
                                     onReplaceIncoming={replaceBulletinOrder}
+                                    refreshCharges={refreshCharges}
+                                    onRefresh={triggerRefresh}
                                     hoveredStickerIds={hoveredStickerIds}
                                     bonusItemMap={bonusItemMap}
                                 />
@@ -234,59 +252,6 @@ const GameCore = () => {
 
                         {/* CENTER — changes by phase */}
                         <div className="flex-1 min-w-0">
-                            {/* Incoming order phase — two candidates to choose from */}
-                            {phase === 'incoming_order' && incomingOrder && incomingOrder.candidates && (
-                                <div className="flex justify-center py-8">
-                                    <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_4px_0_#D4B896] p-6 max-w-lg text-center self-start">
-                                        <h2 className="text-base font-bold mb-1 text-kitchen-text-title">{t('新订单')}</h2>
-                                        <p className="text-[11px] text-kitchen-text-body mb-4">{t('选择一个加入货架')}</p>
-                                        <div className="flex gap-4 mb-4">
-                                            {incomingOrder.candidates.map((candidate, ci) => {
-                                                const ds = DIFFICULTY_STYLE[candidate.difficulty] || DIFFICULTY_STYLE.easy;
-                                                return (
-                                                    <button key={candidate.id}
-                                                        onClick={() => confirmIncomingOrder(candidate)}
-                                                        className="flex-1 p-3 rounded-lg border-2 border-gray-200 bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left">
-                                                        <div className="flex items-center gap-1.5 mb-2">
-                                                            <span className="text-[9px] text-gray-300">{t('难度')}</span>
-                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1 mb-2">
-                                                            <span className="text-[9px] text-gray-300 uppercase tracking-wide mr-0.5">{t('奖励')}</span>
-                                                            {candidate.rewards.map((r, i) => (
-                                                                <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
-                                                            ))}
-                                                        </div>
-                                                        {candidate.requirements && candidate.requirements.length > 0 && (
-                                                            <div className="flex gap-1.5 flex-wrap items-center">
-                                                                <span className="text-[9px] text-gray-300 uppercase tracking-wide">{t('需要')}</span>
-                                                                {candidate.requirements.map((req, i) => (
-                                                                    <div key={i} className="flex items-center gap-0.5">
-                                                                        <div className="w-6 h-6 rounded border border-gray-300 bg-white flex items-center justify-center text-xs shadow-sm">
-                                                                            {req.icon}
-                                                                        </div>
-                                                                        <span className="text-[10px] font-bold text-gray-500">x{req.count}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <button onClick={discardIncomingOrder}
-                                            className="px-5 py-2 bg-[#F5F0E8] border-2 border-kitchen-gold-border-muted text-kitchen-text-secondary text-sm font-bold rounded-xl shadow-[0_2px_0_#D4B896] hover:bg-[#EDE8E0] transition-colors">
-                                            {t('放弃')}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Wall choice phase */}
-                            {phase === 'wall_choice' && wallCandidates && (
-                                <WallPicker candidates={wallCandidates} onSelect={selectWall} />
-                            )}
-
                             {/* Drawing phase */}
                             {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub') && matrix && (
                                 <div className="flex flex-col items-center">
@@ -735,8 +700,8 @@ const GameCore = () => {
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
 
-                {/* Round transition overlay */}
-                <RoundTransition trigger={transitionKey} label={transitionLabel} />
+                {/* Round transition overlay — click to dismiss */}
+                <RoundTransition reveal={turnReveal} onDismiss={() => setTurnReveal(null)} />
             </div>
         </div>
     );
