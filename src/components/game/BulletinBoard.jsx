@@ -12,8 +12,8 @@ const DIFFICULTY_STYLE = {
 const SCORE_STYLE = {
     1: { border: 'border-kitchen-success-border', bg: 'from-[#F0FFF8] to-kitchen-card', badge: 'bg-kitchen-success', label: '基础调料', labelColor: 'text-kitchen-success-border' },
     2: { border: 'border-kitchen-info-border',    bg: 'from-[#F0F8FF] to-kitchen-card', badge: 'bg-kitchen-info',    label: '普通食材', labelColor: 'text-kitchen-info-border' },
-    3: { border: 'border-purple-400',             bg: 'from-purple-50 to-kitchen-card', badge: 'bg-purple-500',      label: '珍稀食材', labelColor: 'text-purple-400' },
-    5: { border: 'border-kitchen-gold',           bg: 'from-[#FFF8E0] to-kitchen-card', badge: 'bg-kitchen-gold',    label: '厨具',     labelColor: 'text-kitchen-gold' },
+    3: { border: 'border-purple-400',             bg: 'from-purple-50 to-kitchen-card', badge: 'bg-purple-500',      label: '优质食材', labelColor: 'text-purple-400' },
+    5: { border: 'border-kitchen-gold',           bg: 'from-[#FFF8E0] to-kitchen-card', badge: 'bg-kitchen-gold',    label: '珍稀食材', labelColor: 'text-kitchen-gold' },
 };
 
 const RewardCard = ({ reward, size = 'md', bonusValue }) => {

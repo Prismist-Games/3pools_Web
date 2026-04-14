@@ -614,8 +614,8 @@ export const EN_TRANSLATIONS = {
     // --- Tooltip labels ---
     "基础调料": "Basic Seasoning",
     "普通食材": "Common Ingredient",
+    "优质食材": "Quality Ingredient",
     "珍稀食材": "Rare Ingredient",
-    "厨具": "Cookware",
     "撤离价值": "Evacuation Value",
     "持有 / 需要": "Have / Need",
 

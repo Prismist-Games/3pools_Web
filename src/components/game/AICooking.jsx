@@ -175,11 +175,12 @@ const AICooking = ({ onClose, expeditionScores = [], onUpdateStorage, customer, 
 
     const scoreInfo = result ? SCORE_DISPLAY[String(result.score)] : null;
 
-    // Group by score: 1=调料, 2=蔬果&主食, 3=蛋白质
+    // Group by score: 1=调料, 2=蔬果&主食, 3=优质食材, 5=珍稀食材
     const tiers = [
-        { label: '调料 & 酱料',     key: 1, items: INGREDIENTS.filter(i => i.score === 1) },
-        { label: '蔬果 & 主食',     key: 2, items: INGREDIENTS.filter(i => i.score === 2) },
-        { label: '蛋白质',          key: 3, items: INGREDIENTS.filter(i => i.score === 3) },
+        { label: '调料 & 酱料', key: 1, items: INGREDIENTS.filter(i => i.score === 1) },
+        { label: '蔬果 & 主食', key: 2, items: INGREDIENTS.filter(i => i.score === 2) },
+        { label: '优质食材',    key: 3, items: INGREDIENTS.filter(i => i.score === 3) },
+        { label: '珍稀食材',    key: 5, items: INGREDIENTS.filter(i => i.score === 5) },
     ];
 
     return (
