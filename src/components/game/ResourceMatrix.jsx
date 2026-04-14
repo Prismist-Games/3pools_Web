@@ -375,7 +375,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
 
             {/* Column buttons row — offset by row-button area */}
             <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
-                {Array.from({ length: MATRIX_CONFIG.gridSize }, (_, colIndex) => {
+                {Array.from({ length: matrix[0]?.length || 4 }, (_, colIndex) => {
                     const hasActive = matrix.some(row => row[colIndex] !== null);
                     const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
                     const colClickable = canDraw && hasActive && !altBlocked;
@@ -441,8 +441,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                     style={{
                         position: 'relative',
                         display: 'grid',
-                        gridTemplateColumns: `repeat(${MATRIX_CONFIG.gridSize}, ${TRACK}px)`,
-                        gridTemplateRows: `repeat(${MATRIX_CONFIG.gridSize}, ${TRACK}px)`,
+                        gridTemplateColumns: `repeat(${matrix[0]?.length || 4}, ${TRACK}px)`,
+                        gridTemplateRows: `repeat(${matrix.length || 4}, ${TRACK}px)`,
                         /* no gap — margins on cells handle spacing */
                     }}
                 >
