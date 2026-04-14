@@ -5,7 +5,7 @@
  */
 
 export const MATRIX_CONFIG = {
-  gridSize: 5,
+  gridSize: 4,
 
   // Doom cells: independent cells on the grid (not items)
   doomCells: {

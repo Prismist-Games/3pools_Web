@@ -76,24 +76,12 @@ export const OUT_OF_GAME_ITEMS = [
 ];
 
 // --- 订单模板 ---
-// 奖励物品 1-3 个，数量呈正态分布（2个最多，1/3个较少）
-// 同总分下，物品越少 = 占菜篮格子越少 = 越高效 = 越难获取
+// 每个订单奖励 1 个对应级别的食材
 export const ORDER_TEMPLATES = [
-    // 1 个奖励 (~25%)
-    { id: 'a', difficulty: 'easy',    rewardTiers: [1],       totalStickers: 2, stickerTypes: 1, weight: 8  },
-    { id: 'b', difficulty: 'medium',  rewardTiers: [2],       totalStickers: 3, stickerTypes: 2, weight: 7  },
-    { id: 'c', difficulty: 'hard',    rewardTiers: [3],       totalStickers: 4, stickerTypes: 3, weight: 5  },
-    { id: 'd', difficulty: 'extreme', rewardTiers: [5],       totalStickers: 6, stickerTypes: 4, weight: 3  },
-    // 2 个奖励 (~50%)
-    { id: 'e', difficulty: 'easy',    rewardTiers: [1, 1],    totalStickers: 3, stickerTypes: 1, weight: 14 },
-    { id: 'f', difficulty: 'medium',  rewardTiers: [1, 2],    totalStickers: 4, stickerTypes: 2, weight: 12 },
-    { id: 'g', difficulty: 'medium',  rewardTiers: [2, 2],    totalStickers: 4, stickerTypes: 2, weight: 10 },
-    { id: 'h', difficulty: 'hard',    rewardTiers: [2, 3],    totalStickers: 5, stickerTypes: 3, weight: 8  },
-    // 3 个奖励 (~25%)
-    { id: 'i', difficulty: 'easy',    rewardTiers: [1, 1, 1], totalStickers: 3, stickerTypes: 1, weight: 8  },
-    { id: 'j', difficulty: 'medium',  rewardTiers: [1, 1, 2], totalStickers: 4, stickerTypes: 2, weight: 7  },
-    { id: 'k', difficulty: 'hard',    rewardTiers: [1, 1, 3], totalStickers: 5, stickerTypes: 3, weight: 5  },
-    { id: 'l', difficulty: 'extreme', rewardTiers: [1, 2, 3], totalStickers: 6, stickerTypes: 3, weight: 3  },
+    { id: 'a', difficulty: 'easy',    rewardTiers: [1], totalStickers: 2, stickerTypes: 1, weight: 5 },
+    { id: 'b', difficulty: 'medium',  rewardTiers: [2], totalStickers: 3, stickerTypes: 2, weight: 5 },
+    { id: 'c', difficulty: 'hard',    rewardTiers: [3], totalStickers: 4, stickerTypes: 3, weight: 5 },
+    { id: 'd', difficulty: 'extreme', rewardTiers: [5], totalStickers: 6, stickerTypes: 4, weight: 2 },
 ];
 
 // --- 墙类型定义 ---
