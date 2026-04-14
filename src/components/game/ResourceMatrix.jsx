@@ -31,8 +31,8 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         name = t(cell.name);
         desc = t('抽中时获得金币');
     } else if (cell.type === 'out_of_game') {
-        icon = cell.icon;
-        name = t(cell.name);
+        icon = cell.item?.icon || cell.icon;
+        name = cell.item?.name ? t(cell.item.name) : t(cell.name);
         desc = t('抽中时直接获得局外物品');
     } else if (cell.type === 'doom_accumulation') {
         icon = cell.icon;
@@ -151,6 +151,44 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         || cell.type === 'backpack' || cell.type === 'fast_pass');
     const { top, bottom, left, right } = adjacency;
 
+    // Fall animation: when cell has fallDistance, start offset upward, then animate to 0.
+    // We use direct DOM manipulation via ref to avoid React batching issues:
+    // 1. useLayoutEffect sets the initial offset (before paint)
+    // 2. Double-rAF triggers the transition (after browser paints the offset)
+    const cellFallDistance = cell?.fallDistance || 0;
+    const cellUid = cell?.uid;
+
+    useLayoutEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        if (cellFallDistance > 0) {
+            // Phase 1: position above, no transition
+            el.style.transition = 'none';
+            el.style.transform = `translateY(${-cellFallDistance * TRACK}px)`;
+            // Phase 2: double-rAF ensures browser has painted the offset
+            let raf2, cleanup;
+            const raf1 = requestAnimationFrame(() => {
+                raf2 = requestAnimationFrame(() => {
+                    el.style.transition = 'transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    el.style.transform = '';
+                    // Phase 3: clear inline styles after animation so Tailwind transitions work
+                    cleanup = setTimeout(() => {
+                        el.style.transition = '';
+                        el.style.transform = '';
+                    }, 300);
+                });
+            });
+            return () => {
+                cancelAnimationFrame(raf1);
+                if (raf2) cancelAnimationFrame(raf2);
+                if (cleanup) clearTimeout(cleanup);
+            };
+        } else {
+            el.style.transition = '';
+            el.style.transform = '';
+        }
+    }, [cellUid, cellFallDistance]);
+
     // Rounded corners — only on external corners
     const isConnected = top || bottom || left || right;
     const rounding = isConnected
@@ -164,7 +202,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
 
     // Cell background
     let bgClass;
-    if (cell === null) {
+    if (cell === null || cell.type === 'blank') {
         bgClass = 'bg-gray-100 border-gray-200';
     } else if (cell.type === 'doom_resolution') {
         bgClass = 'bg-red-100 border-red-400';
@@ -179,9 +217,8 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     } else if (cell.type === 'gold') {
         bgClass = 'bg-yellow-100 border-yellow-400';
     } else if (cell.type === 'out_of_game') {
-        // Score-based colors matching order reward cards
-        const sc = { 1: 'bg-green-50 border-green-400', 2: 'bg-blue-50 border-blue-400', 3: 'bg-purple-50 border-purple-400', 5: 'bg-orange-50 border-orange-400' };
-        bgClass = sc[cell.item?.score] || 'bg-pink-100 border-pink-400';
+        // Uniform amber-tinted card — tier is communicated via the star glyphs above the icon.
+        bgClass = 'bg-amber-50 border-amber-300';
     } else if (cell.type === 'doom_accumulation') {
         bgClass = 'bg-red-100 border-red-400';
     } else if (cell.type === 'evacuation') {
@@ -251,6 +288,11 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
                     {t(cell.item.name)}
                 </span>
             )}
+            {cell !== null && cell.type === 'out_of_game' && cell.item?.name && (
+                <span className="text-[8px] text-gray-700 leading-none mt-0.5 truncate max-w-[48px] font-medium">
+                    {t(cell.item.name)}
+                </span>
+            )}
             {cell !== null && cell.type !== 'item' && cell.type !== 'sticker' && cell.type !== 'out_of_game' && cell.name && (
                 <span className="text-[8px] text-gray-500 leading-none mt-0.5 truncate max-w-[48px]">
                     {t(cell.name)}
@@ -264,7 +306,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
 /**
  * 5×5 grid display for turn-based prototype.
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, disabledReason, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap }) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -289,10 +331,12 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
 
     if (!matrix) return null;
 
-    const canDraw = phase === 'drawing' && !disabled;
+    const canDraw = (phase === 'playing' || phase === 'drawing') && !disabled;
+    const numRows = matrix.length;
+    const numCols = matrix[0]?.length || 0;
 
     const getCellContent = (cell) => {
-        if (cell === null) return <span className="text-gray-300">·</span>;
+        if (cell === null || cell.type === 'blank') return <span className="text-gray-300">·</span>;
         // Hidden cell: show mystery icon
         if (cell.hidden) {
             return <span className="text-xl">❓</span>;
@@ -308,21 +352,20 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
             );
         }
         if (cell.type === 'out_of_game') {
-            const badgeColor = { 1: 'bg-green-500', 2: 'bg-blue-500', 3: 'bg-purple-500', 5: 'bg-orange-500' };
             const bonusVal = bonusItemMap?.get(cell.item?.id);
+            const stars = cell.item?.stars || 0;
+            const starText = '★'.repeat(Math.min(stars, 3)) + (stars > 3 ? '+' : '');
             return (
-                <>
+                <div className="flex flex-col items-center justify-center leading-none">
+                    <span className="text-[8px] font-black text-amber-500 tracking-tighter">{starText}</span>
                     <span className="text-xl">{cell.item?.icon || cell.icon}</span>
-                    <span className={`absolute -bottom-1 -right-1 ${badgeColor[cell.item?.score] || 'bg-amber-500'} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10`}>
-                        {cell.item?.score}
-                    </span>
                     {bonusVal && (
                         <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusVal}</span>
                     )}
                     {cell.multiplier && cell.multiplier > 1 && !bonusVal && (
                         <span className="absolute -top-1 -right-1 bg-amber-400 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10">×{cell.multiplier}</span>
                     )}
-                </>
+                </div>
             );
         }
         if (cell.type === 'gold') {
@@ -379,10 +422,10 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
 
             {/* Column buttons row — offset by row-button area */}
             <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
-                {Array.from({ length: 5 }, (_, colIndex) => {
-                    const hasActive = matrix.some(row => row[colIndex] !== null);
+                {Array.from({ length: numCols }, (_, colIndex) => {
+                    // Empty cells are drawable too — column is always active while draws remain.
                     const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
-                    const colClickable = canDraw && hasActive && !altBlocked;
+                    const colClickable = canDraw && !altBlocked;
                     return (
                         <button
                             key={colIndex}
@@ -400,7 +443,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
                                 }
                             `}
                             style={{ width: CELL_SIZE, height: 24, marginRight: GAP }}
-                            title={colClickable ? t('抽取此列') : t('无法抽取')}
+                            title={colClickable ? t('抽取此列') : (disabledReason || t('无法抽取'))}
                         >
                             ▼
                         </button>
@@ -412,9 +455,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
                 {/* Row buttons */}
                 <div className="flex flex-col mr-2" style={{ paddingTop: HALF }}>
                     {matrix.map((row, rowIndex) => {
-                        const hasActive = row.some(c => c !== null);
+                        // Empty cells are drawable too — row is always active while draws remain.
                         const altBlockedRow = wallType?.id === 'alternating' && lastDrawDirection === 'row';
-                        const rowClickable = canDraw && hasActive && !altBlockedRow;
+                        const rowClickable = canDraw && !altBlockedRow;
                         return (
                             <button
                                 key={rowIndex}
@@ -432,7 +475,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
                                     }
                                 `}
                                 style={{ width: 36, height: CELL_SIZE, marginBottom: GAP }}
-                                title={rowClickable ? t('抽取此行') : t('无法抽取')}
+                                title={rowClickable ? t('抽取此行') : (disabledReason || t('无法抽取'))}
                             >
                                 ▶
                             </button>
@@ -440,12 +483,12 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
                     })}
                 </div>
 
-                {/* 5×5 grid — zero-gap CSS Grid, margins create visual spacing */}
+                {/* Wall grid — zero-gap CSS Grid, margins create visual spacing */}
                 <div
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: `repeat(5, ${TRACK}px)`,
-                        gridTemplateRows: `repeat(5, ${TRACK}px)`,
+                        gridTemplateColumns: `repeat(${numCols}, ${TRACK}px)`,
+                        gridTemplateRows: `repeat(${numRows}, ${TRACK}px)`,
                         /* no gap — margins on cells handle spacing */
                     }}
                 >
@@ -466,21 +509,21 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
 
                         return matrix.flatMap((row, rowIndex) =>
                             row.map((cell, colIndex) => {
-                                // Hover: cell is in hovered row/col, OR belongs to a group in hovered row/col
-                                const isRowHovered = hoveredRow === rowIndex && cell !== null;
-                                const isColHovered = hoveredCol === colIndex && cell !== null;
+                                // Hover: cell is in hovered row/col (empty cells included), OR belongs to a group in hovered row/col
+                                const isRowHovered = hoveredRow === rowIndex;
+                                const isColHovered = hoveredCol === colIndex;
                                 const isGroupHovered = cell?.groupId && hoveredGroupIds.has(cell.groupId);
                                 const showHover = isRowHovered || isColHovered || isGroupHovered;
 
                                 // Draw animation highlight — row mode
                                 const isRowScanning = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === colIndex;
                                 const isRowSettled = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'settled' && drawAnimState.finalColIndex === colIndex;
-                                const isScanRow = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && cell !== null && drawAnimState.phase === 'scanning';
+                                const isScanRow = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'scanning';
 
                                 // Draw animation highlight — column mode
                                 const isColScanning = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === rowIndex;
                                 const isColSettled = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'settled' && drawAnimState.finalRowIndex === rowIndex;
-                                const isScanCol = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && cell !== null && drawAnimState.phase === 'scanning';
+                                const isScanCol = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'scanning';
 
                                 const isScanning = isRowScanning || isColScanning;
                                 const isSettled = isRowSettled || isColSettled;

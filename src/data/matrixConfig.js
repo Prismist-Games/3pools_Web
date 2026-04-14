@@ -1,11 +1,12 @@
 /**
  * Matrix Configuration - Turn-Based Prototype
- * 5×5 grid. Each cell is an item or a doom cell.
+ * 4×4 grid. Walls start fully populated with stickers + special cells.
+ * Drawn cells become blanks (drawable but no effect) — handled in the hook layer.
  * Items can span 1-4 cells in Tetris-like shapes.
  */
 
 export const MATRIX_CONFIG = {
-  gridSize: 5,
+  gridSize: 4,
 
   // Doom cells: independent cells on the grid (not items)
   doomCells: {
@@ -67,8 +68,9 @@ export const MATRIX_CONFIG = {
 
   // Item shape system — Tetris-like polyominoes
   // Weights control spawn probability (higher = more common)
+  // Currently all items are single-cell; multi-cell shapes are kept for future use.
   itemShapes: {
-    weights: { 1: 40, 2: 30, 3: 20, 4: 10 },
+    weights: { 1: 1 },
     // Shapes as [row, col] offsets from origin
     shapes: {
       1: [

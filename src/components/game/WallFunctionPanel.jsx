@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
-const SCORE_BG = { 1: 'bg-green-50 border-green-400', 2: 'bg-blue-50 border-blue-400', 3: 'bg-purple-50 border-purple-400' };
+// Uniform amber-tinted card for all out-of-game items; tier is communicated
+// by the yellow star glyphs shown above the icon.
+const STAR_BG = 'bg-amber-50 border-amber-300';
 
 const WallFunctionPanel = ({
     wallFunction, gold, hp, inventory,
@@ -93,11 +95,12 @@ const WallFunctionPanel = ({
                             <p className="text-[11px] text-gray-500 mb-2 text-center">{t('每种限购1个，售完即止')}</p>
                             <div className="grid grid-cols-3 gap-2">
                                 {(blackmarketStock || []).map(item => {
-                                    const prices = { 1: 8, 2: 14, 3: 20 };
-                                    const cost = prices[item.score];
+                                    const prices = { 1: 4, 2: 8, 3: 14, 4: 20, 5: 28 };
+                                    const cost = prices[item.stars] || 8;
                                     const sold = blackmarketSold.has(item.id);
                                     const canBuy = !sold && gold >= cost;
-                                    const cellBg = SCORE_BG[item.score] || 'bg-gray-50 border-gray-300';
+                                    const stars = item.stars || 0;
+                                    const starText = '★'.repeat(Math.min(stars, 3)) + (stars > 3 ? '+' : '');
                                     return (
                                         <button key={item.id}
                                             onClick={() => useBlackmarket(item)}
@@ -106,12 +109,13 @@ const WallFunctionPanel = ({
                                                 sold
                                                     ? 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
                                                     : canBuy
-                                                        ? `${cellBg} hover:scale-105 cursor-pointer`
-                                                        : `${cellBg} opacity-60 cursor-not-allowed`
+                                                        ? `${STAR_BG} hover:scale-105 cursor-pointer`
+                                                        : `${STAR_BG} opacity-60 cursor-not-allowed`
                                             }`}>
-                                            <span className="text-xl">{item.icon}</span>
+                                            <span className="text-[9px] font-black text-amber-500 tracking-tighter leading-none">{starText}</span>
+                                            <span className="text-xl leading-none">{item.icon}</span>
                                             <span className="text-[10px] font-bold text-gray-700">{t(item.name)}</span>
-                                            <span className="text-[10px] font-bold text-amber-600">{cost}💰 → {item.score}{t('分')}</span>
+                                            <span className="text-[10px] font-bold text-amber-600">{cost}💰</span>
                                             {sold && (
                                                 <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-gray-200/70">
                                                     <span className="text-xs font-bold text-gray-500">{t('已售罄')}</span>

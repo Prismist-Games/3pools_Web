@@ -10,23 +10,20 @@ const DIFFICULTY_STYLE = {
 
 const ORDER_GOLD_COST = { easy: 1, medium: 2, hard: 3, extreme: 4 };
 
-const SCORE_STYLE = {
-    1: { border: 'border-green-400',  bg: 'from-green-50 to-white',  badge: 'bg-green-500' },
-    2: { border: 'border-blue-400',   bg: 'from-blue-50 to-white',   badge: 'bg-blue-500' },
-    3: { border: 'border-purple-400', bg: 'from-purple-50 to-white', badge: 'bg-purple-500' },
-    5: { border: 'border-orange-400', bg: 'from-orange-50 to-white', badge: 'bg-orange-500' },
-};
+// Out-of-game items use a uniform amber-tinted card; tier is shown via the
+// star glyph count above the icon. No per-tier background colors.
+const REWARD_CARD_STYLE = 'border-amber-300 bg-gradient-to-b from-amber-50 to-amber-100';
 
 const RewardCard = ({ reward, size = 'md', bonusValue }) => {
-    const s = SCORE_STYLE[reward.score] || SCORE_STYLE[1];
-    const dim = size === 'sm' ? 'w-8 h-8 text-base' : 'w-9 h-9 text-lg';
-    const badgeDim = size === 'sm' ? 'w-3 h-3 text-[7px]' : 'w-3.5 h-3.5 text-[8px]';
+    const dim = size === 'sm' ? 'w-8 h-8' : 'w-9 h-9';
+    const iconSize = size === 'sm' ? 'text-base' : 'text-lg';
+    const starSize = size === 'sm' ? 'text-[6px]' : 'text-[7px]';
+    const stars = reward.stars || 0;
+    const starText = '★'.repeat(Math.min(stars, 3)) + (stars > 3 ? '+' : '');
     return (
-        <div className={`relative ${dim} rounded border-2 ${s.border} bg-gradient-to-b ${s.bg} flex items-center justify-center shadow-sm`}>
-            {reward.icon}
-            <span className={`absolute -bottom-1 -right-1 ${s.badge} text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow`}>
-                {reward.score}
-            </span>
+        <div className={`relative ${dim} rounded border-2 ${REWARD_CARD_STYLE} flex flex-col items-center justify-center shadow-sm leading-none`}>
+            <span className={`${starSize} font-black text-amber-500 tracking-tighter`}>{starText}</span>
+            <span className={iconSize}>{reward.icon}</span>
             {bonusValue && (
                 <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusValue}</span>
             )}
@@ -97,4 +94,4 @@ const BulletinBoard = ({ orders, onAccept, onRefresh, gold, bonusItemMap }) => {
 };
 
 export default BulletinBoard;
-export { RewardCard, SCORE_STYLE, DIFFICULTY_STYLE };
+export { RewardCard, DIFFICULTY_STYLE };

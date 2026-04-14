@@ -57,109 +57,41 @@ export function pickWallStickers(allStickers, min = 2, max = 4) {
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
+// --- Outside-item cells on the wall ---
+// Probability and count for spawning out-of-game items directly as wall cells.
+// Each wall rolls against OUTSIDE_ITEM_WALL_CHANCE; on hit, 1–2 items are placed.
+// Drawing the cell adds the item directly to the inventory.
+const OUTSIDE_ITEM_WALL_CHANCE = 0.3; // 20–40% target: using 30%
+const OUTSIDE_ITEM_MIN = 1;
+const OUTSIDE_ITEM_MAX = 2;
+
 /**
- * Generate a 5×5 wall matrix for one turn using sticker types and a wallColor config.
+ * Generate a wall matrix for one turn using sticker types and a wallColor config.
  *
- * Phase 1: Determine cell counts from wallColor.baseDistribution with ±1 variance
- * Phase 2: Shuffle all 25 positions, place negative/gold/evacuation cells in order
- * Phase 3: Fill remaining empty cells with sticker shapes (polyomino algorithm)
+ * Phase 1: Place bombs + extra cells from the wall function
+ * Phase 2: Fill remaining empty cells with sticker shapes (polyomino algorithm)
  *
+ * Walls start fully populated; drawn cells become "blanks" in the hook layer.
  * Multi-cell stickers share a groupId so drawing any cell obtains the whole sticker.
  *
  * @param {Array} wallStickers — array of sticker type objects from STICKER_TYPES
- * @param {Object} wallColor — color config object with baseDistribution, negativeBreakdown
+ * @param {Object} wallColor — color config object
  * @param {Object} [extraCells] — instant effect extra cells, e.g. { gold: [4, 5], refresh: [2, 2] }
  */
 export function generateWall(wallStickers, wallColor, extraCells) {
-  const { gridSize, doomCells, itemShapes, specialCells } = MATRIX_CONFIG;
+  const { gridSize, itemShapes, specialCells } = MATRIX_CONFIG;
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
 
-  // Phase 1: Doom cells — normal distribution (Box-Muller), median 6, stddev 1.5, range 2-10
-  const u1 = Math.random();
-  const u2 = Math.random();
-  const normalSample = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  const totalDoom = Math.max(2, Math.min(10, Math.round(6 + normalSample * 1.5)));
-  const resCount = Math.max(0, Math.min(totalDoom, Math.round(totalDoom * (0.5 + (Math.random() - 0.5) * 0.3))));
-  const accCount = totalDoom - resCount;
-
-  // Spread doom: guarantee coverage of rows and columns, then greedy fill
-  const rowDoomCount = Array(gridSize).fill(0);
-  const colDoomCount = Array(gridSize).fill(0);
-
+  // Doom cells are no longer placed on walls. Doom accumulation happens
+  // purely through the turn-based phase timeline.
   const cellCounts = {
     doom_resolution: 0,
     doom_accumulation: 0,
     sticker: 0,
+    out_of_game: 0,
   };
 
-  // Build shuffled doom type list
-  const doomTypes = [];
-  for (let i = 0; i < resCount; i++) doomTypes.push('res');
-  for (let i = 0; i < accCount; i++) doomTypes.push('acc');
-  doomTypes.sort(() => Math.random() - 0.5);
-
-  const placeDoomAt = (row, col, dt) => {
-    const type = dt === 'res' ? 'doom_resolution' : 'doom_accumulation';
-    const cfg = dt === 'res' ? doomCells.resolution : doomCells.accumulation;
-    grid[row][col] = { type, icon: cfg.icon, name: cfg.name, uid: generateUID() };
-    rowDoomCount[row]++;
-    colDoomCount[col]++;
-    cellCounts[type]++;
-  };
-
-  // Phase 1a: Cover all 5 rows — one doom per row, prefer uncovered columns
-  const shuffledRows = [0, 1, 2, 3, 4].sort(() => Math.random() - 0.5);
-  let doomIdx = 0;
-  for (const row of shuffledRows) {
-    if (doomIdx >= doomTypes.length) break;
-    const emptyCols = [];
-    for (let c = 0; c < gridSize; c++) {
-      if (grid[row][c] === null) emptyCols.push(c);
-    }
-    if (emptyCols.length === 0) continue;
-    // Prefer columns with no doom yet
-    const uncoveredCols = emptyCols.filter(c => colDoomCount[c] === 0);
-    const pool = uncoveredCols.length > 0 ? uncoveredCols : emptyCols;
-    const col = pool[Math.floor(Math.random() * pool.length)];
-    placeDoomAt(row, col, doomTypes[doomIdx++]);
-  }
-
-  // Phase 1b: If any columns still uncovered, place doom there
-  for (let c = 0; c < gridSize; c++) {
-    if (doomIdx >= doomTypes.length) break;
-    if (colDoomCount[c] > 0) continue;
-    // Find a row with fewest doom that has this column empty
-    const validRows = [];
-    for (let r = 0; r < gridSize; r++) {
-      if (grid[r][c] === null) validRows.push(r);
-    }
-    if (validRows.length === 0) continue;
-    const minDoom = Math.min(...validRows.map(r => rowDoomCount[r]));
-    const bestRows = validRows.filter(r => rowDoomCount[r] === minDoom);
-    const row = bestRows[Math.floor(Math.random() * bestRows.length)];
-    placeDoomAt(row, c, doomTypes[doomIdx++]);
-  }
-
-  // Phase 1c: Place remaining doom cells with greedy spread
-  while (doomIdx < doomTypes.length) {
-    const minRowDoom = Math.min(...rowDoomCount);
-    const candidateRows = [];
-    for (let r = 0; r < gridSize; r++) {
-      if (rowDoomCount[r] === minRowDoom) candidateRows.push(r);
-    }
-    const row = candidateRows[Math.floor(Math.random() * candidateRows.length)];
-    const emptyCols = [];
-    for (let c = 0; c < gridSize; c++) {
-      if (grid[row][c] === null) emptyCols.push(c);
-    }
-    if (emptyCols.length === 0) break;
-    const minColDoom = Math.min(...emptyCols.map(c => colDoomCount[c]));
-    const bestCols = emptyCols.filter(c => colDoomCount[c] === minColDoom);
-    const col = bestCols[Math.floor(Math.random() * bestCols.length)];
-    placeDoomAt(row, col, doomTypes[doomIdx++]);
-  }
-
-  // Phase 2: Remaining cells — shuffle empty positions for bomb + extraCells + stickers
+  // Phase 2: Shuffle empty positions for bomb + extraCells + stickers
   const emptyAfterDoom = [];
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
@@ -181,6 +113,25 @@ export function generateWall(wallStickers, wallColor, extraCells) {
       uid: generateUID(),
     };
     cellCounts.bomb = (cellCounts.bomb || 0) + 1;
+  }
+
+  // Place 1–2 out-of-game item cells (30% chance per wall).
+  // Drawing the cell adds the item directly to the inventory.
+  if (Math.random() < OUTSIDE_ITEM_WALL_CHANCE) {
+    const count = OUTSIDE_ITEM_MIN
+      + Math.floor(Math.random() * (OUTSIDE_ITEM_MAX - OUTSIDE_ITEM_MIN + 1));
+    for (let i = 0; i < count && posIdx < emptyAfterDoom.length; i++, posIdx++) {
+      const [r, c] = emptyAfterDoom[posIdx];
+      const itemDef = OUT_OF_GAME_ITEMS[Math.floor(Math.random() * OUT_OF_GAME_ITEMS.length)];
+      grid[r][c] = {
+        type: 'out_of_game',
+        icon: itemDef.icon,
+        name: itemDef.name,
+        item: { ...itemDef },
+        uid: generateUID(),
+      };
+      cellCounts.out_of_game++;
+    }
   }
 
   // Place instant-effect extra cells (from wall function)
@@ -216,7 +167,6 @@ export function generateWall(wallStickers, wallColor, extraCells) {
   };
 
   let empty = getEmptyPositions();
-  // Shuffle to avoid placement bias
   empty.sort(() => Math.random() - 0.5);
 
   while (empty.length > 0) {
@@ -226,14 +176,11 @@ export function generateWall(wallStickers, wallColor, extraCells) {
       continue;
     }
 
-    // Roll sticker size
     let size = rollItemSize(itemShapes.weights);
     let placed = false;
 
-    // Try to place at this position, falling back to smaller sizes
     while (size >= 1 && !placed) {
       const shapesForSize = itemShapes.shapes[size];
-      // Shuffle shapes to randomize which one is tried
       const shuffled = [...shapesForSize].sort(() => Math.random() - 0.5);
 
       for (const shape of shuffled) {
@@ -258,7 +205,6 @@ export function generateWall(wallStickers, wallColor, extraCells) {
       if (!placed) size--;
     }
 
-    // If even 1-cell didn't work (shouldn't happen since cell is empty), place single
     if (!placed) {
       const sticker = wallStickers[Math.floor(Math.random() * wallStickers.length)];
       grid[startR][startC] = {
@@ -271,12 +217,293 @@ export function generateWall(wallStickers, wallColor, extraCells) {
       cellCounts.sticker++;
     }
 
-    // Refresh empty list
     empty = getEmptyPositions();
     empty.sort(() => Math.random() - 0.5);
   }
 
   return { grid, cellCounts };
+}
+
+/**
+ * Generate a grid for a specific pool type.
+ * Uses the pool's gridRules, stickerFilter, itemFilter, and itemTierFilter/Bias.
+ *
+ * @param {Object} poolType — pool type definition from poolTypes.js
+ * @param {Array} allStickers — STICKER_TYPES array
+ * @param {Array} allItems — OUT_OF_GAME_ITEMS array
+ * @param {Object} [stickerWeightsOverride] — optional { stickerId: weight } map that
+ *   overrides poolType.stickerWeights for this call. Used for per-instance sticker bias
+ *   (see buildBiasedStickerWeights in poolTypes.js).
+ * @returns {{ grid, cellCounts }}
+ */
+export function generatePoolGrid(poolType, allStickers, allItems, stickerWeightsOverride) {
+    const { gridSize, specialCells } = MATRIX_CONFIG;
+    const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
+    const cellCounts = { sticker: 0, out_of_game: 0, gold: 0, empty: 0 };
+
+    const rules = poolType.gridRules;
+
+    // Determine which stickers this pool uses — prefer weighted map if present
+    // (stickerWeights = { stickerId: weight }); falls back to stickerFilter array.
+    // stickerWeightsOverride (if supplied) takes precedence over poolType.stickerWeights.
+    const stickerWeights = stickerWeightsOverride || poolType.stickerWeights || null;
+    let poolStickers;
+    if (stickerWeights && Object.keys(stickerWeights).length > 0) {
+        poolStickers = allStickers.filter(s => stickerWeights[s.id] > 0);
+    } else if (poolType.stickerFilter && poolType.stickerFilter.length > 0) {
+        poolStickers = allStickers.filter(s => poolType.stickerFilter.includes(s.id));
+    } else if (poolType.stickerFilter === null) {
+        // allow all — for walls like general
+        poolStickers = [...allStickers];
+    } else {
+        // stickerFilter is [] (e.g. L3 walls) — no stickers allowed
+        poolStickers = [];
+    }
+
+    // Helper: pick a sticker respecting weights (if provided) or uniformly.
+    const pickSticker = () => {
+        if (poolStickers.length === 0) return null;
+        if (stickerWeights && Object.keys(stickerWeights).length > 0) {
+            const entries = poolStickers
+                .map(s => [s, stickerWeights[s.id] || 0])
+                .filter(([, w]) => w > 0);
+            if (entries.length === 0) return poolStickers[Math.floor(Math.random() * poolStickers.length)];
+            const total = entries.reduce((sum, [, w]) => sum + w, 0);
+            let roll = Math.random() * total;
+            for (const [s, w] of entries) {
+                roll -= w;
+                if (roll <= 0) return s;
+            }
+            return entries[entries.length - 1][0];
+        }
+        return poolStickers[Math.floor(Math.random() * poolStickers.length)];
+    };
+
+    // Determine which items this pool can contain
+    let poolItems = [];
+    if (poolType.itemFilter === null) {
+        // All items matching tier filter
+        if (poolType.itemTierFilter && poolType.itemTierFilter.length > 0) {
+            poolItems = allItems.filter(i => poolType.itemTierFilter.includes(i.stars));
+        } else {
+            poolItems = [...allItems];
+        }
+    } else if (poolType.itemFilter && poolType.itemFilter.length > 0) {
+        poolItems = allItems.filter(i => poolType.itemFilter.includes(i.id));
+    }
+    // If itemFilter is undefined (walls that don't produce items), poolItems stays empty.
+
+    // Shuffle positions
+    const positions = [];
+    for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+            positions.push([r, c]);
+        }
+    }
+    positions.sort(() => Math.random() - 0.5);
+    let posIdx = 0;
+
+    // Reserve empty cells — leave as null (finite wall content, no auto-refill)
+    const emptyCount = Math.max(0, rules.empty || 0);
+    for (let i = 0; i < emptyCount && posIdx < positions.length; i++, posIdx++) {
+        // Leave grid[r][c] as null (already initialized to null)
+        cellCounts.empty++;
+    }
+
+    // Place gold cells
+    const goldCount = Math.max(0, rules.gold + Math.floor((Math.random() - 0.5) * 2));
+    for (let i = 0; i < goldCount && posIdx < positions.length; i++, posIdx++) {
+        const [r, c] = positions[posIdx];
+        const goldAmount = 1 + Math.floor(Math.random() * 3); // 1-3 gold
+        grid[r][c] = {
+            type: 'gold',
+            icon: specialCells.gold.icon,
+            name: specialCells.gold.name,
+            goldAmount,
+            uid: generateUID(),
+        };
+        cellCounts.gold++;
+    }
+
+    // Place item cells (out_of_game)
+    const itemCount = Math.max(0, rules.items + Math.floor((Math.random() - 0.5) * 2));
+    if (poolItems.length > 0) {
+        for (let i = 0; i < itemCount && posIdx < positions.length; i++, posIdx++) {
+            const [r, c] = positions[posIdx];
+            let itemDef;
+            if (poolType.itemTierBias) {
+                // Weighted random by tier
+                const entries = Object.entries(poolType.itemTierBias);
+                const total = entries.reduce((sum, [, w]) => sum + w, 0);
+                let roll = Math.random() * total;
+                let chosenTier = Number(entries[0][0]);
+                for (const [tier, weight] of entries) {
+                    roll -= weight;
+                    if (roll <= 0) { chosenTier = Number(tier); break; }
+                }
+                const tierItems = poolItems.filter(it => it.stars === chosenTier);
+                itemDef = tierItems.length > 0
+                    ? tierItems[Math.floor(Math.random() * tierItems.length)]
+                    : poolItems[Math.floor(Math.random() * poolItems.length)];
+            } else {
+                itemDef = poolItems[Math.floor(Math.random() * poolItems.length)];
+            }
+            grid[r][c] = {
+                type: 'out_of_game',
+                icon: itemDef.icon,
+                name: itemDef.name,
+                item: { ...itemDef },
+                uid: generateUID(),
+            };
+            cellCounts.out_of_game++;
+        }
+    }
+
+    // Fill remaining NON-empty cells — stickers if allowed, otherwise gold.
+    // Empty cells (reserved above) stay as null — wall content is finite.
+    const noStickers = poolStickers.length === 0;
+
+    for (; posIdx < positions.length; posIdx++) {
+        const [r, c] = positions[posIdx];
+        if (grid[r][c] !== null) continue;
+        if (noStickers) {
+            grid[r][c] = {
+                type: 'gold',
+                icon: specialCells.gold.icon,
+                name: specialCells.gold.name,
+                goldAmount: 1 + Math.floor(Math.random() * 3),
+                uid: generateUID(),
+            };
+            cellCounts.gold++;
+        } else {
+            const sticker = pickSticker();
+            grid[r][c] = {
+                type: 'sticker',
+                item: { ...sticker },
+                uid: generateUID(),
+                groupId: generateUID(),
+                shapeSize: 1,
+            };
+            cellCounts.sticker++;
+        }
+    }
+
+    // NOTE: remaining null cells are intentional empty cells (finite wall content).
+    // Do NOT fill them — they represent depleted / absent slots.
+
+    return { grid, cellCounts };
+}
+
+/**
+ * Apply gravity + refill to a grid after a cell is drawn.
+ * For each column, cells above gaps fall down, and new random stickers
+ * fill empty positions at the top (uniform distribution across all 8 types).
+ *
+ * @param {Array[][]} grid — the grid (mutated in place and returned)
+ * @param {Array} allStickers — STICKER_TYPES array for generating refills
+ * @returns {Array[][]} the same grid reference, after gravity + refill
+ */
+export function applyGravityAndRefill(grid, allStickers) {
+    const rows = grid.length;
+    const cols = grid[0].length;
+
+    for (let c = 0; c < cols; c++) {
+        // Collect non-null cells from bottom to top, remembering their original row
+        const filled = [];
+        for (let r = rows - 1; r >= 0; r--) {
+            if (grid[r][c] !== null) {
+                filled.push({ cell: grid[r][c], origRow: r });
+            }
+        }
+
+        // How many empty spots need refilling at the top
+        const emptyCount = rows - filled.length;
+
+        // Place existing cells at the bottom, tagging fallDistance
+        for (let i = 0; i < filled.length; i++) {
+            const destRow = rows - 1 - i;
+            const { cell, origRow } = filled[i];
+            const distance = destRow - origRow; // how many rows this cell fell
+            cell.fallDistance = distance > 0 ? distance : 0;
+            cell.isNew = false;
+            grid[destRow][c] = cell;
+        }
+
+        // Fill empty spots at the top with new random stickers
+        for (let i = 0; i < emptyCount; i++) {
+            const sticker = allStickers[Math.floor(Math.random() * allStickers.length)];
+            grid[i][c] = {
+                type: 'sticker',
+                item: { ...sticker },
+                uid: generateUID(),
+                groupId: generateUID(),
+                shapeSize: 1,
+                fallDistance: i + 1, // falls from above the grid (row -1, -2, etc.)
+                isNew: true,
+            };
+        }
+    }
+
+    return grid;
+}
+
+/** Internal: get filtered items list for a pool type */
+function _getPoolItems(poolType, allItems) {
+    if (poolType.itemFilter === null) {
+        if (poolType.itemTierFilter && poolType.itemTierFilter.length > 0) {
+            return allItems.filter(i => poolType.itemTierFilter.includes(i.stars));
+        }
+        return [...allItems];
+    } else if (poolType.itemFilter && poolType.itemFilter.length > 0) {
+        return allItems.filter(i => poolType.itemFilter.includes(i.id));
+    }
+    return [];
+}
+
+/** Internal: make a random sticker cell respecting the pool's sticker filter/weights.
+ *  Returns null if this pool has no stickers at all (e.g. L3 walls) — caller should
+ *  fall back to gold instead. */
+function _makeRandomSticker(poolType, allStickers, stickerWeightsOverride) {
+    const stickerWeights = stickerWeightsOverride || poolType.stickerWeights || null;
+    let poolStickers;
+    if (stickerWeights && Object.keys(stickerWeights).length > 0) {
+        poolStickers = allStickers.filter(s => stickerWeights[s.id] > 0);
+    } else if (poolType.stickerFilter && poolType.stickerFilter.length > 0) {
+        poolStickers = allStickers.filter(s => poolType.stickerFilter.includes(s.id));
+    } else if (poolType.stickerFilter === null) {
+        poolStickers = [...allStickers];
+    } else {
+        poolStickers = [];
+    }
+    if (poolStickers.length === 0) return null;
+
+    let sticker;
+    if (stickerWeights && Object.keys(stickerWeights).length > 0) {
+        const entries = poolStickers
+            .map(s => [s, stickerWeights[s.id] || 0])
+            .filter(([, w]) => w > 0);
+        if (entries.length === 0) {
+            sticker = poolStickers[Math.floor(Math.random() * poolStickers.length)];
+        } else {
+            const total = entries.reduce((sum, [, w]) => sum + w, 0);
+            let roll = Math.random() * total;
+            sticker = entries[entries.length - 1][0];
+            for (const [s, w] of entries) {
+                roll -= w;
+                if (roll <= 0) { sticker = s; break; }
+            }
+        }
+    } else {
+        sticker = poolStickers[Math.floor(Math.random() * poolStickers.length)];
+    }
+
+    return {
+        type: 'sticker',
+        item: { ...sticker },
+        uid: generateUID(),
+        groupId: generateUID(),
+        shapeSize: 1,
+    };
 }
 
 /**
