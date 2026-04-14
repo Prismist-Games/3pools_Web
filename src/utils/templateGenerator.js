@@ -1,6 +1,6 @@
 // src/utils/templateGenerator.js
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from '../data/v2Config';
+import { STICKER_TYPES, INGREDIENTS } from '../data/v2Config';
 import { CELL_TYPES, LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { pickWallStickers, fillDoomAndSpecials, fillEmptyCellsWithStickers } from './matrixHelpers';
 
@@ -44,15 +44,17 @@ function resolveConstrainedCell(token) {
     case CELL_TYPES.ORDER:
       return { type: 'order_cell', icon: specialCells.order.icon, name: specialCells.order.name, uid: generateUID(), ...extras };
     case CELL_TYPES.OUT_OF_GAME: {
-      const item = OUT_OF_GAME_ITEMS[Math.floor(Math.random() * OUT_OF_GAME_ITEMS.length)];
+      const item = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
       return { type: 'out_of_game', icon: item.icon, name: item.name, item: { ...item }, uid: generateUID(), ...extras };
     }
     case CELL_TYPES.OUT_OF_GAME_1:
     case CELL_TYPES.OUT_OF_GAME_2:
     case CELL_TYPES.OUT_OF_GAME_3:
     case CELL_TYPES.OUT_OF_GAME_5: {
-      const tier = parseInt(cellType.split('_').pop());
-      const pool = OUT_OF_GAME_ITEMS.filter(i => i.score === tier);
+      // Legacy tier-5 templates now map to rarity 4 (new top tier).
+      const rawTier = parseInt(cellType.split('_').pop());
+      const tier = rawTier === 5 ? 4 : rawTier;
+      const pool = INGREDIENTS.filter(i => i.rarity === tier);
       const item = pool[Math.floor(Math.random() * pool.length)];
       return { type: 'out_of_game', icon: item.icon, name: item.name, item: { ...item }, uid: generateUID(), ...extras };
     }

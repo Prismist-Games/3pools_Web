@@ -9,7 +9,7 @@ import DispatchJudgment from './components/game/DispatchJudgment';
 import AICooking, { pickRandomCustomer } from './components/game/AICooking';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
-import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from './data/v2Config';
+import { STICKER_TYPES, INGREDIENTS } from './data/v2Config';
 import { Link } from 'react-router-dom';
 import { GameGuide } from './components/ui/GameGuide';
 import RoundTransition from './components/ui/RoundTransition';
@@ -655,9 +655,9 @@ const GameCore = () => {
                                         </button>
                                     ))}
                                 </div>
-                                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Out-of-game Items</div>
+                                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Ingredients</div>
                                 <div className="flex flex-wrap gap-1.5 mb-4">
-                                    {OUT_OF_GAME_ITEMS.map(item => (
+                                    {INGREDIENTS.map(item => (
                                         <button key={item.id} onClick={() => setDebugSelectedItem(item)}
                                             className={`w-8 h-8 rounded-lg border text-base flex items-center justify-center transition-colors
                                                 ${debugSelectedItem?.id === item.id && !debugSelectedItem?.isSticker ? 'border-blue-400 bg-blue-900 ring-2 ring-blue-500' : 'border-gray-600 bg-gray-800 hover:border-gray-400'}`}>

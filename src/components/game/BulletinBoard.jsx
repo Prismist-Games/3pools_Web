@@ -9,16 +9,21 @@ const DIFFICULTY_STYLE = {
     extreme: { bg: 'bg-[#FFF0F0]', text: 'text-kitchen-danger-text' },
 };
 
-const SCORE_STYLE = {
-    1: { border: 'border-kitchen-success-border', bg: 'from-[#F0FFF8] to-kitchen-card', badge: 'bg-kitchen-success', label: '基础调料', labelColor: 'text-kitchen-success-border' },
-    2: { border: 'border-kitchen-info-border',    bg: 'from-[#F0F8FF] to-kitchen-card', badge: 'bg-kitchen-info',    label: '普通食材', labelColor: 'text-kitchen-info-border' },
-    3: { border: 'border-purple-400',             bg: 'from-purple-50 to-kitchen-card', badge: 'bg-purple-500',      label: '优质食材', labelColor: 'text-purple-400' },
-    5: { border: 'border-kitchen-gold',           bg: 'from-[#FFF8E0] to-kitchen-card', badge: 'bg-kitchen-gold',    label: '珍稀食材', labelColor: 'text-kitchen-gold' },
+const RARITY_STYLE = {
+    1: { border: 'border-kitchen-success-border', bg: 'from-[#F0FFF8] to-kitchen-card', badge: 'bg-kitchen-success', label: '★',    labelColor: 'text-kitchen-success-border', tagBg: 'bg-[#F0FFF8] text-[#408060]' },
+    2: { border: 'border-kitchen-info-border',    bg: 'from-[#F0F8FF] to-kitchen-card', badge: 'bg-kitchen-info',    label: '★★',   labelColor: 'text-kitchen-info-border',    tagBg: 'bg-[#F0F8FF] text-kitchen-info-border' },
+    3: { border: 'border-purple-400',             bg: 'from-purple-50 to-kitchen-card', badge: 'bg-purple-500',      label: '★★★',  labelColor: 'text-purple-400',             tagBg: 'bg-purple-50 text-purple-700' },
+    4: { border: 'border-kitchen-gold',           bg: 'from-[#FFF8E0] to-kitchen-card', badge: 'bg-kitchen-gold',    label: '★★★★', labelColor: 'text-kitchen-gold',           tagBg: 'bg-[#FFF8E0] text-kitchen-gold-deep' },
 };
+// Backward compat alias
+const SCORE_STYLE = RARITY_STYLE;
+
+const RARITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
 
 const RewardCard = ({ reward, size = 'md', bonusValue }) => {
     const { t } = useLanguage();
-    const s = SCORE_STYLE[reward.score] || SCORE_STYLE[1];
+    const rarity = reward.rarity || reward.score || 1;
+    const s = RARITY_STYLE[rarity] || RARITY_STYLE[1];
     const dim = size === 'sm' ? 'w-8 h-8 text-base' : 'w-9 h-9 text-lg';
     const badgeDim = size === 'sm' ? 'w-3 h-3 text-[7px]' : 'w-3.5 h-3.5 text-[8px]';
 
@@ -28,15 +33,19 @@ const RewardCard = ({ reward, size = 'md', bonusValue }) => {
                 <span className="text-2xl leading-none">{reward.icon}</span>
                 <div>
                     <div className="font-bold text-sm leading-tight">{t(reward.name)}</div>
-                    <div className={`text-[10px] ${s.labelColor}`}>{t(s.label)}</div>
+                    <div className={`text-[10px] ${s.labelColor}`}>{RARITY_STARS[rarity]}</div>
                 </div>
             </div>
-            <div className="border-t border-gray-700/50 pt-1.5 mt-1">
-                <div className="flex justify-between text-[11px]">
-                    <span className="text-gray-400">{t('撤离价值')}</span>
-                    <span className="font-bold text-yellow-300">{reward.score} {t('分')}</span>
+            {reward.tags && reward.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                    {reward.tags.map(tag => (
+                        <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">{t(tag)}</span>
+                    ))}
                 </div>
-            </div>
+            )}
+            {reward.nameEn && (
+                <p className="text-[10px] text-gray-500 italic mt-1.5">{reward.nameEn}</p>
+            )}
         </>
     );
 
@@ -45,7 +54,7 @@ const RewardCard = ({ reward, size = 'md', bonusValue }) => {
             <div className={`relative ${dim} rounded border-2 ${s.border} bg-gradient-to-b ${s.bg} flex items-center justify-center shadow-sm`}>
                 {reward.icon}
                 <span className={`absolute -bottom-1 -right-1 ${s.badge} text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow`}>
-                    {reward.score}
+                    {rarity}
                 </span>
                 {bonusValue && (
                     <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusValue}</span>
@@ -260,4 +269,4 @@ const BulletinBoard = ({
 };
 
 export default BulletinBoard;
-export { RewardCard, SCORE_STYLE, DIFFICULTY_STYLE };
+export { RewardCard, RARITY_STYLE, SCORE_STYLE, DIFFICULTY_STYLE };

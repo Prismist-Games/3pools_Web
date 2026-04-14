@@ -27,57 +27,102 @@ export const STICKER_TYPES = [
     { id: 'crystal',   icon: '💎', name: '晶' },
 ];
 
-// --- 食材与厨具 ---
-// 按分值分成4个tier：1/2/3/5分
-export const OUT_OF_GAME_ITEMS = [
-    // 1分 — 调料 & 酱料
-    { id: 'salt',      icon: '🧂', name: '盐',     score: 1 },
-    { id: 'butter',    icon: '🧈', name: '黄油',   score: 1 },
-    { id: 'soy',       icon: '🫗', name: '酱油',   score: 1 },
-    { id: 'olive_oil', icon: '🫒', name: '橄榄油', score: 1 },
-    { id: 'cream',     icon: '🥛', name: '奶油',   score: 1 },
-    { id: 'vinegar',   icon: '🍶', name: '醋',     score: 1 },
-    { id: 'sugar',     icon: '🍬', name: '糖',     score: 1 },
-    // 2分 — 香料 & 蔬果
-    { id: 'garlic',    icon: '🧄', name: '大蒜',   score: 2 },
-    { id: 'ginger',    icon: '🫚', name: '姜',     score: 2 },
-    { id: 'chili',     icon: '🌶️', name: '辣椒',   score: 2 },
-    { id: 'onion',     icon: '🧅', name: '洋葱',   score: 2 },
-    { id: 'tomato',    icon: '🍅', name: '番茄',   score: 2 },
-    { id: 'lemon',     icon: '🍋', name: '柠檬',   score: 2 },
-    { id: 'mushroom',  icon: '🍄', name: '蘑菇',   score: 2 },
-    { id: 'potato',    icon: '🥔', name: '土豆',   score: 2 },
-    { id: 'veggie',    icon: '🥬', name: '蔬菜',   score: 2 },
-    { id: 'corn',      icon: '🌽', name: '玉米',   score: 2 },
-    // 1分 — 主食 & 基底
-    { id: 'rice',      icon: '🍚', name: '米饭',   score: 1 },
-    { id: 'noodle',    icon: '🍜', name: '面条',   score: 1 },
-    { id: 'flour',     icon: '🌾', name: '面粉',   score: 1 },
-    // 2分 — 普通食材
-    { id: 'bread',     icon: '🍞', name: '面包',   score: 2 },
-    { id: 'cheese',    icon: '🧀', name: '芝士',   score: 2 },
-    { id: 'tofu',      icon: '🫘', name: '豆腐',   score: 2 },
-    { id: 'egg',       icon: '🥚', name: '鸡蛋',   score: 2 },
-    { id: 'chicken',   icon: '🍗', name: '鸡肉',   score: 2 },
-    { id: 'pork',      icon: '🥓', name: '猪肉',   score: 2 },
-    // 3分 — 优质食材
-    { id: 'beef',      icon: '🥩', name: '牛肉',   score: 3 },
-    { id: 'lamb',      icon: '🍖', name: '羊肉',   score: 3 },
-    { id: 'fish',      icon: '🐟', name: '鱼',     score: 3 },
-    { id: 'shrimp',    icon: '🦐', name: '虾',     score: 3 },
-    { id: 'salmon',    icon: '🍣', name: '三文鱼', score: 3 },
-    // 5分 — 珍稀食材
-    { id: 'lobster',   icon: '🦞', name: '龙虾',   score: 5 },
-    { id: 'truffle',   icon: '🌰', name: '松露',   score: 5 },
+// --- 食材总表 ---
+// rarity: 1(★绿) 2(★★蓝) 3(★★★紫) 4(★★★★橙)
+// tags: 扁平属性标签数组，用于槽位过滤/加成/风味效果
+export const INGREDIENTS = [
+    // ── 肉类 · 鸡 ──
+    { id: 'chicken_breast',     icon: '🍗', name: '鸡胸肉',         nameEn: 'Chicken Breast',      rarity: 1, tags: ['肉类', '鸡'] },
+    { id: 'chicken_thigh',      icon: '🍗', name: '鸡腿肉',         nameEn: 'Chicken Thigh',       rarity: 2, tags: ['肉类', '鸡'] },
+    { id: 'free_range_chicken', icon: '🍗', name: '走地鸡肉',       nameEn: 'Free-Range Chicken',  rarity: 3, tags: ['肉类', '鸡'] },
+    { id: 'silkie_chicken',     icon: '🍗', name: '乌骨鸡肉',       nameEn: 'Silkie Chicken',      rarity: 4, tags: ['肉类', '鸡'] },
+    // ── 肉类 · 牛 ──
+    { id: 'ground_beef',        icon: '🥩', name: '牛肉碎',         nameEn: 'Ground Beef',         rarity: 1, tags: ['肉类', '牛'] },
+    { id: 'beef_shank',         icon: '🥩', name: '牛腱肉',         nameEn: 'Beef Shank',          rarity: 2, tags: ['肉类', '牛'] },
+    { id: 'angus_beef',         icon: '🥩', name: '安格斯牛肉',     nameEn: 'Angus Beef',          rarity: 3, tags: ['肉类', '牛'] },
+    { id: 'wagyu',              icon: '🥩', name: '和牛',           nameEn: 'Wagyu Beef',          rarity: 4, tags: ['肉类', '牛'] },
+    // ── 肉类 · 猪 ──
+    { id: 'ground_pork',        icon: '🥓', name: '猪肉碎',         nameEn: 'Ground Pork',         rarity: 1, tags: ['肉类', '猪'] },
+    { id: 'pork_belly',         icon: '🥓', name: '五花肉',         nameEn: 'Pork Belly',          rarity: 2, tags: ['肉类', '猪'] },
+    { id: 'berkshire_pork',     icon: '🥓', name: '黑猪肉',         nameEn: 'Berkshire Pork',      rarity: 3, tags: ['肉类', '猪'] },
+    { id: 'iberico_pork',       icon: '🥓', name: '伊比利亚猪肉',   nameEn: 'Ibérico Pork',        rarity: 4, tags: ['肉类', '猪'] },
+    // ── 肉类 · 羊 ──
+    { id: 'ground_lamb',        icon: '🍖', name: '羊肉碎',         nameEn: 'Ground Lamb',         rarity: 1, tags: ['肉类', '羊'] },
+    { id: 'lamb_leg',           icon: '🍖', name: '羊腿肉',         nameEn: 'Lamb Leg',            rarity: 2, tags: ['肉类', '羊'] },
+    { id: 'lamb_chop',          icon: '🍖', name: '羊排肉',         nameEn: 'Lamb Chop',           rarity: 3, tags: ['肉类', '羊'] },
+    { id: 'spring_lamb',        icon: '🍖', name: '羊羔肉',         nameEn: 'Spring Lamb',         rarity: 4, tags: ['肉类', '羊'] },
+
+    // ── 海鲜 · 鱼 ──
+    { id: 'sardine',            icon: '🐟', name: '沙丁鱼',         nameEn: 'Sardine',             rarity: 1, tags: ['海鲜', '鱼'] },
+    { id: 'sea_bass',           icon: '🐟', name: '鲈鱼',           nameEn: 'Sea Bass',            rarity: 2, tags: ['海鲜', '鱼'] },
+    { id: 'salmon',             icon: '🐟', name: '三文鱼',         nameEn: 'Salmon',              rarity: 3, tags: ['海鲜', '鱼'] },
+    { id: 'bluefin_tuna',       icon: '🐟', name: '蓝鳍金枪鱼',    nameEn: 'Bluefin Tuna',        rarity: 4, tags: ['海鲜', '鱼'] },
+    // ── 海鲜 · 虾 ──
+    { id: 'river_shrimp',       icon: '🦐', name: '河虾',           nameEn: 'River Shrimp',        rarity: 1, tags: ['海鲜', '虾'] },
+    { id: 'white_shrimp',       icon: '🦐', name: '基围虾',         nameEn: 'White Shrimp',        rarity: 2, tags: ['海鲜', '虾'] },
+    { id: 'tiger_prawn',        icon: '🦐', name: '明虾',           nameEn: 'Tiger Prawn',         rarity: 3, tags: ['海鲜', '虾'] },
+    { id: 'spot_prawn',         icon: '🦐', name: '牡丹虾',         nameEn: 'Spot Prawn',          rarity: 4, tags: ['海鲜', '虾'] },
+    // ── 海鲜 · 贝 ──
+    { id: 'clam',               icon: '🐚', name: '蛤蜊',           nameEn: 'Clam',                rarity: 1, tags: ['海鲜', '贝'] },
+    { id: 'mussel',             icon: '🐚', name: '青口',           nameEn: 'Mussel',              rarity: 2, tags: ['海鲜', '贝'] },
+    { id: 'scallop',            icon: '🐚', name: '扇贝',           nameEn: 'Scallop',             rarity: 3, tags: ['海鲜', '贝'] },
+    { id: 'abalone',            icon: '🐚', name: '鲍鱼',           nameEn: 'Abalone',             rarity: 4, tags: ['海鲜', '贝'] },
+    // ── 海鲜 · 蟹 ──
+    { id: 'blue_crab',          icon: '🦀', name: '花蟹',           nameEn: 'Blue Crab',           rarity: 1, tags: ['海鲜', '蟹'] },
+    { id: 'swimming_crab',      icon: '🦀', name: '梭子蟹',         nameEn: 'Swimming Crab',       rarity: 2, tags: ['海鲜', '蟹'] },
+    { id: 'dungeness_crab',     icon: '🦀', name: '面包蟹',         nameEn: 'Dungeness Crab',      rarity: 3, tags: ['海鲜', '蟹'] },
+    { id: 'king_crab',          icon: '🦀', name: '帝王蟹',         nameEn: 'King Crab',           rarity: 4, tags: ['海鲜', '蟹'] },
+
+    // ── 蔬菜 · 青菜 ──
+    { id: 'cabbage',            icon: '🥬', name: '白菜',           nameEn: 'Cabbage',             rarity: 1, tags: ['蔬菜', '青菜'] },
+    { id: 'spinach',            icon: '🥬', name: '菠菜',           nameEn: 'Spinach',             rarity: 2, tags: ['蔬菜', '青菜'] },
+    { id: 'asparagus',          icon: '🥬', name: '芦笋',           nameEn: 'Asparagus',           rarity: 3, tags: ['蔬菜', '青菜'] },
+    { id: 'artichoke',          icon: '🥬', name: '朝鲜蓟',         nameEn: 'Artichoke',           rarity: 4, tags: ['蔬菜', '青菜'] },
+    // ── 蔬菜 · 根茎 ──
+    { id: 'potato',             icon: '🥔', name: '土豆',           nameEn: 'Potato',              rarity: 1, tags: ['蔬菜', '根茎'] },
+    { id: 'sweet_potato',       icon: '🥔', name: '红薯',           nameEn: 'Sweet Potato',        rarity: 2, tags: ['蔬菜', '根茎'] },
+    { id: 'taro',               icon: '🥔', name: '芋头',           nameEn: 'Taro',                rarity: 3, tags: ['蔬菜', '根茎'] },
+    { id: 'lotus_root',         icon: '🥔', name: '莲藕',           nameEn: 'Lotus Root',          rarity: 4, tags: ['蔬菜', '根茎'] },
+    // ── 蔬菜 · 水果 ──
+    { id: 'apple',              icon: '🍎', name: '苹果',           nameEn: 'Apple',               rarity: 1, tags: ['蔬菜', '水果'] },
+    { id: 'lemon',              icon: '🍎', name: '柠檬',           nameEn: 'Lemon',               rarity: 2, tags: ['蔬菜', '水果'] },
+    { id: 'mango',              icon: '🍎', name: '芒果',           nameEn: 'Mango',               rarity: 3, tags: ['蔬菜', '水果'] },
+    { id: 'passion_fruit',      icon: '🍎', name: '百香果',         nameEn: 'Passion Fruit',       rarity: 4, tags: ['蔬菜', '水果'] },
+    // ── 蔬菜 · 菌菇 ──
+    { id: 'oyster_mushroom',    icon: '🍄', name: '平菇',           nameEn: 'Oyster Mushroom',     rarity: 1, tags: ['蔬菜', '菌菇'] },
+    { id: 'shiitake',           icon: '🍄', name: '香菇',           nameEn: 'Shiitake',            rarity: 2, tags: ['蔬菜', '菌菇'] },
+    { id: 'porcini',            icon: '🍄', name: '牛肝菌',         nameEn: 'Porcini',             rarity: 3, tags: ['蔬菜', '菌菇'] },
+    { id: 'truffle',            icon: '🍄', name: '松露',           nameEn: 'Truffle',             rarity: 4, tags: ['蔬菜', '菌菇'] },
+
+    // ── 主食 · 米 ──
+    { id: 'white_rice',         icon: '🍚', name: '粳米',           nameEn: 'White Rice',          rarity: 1, tags: ['主食', '米'] },
+    { id: 'brown_rice',         icon: '🍚', name: '糙米',           nameEn: 'Brown Rice',          rarity: 2, tags: ['主食', '米'] },
+    { id: 'jasmine_rice',       icon: '🍚', name: '茉莉香米',       nameEn: 'Jasmine Rice',        rarity: 3, tags: ['主食', '米'] },
+    { id: 'pearl_rice',         icon: '🍚', name: '珍珠米',         nameEn: 'Pearl Rice',          rarity: 4, tags: ['主食', '米'] },
+    // ── 主食 · 面 ──
+    { id: 'dried_noodles',      icon: '🍜', name: '挂面',           nameEn: 'Dried Noodles',       rarity: 1, tags: ['主食', '面'] },
+    { id: 'egg_noodles',        icon: '🍜', name: '鸡蛋面',         nameEn: 'Egg Noodles',         rarity: 2, tags: ['主食', '面'] },
+    { id: 'buckwheat_noodles',  icon: '🍜', name: '荞麦面',         nameEn: 'Buckwheat Noodles',   rarity: 3, tags: ['主食', '面'] },
+    { id: 'handmade_noodles',   icon: '🍜', name: '手擀面',         nameEn: 'Handmade Noodles',    rarity: 4, tags: ['主食', '面'] },
+    // ── 主食 · 豆 ──
+    { id: 'soybean',            icon: '🫘', name: '黄豆',           nameEn: 'Soybean',             rarity: 1, tags: ['主食', '豆'] },
+    { id: 'red_bean',           icon: '🫘', name: '红豆',           nameEn: 'Red Bean',            rarity: 2, tags: ['主食', '豆'] },
+    { id: 'mung_bean',          icon: '🫘', name: '绿豆',           nameEn: 'Mung Bean',           rarity: 3, tags: ['主食', '豆'] },
+    { id: 'chickpea',           icon: '🫘', name: '鹰嘴豆',         nameEn: 'Chickpea',            rarity: 4, tags: ['主食', '豆'] },
+    // ── 主食 · 面包 ──
+    { id: 'white_bread',        icon: '🍞', name: '白面包',         nameEn: 'White Bread',         rarity: 1, tags: ['主食', '面包'] },
+    { id: 'whole_wheat_bread',  icon: '🍞', name: '全麦面包',       nameEn: 'Whole Wheat Bread',   rarity: 2, tags: ['主食', '面包'] },
+    { id: 'sourdough',          icon: '🍞', name: '酸面包',         nameEn: 'Sourdough',           rarity: 3, tags: ['主食', '面包'] },
+    { id: 'brioche',            icon: '🍞', name: '布里欧修',       nameEn: 'Brioche',             rarity: 4, tags: ['主食', '面包'] },
 ];
 
 // --- 订单模板 ---
-// 每个订单奖励 1 个对应级别的食材
+// 每个订单奖励 1 个对应稀有度的食材
 export const ORDER_TEMPLATES = [
     { id: 'a', difficulty: 'easy',    rewardTiers: [1], totalStickers: 2, stickerTypes: 1, weight: 5 },
     { id: 'b', difficulty: 'medium',  rewardTiers: [2], totalStickers: 3, stickerTypes: 2, weight: 5 },
     { id: 'c', difficulty: 'hard',    rewardTiers: [3], totalStickers: 4, stickerTypes: 3, weight: 5 },
-    { id: 'd', difficulty: 'extreme', rewardTiers: [5], totalStickers: 6, stickerTypes: 4, weight: 2 },
+    { id: 'd', difficulty: 'extreme', rewardTiers: [4], totalStickers: 6, stickerTypes: 4, weight: 2 },
 ];
 
 // --- 墙类型定义 ---
