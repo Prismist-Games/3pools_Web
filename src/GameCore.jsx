@@ -20,6 +20,9 @@ const GameCore = () => {
     const [hoveredStickerIds, setHoveredStickerIds] = useState(null);
     const [recycleMode, setRecycleMode] = useState(false);
     const [recycleSelected, setRecycleSelected] = useState(new Set());
+    const [synthesizeMode, setSynthesizeMode] = useState(false);
+    const [synthesizeSelected, setSynthesizeSelected] = useState(new Set());
+    const [actionHint, setActionHint] = useState('recycle');
     const [debugOpen, setDebugOpen] = useState(false);
     const [debugSelectedItem, setDebugSelectedItem] = useState(null);
     const [dispatchOpen, setDispatchOpen] = useState(false);
@@ -49,7 +52,7 @@ const GameCore = () => {
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
-        replaceInventoryItem, discardInventoryItem, discardPendingItem, debugAddItem,
+        replaceInventoryItem, discardInventoryItem, synthesizeItems, discardPendingItem, debugAddItem,
         bulletinBoard, pendingChosenOrder,
         submitOrder, canSubmitOrder,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
@@ -431,7 +434,7 @@ const GameCore = () => {
                                     <span className="text-[10px] text-gray-300 font-medium">{inventory.length}/{maxInventorySize}</span>
                                 </div>
                                 <div className="p-2">
-                                    {/* Recycle card — always visible */}
+                                    {/* Recycle / Synthesize controls */}
                                     {recycleMode ? (
                                         <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg">
                                             <p className="text-[11px] text-red-600 mb-1.5">{t('点击选择要回收的物品')}</p>
@@ -450,15 +453,45 @@ const GameCore = () => {
                                                     className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors">{t('取消')}</button>
                                             </div>
                                         </div>
+                                    ) : synthesizeMode ? (
+                                        <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                            <p className="text-[11px] text-blue-600 mb-1.5">{t('选择2个相同物品进行合成')}</p>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => {
+                                                    const synIndices = [...synthesizeSelected];
+                                                    if (synIndices.length === 2) {
+                                                        synthesizeItems(synIndices[0], synIndices[1]);
+                                                    }
+                                                    setSynthesizeMode(false); setSynthesizeSelected(new Set());
+                                                }}
+                                                    disabled={!(synthesizeSelected.size === 2 && (() => {
+                                                        const [a, b] = [...synthesizeSelected];
+                                                        return inventory[a]?.id === inventory[b]?.id && inventory[a]?.isOutOfGame;
+                                                    })())}
+                                                    className={`text-[10px] px-2 py-1 rounded-md font-bold transition-colors ${synthesizeSelected.size === 2 && (() => { const [a, b] = [...synthesizeSelected]; return inventory[a]?.id === inventory[b]?.id && inventory[a]?.isOutOfGame; })() ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                                                    {t('确认合成')} {synthesizeSelected.size > 0 && `(${synthesizeSelected.size}/2)`}
+                                                </button>
+                                                <button onClick={() => { setSynthesizeMode(false); setSynthesizeSelected(new Set()); }}
+                                                    className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-gray-50 font-bold text-gray-500 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-500 transition-colors">{t('取消')}</button>
+                                            </div>
+                                        </div>
                                     ) : !pendingItem && (
                                         <div className="mb-2 p-2 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
-                                            <span className="text-[11px] text-gray-400">{t('回收不需要的物品')}</span>
-                                            <button onClick={() => { setRecycleMode(true); setRecycleSelected(new Set()); }}
-                                                className="text-[10px] px-2 py-1 rounded-md font-bold text-gray-500 bg-gray-200 hover:bg-red-100 hover:text-red-500 transition-colors">{t('回收')}</button>
+                                            <span className="text-[11px] text-gray-400">{actionHint === 'synthesize' ? t('合成为高品质物品') : t('回收不需要的物品')}</span>
+                                            <div className="flex gap-1.5">
+                                                <button
+                                                    onMouseEnter={() => setActionHint('recycle')}
+                                                    onClick={() => { setRecycleMode(true); setRecycleSelected(new Set()); setSynthesizeMode(false); setSynthesizeSelected(new Set()); }}
+                                                    className="text-[10px] px-2 py-1 rounded-md font-bold text-gray-500 bg-gray-200 hover:bg-red-100 hover:text-red-500 transition-colors">{t('回收')}</button>
+                                                <button
+                                                    onMouseEnter={() => setActionHint('synthesize')}
+                                                    onClick={() => { setSynthesizeMode(true); setSynthesizeSelected(new Set()); setRecycleMode(false); setRecycleSelected(new Set()); }}
+                                                    className="text-[10px] px-2 py-1 rounded-md font-bold text-gray-500 bg-gray-200 hover:bg-blue-100 hover:text-blue-500 transition-colors">{t('合成')}</button>
+                                            </div>
                                         </div>
                                     )}
                                     {/* Pending items queue */}
-                                    {pendingItems.length > 0 && !recycleMode && (
+                                    {pendingItems.length > 0 && !recycleMode && !synthesizeMode && (
                                         <div className="mb-2 p-2 bg-amber-50 border-2 border-amber-300 rounded-lg">
                                             <div className="flex items-center justify-between mb-1.5">
                                                 <span className="text-[11px] font-bold text-amber-700">{t('待处理物品')}</span>
@@ -487,8 +520,9 @@ const GameCore = () => {
                                     <div className="grid grid-cols-5 gap-1">
                                         {Array.from({ length: maxInventorySize }).map((_, i) => {
                                             const item = inventory[i];
-                                            const canReplace = pendingItem && item && !recycleMode;
+                                            const canReplace = pendingItem && item && !recycleMode && !synthesizeMode;
                                             const isRecycleSelected = recycleMode && recycleSelected.has(i);
+                                            const isSynthesizeSelected = synthesizeMode && synthesizeSelected.has(i);
                                             const sc = item?.isOutOfGame ? (SCORE_STYLE[item.rarity || item.score] || SCORE_STYLE[1]) : null;
                                             const cell = (
                                                 <div
@@ -499,17 +533,35 @@ const GameCore = () => {
                                                                 next.has(i) ? next.delete(i) : next.add(i);
                                                                 return next;
                                                             });
+                                                        } else if (synthesizeMode && item && item.isOutOfGame) {
+                                                            setSynthesizeSelected(prev => {
+                                                                const next = new Set(prev);
+                                                                if (next.has(i)) {
+                                                                    next.delete(i);
+                                                                } else {
+                                                                    next.add(i);
+                                                                    // Limit to 2 selections
+                                                                    if (next.size > 2) {
+                                                                        const arr = [...next];
+                                                                        arr.shift();
+                                                                        return new Set(arr);
+                                                                    }
+                                                                }
+                                                                return next;
+                                                            });
                                                         } else if (canReplace) {
                                                             replaceInventoryItem(i);
                                                         }
                                                     }}
                                                     className={`w-10 h-10 rounded flex items-center justify-center text-lg border-2 relative transition-all duration-150
                                                         ${isRecycleSelected ? 'bg-red-100 border-red-400 scale-95 opacity-60'
+                                                            : isSynthesizeSelected ? 'bg-blue-100 border-blue-400 scale-95'
                                                             : !item ? 'bg-gray-50 border-gray-200'
                                                             : sc ? `bg-gradient-to-b ${sc.bg} ${sc.border}`
                                                             : 'bg-white border-gray-300'}
                                                         ${canReplace ? 'cursor-pointer hover:bg-red-50 hover:border-red-400 hover:scale-110'
-                                                            : recycleMode && item ? 'cursor-pointer hover:border-red-400' : ''}`}
+                                                            : recycleMode && item ? 'cursor-pointer hover:border-red-400'
+                                                            : synthesizeMode && item?.isOutOfGame ? 'cursor-pointer hover:border-blue-400' : ''}`}
                                                 >
                                                     {item ? item.icon : ''}
                                                     {sc && (
