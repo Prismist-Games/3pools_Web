@@ -76,7 +76,7 @@ npm run lint      # ESLint 检查
 │   ├── data/
 │   │   ├── constants.js           ← 游戏配置数据 (~20KB)
 │   │   ├── v2Config.js            ← v2 贴纸/订单/墙类型/远征配置
-│   │   ├── matrixConfig.js        ← 5×5 网格生成参数（厄运/特殊格/形状权重）
+│   │   ├── matrixConfig.js        ← 4×4 网格生成参数（特殊格生成概率、膨化格定义）
 │   │   ├── levelTemplates.js      ← 关卡系统：CELL_TYPES、glob 导入关卡、pickTemplate()、role helpers
 │   │   ├── levelSchedule.json     ← 关卡调度配置（权重、启用、最低探险、proceduralWeight）
 │   │   └── levels/                ← 关卡 JSON 文件（自动导入，编辑器保存至此）
@@ -98,7 +98,7 @@ npm run lint      # ESLint 检查
 │   └── components/
 │       ├── ErrorBoundary.jsx       ← 错误边界（类组件）
 │       ├── game/
-│       │   ├── ResourceMatrix.jsx  ← 5×5 奖品墙渲染
+│       │   ├── ResourceMatrix.jsx  ← 4×4 奖品墙渲染（含 modifier 动画与膨化格光环）
 │       │   ├── WallPicker.jsx      ← 3 选 1 墙选择界面
 │       │   ├── InventorySlot.jsx   ← 背包格子
 │       │   ├── OrderCard.jsx       ← 订单卡片
@@ -109,7 +109,7 @@ npm run lint      # ESLint 检查
 │       ├── editor/
 │       │   ├── LevelEditor.jsx     ← 关卡编辑器页面（画板 + 设置 + 保存）
 │       │   ├── LevelManager.jsx    ← 关卡管理页面（浏览 + 权重配置）
-│       │   ├── GridPainter.jsx     ← 可交互 5×5 编辑网格（画笔 + 编组模式）
+│       │   ├── GridPainter.jsx     ← 可交互 4×4 编辑网格（画笔模式）
 │       │   ├── CellPalette.jsx     ← 格子类型画笔选择器
 │       │   └── TemplatePreview.jsx ← 关卡缩略图预览
 │       └── ui/
