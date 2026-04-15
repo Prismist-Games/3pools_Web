@@ -331,7 +331,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
 
     if (!matrix) return null;
 
-    const canDraw = (phase === 'playing' || phase === 'drawing') && !disabled;
+    const canDraw = phase === 'drawing' && !disabled;
     const numRows = matrix.length;
     const numCols = matrix[0]?.length || 0;
 

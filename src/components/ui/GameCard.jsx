@@ -1,4 +1,5 @@
 import React from 'react';
+import GameTooltip from './GameTooltip';
 
 /**
  * GameCard — reusable card-style display for stickers and items.
@@ -72,10 +73,9 @@ const GameCard = ({
         ? '★'.repeat(Math.min(stars, 3)) + (stars > 3 ? '+' : '')
         : null;
 
-    return (
+    const card = (
         <div
             className={`relative inline-flex flex-col items-center justify-center border-2 shadow-sm ${style.border} ${style.bg} ${sz.wrapper} ${className}`}
-            title={label || ''}
         >
             {starText && (
                 <span className={`${sz.starText} text-amber-500 font-black leading-none tracking-tighter`}>
@@ -90,6 +90,12 @@ const GameCard = ({
             )}
         </div>
     );
+
+    if (!label) return card;
+
+    return hasStars
+        ? <GameTooltip icon={icon} title={label} text={starText}>{card}</GameTooltip>
+        : <GameTooltip text={label}>{card}</GameTooltip>;
 };
 
 export default GameCard;

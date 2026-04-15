@@ -972,6 +972,13 @@ export const EN_TRANSLATIONS = {
     "撤离时自动兑换": "Auto-redeemed on evacuation",
     "持有": "Have",
     "危险卡未满足": "Danger card unsatisfied",
+    "暂无卡牌": "No cards",
+    "回合结束自动检查": "Auto-checked at turn end",
+    "移除此卡": "Remove card",
+    "商店": "Shop",
+    "兑换券": "Vouchers",
+    "持有卡牌": "Held Cards",
+    "张兑换券满足": "vouchers satisfied",
 
     // --- Wall ---
     "奖品墙商店": "Wall Shop",

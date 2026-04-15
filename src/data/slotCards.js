@@ -52,9 +52,13 @@ function generateUID() {
     return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 }
 
-/** Pick N random distinct sticker type IDs */
-function pickRandomStickerTypes(count) {
-    const shuffled = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
+/** Pick N random distinct sticker type IDs, optionally excluding a list of type IDs */
+function pickRandomStickerTypes(count, excludeStickerTypes = []) {
+    const excludeSet = new Set(excludeStickerTypes);
+    let pool = STICKER_TYPES.filter(s => !excludeSet.has(s.id));
+    // If exclusion leaves too few types to fulfill `count`, fall back to the full pool.
+    if (pool.length < count) pool = STICKER_TYPES;
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, Math.min(count, shuffled.length)).map(s => s.id);
 }
 
@@ -105,6 +109,8 @@ function generateProfitReward(slotCount) {
  * @param {number} [options.turnCreated] - Current turn number (for danger cards)
  * @param {number} [options.stickerTypeCount] - How many distinct sticker types to use
  *   (defaults: profit 1-3, danger 1-2 — fewer types = easier to fill)
+ * @param {string[]} [options.excludeStickerTypes] - Sticker type IDs the card must NOT use
+ *   (used to rotate danger-card requirements across turns)
  * @returns {object} A slot card object
  */
 export function generateSlotCard(type, options = {}) {
@@ -125,7 +131,7 @@ export function generateSlotCard(type, options = {}) {
         ?? (1 + Math.floor(Math.random() * maxTypes));
 
     // Pick sticker types and distribute slots across them
-    const chosenTypes = pickRandomStickerTypes(stickerTypeCount);
+    const chosenTypes = pickRandomStickerTypes(stickerTypeCount, options.excludeStickerTypes);
 
     // Build slots: distribute evenly, then assign remainder randomly
     const slotsPerType = Array(stickerTypeCount).fill(Math.floor(slotCount / stickerTypeCount));

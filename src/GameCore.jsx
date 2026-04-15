@@ -55,9 +55,8 @@ const PoolCardUI = ({ pool, canEnter, onEnter, actionPoints, t }) => {
                 </div>
             )}
 
-            {/* Entry cost + draw limit */}
-            <div className="flex items-center justify-between text-[10px] font-bold text-gray-500">
-                <span>⚡{pool.entryCost} AP</span>
+            {/* Draw limit */}
+            <div className="flex items-center text-[10px] font-bold text-gray-500">
                 <span>🎯{pool.drawLimit}</span>
             </div>
 
@@ -71,7 +70,7 @@ const PoolCardUI = ({ pool, canEnter, onEnter, actionPoints, t }) => {
                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
             >
-                {canEnter ? t('进入') : (actionPoints < pool.entryCost ? `${t('行动点不足')}` : t('无法进入'))}
+                {canEnter ? `${t('进入')} (${pool.entryCost}⚡)` : (actionPoints < pool.entryCost ? t('行动点不足') : t('无法进入'))}
             </button>
         </div>
     );
@@ -183,7 +182,8 @@ const GameCore = () => {
 
 
     return (
-        <div className="min-h-screen bg-slate-100 p-4">
+        <div className="h-screen bg-slate-100 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4">
             <div className="max-w-6xl mx-auto">
                 {/* ===== Header — single-row resource bar ===== */}
                 <div className="mb-2 bg-white rounded-xl shadow-sm border border-gray-200">
@@ -266,11 +266,11 @@ const GameCore = () => {
                     <div className="flex flex-col gap-2">
                         <div className="flex gap-3">
                             {/* Main Action Area */}
-                            <div className="flex-1 min-w-0 flex flex-col gap-3">
-                                {/* Wall Shop */}
+                            <div className="flex-1 min-w-0">
+                                {/* Shop Section — walls + vouchers in one panel */}
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <h3 className="text-xs font-black uppercase tracking-wide text-gray-600">🏪 {t('奖品墙商店')}</h3>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-xs font-black uppercase tracking-wide text-gray-600">🏪 {t('商店')}</h3>
                                         <button
                                             onClick={refreshWalls}
                                             disabled={!canRefreshWalls}
@@ -280,103 +280,98 @@ const GameCore = () => {
                                                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                             }`}
                                         >
-                                            🔄 {t('刷新奖品墙')} ({AP_CONFIG.refreshCost}⚡)
+                                            🔄 {t('刷新')} ({AP_CONFIG.refreshCost}⚡)
                                         </button>
                                     </div>
-                                    <div className="flex gap-2 overflow-x-auto">
-                                        {revealedPools.map(pool => (
-                                            <PoolCardUI
-                                                key={pool.uid}
-                                                pool={pool}
-                                                canEnter={canEnterPool(pool)}
-                                                onEnter={() => enterPool(pool.uid)}
-                                                actionPoints={actionPoints}
-                                                t={t}
-                                            />
-                                        ))}
-                                        {revealedPools.length === 0 && (
-                                            <div className="text-center py-6 text-gray-400 text-sm w-full">{t('没有奖品墙')}</div>
-                                        )}
-                                    </div>
-                                </div>
 
-                                {/* Voucher Shop */}
-                                <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <h3 className="text-xs font-black uppercase tracking-wide text-blue-500">💎 {t('兑换券商店')}</h3>
-                                        <span className="text-[10px] text-blue-400 font-medium">{t('获取')} {AP_CONFIG.takeCardCost}⚡</span>
+                                    {/* Wall row */}
+                                    <div className="mb-2">
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">🧱 {t('奖品墙')}</div>
+                                        <div className="flex gap-2 overflow-x-auto">
+                                            {revealedPools.map(pool => (
+                                                <PoolCardUI
+                                                    key={pool.uid}
+                                                    pool={pool}
+                                                    canEnter={canEnterPool(pool)}
+                                                    onEnter={() => enterPool(pool.uid)}
+                                                    actionPoints={actionPoints}
+                                                    t={t}
+                                                />
+                                            ))}
+                                            {revealedPools.length === 0 && (
+                                                <div className="text-center py-4 text-gray-400 text-sm w-full">{t('没有奖品墙')}</div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="flex gap-3">
-                                        {displayedProfitCards.map(card => {
-                                            const reqs = getRequirements(card);
-                                            const satisfied = canSatisfyCard(card, inventory);
-                                            const canTake = canTakeCard(card.id);
-                                            return (
-                                                <div key={card.id} className={`flex-1 min-w-0 rounded-lg border-2 p-2.5 flex flex-col gap-1.5 ${
-                                                    satisfied
-                                                        ? 'border-emerald-400 bg-gradient-to-b from-emerald-50 to-green-50'
-                                                        : 'border-blue-300 bg-gradient-to-b from-blue-50 to-indigo-50'
-                                                }`}>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="text-base leading-none">💎</span>
-                                                        <span className="font-black text-[11px] text-blue-800">{t('物品兑换券')}</span>
-                                                        <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                                                            satisfied
-                                                                ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                                                                : 'bg-blue-100 text-blue-600 border-blue-200'
-                                                        }`}>
-                                                            {satisfied ? `✓ ${t('已满足')}` : `✗ ${t('未满足')}`}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                                        {Object.entries(reqs).map(([stickerType, count]) => {
-                                                            const info = getStickerTypeInfo(stickerType);
-                                                            const invCount = inventory.filter(i => i?.isSticker && i.stickerId === stickerType).length;
-                                                            const typeSatisfied = invCount >= count;
-                                                            return (
-                                                                <div key={stickerType} className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center text-sm relative ${
-                                                                    typeSatisfied
-                                                                        ? 'border-emerald-400 bg-emerald-50 shadow-sm'
-                                                                        : 'border-dashed border-gray-300 bg-white/50 opacity-60'
-                                                                }`}>
-                                                                    <span className={typeSatisfied ? '' : 'opacity-40'}>{info?.icon || '?'}</span>
-                                                                    {count > 1 && (
-                                                                        <span className="text-[7px] font-black text-gray-500 absolute -bottom-0.5 -right-0.5">x{count}</span>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    {card.reward?.items && (
-                                                        <div className="bg-amber-50/60 border border-amber-200 rounded px-1.5 py-1">
-                                                            <div className="text-[8px] font-bold text-amber-500 mb-0.5">{t('撤离获得')}</div>
+
+                                    {/* Voucher row */}
+                                    <div>
+                                        <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wide mb-1.5">💎 {t('兑换券')}</div>
+                                        <div className="flex gap-2 overflow-x-auto">
+                                            {displayedProfitCards.map(card => {
+                                                const reqs = getRequirements(card);
+                                                const satisfied = canSatisfyCard(card, inventory);
+                                                const canTake = canTakeCard(card.id);
+                                                return (
+                                                    <div key={card.id} className={`flex-shrink-0 w-44 rounded-lg border-2 p-2 flex flex-col gap-1.5 ${
+                                                        satisfied
+                                                            ? 'border-emerald-400 bg-gradient-to-b from-emerald-50 to-green-50'
+                                                            : 'border-blue-300 bg-gradient-to-b from-blue-50 to-indigo-50'
+                                                    }`}>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="text-lg leading-none">💎</span>
+                                                            <span className="font-black text-xs truncate">{t('物品兑换券')}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 flex-wrap">
+                                                            {Object.entries(reqs).map(([stickerType, count]) => {
+                                                                const info = getStickerTypeInfo(stickerType);
+                                                                const invCount = inventory.filter(i => i?.isSticker && i.stickerId === stickerType).length;
+                                                                const typeSatisfied = invCount >= count;
+                                                                return (
+                                                                    <div key={stickerType} className={`relative w-10 h-10 rounded-lg border-2 flex items-center justify-center text-lg ${
+                                                                        typeSatisfied
+                                                                            ? 'border-emerald-400 bg-emerald-50'
+                                                                            : 'border-dashed border-gray-300 bg-white/50'
+                                                                    }`}>
+                                                                        <span className={typeSatisfied ? '' : 'opacity-40'}>{info?.icon || '?'}</span>
+                                                                        {count > 1 && (
+                                                                            <span className="absolute -top-1 -right-2 text-[9px] font-bold text-white bg-gray-700 rounded-full px-1 leading-tight">x{count}</span>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        {card.reward?.items && (
                                                             <div className="flex items-center gap-1 flex-wrap">
                                                                 {card.reward.items.map((item, i) => (
-                                                                    <GameCard key={i} icon={item.icon} label={t(item.name)} stars={item.stars} size="sm" />
+                                                                    <GameCard key={i} icon={item.icon} label={t(item.name)} stars={item.stars} size="md" />
                                                                 ))}
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                    <button
-                                                        onClick={() => takeDisplayCard(card.id)}
-                                                        disabled={!canTake}
-                                                        className={`w-full px-2 py-1 rounded-lg text-[11px] font-bold transition-colors ${
-                                                            canTake
-                                                                ? 'bg-blue-500 text-white hover:bg-blue-600'
-                                                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                                        }`}
-                                                    >
-                                                        {t('获取')} ({AP_CONFIG.takeCardCost}⚡)
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-                                        {displayedProfitCards.length === 0 && (
-                                            <div className="text-center py-3 text-gray-400 text-sm w-full">{t('暂无兑换券')}</div>
-                                        )}
+                                                        )}
+                                                        <button
+                                                            onClick={() => takeDisplayCard(card.id)}
+                                                            disabled={!canTake}
+                                                            className={`w-full px-2 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                                                                canTake
+                                                                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                            }`}
+                                                        >
+                                                            {canTake
+                                                                ? `${t('获取')} (${AP_CONFIG.takeCardCost}⚡)`
+                                                                : actionPoints < AP_CONFIG.takeCardCost
+                                                                    ? t('行动点不足')
+                                                                    : (satisfied ? `✓ ${t('已满足')}` : `✗ ${t('未满足')}`)}
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                            {displayedProfitCards.length === 0 && (
+                                                <div className="text-center py-3 text-gray-400 text-sm w-full">{t('暂无兑换券')}</div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-
                             </div>
 
                             {/* Inventory (right panel) */}
@@ -385,19 +380,6 @@ const GameCore = () => {
                             </div>
                         </div>
 
-                        {/* Card Dock */}
-                        <CardDock
-                            dangerCards={dangerCards}
-                            profitCards={profitCards}
-                            inventory={inventory}
-                            canEvacuate={canEvacuate}
-                            satisfiedProfitCount={satisfiedProfitCount}
-                            evacuationProfitRequirement={evacuationProfitRequirement}
-                            evacuate={evacuate}
-                            removeSlotCard={removeSlotCard}
-                            phase={phase}
-                            t={t}
-                        />
                     </div>
                 )}
 
@@ -475,19 +457,6 @@ const GameCore = () => {
                             </div>
                         </div>
 
-                        {/* Card Dock */}
-                        <CardDock
-                            dangerCards={dangerCards}
-                            profitCards={profitCards}
-                            inventory={inventory}
-                            canEvacuate={canEvacuate}
-                            satisfiedProfitCount={satisfiedProfitCount}
-                            evacuationProfitRequirement={evacuationProfitRequirement}
-                            evacuate={evacuate}
-                            removeSlotCard={removeSlotCard}
-                            phase={phase}
-                            t={t}
-                        />
                     </div>
                 )}
 
@@ -623,6 +592,21 @@ const GameCore = () => {
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
             </div>
+            </div>{/* end scrollable area */}
+
+            {/* Card Dock — fixed at bottom of viewport */}
+            <CardDock
+                dangerCards={dangerCards}
+                profitCards={profitCards}
+                inventory={inventory}
+                canEvacuate={canEvacuate}
+                satisfiedProfitCount={satisfiedProfitCount}
+                evacuationProfitRequirement={evacuationProfitRequirement}
+                evacuate={evacuate}
+                removeSlotCard={removeSlotCard}
+                phase={phase}
+                t={t}
+            />
         </div>
     );
 
@@ -766,7 +750,6 @@ const GameCore = () => {
                                         ${isRecycleSelected ? 'scale-95 opacity-60' : ''}
                                         ${canReplace ? 'cursor-pointer hover:scale-110'
                                             : recycleMode && item ? 'cursor-pointer' : ''}`}
-                                    title={item ? t(item.name) : ''}
                                 >
                                     {item ? (
                                         <GameCard

@@ -52,21 +52,22 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "幸运之墙 Wall of Fort
 - **Config-driven**: Game balance, items, skills — all defined in `src/data/constants.js`. Edit config values, not logic.
 - **i18n**: Chinese is the source language. Wrap all UI strings with `t()` from `useLanguage()`. Add English translations to `src/utils/translations.js`. Never hardcode English in components.
 
-### Game Concepts (Turn-Based Prototype v3)
+### Game Concepts (Current Prototype — Hand-building + Passive Matching)
 
-- **Setting**: TV game show. Player faces a Prize Wall (奖品墙) each turn.
-- **Game Structure**: 3 expeditions per game. Each expedition: multiple turns of drawing → evacuate. Victory: ≥30 points across 3 evacuations.
-- **Turn Structure**: Free draws on current wall → meet unlock conditions → choose next wall from 3 candidates → continue or evacuate.
-- **Prize Wall**: 5×5 wall, player selects row OR column, random draw 1 cell. Cell types: stickers (main), 💀 doom resolution, ⬛ doom accumulation, 💥 damage, 🚪 evacuation, gold cells. All items have Tetris-like shapes.
-- **Wall Colors**: 5 colors (🟫 brown, 🟨 yellow, 🟩 green, 🟥 red, 🟦 blue) with different content ratios. Each wall has unlock conditions (draw count + optional gold cost). Colors can repeat in 3-choose-1.
-- **Economy**: Draws are FREE. Gold is a strategic resource that persists across turns (starting 5/expedition). Used for wall unlock costs, buying orders, long-term function costs.
-- **Stickers**: 8 types of local-only materials (⭐🌸⚡🔥🌙🍀🎵🦋). Each wall has 2-4 types. Consumed when submitting orders.
-- **Orders**: Bulletin board shows 5 orders. Accept to reveal requirements. Max 3 held. Orders need specific sticker types/quantities. Submit anytime, no cost.
-- **Export Items**: Score items from completing orders (1/2/3/5 pts, 3 items per tier). Evacuate to convert to score.
-- **Doom System**: 10-cell Doom Grid, phase-based accumulation (safe 1-4, slow 5-8, fast 9-12, danger 13+). 💀 triggers resolution (N draws based on turn: 1/2/3). ⬛ adds danger directly. 💥 deals -1 HP. HP = 5; at 0 = lose entire backpack, forced evacuation.
-- **Refresh**: Spend refresh count to re-roll 3 wall candidates. Start with 1/expedition.
-- **Backpack**: 15 slots shared by stickers and export items.
-- **Planned systems (not in prototype)**: Wall functions (long-term/persistent/instant effects), order gold cost, 4 evacuation types, sticker exchange.
+> Authoritative design doc: `design_docs/game_rules.md`. This section is a quick reference; read the doc before any gameplay work.
+
+- **Core loop**: Draw stickers from walls → hold them in inventory (not consumed) → passively satisfy danger cards (survive) and profit cards (rewards) → evacuate.
+- **Core tension**: Backpack space. Stickers aren't consumed, so everything held occupies slots. Player must choose which combinations to maintain.
+- **Stickers**: 8 types (☀️阳光 💧水滴 🔥火焰 💨清风 🌱种子 🪨矿石 ❄️冰霜 🌀漩涡). **Not consumed.** One sticker simultaneously satisfies all cards that need it.
+- **Wall shop**: 5 walls displayed at once, each with 2-3 random sticker biases (~65-70% concentration). Entry fee 1-3 AP, draws 3/5/7 (cost-linked). Refresh all 5 for 2 AP.
+- **Drawing**: Free (0 AP). Pick one row or column in a 4×4 grid, randomly get one cell. Used cells stay empty until wall refreshes.
+- **Card types** (all passive-match — check inventory, don't consume):
+  - **Danger cards** ⚠️ — auto-generated each turn (1/2/3/4 by turn range), each needs 1 sticker type, checked at turn end. Unmet = −1 life.
+  - **Profit cards** 💎 — bought from voucher shop (2 displayed, 2 AP each, max 5 held). Each needs 2-3 sticker types. Satisfied ones grant out-of-game items on evacuation.
+  - **Evacuation card** 🚪 — held from start. Activates when ≥3 profit cards are currently satisfied (`EVACUATION_PROFIT_REQUIREMENT = 3`).
+- **Resources**: 10 AP/turn (reset), 5 starting lives (0 = forced evacuation, lose inventory), **10-slot backpack** (stickers + items share).
+- **Game structure**: 3 expeditions per game, each = multiple turns → evacuate. Score from items won via profit cards.
+- **Planned but not implemented**: Skill cards (passive-match for combo effects), wall decision depth beyond bias/cost/draws, intermittent evacuation windows.
 
 ### Workflow Rules
 

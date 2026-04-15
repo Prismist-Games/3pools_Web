@@ -3,7 +3,7 @@ import { generatePoolGrid, applyGravityAndRefill } from '../utils/matrixHelpers'
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from '../data/v2Config';
 import { AP_CONFIG, INITIAL_LIVES } from '../data/v3Config';
 import { POOL_TYPES, generateWallShop, buildBiasedStickerWeights } from '../data/poolTypes';
-import { generateSlotCard, canSatisfyCard, EVACUATION_PROFIT_REQUIREMENT } from '../data/slotCards';
+import { generateSlotCard, canSatisfyCard, getRequirements, EVACUATION_PROFIT_REQUIREMENT } from '../data/slotCards';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -38,8 +38,8 @@ export const useGameLogic = (config) => {
     const [actionPoints, setActionPoints] = useState(AP_CONFIG.maxAP);
 
     // --- Wall Shop State ---
-    const [revealedPools, setRevealedPools] = useState([]);   // array of 5 wall instances
-    const [displayedProfitCards, setDisplayedProfitCards] = useState([]); // 2 profit cards in shop display
+    const [revealedPools, setRevealedPools] = useState([]);   // shop wall instances (count: AP_CONFIG.wallShopSize)
+    const [displayedProfitCards, setDisplayedProfitCards] = useState([]); // displayed profit cards (count: AP_CONFIG.displayCardCount)
 
     // --- Pool State ---
     const [currentPool, setCurrentPool] = useState(null);   // { uid, poolType, grid, cellCounts } or null
@@ -90,7 +90,7 @@ export const useGameLogic = (config) => {
     // Cost-to-drawLimit mapping for wall shop
     const COST_DRAW_LIMIT = { 1: 3, 2: 5, 3: 7 };
 
-    /** Generate 5 shop walls with random entry costs and draw limits */
+    /** Generate shop walls with random entry costs and draw limits */
     const generateShopWalls = () => {
         const shopWalls = generateWallShop(AP_CONFIG.wallShopSize);
         return shopWalls.map(poolType => {
@@ -105,7 +105,7 @@ export const useGameLogic = (config) => {
         });
     };
 
-    /** Generate 2 profit cards for the display */
+    /** Generate profit cards for the display */
     const generateDisplayCards = () => {
         const cards = [];
         for (let i = 0; i < AP_CONFIG.displayCardCount; i++) {
@@ -114,7 +114,7 @@ export const useGameLogic = (config) => {
         return cards;
     };
 
-    /** Refresh wall shop — costs AP, replaces all 5 walls + 2 profit cards */
+    /** Refresh wall shop — costs AP, replaces all walls + profit cards */
     const refreshWalls = () => {
         if (!canRefreshWalls) return;
         setActionPoints(prev => prev - AP_CONFIG.refreshCost);
@@ -264,55 +264,29 @@ export const useGameLogic = (config) => {
     };
 
     /**
-     * Resolve slot cards at evacuation (passive matching).
-     * - Satisfied profit cards: grant reward items. Stickers NOT consumed.
-     * - Unsatisfied profit cards: no reward, no penalty.
-     * - Danger cards should have been resolved at turn end already; clean up any remaining.
-     * @returns {{ rewardItems: object[] }} items gained from satisfied profit cards
+     * Collect reward items from all satisfied profit cards. Stickers NOT consumed.
+     * Backpack capacity does NOT apply at evacuation — every satisfied reward
+     * counts toward the final score.
+     * @returns {object[]} reward items minted from satisfied profit cards
      */
-    const resolveSlotCardsAtEvacuation = () => {
-        const currentProfitCards = slotCards.filter(c => c.type === 'profit');
+    const collectEvacuationRewards = () => {
         const rewardItems = [];
-
-        for (const card of currentProfitCards) {
-            if (canSatisfyCard(card, inventory) && card.reward?.items) {
-                for (const item of card.reward.items) {
-                    rewardItems.push({
-                        id: item.id,
-                        name: item.name,
-                        icon: item.icon,
-                        stars: item.stars,
-                        isOutOfGame: true,
-                        uid: generateUID(),
-                    });
-                }
+        for (const card of slotCards) {
+            if (card.type !== 'profit') continue;
+            if (!canSatisfyCard(card, inventory)) continue;
+            if (!card.reward?.items) continue;
+            for (const item of card.reward.items) {
+                rewardItems.push({
+                    id: item.id,
+                    name: item.name,
+                    icon: item.icon,
+                    stars: item.stars,
+                    isOutOfGame: true,
+                    uid: generateUID(),
+                });
             }
         }
-
-        // Add reward items to inventory
-        if (rewardItems.length > 0) {
-            setInventory(prev => {
-                const newInv = [...prev];
-                const toPending = [];
-                for (const item of rewardItems) {
-                    if (newInv.length < maxInventorySize) {
-                        newInv.push(item);
-                    } else {
-                        toPending.push(item);
-                    }
-                }
-                if (toPending.length > 0) {
-                    setPendingItems(prevP => [...prevP, ...toPending]);
-                }
-                return newInv;
-            });
-            showToast(`🎁 ${t('物品兑换券兑换')} ×${rewardItems.length}`, 'success');
-        }
-
-        // Clear all slot cards
-        setSlotCards([]);
-
-        return { rewardItems };
+        return rewardItems;
     };
 
     /** Remove a specific slot card (e.g., player discards it). */
@@ -373,14 +347,22 @@ export const useGameLogic = (config) => {
 
     /** End current turn manually (forfeits remaining AP) */
     const endTurn = () => {
+        // Snapshot sticker types required by current danger cards so the next turn's
+        // danger cards can exclude them (rotation rule — see game_rules.md).
+        const prevDangerStickerTypes = Array.from(new Set(
+            slotCards
+                .filter(c => c.type === 'danger')
+                .flatMap(c => Object.keys(getRequirements(c)))
+        ));
+
         // Check danger slot cards before moving to next turn
         checkDangerCards();
 
-        startNextTurn();
+        startNextTurn(prevDangerStickerTypes);
     };
 
     /** Start a new turn — reset AP, generate new danger cards */
-    const startNextTurn = () => {
+    const startNextTurn = (excludeStickerTypes = []) => {
         const nextTurn = turnNumber + 1;
         setTurnNumber(nextTurn);
         setActionPoints(AP_CONFIG.maxAP);
@@ -393,7 +375,10 @@ export const useGameLogic = (config) => {
         const dangerCardCount = Math.ceil(nextTurn / 2);
         const newDangerCards = [];
         for (let i = 0; i < dangerCardCount; i++) {
-            newDangerCards.push(generateSlotCard('danger', { turnCreated: nextTurn }));
+            newDangerCards.push(generateSlotCard('danger', {
+                turnCreated: nextTurn,
+                excludeStickerTypes,
+            }));
         }
 
         // No auto-generate profit cards — they only come from the display
@@ -403,7 +388,8 @@ export const useGameLogic = (config) => {
         setCurrentPool(null);
         setMatrix(null);
 
-        // Refresh displayed profit cards for new turn
+        // Refill + refresh wall shop and profit card display for new turn
+        setRevealedPools(generateShopWalls());
         setDisplayedProfitCards(generateDisplayCards());
 
         setPhase('pool_selection');
@@ -696,13 +682,15 @@ export const useGameLogic = (config) => {
     // EVACUATION & GAME OVER
     // =============================================
 
-    /** Evacuate — resolve slot cards and finish evacuation flow */
+    /** Evacuate — collect rewards and finish evacuation flow */
     const evacuate = () => {
         if (!canEvacuate) return;
-        const { rewardItems } = resolveSlotCardsAtEvacuation();
-        const capacityRemaining = Math.max(0, maxInventorySize - inventory.length);
-        const finalInventory = [...inventory, ...rewardItems.slice(0, capacityRemaining)];
-        finishEvacuation(finalInventory, 'evacuated');
+        const rewardItems = collectEvacuationRewards();
+        if (rewardItems.length > 0) {
+            showToast(`🎁 ${t('物品兑换券兑换')} ×${rewardItems.length}`, 'success');
+        }
+        setSlotCards([]);
+        finishEvacuation([...inventory, ...rewardItems], 'evacuated');
     };
 
     /** Collect out-of-game items from inventory */
@@ -832,8 +820,6 @@ export const useGameLogic = (config) => {
         satisfiedProfitCount,
         evacuationProfitRequirement: EVACUATION_PROFIT_REQUIREMENT,
         addSlotCard,
-        checkDangerCards,
-        resolveSlotCardsAtEvacuation,
         removeSlotCard,
         evacuate,
 

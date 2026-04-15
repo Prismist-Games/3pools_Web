@@ -112,10 +112,10 @@ export const AP_CONFIG = {
     maxAP: 10,          // AP per turn
     drawCost: 0,        // AP cost per draw (free)
     flipCost: 3,        // AP cost to reveal a new pool (legacy — kept for backward compat)
-    refreshCost: 2,     // AP cost to refresh the wall shop (replaces all 5 walls)
+    refreshCost: 2,     // AP cost to refresh the wall shop (replaces all walls + vouchers)
     takeCardCost: 2,    // AP cost to take a profit card from the display
-    wallShopSize: 5,    // number of walls always visible in the shop
-    displayCardCount: 2, // number of profit cards displayed in the shop
+    wallShopSize: 3,    // number of walls always visible in the shop
+    displayCardCount: 3, // number of profit cards displayed in the shop
     maxRevealedPools: 5, // max visible pools at once (wall area) — kept for backward compat
     maxRevealedOrders: 3, // max visible orders at once (order area)
 };
