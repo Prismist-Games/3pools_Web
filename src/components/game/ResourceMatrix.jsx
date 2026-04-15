@@ -230,26 +230,23 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         ? `${extraShadow ? extraShadow + ', ' : ''}0 0 ${6 + buffCoverage * 4}px ${2 + buffCoverage}px rgba(232, 184, 64, ${0.35 + buffCoverage * 0.12})`
         : extraShadow;
 
-    // Cluster styling: when a sticker shares an edge with a same-id
-    // sticker, fade that edge so adjacent members visually merge into one
-    // contiguous shape. When the player hovers any cluster member, every
-    // member gets a soft amber ring so the destruction blast radius is
-    // legible before the click.
+    // Cluster styling: on a side shared with a same-id sticker, drop the
+    // border, drop the margin, and extend the cell by HALF so it reaches
+    // the slot boundary. The neighbor does the same from its side — the
+    // two meet flush at the slot line, bg colors merge, and adjacent
+    // same-id stickers render as one continuous shape.
+    let clusterMarginTop    = HALF;
+    let clusterMarginRight  = HALF;
+    let clusterMarginBottom = HALF;
+    let clusterMarginLeft   = HALF;
+    let clusterExtraW = 0;
+    let clusterExtraH = 0;
     const borderStyle = {};
     if (sameNeighbors) {
-        const fade = 'rgba(0,0,0,0)';
-        if (sameNeighbors.top)    borderStyle.borderTopColor = fade;
-        if (sameNeighbors.right)  borderStyle.borderRightColor = fade;
-        if (sameNeighbors.bottom) borderStyle.borderBottomColor = fade;
-        if (sameNeighbors.left)   borderStyle.borderLeftColor = fade;
-        if (sameNeighbors.top)    borderStyle.borderTopLeftRadius = 0;
-        if (sameNeighbors.top)    borderStyle.borderTopRightRadius = 0;
-        if (sameNeighbors.bottom) borderStyle.borderBottomLeftRadius = 0;
-        if (sameNeighbors.bottom) borderStyle.borderBottomRightRadius = 0;
-        if (sameNeighbors.left)   borderStyle.borderTopLeftRadius = 0;
-        if (sameNeighbors.left)   borderStyle.borderBottomLeftRadius = 0;
-        if (sameNeighbors.right)  borderStyle.borderTopRightRadius = 0;
-        if (sameNeighbors.right)  borderStyle.borderBottomRightRadius = 0;
+        if (sameNeighbors.top)    { borderStyle.borderTopWidth    = 0; clusterMarginTop    = 0; clusterExtraH += HALF; borderStyle.borderTopLeftRadius     = 0; borderStyle.borderTopRightRadius = 0; }
+        if (sameNeighbors.right)  { borderStyle.borderRightWidth  = 0; clusterMarginRight  = 0; clusterExtraW += HALF; borderStyle.borderTopRightRadius    = 0; borderStyle.borderBottomRightRadius = 0; }
+        if (sameNeighbors.bottom) { borderStyle.borderBottomWidth = 0; clusterMarginBottom = 0; clusterExtraH += HALF; borderStyle.borderBottomLeftRadius  = 0; borderStyle.borderBottomRightRadius = 0; }
+        if (sameNeighbors.left)   { borderStyle.borderLeftWidth   = 0; clusterMarginLeft   = 0; clusterExtraW += HALF; borderStyle.borderTopLeftRadius     = 0; borderStyle.borderBottomLeftRadius = 0; }
     }
     const clusterRing = inHoveredCluster
         ? '0 0 0 2px rgba(232,168,48,0.55), 0 0 8px rgba(232,168,48,0.35)'
@@ -266,9 +263,12 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
             data-cell={`${rowIndex}-${colIndex}`}
             className={`relative border rounded-lg flex flex-col items-center justify-center ${bgClass} ${highlightClass}`}
             style={{
-                margin: `${HALF}px`,
-                width: CELL_SIZE,
-                height: CELL_SIZE,
+                marginTop: clusterMarginTop,
+                marginRight: clusterMarginRight,
+                marginBottom: clusterMarginBottom,
+                marginLeft: clusterMarginLeft,
+                width: CELL_SIZE + clusterExtraW,
+                height: CELL_SIZE + clusterExtraH,
                 boxShadow: finalShadow,
                 ...borderStyle,
                 ...gravityStyle,
