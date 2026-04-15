@@ -14,6 +14,7 @@ import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
 import { Link } from 'react-router-dom';
 import { GameGuide } from './components/ui/GameGuide';
 import RoundTransition from './components/ui/RoundTransition';
+import WallPicker from './components/game/WallPicker';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -28,8 +29,6 @@ const GameCore = () => {
     const [debugOpen, setDebugOpen] = useState(false);
     const [debugSelectedItem, setDebugSelectedItem] = useState(null);
     const [guideOpen, setGuideOpen] = useState(false);
-    const [turnReveal, setTurnReveal] = useState(null); // { icon, name, desc, subtitle } | null
-    const prevTurnRef = useRef(0);
     const [dispatchOpen, setDispatchOpen] = useState(false);
     const [kitchenOpen, setKitchenOpen] = useState(false);
     const [kitchenDishIdx, setKitchenDishIdx] = useState(0);
@@ -53,7 +52,8 @@ const GameCore = () => {
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
-        startGame, selectRow, selectColumn, endTurn, continueToNextTurn,
+        startGame, selectWall, selectRow, selectColumn, endTurn, continueToNextTurn,
+        wallCandidates,
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
@@ -101,34 +101,9 @@ const GameCore = () => {
         return () => clearTimeout(timer);
     }, [flyingItem]);
 
-    // --- Round transition overlay ---
-    // Fires on each new turn with the wall's modifier/level info. Requires a
-    // click to dismiss. Does NOT fire on sub-level exit (turnNumber unchanged).
-    useEffect(() => {
-        if (turnNumber > 0 && phase === 'drawing' && turnNumber !== prevTurnRef.current) {
-            prevTurnRef.current = turnNumber;
-            const subtitle = language === 'en'
-                ? `Round ${expeditionNumber} · Turn ${turnNumber}`
-                : `第 ${expeditionNumber} 场 · 第 ${turnNumber} 回合`;
-            if (currentLevel) {
-                setTurnReveal({
-                    subtitle,
-                    icon: currentLevel.icon || '📐',
-                    name: t(currentLevel.name) || currentLevel.id,
-                    desc: t(currentLevel.description) || t('特殊地形关卡'),
-                });
-            } else if (currentWallType) {
-                setTurnReveal({
-                    subtitle,
-                    icon: currentWallType.icon,
-                    name: t(currentWallType.name),
-                    desc: t(currentWallType.desc),
-                });
-            } else {
-                setTurnReveal({ subtitle, icon: '🎬', name: subtitle, desc: '' });
-            }
-        }
-    }, [turnNumber, phase, expeditionNumber, language, currentWallType, currentLevel, t]);
+    // Per-turn modifier reveal overlay removed — WallPicker now shows
+    // modifier/level info upfront, so a post-pick reveal would be redundant.
+    // The dish-intro RoundTransition is kept for the opening menu reveal.
 
     // --- Doom grid cell style (with animation highlights) ---
     const getDoomCellClass = (cell, cellIndex) => {
@@ -284,7 +259,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'between_turns') && (
+                {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'between_turns' || phase === 'wall_choice') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -309,6 +284,11 @@ const GameCore = () => {
 
                         {/* CENTER — changes by phase */}
                         <div className="flex-1 min-w-0">
+                            {/* Wall choice phase — 3-choose-1 */}
+                            {phase === 'wall_choice' && wallCandidates && (
+                                <WallPicker candidates={wallCandidates} onSelect={selectWall} />
+                            )}
+
                             {/* Drawing phase */}
                             {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub') && matrix && (
                                 <div className="flex flex-col items-center">
@@ -810,9 +790,6 @@ const GameCore = () => {
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
-
-                {/* Round transition overlay — click to dismiss */}
-                <RoundTransition reveal={turnReveal} onDismiss={() => setTurnReveal(null)} />
 
                 {/* Opening dish intro — click anywhere to continue */}
                 <RoundTransition

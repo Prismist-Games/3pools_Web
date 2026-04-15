@@ -127,6 +127,9 @@ export const useGameLogic = (config) => {
     const [currentWallType, setCurrentWallType] = useState(null);
     const [currentLevel, setCurrentLevel] = useState(null); // hand-crafted level for reveal overlay
     const [lastDrawDirection, setLastDrawDirection] = useState(null);
+    // 3-choose-1 candidates surfaced during 'wall_choice' phase. Each is
+    // { stickers, grid, doomCellCount, wallType, level } — wallType XOR level.
+    const [wallCandidates, setWallCandidates] = useState(null);
 
     // --- Board Effect State ---
     const [gravityActive, setGravityActive] = useState(false);
@@ -228,33 +231,48 @@ export const useGameLogic = (config) => {
         // Reset draw direction for alternating wall
         setLastDrawDirection(null);
 
-        // Generate a single wall for this turn. Either a hand-crafted level
-        // (if the schedule picks one) or a procedural modifier wall. No
-        // 3-choose-1; the modifier is revealed on the click-to-dismiss
-        // overlay in GameCore.
+        // Generate 3 wall candidates and enter the wall_choice phase. Each
+        // candidate is EITHER a hand-crafted level OR a procedural wall —
+        // mutually exclusive. No duplicates within the 3.
+        const candidates = [];
+        const usedIds = new Set();
         const currentExpedition = Math.max(1, expeditionNumber);
-        const template = pickTemplate(currentExpedition);
-        let candidate;
-        if (template) {
-            const result = generateWallFromTemplate(template);
-            candidate = {
-                stickers: result.stickers,
-                grid: result.grid,
-                doomCellCount: result.doomCellCount,
-                wallType: null,
-                level: template,
-            };
-        } else {
-            const wallType = pickWallType();
-            // Each procedural wall picks 3-4 sticker types uniformly from
-            // the full STICKER_TYPES roster. The wall is not constrained by
-            // current order requirements — match-up between shelf and wall
-            // is part of the strategic choice.
-            const stickers = pickWallStickers(STICKER_TYPES, WALL_STICKER_COUNT.min, WALL_STICKER_COUNT.max);
-            const { grid, doomCellCount } = generateWall(stickers);
-            candidate = { stickers, grid, doomCellCount, wallType, level: null };
+        let safety = 0;
+        while (candidates.length < 3 && safety < 30) {
+            safety++;
+            const template = pickTemplate(currentExpedition);
+            if (template) {
+                const key = 'level:' + template.id;
+                if (usedIds.has(key)) continue;
+                usedIds.add(key);
+                const result = generateWallFromTemplate(template);
+                candidates.push({
+                    stickers: result.stickers,
+                    grid: result.grid,
+                    doomCellCount: result.doomCellCount,
+                    wallType: null,
+                    level: template,
+                });
+            } else {
+                const wallType = pickWallType();
+                const key = 'wall:' + wallType.id;
+                if (usedIds.has(key)) continue;
+                usedIds.add(key);
+                const stickers = pickWallStickers(STICKER_TYPES, WALL_STICKER_COUNT.min, WALL_STICKER_COUNT.max);
+                const { grid, doomCellCount } = generateWall(stickers);
+                candidates.push({ stickers, grid, doomCellCount, wallType, level: null });
+            }
         }
-        applyWallCandidate(candidate);
+        setWallCandidates(candidates);
+        setPhase('wall_choice');
+    };
+
+    /** Player picks one of the 3 wall candidates — apply it and enter drawing. */
+    const selectWall = (index) => {
+        if (!wallCandidates || !wallCandidates[index]) return;
+        const chosen = wallCandidates[index];
+        setWallCandidates(null);
+        applyWallCandidate(chosen);
     };
 
     /** Start the game: show today's dish, then let the player assemble the
@@ -1337,6 +1355,7 @@ export const useGameLogic = (config) => {
         setIncomingQueue([]);
         setDishIntroPending(false);
         setCurrentDish(null);
+        setWallCandidates(null);
         setToast(null);
         setLastDrawResult(null);
         setModalContent(null);
@@ -1384,6 +1403,7 @@ export const useGameLogic = (config) => {
         setIncomingQueue([]);
         setDishIntroPending(false);
         setCurrentDish(null);
+        setWallCandidates(null);
         setPhase('pre_game');
     };
 
@@ -1422,6 +1442,7 @@ export const useGameLogic = (config) => {
         currentWallType,
         currentLevel,
         lastDrawDirection,
+        wallCandidates,
 
         // Board Effects
         gravityDrops,
@@ -1463,6 +1484,7 @@ export const useGameLogic = (config) => {
 
         // Actions
         startGame,
+        selectWall,
         selectRow,
         selectColumn,
         endTurn,
