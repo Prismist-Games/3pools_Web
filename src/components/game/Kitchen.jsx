@@ -94,7 +94,7 @@ const RATING_STYLE = {
 const TagBadge = ({ tag, className = '' }) => {
     const { t } = useLanguage();
     return (
-        <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-kitchen-wood-dark text-kitchen-card ${className}`}>
+        <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-kitchen-wood-shadow text-kitchen-card ${className}`}>
             {t(tag)}
         </span>
     );
@@ -120,7 +120,7 @@ const SlotPreview = ({ slot, isSpawned = false }) => {
                             <span className="text-kitchen-text-muted">{t('其他')}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-[10px]">
-                            <span className="text-kitchen-success-border w-8 text-right font-mono font-bold">×1</span>
+                            <span className="text-green-700 w-8 text-right font-mono font-bold">×1</span>
                             <TagBadge tag={slot.accept} />
                         </div>
                         {slot.prefer && (
@@ -227,7 +227,7 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                             <span className="text-kitchen-text-muted">{t('其他')}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-[10px]">
-                            <span className="text-kitchen-success-border w-8 text-right font-mono font-bold">×1</span>
+                            <span className="text-green-700 w-8 text-right font-mono font-bold">×1</span>
                             <TagBadge tag={slot.accept} />
                         </div>
                         {slot.prefer && (
