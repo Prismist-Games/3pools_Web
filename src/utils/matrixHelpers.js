@@ -6,6 +6,44 @@ function generateUID() {
 }
 
 /**
+ * Flood-fill from (r, c) over 4-connected sticker cells sharing the same
+ * sticker id. Returns an array of [row, col] pairs for every cluster
+ * member (including the seed). If (r, c) is not a sticker cell, returns [].
+ *
+ * Clusters are computed on demand at draw time — the matrix is the source
+ * of truth; we don't store cluster IDs on cells (they'd go stale on every
+ * shuffle/conveyor/rotation/growth).
+ */
+export function getClusterMembers(matrix, r, c) {
+  const seed = matrix?.[r]?.[c];
+  if (!seed || seed.type !== 'sticker') return [];
+  const targetId = seed.item?.id;
+  if (!targetId) return [];
+  const rows = matrix.length;
+  const cols = matrix[0]?.length || 0;
+  const visited = new Set();
+  const stack = [[r, c]];
+  const members = [];
+  while (stack.length) {
+    const [cr, cc] = stack.pop();
+    const key = `${cr}-${cc}`;
+    if (visited.has(key)) continue;
+    visited.add(key);
+    const cur = matrix[cr]?.[cc];
+    if (!cur || cur.type !== 'sticker' || cur.item?.id !== targetId) continue;
+    members.push([cr, cc]);
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nr = cr + dr;
+      const nc = cc + dc;
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited.has(`${nr}-${nc}`)) {
+        stack.push([nr, nc]);
+      }
+    }
+  }
+  return members;
+}
+
+/**
  * Randomly pick min–max sticker types from the full sticker array.
  */
 export function pickWallStickers(allStickers, min = 3, max = 4) {

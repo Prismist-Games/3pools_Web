@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
+import { generateWall, pickWallStickers, getClusterMembers } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { pickTemplate, LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
@@ -629,7 +629,23 @@ export const useGameLogic = (config) => {
         let obtainedItem = null;
         const doomEffects = { resolutions: 0, upgrades: 0 };
 
-        if (drawnCell.type === 'item' || drawnCell.type === 'sticker' || drawnCell.type === 'out_of_game') {
+        // Cluster yield (sticker only). Whole cluster is destroyed; total
+        // sticker payout = 1 + Σ(multiplier-1) per member + Σ buff_field
+        // 4-neighbors per member. Each member-buff adjacency is counted
+        // separately, so a buff_field touching 2 members of the same
+        // cluster contributes 2.
+        let clusterMembers = null;
+        let clusterYield = 0;
+        if (drawnCell.type === 'sticker') {
+            clusterMembers = getClusterMembers(matrix, finalRowIndex, finalColIndex);
+            clusterYield = 1;
+            for (const [cr, cc] of clusterMembers) {
+                const cell = matrix[cr][cc];
+                clusterYield += (cell?.multiplier || 1) - 1;
+                clusterYield += countBuffFieldCoverage(matrix, cr, cc);
+            }
+            obtainedItem = drawnCell;
+        } else if (drawnCell.type === 'item' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
         } else if (drawnCell.type === 'doom_resolution') {
             doomEffects.resolutions = 1 * mult;
@@ -685,10 +701,39 @@ export const useGameLogic = (config) => {
             }
         }
 
-        if (mirrorCell) {
+        // Mirror cluster: if mirror cell is a sticker, it has its own cluster.
+        // If that cluster is the SAME as the drawn cluster (mirror falls inside),
+        // dedupe: the cluster destruction below already takes both, so the
+        // mirror yields nothing extra.
+        let mirrorClusterMembers = null;
+        let mirrorClusterYield = 0;
+        let mirrorSameCluster = false;
+        if (mirrorCell?.type === 'sticker' && matrix) {
+            mirrorClusterMembers = getClusterMembers(matrix, mirrorRow, mirrorCol);
+            if (clusterMembers && clusterMembers.some(([r, c]) => r === mirrorRow && c === mirrorCol)) {
+                mirrorSameCluster = true;
+                mirrorClusterMembers = null;
+            } else {
+                mirrorClusterYield = 1;
+                for (const [cr, cc] of mirrorClusterMembers) {
+                    const cell = matrix[cr][cc];
+                    mirrorClusterYield += (cell?.multiplier || 1) - 1;
+                    mirrorClusterYield += countBuffFieldCoverage(matrix, cr, cc);
+                }
+            }
+        }
+
+        if (mirrorCell && !mirrorSameCluster) {
             const mMult = mirrorCell.multiplier || 1;
-            if (mirrorCell.type === 'item' || mirrorCell.type === 'sticker' || mirrorCell.type === 'out_of_game') {
-                if (mMult > 1 && (mirrorCell.type === 'sticker' || mirrorCell.type === 'item')) {
+            if (mirrorCell.type === 'sticker' && mirrorClusterMembers) {
+                for (let i = 0; i < mirrorClusterYield; i++) {
+                    addToInventory({ ...mirrorCell, uid: generateUID() });
+                }
+                const itemName = mirrorCell.item?.name || mirrorCell.name;
+                const tag = mirrorClusterYield > 1 ? ` ×${mirrorClusterYield}` : '';
+                showToast(`🪞 ${t('镜像')}: ${mirrorCell.item?.icon || ''} ${t(itemName)}${tag}`, 'success');
+            } else if (mirrorCell.type === 'item' || mirrorCell.type === 'out_of_game') {
+                if (mMult > 1 && mirrorCell.type === 'item') {
                     for (let i = 0; i < mMult; i++) {
                         addToInventory({ ...mirrorCell, uid: generateUID() });
                     }
@@ -731,12 +776,21 @@ export const useGameLogic = (config) => {
         setMatrix(prev => {
             const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
 
-            // Remove drawn cell
-            newMatrix[finalRowIndex][finalColIndex] = null;
-
-            // Mirror modifier: remove mirror cell as well. Bomb explosion
-            // handled later (we want to also explode the drawn bomb first).
-            if (mirrorCell && mirrorRow !== null && mirrorCol !== null) {
+            // Sticker cluster: clear every cluster member, not just the
+            // drawn cell. Same for the mirror cluster (if mirror modifier
+            // hit a separate sticker cluster).
+            if (clusterMembers && clusterMembers.length > 0) {
+                for (const [cr, cc] of clusterMembers) {
+                    newMatrix[cr][cc] = null;
+                }
+            } else {
+                newMatrix[finalRowIndex][finalColIndex] = null;
+            }
+            if (mirrorClusterMembers && mirrorClusterMembers.length > 0) {
+                for (const [cr, cc] of mirrorClusterMembers) {
+                    newMatrix[cr][cc] = null;
+                }
+            } else if (mirrorCell && mirrorRow !== null && mirrorCol !== null) {
                 newMatrix[mirrorRow][mirrorCol] = null;
             }
 
@@ -955,18 +1009,20 @@ export const useGameLogic = (config) => {
         });
 
         if (obtainedItem) {
+            // Sticker yield uses cluster math (cluster destroyed → yield
+            // computed up front). Non-stickers use the legacy per-cell
+            // multiplier × buffMult chain.
+            const yieldCount = drawnCell.type === 'sticker' ? clusterYield : mult;
             setFlyingItem({
                 icon: obtainedItem.item.icon,
                 name: obtainedItem.item.name,
                 rowIndex: finalRowIndex,
                 colIndex: finalColIndex,
+                count: yieldCount,
                 id: Date.now(),
             });
-            // Multiplier: add to inventory multiple times for stickers, items,
-            // and out_of_game (食材). The buff_field aura stacks (N+1)× on top
-            // of any per-cell multiplier, so mult may exceed 2.
-            if (mult > 1) {
-                for (let i = 0; i < mult; i++) {
+            if (yieldCount > 1) {
+                for (let i = 0; i < yieldCount; i++) {
                     addToInventory({ ...obtainedItem, uid: generateUID() });
                 }
             } else {
