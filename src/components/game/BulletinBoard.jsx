@@ -78,6 +78,7 @@ const BulletinBoard = ({
     pendingChosenOrder, onReplaceIncoming,
     refreshCharges, onRefresh,
     hoveredStickerIds, bonusItemMap,
+    setupMode = false,
 }) => {
     const { t } = useLanguage();
     const isReplacing = !!pendingChosenOrder;
@@ -85,7 +86,7 @@ const BulletinBoard = ({
     // Refresh may be queued while a picker is shown — it just pushes another
     // pick-1-of-2 to the back of the queue. Only block during an active
     // replacement step (shelf full, player still choosing which to swap).
-    const refreshDisabled = !onRefresh || (refreshCharges ?? 0) <= 0 || isReplacing;
+    const refreshDisabled = !onRefresh || (refreshCharges ?? 0) <= 0 || isReplacing || setupMode;
 
     return (
         <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark rounded-xl border-2 border-kitchen-wood-border shadow-[0_3px_0_#C8A880]"
@@ -115,7 +116,11 @@ const BulletinBoard = ({
                 {/* Inline incoming order picker (shown when order_cell is drawn during play) */}
                 {hasInlinePicker && !isReplacing && (
                     <div className="mb-2 p-2.5 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-lg">
-                        <div className="text-[11px] font-bold text-kitchen-gold-deep mb-1.5">{t('新订单')} — {t('选择一个加入货架')}</div>
+                        <div className="text-[11px] font-bold text-kitchen-gold-deep mb-1.5">
+                            {setupMode
+                                ? `${t('组建今日订单')} · ${orders.length + 1} / 5`
+                                : `${t('新订单')} — ${t('选择一个加入货架')}`}
+                        </div>
                         <div className="flex flex-col gap-1.5 mb-2">
                             {incomingOrder.candidates.map((candidate) => {
                                 const ds = DIFFICULTY_STYLE[candidate.difficulty] || DIFFICULTY_STYLE.easy;
@@ -148,10 +153,12 @@ const BulletinBoard = ({
                                 );
                             })}
                         </div>
-                        <button onClick={onDiscardIncoming}
-                            className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">
-                            {t('放弃')}
-                        </button>
+                        {!setupMode && (
+                            <button onClick={onDiscardIncoming}
+                                className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">
+                                {t('放弃')}
+                            </button>
+                        )}
                     </div>
                 )}
 

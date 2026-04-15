@@ -194,9 +194,17 @@ export const ORDER_CONFIG = {
 };
 
 // --- 刷新配置 ---
+// 开局订单通过"5 次二选一"环节手动拼凑，不再预留免费刷新。
+// 局中可通过 📋 订单格累积刷新次数，上限 5。
 export const REFRESH_CONFIG = {
-    initialCharges: 3,
+    initialCharges: 0,
     maxCharges: 5,
+};
+
+// --- 开局订单组建 ---
+// 每场开始时展示今日菜品，然后给玩家 N 次二选一来填满货架。
+export const SETUP_CONFIG = {
+    pickCount: 5,
 };
 
 // --- 墙贴纸数量范围 ---

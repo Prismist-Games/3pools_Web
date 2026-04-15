@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { generateWall } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { pickTemplate, LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES, REFRESH_CONFIG } from '../data/v2Config';
+import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES, REFRESH_CONFIG, SETUP_CONFIG, DISHES } from '../data/v2Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -54,14 +54,25 @@ function pickWeightedTemplate() {
     return ORDER_TEMPLATES[0];
 }
 
-function pickWallType() {
-    const total = WALL_TYPES.reduce((s, t) => s + t.weight, 0);
-    let roll = Math.random() * total;
-    for (const t of WALL_TYPES) {
-        roll -= t.weight;
-        if (roll <= 0) return t;
+// Modifier shuffle bag — guarantees every modifier appears once before any
+// repeats, so back-to-back walls (and walls within ~9 turns of each other)
+// always feel fresh. Persists across turns and expeditions; refills with a
+// new shuffle when drained. Equal odds; weights in WALL_TYPES no longer
+// drive frequency (most are 15 anyway, and the bag's anti-repeat guarantee
+// matters more than fine-grained weighting at this point).
+let _modifierBag = [];
+function _refillModifierBag() {
+    const ids = WALL_TYPES.map(t => t.id);
+    for (let i = ids.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [ids[i], ids[j]] = [ids[j], ids[i]];
     }
-    return WALL_TYPES[0];
+    _modifierBag = ids;
+}
+function pickWallType() {
+    if (_modifierBag.length === 0) _refillModifierBag();
+    const id = _modifierBag.shift();
+    return WALL_TYPES.find(t => t.id === id) || WALL_TYPES[0];
 }
 
 function generateOrder() {
@@ -154,13 +165,23 @@ export const useGameLogic = (config) => {
 
     // --- Incoming Order Queue ---
     // Each element is { id, candidates: [orderA, orderB] }. UI reads the
-    // front (`incomingQueue[0]`) and consumes via confirm/discard/replace.
-    // A queue (vs single slot) lets simultaneous sources stack without
-    // overwriting — e.g. completion auto-refill + manual refresh.
+    // front (`incomingQueue[0]`) and it gets consumed via
+    // confirm/discard/replace. Keeping this as a queue (not a single slot)
+    // lets simultaneous sources stack: completion auto-refill + manual
+    // refresh + setup-time 5-pack all coexist without overwriting.
     const [incomingQueue, setIncomingQueue] = useState([]);
-    // Hoisted up here so any future effect can safely depend on it without
-    // hitting the temporal dead zone.
+    // Set when the player picks a candidate while shelf is full — UI enters
+    // "choose which shelf order to replace" mode. Declared up here (instead
+    // of next to replaceBulletinOrder) so the setup useEffect below can
+    // reference it without hitting the temporal dead zone.
     const [pendingChosenOrder, setPendingChosenOrder] = useState(null);
+
+    // --- Opening Setup ---
+    // `dishIntroPending`: true while the "today's dish" overlay is still
+    // waiting for the player to dismiss it. During setup, the player also
+    // picks 5 orders via the incoming queue before the first wall generates.
+    const [dishIntroPending, setDishIntroPending] = useState(false);
+    const [currentDish, setCurrentDish] = useState(null);
 
     // --- UI State ---
     const [toast, setToast] = useState(null);
@@ -244,32 +265,57 @@ export const useGameLogic = (config) => {
         applyWallCandidate(candidate);
     };
 
-    /** Start the game (first turn) */
+    /** Start the game: show today's dish, then let the player assemble the
+     *  initial bulletin via SETUP_CONFIG.pickCount × pick-1-of-2 events. The
+     *  first wall does NOT generate until setup finishes — that way the
+     *  wall's per-cell sticker roll can draw from the orders the player
+     *  just chose, instead of falling back to the full sticker roster. */
     const startGame = () => {
-        // Pick bonus items on first expedition of a new game
         if (expeditionNumber === 0) {
             const shuffled = [...INGREDIENTS].sort(() => Math.random() - 0.5);
             const bonusValues = [1, 2, 3];
             setBonusItems(shuffled.slice(0, 3).map((item, i) => ({ ...item, bonusValue: bonusValues[i] })));
         }
         setExpeditionNumber(prev => prev + 1);
-        // Seed initial bulletin with unique reward combinations
-        const initial = [];
-        const usedKeys = new Set();
-        const targetCount = orderConfig.initialCount;
-        let attempts = 0;
-        while (initial.length < targetCount && attempts < 50) {
-            const order = generateOrder();
-            const key = order.rewards.map(r => r.id).sort().join(',');
-            if (!usedKeys.has(key)) {
-                usedKeys.add(key);
-                initial.push(order);
-            }
-            attempts++;
-        }
-        setBulletinBoard(initial);
-        startNewTurn();
+
+        // Pick today's dish (random for now — DISHES drive kitchen scoring,
+        // not order generation, so this is pure flavor/preview).
+        const dish = DISHES[Math.floor(Math.random() * DISHES.length)];
+        setCurrentDish(dish);
+        setDishIntroPending(true);
+
+        setBulletinBoard([]);
+        setPendingChosenOrder(null);
+        setPhase('setup');
+        // Queue will be filled once the player dismisses the dish intro
+        // (see dismissDishIntro below).
     };
+
+    /** Player dismisses the "today's dish" overlay — enqueue the 5
+     *  pick-1-of-2 events that build the initial order shelf. */
+    const dismissDishIntro = () => {
+        if (!dishIntroPending) return;
+        setDishIntroPending(false);
+        const events = [];
+        for (let i = 0; i < SETUP_CONFIG.pickCount; i++) {
+            events.push({
+                id: generateUID(),
+                candidates: [generateOrder(), generateOrder()],
+            });
+        }
+        setIncomingQueue(events);
+    };
+
+    // When the setup queue drains (after the 5 initial picks), auto-start
+    // the first wall. Gated on dishIntro being dismissed so we don't fire
+    // while the queue is still empty waiting for the intro.
+    useEffect(() => {
+        if (phase !== 'setup') return;
+        if (dishIntroPending) return;
+        if (incomingQueue.length > 0) return;
+        if (pendingChosenOrder) return;
+        startNewTurn();
+    }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
 
     /** End current turn: resolve doom once, then go to between-turns decision */
     const endTurn = () => {
@@ -1082,8 +1128,10 @@ export const useGameLogic = (config) => {
         setPendingChosenOrder(null);
     };
 
-    /** Discard current incoming event. If a replacement is pending, cancel
-     *  that step; otherwise drop the queue head (player declined both). */
+    /** Discard current incoming event. During opening setup this is gated by
+     *  UI (player cannot skip — see GameCore), so discard only happens during
+     *  normal play when the player actively declines both candidates or
+     *  cancels a replacement. */
     const discardIncomingOrder = () => {
         if (pendingChosenOrder) {
             setPendingChosenOrder(null);
@@ -1295,6 +1343,8 @@ export const useGameLogic = (config) => {
         setPendingChosenOrder(null);
         setRefreshCharges(REFRESH_CONFIG.initialCharges);
         setIncomingQueue([]);
+        setDishIntroPending(false);
+        setCurrentDish(null);
         setToast(null);
         setLastDrawResult(null);
         setModalContent(null);
@@ -1340,6 +1390,8 @@ export const useGameLogic = (config) => {
         setPendingChosenOrder(null);
         setRefreshCharges(REFRESH_CONFIG.initialCharges);
         setIncomingQueue([]);
+        setDishIntroPending(false);
+        setCurrentDish(null);
         setPhase('pre_game');
     };
 
@@ -1443,5 +1495,10 @@ export const useGameLogic = (config) => {
         confirmIncomingOrder,
         discardIncomingOrder,
         replaceBulletinOrder,
+
+        // Opening setup
+        dishIntroPending,
+        currentDish,
+        dismissDishIntro,
     };
 };

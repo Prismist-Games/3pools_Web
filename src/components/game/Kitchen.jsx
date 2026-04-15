@@ -100,6 +100,74 @@ const TagBadge = ({ tag, className = '' }) => {
     );
 };
 
+// ── Slot Preview (read-only — used in the opening dish reveal) ──
+
+const SlotPreview = ({ slot, isSpawned = false }) => {
+    const { t } = useLanguage();
+    return (
+        <div className={`flex flex-col bg-kitchen-card rounded-xl border-2 shadow-[0_2px_0_#D4B896] overflow-hidden min-w-[140px]
+            ${isSpawned ? 'border-kitchen-info-border ring-1 ring-kitchen-info/40' : 'border-kitchen-gold-border-muted'}`}>
+            <div className={`px-3 py-1.5 border-b border-dashed flex items-center justify-between
+                ${isSpawned ? 'bg-[#F0F8FF] border-kitchen-info-border/60' : 'bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-kitchen-gold-border-muted'}`}>
+                <span className="text-xs font-bold text-kitchen-text-body">{t(slot.name)}</span>
+                {slot.required && <span className="text-[9px] text-kitchen-danger-text font-bold">{t('必填')}</span>}
+            </div>
+            <div className="px-3 py-2 space-y-1">
+                {slot.accept ? (
+                    <>
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                            <span className="text-kitchen-text-muted w-8 text-right font-mono">×0.5</span>
+                            <span className="text-kitchen-text-muted">{t('其他')}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                            <span className="text-kitchen-success-border w-8 text-right font-mono font-bold">×1</span>
+                            <TagBadge tag={slot.accept} />
+                        </div>
+                        {slot.prefer && (
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                                <span className="text-kitchen-gold-deep w-8 text-right font-mono font-bold">×2</span>
+                                <span className="flex gap-1 flex-wrap">
+                                    {(Array.isArray(slot.prefer) ? slot.prefer : [slot.prefer]).map(p => (
+                                        <TagBadge key={p} tag={p} className="bg-kitchen-gold text-kitchen-text-title" />
+                                    ))}
+                                </span>
+                            </div>
+                        )}
+                        {slot.exclude && (
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                                <span className="text-kitchen-danger-text w-8 text-right font-mono font-bold">✗</span>
+                                <span className="text-kitchen-danger-text">{t('不可放入')}</span>
+                                <TagBadge tag={slot.exclude} className="bg-kitchen-danger text-white" />
+                            </div>
+                        )}
+                        {slot.crossBonus && (
+                            <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-kitchen-gold-border-muted/50 mt-1">
+                                <span className="text-pink-500 w-8 text-right">🔗</span>
+                                <span className="text-pink-600">
+                                    {t(slot.crossBonus.requireSlot)}{t('为')} <TagBadge tag={slot.crossBonus.requireTag} className="bg-pink-600 text-pink-100" /> {t('时')} +{slot.crossBonus.points}
+                                </span>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <div className="flex items-center gap-1.5 text-[10px]">
+                        <span className="text-kitchen-info-border w-8 text-right font-mono font-bold">×1</span>
+                        <span className="text-kitchen-info-border">{t('任意食材')}</span>
+                    </div>
+                )}
+                {slot.trigger && (
+                    <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-kitchen-gold-border-muted/50 mt-1">
+                        <span className="text-kitchen-info-border w-8 text-right">⚡</span>
+                        <span className="text-kitchen-info-border">
+                            {t('放入')} <TagBadge tag={slot.trigger.whenTag} className="bg-kitchen-info text-white" /> {t('时额外开启一个栏位')}
+                        </span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 // ── Slot Card ──
 
 const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, onRemove }) => {
@@ -453,4 +521,4 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
 };
 
 export default Kitchen;
-export { scoreDish, getSlotMatch };
+export { scoreDish, getSlotMatch, SlotPreview };

@@ -7,7 +7,7 @@ import Tooltip from './components/ui/Tooltip';
 // ActiveOrders removed — order submit is now on BulletinBoard directly
 import ScoreBoard from './components/game/ScoreBoard';
 import DispatchJudgment from './components/game/DispatchJudgment';
-import Kitchen from './components/game/Kitchen';
+import Kitchen, { SlotPreview } from './components/game/Kitchen';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
@@ -60,7 +60,8 @@ const GameCore = () => {
         replaceInventoryItem, discardInventoryItem, synthesizeItems, discardPendingItem, debugAddItem,
         bulletinBoard, pendingChosenOrder, refreshCharges,
         submitOrder, canSubmitOrder, triggerRefresh,
-        incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
+        incomingOrder, incomingQueueLength, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
+        dishIntroPending, currentDish, dismissDishIntro,
         isInSubLevel, wallStack,
         enterSubLevel, exitSubLevel,
     } = state;
@@ -226,6 +227,59 @@ const GameCore = () => {
                         >
                             {language === 'en' ? `Start Round ${expeditionNumber + 1}` : `开始第 ${expeditionNumber + 1} 场`}
                         </button>
+                    </div>
+                )}
+
+                {/* Setup phase — dish intro overlay + 5× pick-1-of-2 */}
+                {phase === 'setup' && (
+                    <div className="flex gap-4">
+                        <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start">
+                            {bulletinBoard && (
+                                <BulletinBoard
+                                    orders={bulletinBoard}
+                                    inventory={inventory}
+                                    onSubmit={() => {}}
+                                    canSubmitOrder={() => false}
+                                    incomingOrder={incomingOrder}
+                                    onConfirmIncoming={confirmIncomingOrder}
+                                    onDiscardIncoming={() => {}}
+                                    pendingChosenOrder={pendingChosenOrder}
+                                    onReplaceIncoming={replaceBulletinOrder}
+                                    refreshCharges={0}
+                                    hoveredStickerIds={hoveredStickerIds}
+                                    bonusItemMap={bonusItemMap}
+                                    setupMode={true}
+                                />
+                            )}
+                        </div>
+                        <div className="flex-1 min-w-0 flex flex-col items-center justify-start pt-6">
+                            {currentDish && (
+                                <div className="max-w-3xl w-full">
+                                    <div className="bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold rounded-2xl p-5 shadow-[0_3px_0_#D4952A] text-center mb-4">
+                                        <div className="text-xs text-kitchen-text-muted mb-1 tracking-widest">{t('今日菜单')}</div>
+                                        <div className="flex items-center justify-center gap-3 mb-1">
+                                            <span className="text-5xl">{currentDish.icon}</span>
+                                            <div className="text-left">
+                                                <div className="text-xl font-bold text-kitchen-text-title leading-tight">{t(currentDish.name)}</div>
+                                                {currentDish.nameEn && (
+                                                    <div className="text-[11px] italic text-kitchen-text-muted">{currentDish.nameEn}</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="text-xs text-kitchen-text-secondary mt-2">
+                                            {dishIntroPending
+                                                ? t('为今天的菜挑选订单')
+                                                : `${t('组建今日订单')} · ${bulletinBoard.length} / 5`}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap gap-3 justify-center">
+                                        {currentDish.slots.map((slot, i) => (
+                                            <SlotPreview key={i} slot={slot} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -759,6 +813,17 @@ const GameCore = () => {
 
                 {/* Round transition overlay — click to dismiss */}
                 <RoundTransition reveal={turnReveal} onDismiss={() => setTurnReveal(null)} />
+
+                {/* Opening dish intro — click anywhere to continue */}
+                <RoundTransition
+                    reveal={dishIntroPending && currentDish ? {
+                        icon: currentDish.icon,
+                        name: t(currentDish.name),
+                        desc: currentDish.nameEn || '',
+                        subtitle: t('今日菜单'),
+                    } : null}
+                    onDismiss={dismissDishIntro}
+                />
             </div>
         </div>
     );
