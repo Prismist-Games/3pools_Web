@@ -6,15 +6,16 @@
 export const MATRIX_CONFIG = {
   gridSize: 4,
 
-  // Doom cells: independent cells on the grid (not items)
+  // Doom cells: independent cells on the grid (not items). Rolled in the
+  // same per-cell pass as other special cells (gold/order/bomb/etc.).
   doomCells: {
     resolution: {
-      spawnChance: 0.10,  // 10% per cell position
+      spawnChance: 0.05,  // 5% per cell position — ~0.8 per 16-cell wall
       icon: '💀',
       name: '厄运结算',
     },
     upgrade: {
-      spawnChance: 0.10,  // 10% per cell position
+      spawnChance: 0.05,  // 5% per cell position
       icon: '⬆️',
       name: '厄运升级',
     },

@@ -16,14 +16,12 @@ export function pickWallStickers(allStickers, min = 3, max = 4) {
 
 /**
  * Phase 1+2: Place doom cells and special cells on empty positions.
- * Respects constraints.maxDoomInBlank to limit doom count.
+ * Single-pass roll per cell — chances accumulate in a fixed order, the
+ * remainder stays null and gets filled with a sticker in phase 3.
  */
-export function fillDoomAndSpecials(grid, gridSize, constraints = {}) {
-  const { specialCells } = MATRIX_CONFIG;
+export function fillDoomAndSpecials(grid, gridSize) {
+  const { specialCells, doomCells } = MATRIX_CONFIG;
   const doomCellCount = { resolution: 0, upgrade: 0 };
-
-  // Doom cells (💀 / ⬆️) are no longer placed on random walls.
-  // Hand-crafted templates may still specify them explicitly via resolveConstrainedCell.
 
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
@@ -33,6 +31,8 @@ export function fillDoomAndSpecials(grid, gridSize, constraints = {}) {
       const orderChance = goldChance + specialCells.order.spawnChance;
       const outOfGameChance = orderChance + specialCells.outOfGame.spawnChance;
       const bombChance = outOfGameChance + (specialCells.bomb?.spawnChance || 0);
+      const doomResChance = bombChance + (doomCells?.resolution?.spawnChance || 0);
+      const doomUpChance = doomResChance + (doomCells?.upgrade?.spawnChance || 0);
 
       if (roll < goldChance) {
         const [min, max] = specialCells.gold.goldRange;
@@ -61,6 +61,18 @@ export function fillDoomAndSpecials(grid, gridSize, constraints = {}) {
           type: 'bomb', icon: specialCells.bomb.icon,
           name: specialCells.bomb.name, uid: generateUID(),
         };
+      } else if (roll < doomResChance) {
+        grid[row][col] = {
+          type: 'doom_resolution', icon: doomCells.resolution.icon,
+          name: doomCells.resolution.name, uid: generateUID(),
+        };
+        doomCellCount.resolution++;
+      } else if (roll < doomUpChance) {
+        grid[row][col] = {
+          type: 'doom_upgrade', icon: doomCells.upgrade.icon,
+          name: doomCells.upgrade.name, uid: generateUID(),
+        };
+        doomCellCount.upgrade++;
       }
     }
   }
