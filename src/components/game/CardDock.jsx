@@ -3,28 +3,25 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
 import { PassiveCard } from './PassiveCard';
 
 /**
- * CardDock — collapsible bottom section showing all held passive-match cards.
- * Click header to expand/collapse the card row.
- * Ordering: danger → profit → evacuation.
+ * CardDock — collapsible bottom section showing danger cards + evacuation button.
+ * Profit cards (vouchers) are now rendered in VoucherShelf (left rail), not here.
  */
 export default function CardDock({
     dangerCards,
-    profitCards,
     inventory,
     canEvacuate,
     satisfiedProfitCount,
     evacuationProfitRequirement,
     evacuate,
-    removeSlotCard,
     phase,
     t,
 }) {
     const [expanded, setExpanded] = useState(true);
 
-    const showDock = phase === 'pool_selection' || phase === 'drawing';
+    const showDock = phase === 'wall_choice' || phase === 'drawing' || phase === 'voucher_draft';
     if (!showDock) return null;
 
-    const totalCards = dangerCards.length + profitCards.length + 1; // +1 for evacuation
+    const totalCards = dangerCards.length + 1; // +1 for evacuation
 
     return (
         <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
@@ -58,25 +55,8 @@ export default function CardDock({
                             />
                         ))}
 
-                        {/* Separator */}
-                        {dangerCards.length > 0 && profitCards.length > 0 && (
-                            <div className="w-px self-stretch bg-gray-200 shrink-0" />
-                        )}
-
-                        {/* Profit cards */}
-                        {profitCards.map(card => (
-                            <PassiveCard
-                                key={card.id}
-                                card={card}
-                                type="profit"
-                                inventory={inventory}
-                                onRemove={removeSlotCard}
-                                t={t}
-                            />
-                        ))}
-
-                        {/* Separator */}
-                        {(dangerCards.length > 0 || profitCards.length > 0) && (
+                        {/* Separator before evacuation */}
+                        {dangerCards.length > 0 && (
                             <div className="w-px self-stretch bg-gray-200 shrink-0" />
                         )}
 
