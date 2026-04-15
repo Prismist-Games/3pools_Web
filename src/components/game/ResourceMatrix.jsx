@@ -1,8 +1,9 @@
-import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
 import { MATRIX_CONFIG } from '../../data/matrixConfig';
+import { getClusterMembers } from '../../utils/matrixHelpers';
 
 /** Tooltip for grid cells — Portal-based, same style as ToolItemTooltip */
 const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
@@ -143,7 +144,7 @@ function countBuffFieldCoverage(matrix, r, c) {
 }
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage }) => {
+const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, sameNeighbors, inHoveredCluster, onClusterHover }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
@@ -227,6 +228,36 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         ? `${extraShadow ? extraShadow + ', ' : ''}0 0 ${6 + buffCoverage * 4}px ${2 + buffCoverage}px rgba(232, 184, 64, ${0.35 + buffCoverage * 0.12})`
         : extraShadow;
 
+    // Cluster styling: when a sticker shares an edge with a same-id
+    // sticker, fade that edge so adjacent members visually merge into one
+    // contiguous shape. When the player hovers any cluster member, every
+    // member gets a soft amber ring so the destruction blast radius is
+    // legible before the click.
+    const borderStyle = {};
+    if (sameNeighbors) {
+        const fade = 'rgba(0,0,0,0)';
+        if (sameNeighbors.top)    borderStyle.borderTopColor = fade;
+        if (sameNeighbors.right)  borderStyle.borderRightColor = fade;
+        if (sameNeighbors.bottom) borderStyle.borderBottomColor = fade;
+        if (sameNeighbors.left)   borderStyle.borderLeftColor = fade;
+        if (sameNeighbors.top)    borderStyle.borderTopLeftRadius = 0;
+        if (sameNeighbors.top)    borderStyle.borderTopRightRadius = 0;
+        if (sameNeighbors.bottom) borderStyle.borderBottomLeftRadius = 0;
+        if (sameNeighbors.bottom) borderStyle.borderBottomRightRadius = 0;
+        if (sameNeighbors.left)   borderStyle.borderTopLeftRadius = 0;
+        if (sameNeighbors.left)   borderStyle.borderBottomLeftRadius = 0;
+        if (sameNeighbors.right)  borderStyle.borderTopRightRadius = 0;
+        if (sameNeighbors.right)  borderStyle.borderBottomRightRadius = 0;
+    }
+    const clusterRing = inHoveredCluster
+        ? '0 0 0 2px rgba(232,168,48,0.55), 0 0 8px rgba(232,168,48,0.35)'
+        : '';
+    const finalShadow = clusterRing
+        ? (mergedBoxShadow ? `${clusterRing}, ${mergedBoxShadow}` : clusterRing)
+        : mergedBoxShadow;
+
+    const isStickerCell = cell?.type === 'sticker';
+
     return (
         <div
             ref={ref}
@@ -236,13 +267,20 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
                 margin: `${HALF}px`,
                 width: CELL_SIZE,
                 height: CELL_SIZE,
-                boxShadow: mergedBoxShadow,
+                boxShadow: finalShadow,
+                ...borderStyle,
                 ...gravityStyle,
                 ...rotationStyle,
                 ...growthStyle,
             }}
-            onMouseEnter={hasTip ? () => setHovered(true) : undefined}
-            onMouseLeave={hasTip ? () => setHovered(false) : undefined}
+            onMouseEnter={() => {
+                if (hasTip) setHovered(true);
+                if (isStickerCell && onClusterHover) onClusterHover(rowIndex, colIndex);
+            }}
+            onMouseLeave={() => {
+                if (hasTip) setHovered(false);
+                if (isStickerCell && onClusterHover) onClusterHover(null, null);
+            }}
         >
             {cellContent}
             {isBuffed && (
@@ -268,6 +306,44 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
     const [doomFlash, setDoomFlash] = useState(false);
+    const [hoveredClusterPos, setHoveredClusterPos] = useState(null); // [r, c] of seed
+
+    // Per-cell same-id 4-neighbor map (sticker only). Drives the inner-edge
+    // fade so contiguous same-id stickers render as one connected blob.
+    const sameNeighborsMap = useMemo(() => {
+        if (!matrix) return null;
+        const map = new Map();
+        const rows = matrix.length;
+        const cols = matrix[0]?.length || 0;
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const cell = matrix[r][c];
+                if (cell?.type !== 'sticker' || !cell.item?.id) continue;
+                const id = cell.item.id;
+                const same = (rr, cc) => matrix[rr]?.[cc]?.type === 'sticker' && matrix[rr][cc].item?.id === id;
+                map.set(`${r}-${c}`, {
+                    top: same(r - 1, c),
+                    right: same(r, c + 1),
+                    bottom: same(r + 1, c),
+                    left: same(r, c - 1),
+                });
+            }
+        }
+        return map;
+    }, [matrix]);
+
+    // Set of cluster member keys for the currently hovered sticker cell.
+    const hoveredClusterSet = useMemo(() => {
+        if (!matrix || !hoveredClusterPos) return null;
+        const members = getClusterMembers(matrix, hoveredClusterPos[0], hoveredClusterPos[1]);
+        if (members.length <= 1) return null; // don't bother highlighting singletons
+        return new Set(members.map(([r, c]) => `${r}-${c}`));
+    }, [matrix, hoveredClusterPos]);
+
+    const handleClusterHover = (r, c) => {
+        if (r === null) setHoveredClusterPos(null);
+        else setHoveredClusterPos([r, c]);
+    };
 
     useEffect(() => {
         if (drawAnimState?.phase === 'settled' && drawAnimState?.drawnCell?.type === 'doom_resolution') {
@@ -608,9 +684,10 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             const flash = growthFlashes?.has(`${rowIndex}-${colIndex}`) || false;
                             const buffCov = countBuffFieldCoverage(matrix, rowIndex, colIndex);
 
+                            const cellKey = `${rowIndex}-${colIndex}`;
                             return (
                                 <GridCell
-                                    key={`${rowIndex}-${colIndex}`}
+                                    key={cellKey}
                                     cell={cell}
                                     cellContent={getCellContent(cell)}
                                     t={t}
@@ -622,6 +699,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                     rotationMove={rotMove}
                                     growthFlash={flash}
                                     buffCoverage={buffCov}
+                                    sameNeighbors={sameNeighborsMap?.get(cellKey)}
+                                    inHoveredCluster={hoveredClusterSet?.has(cellKey) || false}
+                                    onClusterHover={handleClusterHover}
                                 />
                             );
                         })

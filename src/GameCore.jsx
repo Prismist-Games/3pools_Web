@@ -720,9 +720,14 @@ const GameCore = () => {
                     <div
                         key={flyingItem.id}
                         style={flyStyle}
-                        className="fly-to-inventory w-16 h-16 rounded-xl bg-white border-2 border-gray-300 shadow-2xl flex items-center justify-center text-2xl"
+                        className="fly-to-inventory w-16 h-16 rounded-xl bg-white border-2 border-gray-300 shadow-2xl flex items-center justify-center text-2xl relative"
                     >
                         {flyingItem.icon}
+                        {flyingItem.count > 1 && (
+                            <span className="absolute -top-1 -right-1 bg-kitchen-gold text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow ring-2 ring-white">
+                                ×{flyingItem.count}
+                            </span>
+                        )}
                     </div>
                 )}
 
