@@ -235,6 +235,19 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     // the slot boundary. The neighbor does the same from its side — the
     // two meet flush at the slot line, bg colors merge, and adjacent
     // same-id stickers render as one continuous shape.
+    //
+    // Per-corner radius rule: drop the radius only when the corner sits on
+    // a straight outline or is fully interior. Keep it when the corner is
+    // on a convex bend — e.g., an L-junction protrusion or a wrap-around
+    // — so CSS border-radius can soften the outer curve. Concave corners
+    // (where the outline bends inward) can't be rounded by CSS anyway, so
+    // they stay sharp by falling into the "keep" bucket and getting
+    // painted over by the inside of the adjacent cell.
+    //
+    // dropRadius(a, b, d) where a, b are the two adjacent-side flags and d
+    // is the diagonal-cell flag. True → drop.
+    const dropRadius = (a, b, d) => (a && b && d) || ((a !== b) && !d);
+
     let clusterMarginTop    = HALF;
     let clusterMarginRight  = HALF;
     let clusterMarginBottom = HALF;
@@ -243,10 +256,14 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     let clusterExtraH = 0;
     const borderStyle = {};
     if (sameNeighbors) {
-        if (sameNeighbors.top)    { borderStyle.borderTopWidth    = 0; clusterMarginTop    = 0; clusterExtraH += HALF; borderStyle.borderTopLeftRadius     = 0; borderStyle.borderTopRightRadius = 0; }
-        if (sameNeighbors.right)  { borderStyle.borderRightWidth  = 0; clusterMarginRight  = 0; clusterExtraW += HALF; borderStyle.borderTopRightRadius    = 0; borderStyle.borderBottomRightRadius = 0; }
-        if (sameNeighbors.bottom) { borderStyle.borderBottomWidth = 0; clusterMarginBottom = 0; clusterExtraH += HALF; borderStyle.borderBottomLeftRadius  = 0; borderStyle.borderBottomRightRadius = 0; }
-        if (sameNeighbors.left)   { borderStyle.borderLeftWidth   = 0; clusterMarginLeft   = 0; clusterExtraW += HALF; borderStyle.borderTopLeftRadius     = 0; borderStyle.borderBottomLeftRadius = 0; }
+        if (sameNeighbors.top)    { borderStyle.borderTopWidth    = 0; clusterMarginTop    = 0; clusterExtraH += HALF; }
+        if (sameNeighbors.right)  { borderStyle.borderRightWidth  = 0; clusterMarginRight  = 0; clusterExtraW += HALF; }
+        if (sameNeighbors.bottom) { borderStyle.borderBottomWidth = 0; clusterMarginBottom = 0; clusterExtraH += HALF; }
+        if (sameNeighbors.left)   { borderStyle.borderLeftWidth   = 0; clusterMarginLeft   = 0; clusterExtraW += HALF; }
+        if (dropRadius(sameNeighbors.top,    sameNeighbors.left,  sameNeighbors.diagTL)) borderStyle.borderTopLeftRadius     = 0;
+        if (dropRadius(sameNeighbors.top,    sameNeighbors.right, sameNeighbors.diagTR)) borderStyle.borderTopRightRadius    = 0;
+        if (dropRadius(sameNeighbors.bottom, sameNeighbors.left,  sameNeighbors.diagBL)) borderStyle.borderBottomLeftRadius  = 0;
+        if (dropRadius(sameNeighbors.bottom, sameNeighbors.right, sameNeighbors.diagBR)) borderStyle.borderBottomRightRadius = 0;
     }
     const clusterRing = inHoveredCluster
         ? '0 0 0 2px rgba(232,168,48,0.55), 0 0 8px rgba(232,168,48,0.35)'
@@ -310,8 +327,11 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     const [doomFlash, setDoomFlash] = useState(false);
     const [hoveredClusterPos, setHoveredClusterPos] = useState(null); // [r, c] of seed
 
-    // Per-cell same-id 4-neighbor map (sticker only). Drives the inner-edge
-    // fade so contiguous same-id stickers render as one connected blob.
+    // Per-cell same-id neighborhood map (orthogonals + diagonals). Used
+    // to (a) drop margin/border on shared orthogonal edges so adjacent
+    // same-id stickers render flush and (b) keep border-radius only on
+    // corners that sit on a convex outline of the cluster, so L-bends
+    // and protrusions don't get a jagged square poke.
     const sameNeighborsMap = useMemo(() => {
         if (!matrix) return null;
         const map = new Map();
@@ -328,6 +348,10 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                     right: same(r, c + 1),
                     bottom: same(r + 1, c),
                     left: same(r, c - 1),
+                    diagTL: same(r - 1, c - 1),
+                    diagTR: same(r - 1, c + 1),
+                    diagBL: same(r + 1, c - 1),
+                    diagBR: same(r + 1, c + 1),
                 });
             }
         }
