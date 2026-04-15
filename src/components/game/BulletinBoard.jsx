@@ -10,8 +10,8 @@ const DIFFICULTY_STYLE = {
 };
 
 const RARITY_STYLE = {
-    1: { border: 'border-kitchen-success-border', bg: 'from-[#F0FFF8] to-kitchen-card', badge: 'bg-kitchen-success', label: '★',    labelColor: 'text-kitchen-success-border', tagBg: 'bg-[#F0FFF8] text-[#408060]' },
-    2: { border: 'border-kitchen-info-border',    bg: 'from-[#F0F8FF] to-kitchen-card', badge: 'bg-kitchen-info',    label: '★★',   labelColor: 'text-kitchen-info-border',    tagBg: 'bg-[#F0F8FF] text-kitchen-info-border' },
+    1: { border: 'border-green-600',              bg: 'from-green-100 to-kitchen-card', badge: 'bg-green-600',       label: '★',    labelColor: 'text-green-700',              tagBg: 'bg-green-100 text-green-800' },
+    2: { border: 'border-blue-600',               bg: 'from-blue-100 to-kitchen-card',  badge: 'bg-blue-600',        label: '★★',   labelColor: 'text-blue-700',               tagBg: 'bg-blue-100 text-blue-800' },
     3: { border: 'border-purple-400',             bg: 'from-purple-50 to-kitchen-card', badge: 'bg-purple-500',      label: '★★★',  labelColor: 'text-purple-400',             tagBg: 'bg-purple-50 text-purple-700' },
     4: { border: 'border-kitchen-gold',           bg: 'from-[#FFF8E0] to-kitchen-card', badge: 'bg-kitchen-gold',    label: '★★★★', labelColor: 'text-kitchen-gold',           tagBg: 'bg-[#FFF8E0] text-kitchen-gold-deep' },
 };
