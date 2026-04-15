@@ -111,6 +111,20 @@ export function generateWall(wallStickers, wallColor, extraCells) {
   // exclusively from satisfied vouchers at evacuation. (Previously 30% of
   // walls seeded 1–2 items, but that short-circuits the voucher mechanic.)
 
+  // Place danger cells: ~10% of the grid (rounded to the nearest int).
+  // Drawing a danger cell queues an extra danger card for next turn.
+  const dangerCount = Math.round(gridSize * gridSize * 0.10);
+  for (let i = 0; i < dangerCount && posIdx < emptyAfterDoom.length; i++, posIdx++) {
+    const [r, c] = emptyAfterDoom[posIdx];
+    grid[r][c] = {
+      type: 'danger_cell',
+      icon: specialCells.danger_cell.icon,
+      name: specialCells.danger_cell.name,
+      uid: generateUID(),
+    };
+    cellCounts.danger_cell = (cellCounts.danger_cell || 0) + 1;
+  }
+
   // Place instant-effect extra cells (from wall function)
   if (extraCells) {
     for (const [cellType, range] of Object.entries(extraCells)) {

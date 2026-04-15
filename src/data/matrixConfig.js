@@ -56,6 +56,10 @@ export const MATRIX_CONFIG = {
       icon: '💣',
       name: '炸弹',
     },
+    danger_cell: {
+      icon: '⚠️',
+      name: '危险格',
+    },
     backpack: {
       icon: '🎒',
       name: '背包扩容',

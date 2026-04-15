@@ -48,6 +48,11 @@ export const useGameLogic = (config) => {
     // continueToNextTurn after the voucher_draft phase resolves.
     const [pendingTurnContext, setPendingTurnContext] = useState(null);
 
+    // --- Pending Danger Cards ---
+    // Count of extra danger cards queued for the next turn by drawing danger
+    // cells (type 'danger_cell') from the wall. Reset to 0 after spawning.
+    const [pendingDangerCards, setPendingDangerCards] = useState(0);
+
     // --- Pool State ---
     const [currentPool, setCurrentPool] = useState(null);   // { uid, poolType, grid, cellCounts } or null
 
@@ -395,6 +400,7 @@ export const useGameLogic = (config) => {
         // Turn 1 danger card (rotation scaling starts at 1, same as before).
         const turn1Dangers = [generateSlotCard('danger', { turnCreated: 1 })];
         setSlotCards(turn1Dangers);
+        setPendingDangerCards(0);
 
         // Pre-roll a full 5-voucher shelf and a fresh 3-candidate wall choice.
         setVoucherShelf(generateFullVoucherShelf(1));
@@ -443,16 +449,19 @@ export const useGameLogic = (config) => {
         setLastDrawDirection(null);
         setDrawCount(0);
 
-        // Danger card count scales with turn number (unchanged from previous flow).
-        const dangerCardCount = Math.ceil(nextTurn / 2);
+        // Danger card count = turn-scaled baseline + any pending extras queued by
+        // danger cells drawn during this past turn.
+        const baselineCount = Math.ceil(nextTurn / 2);
+        const totalDangerCount = baselineCount + pendingDangerCards;
         const newDangerCards = [];
-        for (let i = 0; i < dangerCardCount; i++) {
+        for (let i = 0; i < totalDangerCount; i++) {
             newDangerCards.push(generateSlotCard('danger', {
                 turnCreated: nextTurn,
                 excludeStickerTypes,
             }));
         }
         setSlotCards(prev => [...prev, ...newDangerCards]);
+        setPendingDangerCards(0);
 
         // If the player still holds a wall, resume drawing. Otherwise roll fresh
         // wall candidates — this covers the "drained wall then ended turn" case.
@@ -600,6 +609,11 @@ export const useGameLogic = (config) => {
             obtainedItem = drawnCell;
         } else if (drawnCell.type === 'bomb') {
             // Bomb: destroy adjacent 8 cells (handled below in the matrix update)
+        } else if (drawnCell.type === 'danger_cell') {
+            // Queue extra danger cards for next turn. Multiplier wall doubles.
+            const n = mult || 1;
+            setPendingDangerCards(prev => prev + n);
+            showToast(`⚠️ ${t('下回合危险卡')} +${n}`, 'warning');
         }
 
         // Mutate the grid: null drawn cells, bomb explosion, hidden-wall
@@ -883,6 +897,7 @@ export const useGameLogic = (config) => {
         setVoucherShelf([]);
         setVoucherDraftCandidates(null);
         setPendingTurnContext(null);
+        setPendingDangerCards(0);
         setActionPoints(AP_CONFIG.maxAP);
         setLastDrawDirection(null);
         setDrawCount(0);
@@ -910,6 +925,7 @@ export const useGameLogic = (config) => {
         setVoucherShelf([]);
         setVoucherDraftCandidates(null);
         setPendingTurnContext(null);
+        setPendingDangerCards(0);
         setActionPoints(AP_CONFIG.maxAP);
         setLastDrawDirection(null);
         setDrawCount(0);
@@ -978,6 +994,7 @@ export const useGameLogic = (config) => {
 
         // Danger cards + evacuation (passive matching)
         dangerCards: dangerCards_slot,
+        pendingDangerCards,
         canEvacuate,
         satisfiedProfitCount,
         evacuationProfitRequirement: EVACUATION_PROFIT_REQUIREMENT,

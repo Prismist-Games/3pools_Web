@@ -54,7 +54,7 @@ function PassiveCardBase({
     const reqEntries = Object.entries(reqs);
 
     return (
-        <div className={`relative group flex-shrink-0 w-44 min-h-[140px] rounded-lg border-2 p-2 flex flex-col gap-1.5 transition-all ${
+        <div className={`relative group flex-shrink-0 w-full min-h-[140px] rounded-lg border-2 p-2 flex flex-col gap-1.5 transition-all ${
             satisfied ? config.borderSatisfied : config.borderDefault
         }`}>
             {/* Remove button (profit only, on hover) */}

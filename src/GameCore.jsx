@@ -58,7 +58,7 @@ const GameCore = () => {
         tickDrawAnim, completeDrawAnim,
         replaceInventoryItem, discardInventoryItem, discardPendingItem, debugAddItem,
         // Danger cards + evacuation (passive matching)
-        dangerCards, canEvacuate,
+        dangerCards, pendingDangerCards, canEvacuate,
         satisfiedProfitCount, evacuationProfitRequirement,
         evacuate,
     } = state;
@@ -495,20 +495,39 @@ const GameCore = () => {
     // --- Right-panel passive cards (danger + evacuation) ---
     // Stacks above the inventory in each gameplay phase's right column.
     function renderPassiveSideCards() {
+        // Next-turn danger preview: baseline scales with turn number, +
+        // any extras queued by danger cells drawn this turn.
+        const nextTurnBaseline = Math.ceil((turnNumber + 1) / 2);
+        const nextTurnDangerTotal = nextTurnBaseline + (pendingDangerCards || 0);
+
         return (
             <div className="flex flex-col gap-2">
-                {dangerCards.map(card => (
+                <div className="flex items-center justify-between px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-rose-600">
+                        ⚠️ {t('下回合危险卡')}
+                    </span>
+                    <span className="text-sm font-black text-rose-700 tabular-nums">
+                        {nextTurnDangerTotal}
+                        {pendingDangerCards > 0 && (
+                            <span className="text-[10px] font-bold text-rose-500 ml-1">
+                                ({nextTurnBaseline}+{pendingDangerCards})
+                            </span>
+                        )}
+                    </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    {dangerCards.map(card => (
+                        <PassiveCard
+                            key={card.id}
+                            card={card}
+                            type="danger"
+                            inventory={inventory}
+                            t={t}
+                        />
+                    ))}
                     <PassiveCard
-                        key={card.id}
-                        card={card}
-                        type="danger"
-                        inventory={inventory}
-                        t={t}
-                    />
-                ))}
-                <PassiveCard
-                    card={null}
-                    type="evacuation"
+                        card={null}
+                        type="evacuation"
                     inventory={inventory}
                     canEvacuate={canEvacuate}
                     onEvacuate={evacuate}
@@ -516,6 +535,7 @@ const GameCore = () => {
                     evacuationProfitRequirement={evacuationProfitRequirement}
                     t={t}
                 />
+                </div>
             </div>
         );
     }
