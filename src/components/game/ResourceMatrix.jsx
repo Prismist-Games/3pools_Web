@@ -230,40 +230,26 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         ? `${extraShadow ? extraShadow + ', ' : ''}0 0 ${6 + buffCoverage * 4}px ${2 + buffCoverage}px rgba(232, 184, 64, ${0.35 + buffCoverage * 0.12})`
         : extraShadow;
 
-    // Cluster styling: on a side shared with a same-id sticker, drop the
-    // border, drop the margin, and extend the cell by HALF so it reaches
-    // the slot boundary. The neighbor does the same from its side — the
-    // two meet flush at the slot line, bg colors merge, and adjacent
-    // same-id stickers render as one continuous shape.
-    //
-    // Per-corner radius rule: drop the radius only when the corner sits on
-    // a straight outline or is fully interior. Keep it when the corner is
-    // on a convex bend — e.g., an L-junction protrusion or a wrap-around
-    // — so CSS border-radius can soften the outer curve. Concave corners
-    // (where the outline bends inward) can't be rounded by CSS anyway, so
-    // they stay sharp by falling into the "keep" bucket and getting
-    // painted over by the inside of the adjacent cell.
-    //
-    // dropRadius(a, b, d) where a, b are the two adjacent-side flags and d
-    // is the diagonal-cell flag. True → drop.
-    const dropRadius = (a, b, d) => (a && b && d) || ((a !== b) && !d);
-
-    let clusterMarginTop    = HALF;
-    let clusterMarginRight  = HALF;
-    let clusterMarginBottom = HALF;
-    let clusterMarginLeft   = HALF;
-    let clusterExtraW = 0;
-    let clusterExtraH = 0;
+    // Cluster styling: when a sticker shares an edge with a same-id
+    // sticker, re-color that edge's border to the sticker bg (#FFFDF8).
+    // Bridge rectangles rendered in the grid container fill the 6px
+    // inter-cell gap with the same color, so the cluster reads as one
+    // contiguous shape with a continuous outline around the perimeter.
     const borderStyle = {};
     if (sameNeighbors) {
-        if (sameNeighbors.top)    { borderStyle.borderTopWidth    = 0; clusterMarginTop    = 0; clusterExtraH += HALF; }
-        if (sameNeighbors.right)  { borderStyle.borderRightWidth  = 0; clusterMarginRight  = 0; clusterExtraW += HALF; }
-        if (sameNeighbors.bottom) { borderStyle.borderBottomWidth = 0; clusterMarginBottom = 0; clusterExtraH += HALF; }
-        if (sameNeighbors.left)   { borderStyle.borderLeftWidth   = 0; clusterMarginLeft   = 0; clusterExtraW += HALF; }
-        if (dropRadius(sameNeighbors.top,    sameNeighbors.left,  sameNeighbors.diagTL)) borderStyle.borderTopLeftRadius     = 0;
-        if (dropRadius(sameNeighbors.top,    sameNeighbors.right, sameNeighbors.diagTR)) borderStyle.borderTopRightRadius    = 0;
-        if (dropRadius(sameNeighbors.bottom, sameNeighbors.left,  sameNeighbors.diagBL)) borderStyle.borderBottomLeftRadius  = 0;
-        if (dropRadius(sameNeighbors.bottom, sameNeighbors.right, sameNeighbors.diagBR)) borderStyle.borderBottomRightRadius = 0;
+        const fill = '#FFFDF8';
+        if (sameNeighbors.top)    borderStyle.borderTopColor = fill;
+        if (sameNeighbors.right)  borderStyle.borderRightColor = fill;
+        if (sameNeighbors.bottom) borderStyle.borderBottomColor = fill;
+        if (sameNeighbors.left)   borderStyle.borderLeftColor = fill;
+        if (sameNeighbors.top)    borderStyle.borderTopLeftRadius = 0;
+        if (sameNeighbors.top)    borderStyle.borderTopRightRadius = 0;
+        if (sameNeighbors.bottom) borderStyle.borderBottomLeftRadius = 0;
+        if (sameNeighbors.bottom) borderStyle.borderBottomRightRadius = 0;
+        if (sameNeighbors.left)   borderStyle.borderTopLeftRadius = 0;
+        if (sameNeighbors.left)   borderStyle.borderBottomLeftRadius = 0;
+        if (sameNeighbors.right)  borderStyle.borderTopRightRadius = 0;
+        if (sameNeighbors.right)  borderStyle.borderBottomRightRadius = 0;
     }
     const clusterRing = inHoveredCluster
         ? '0 0 0 2px rgba(232,168,48,0.55), 0 0 8px rgba(232,168,48,0.35)'
@@ -280,12 +266,9 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
             data-cell={`${rowIndex}-${colIndex}`}
             className={`relative border rounded-lg flex flex-col items-center justify-center ${bgClass} ${highlightClass}`}
             style={{
-                marginTop: clusterMarginTop,
-                marginRight: clusterMarginRight,
-                marginBottom: clusterMarginBottom,
-                marginLeft: clusterMarginLeft,
-                width: CELL_SIZE + clusterExtraW,
-                height: CELL_SIZE + clusterExtraH,
+                margin: `${HALF}px`,
+                width: CELL_SIZE,
+                height: CELL_SIZE,
                 boxShadow: finalShadow,
                 ...borderStyle,
                 ...gravityStyle,
@@ -327,11 +310,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     const [doomFlash, setDoomFlash] = useState(false);
     const [hoveredClusterPos, setHoveredClusterPos] = useState(null); // [r, c] of seed
 
-    // Per-cell same-id neighborhood map (orthogonals + diagonals). Used
-    // to (a) drop margin/border on shared orthogonal edges so adjacent
-    // same-id stickers render flush and (b) keep border-radius only on
-    // corners that sit on a convex outline of the cluster, so L-bends
-    // and protrusions don't get a jagged square poke.
+    // Per-cell same-id 4-neighbor map (sticker only). Drives the inner-edge
+    // fade so contiguous same-id stickers render as one connected blob.
     const sameNeighborsMap = useMemo(() => {
         if (!matrix) return null;
         const map = new Map();
@@ -348,14 +328,47 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                     right: same(r, c + 1),
                     bottom: same(r + 1, c),
                     left: same(r, c - 1),
-                    diagTL: same(r - 1, c - 1),
-                    diagTR: same(r - 1, c + 1),
-                    diagBL: same(r + 1, c - 1),
-                    diagBR: same(r + 1, c + 1),
                 });
             }
         }
         return map;
+    }, [matrix]);
+
+    // Cluster bridges: rectangles that fill the 6px inter-cell gaps
+    // between adjacent same-id stickers, so a cluster renders as one
+    // contiguous painted shape. right-bridges fill horizontal gaps,
+    // bottom-bridges fill vertical gaps, corner-bridges fill the 6×6
+    // square where 4 same-cluster cells meet (otherwise the cluster has
+    // a tiny hole in its center).
+    const clusterBridges = useMemo(() => {
+        if (!matrix) return { right: [], bottom: [], corner: [] };
+        const rows = matrix.length;
+        const cols = matrix[0]?.length || 0;
+        const sameId = (r1, c1, r2, c2) => {
+            const a = matrix[r1]?.[c1];
+            const b = matrix[r2]?.[c2];
+            if (!a || !b) return false;
+            if (a.type !== 'sticker' || b.type !== 'sticker') return false;
+            if (a.hidden || b.hidden) return false;
+            return !!a.item?.id && a.item.id === b.item?.id;
+        };
+        const right = [];
+        const bottom = [];
+        const corner = [];
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (c + 1 < cols && sameId(r, c, r, c + 1)) right.push({ r, c });
+                if (r + 1 < rows && sameId(r, c, r + 1, c)) bottom.push({ r, c });
+                if (r + 1 < rows && c + 1 < cols
+                    && sameId(r, c, r, c + 1)
+                    && sameId(r, c, r + 1, c)
+                    && sameId(r + 1, c, r + 1, c + 1)
+                    && sameId(r, c + 1, r + 1, c + 1)) {
+                    corner.push({ r, c });
+                }
+            }
+        }
+        return { right, bottom, corner };
     }, [matrix]);
 
     // Set of cluster member keys for the currently hovered sticker cell.
@@ -566,6 +579,72 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                         /* no gap — margins on cells handle spacing */
                     }}
                 >
+                    {/* Cluster bridges — fill the 6px gaps between same-id
+                        stickers so clusters render as contiguous shapes with
+                        continuous outlines. Rendered below cells (zIndex 1)
+                        so cell tooltips / highlights remain on top. */}
+                    {clusterBridges.right.map(({ r, c }) => {
+                        const key = `rb-${r}-${c}`;
+                        const inHovered = hoveredClusterSet?.has(`${r}-${c}`) && hoveredClusterSet?.has(`${r}-${c + 1}`);
+                        return (
+                            <div
+                                key={key}
+                                className="pointer-events-none absolute"
+                                style={{
+                                    top: `${r * TRACK + HALF}px`,
+                                    left: `${(c + 1) * TRACK - HALF}px`,
+                                    width: `${GAP}px`,
+                                    height: `${CELL_SIZE}px`,
+                                    background: '#FFFDF8',
+                                    borderTop: '1px solid #DCC8A0',
+                                    borderBottom: '1px solid #DCC8A0',
+                                    boxSizing: 'border-box',
+                                    zIndex: 1,
+                                    boxShadow: inHovered ? '0 0 0 2px rgba(232,168,48,0.55)' : undefined,
+                                }}
+                            />
+                        );
+                    })}
+                    {clusterBridges.bottom.map(({ r, c }) => {
+                        const key = `bb-${r}-${c}`;
+                        const inHovered = hoveredClusterSet?.has(`${r}-${c}`) && hoveredClusterSet?.has(`${r + 1}-${c}`);
+                        return (
+                            <div
+                                key={key}
+                                className="pointer-events-none absolute"
+                                style={{
+                                    top: `${(r + 1) * TRACK - HALF}px`,
+                                    left: `${c * TRACK + HALF}px`,
+                                    width: `${CELL_SIZE}px`,
+                                    height: `${GAP}px`,
+                                    background: '#FFFDF8',
+                                    borderLeft: '1px solid #DCC8A0',
+                                    borderRight: '1px solid #DCC8A0',
+                                    boxSizing: 'border-box',
+                                    zIndex: 1,
+                                    boxShadow: inHovered ? '0 0 0 2px rgba(232,168,48,0.55)' : undefined,
+                                }}
+                            />
+                        );
+                    })}
+                    {clusterBridges.corner.map(({ r, c }) => {
+                        const key = `cb-${r}-${c}`;
+                        return (
+                            <div
+                                key={key}
+                                className="pointer-events-none absolute"
+                                style={{
+                                    top: `${(r + 1) * TRACK - HALF}px`,
+                                    left: `${(c + 1) * TRACK - HALF}px`,
+                                    width: `${GAP}px`,
+                                    height: `${GAP}px`,
+                                    background: '#FFFDF8',
+                                    zIndex: 1,
+                                }}
+                            />
+                        );
+                    })}
+
                     {/* Center rotate modifier: pulsing frame around the 2×2 + rotating ↻ hint */}
                     {wallType?.id === 'center_rotate' && (() => {
                         const r0 = Math.floor(MATRIX_CONFIG.gridSize / 2) - 1;
