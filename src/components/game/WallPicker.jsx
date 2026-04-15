@@ -39,21 +39,23 @@ function getSpecialCells(grid, language) {
     return specials;
 }
 
+/**
+ * Wall picker: 3 candidates surfaced as mystery cards. The modifier (or
+ * hand-crafted level) identity is deliberately hidden — only basic info
+ * (stickers, doom counts, specials) is exposed, so the player bets on
+ * cell composition rather than pre-reading the rule. Selection commits:
+ * a confirmation reveal with the modifier follows in the wall_reveal
+ * phase before drawing starts.
+ */
 const WallPicker = ({ candidates, onSelect }) => {
     const { t, language } = useLanguage();
-    /** Get localized level field — uses _en if available in English mode, falls back to t() */
-    const tl = (level, field) => {
-        if (language === 'en' && level[field + '_en']) return level[field + '_en'];
-        return t(level[field]);
-    };
 
     return (
         <div className="text-center py-6">
             <h2 className="text-base font-bold text-kitchen-text-title mb-1">{t('选择下一面奖品墙')}</h2>
-            <p className="text-[11px] text-kitchen-text-secondary mb-5">{t('每面墙有不同的规则和贴纸')}</p>
+            <p className="text-[11px] text-kitchen-text-secondary mb-5">{t('规则会在进入后揭晓')}</p>
             <div className="flex gap-4 justify-center">
                 {candidates.map((wall, idx) => {
-                    const isLevel = !wall.wallType && wall.level;
                     const specials = getSpecialCells(wall.grid, language);
                     return (
                         <button
@@ -64,21 +66,9 @@ const WallPicker = ({ candidates, onSelect }) => {
                                 hover:-translate-y-1 transition-all duration-150 text-left overflow-hidden
                                 flex flex-col items-stretch"
                         >
-                            {isLevel ? (
-                                <>
-                                    <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark px-4 py-2 mb-3 border-b border-dashed border-kitchen-wood-border">
-                                        <div className="text-sm font-bold text-kitchen-text-body">{wall.level.icon || '📐'} {tl(wall.level, 'name') || wall.level.id}</div>
-                                    </div>
-                                    <p className="text-[10px] text-kitchen-text-secondary mb-3 leading-relaxed px-4">{tl(wall.level, 'description') || t('特殊地形关卡')}</p>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark px-4 py-2 mb-3 border-b border-dashed border-kitchen-wood-border">
-                                        <div className="text-sm font-bold text-kitchen-text-body">{wall.wallType.icon} {t(wall.wallType.name)}</div>
-                                    </div>
-                                    <p className="text-[10px] text-kitchen-text-secondary mb-3 leading-relaxed px-4">{t(wall.wallType.desc)}</p>
-                                </>
-                            )}
+                            <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark px-4 py-2 mb-3 border-b border-dashed border-kitchen-wood-border">
+                                <div className="text-sm font-bold text-kitchen-text-body">❓ {language === 'en' ? `Wall ${idx + 1}` : `第 ${idx + 1} 号墙`}</div>
+                            </div>
 
                             <div className="px-4 pb-4">
                                 <div className="text-[9px] text-kitchen-text-muted uppercase tracking-wide mb-1">{t('贴纸')}</div>

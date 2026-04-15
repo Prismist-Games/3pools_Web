@@ -488,6 +488,8 @@ export const EN_TRANSLATIONS = {
     "新订单": "New Order",
     "簇": "Cluster",
     "今日菜单": "Today's Dish",
+    "奖品墙揭晓": "Prize Wall Revealed",
+    "规则会在进入后揭晓": "Rules revealed after you commit",
     "组建今日订单": "Build Today's Orders",
     "为今天的菜挑选订单": "Pick today's orders",
     "刷新订单": "Refresh orders",

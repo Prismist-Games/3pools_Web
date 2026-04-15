@@ -130,6 +130,10 @@ export const useGameLogic = (config) => {
     // 3-choose-1 candidates surfaced during 'wall_choice' phase. Each is
     // { stickers, grid, doomCellCount, wallType, level } — wallType XOR level.
     const [wallCandidates, setWallCandidates] = useState(null);
+    // Set when the player clicks a candidate on the picker — holds the
+    // chosen candidate while the reveal overlay shows the modifier/level
+    // for a confirm-click. Commit-on-click: no back-out once peeked.
+    const [pendingWallCandidate, setPendingWallCandidate] = useState(null);
 
     // --- Board Effect State ---
     const [gravityActive, setGravityActive] = useState(false);
@@ -267,10 +271,19 @@ export const useGameLogic = (config) => {
         setPhase('wall_choice');
     };
 
-    /** Player picks one of the 3 wall candidates — apply it and enter drawing. */
+    /** Player picks one of the 3 wall candidates — commit to it, then
+     *  reveal the modifier/level in the wall_reveal phase. */
     const selectWall = (index) => {
         if (!wallCandidates || !wallCandidates[index]) return;
-        const chosen = wallCandidates[index];
+        setPendingWallCandidate(wallCandidates[index]);
+        setPhase('wall_reveal');
+    };
+
+    /** Player clicks past the reveal — apply the chosen candidate. */
+    const confirmWallReveal = () => {
+        if (!pendingWallCandidate) return;
+        const chosen = pendingWallCandidate;
+        setPendingWallCandidate(null);
         setWallCandidates(null);
         applyWallCandidate(chosen);
     };
@@ -1419,6 +1432,7 @@ export const useGameLogic = (config) => {
         setDishIntroPending(false);
         setCurrentDish(null);
         setWallCandidates(null);
+        setPendingWallCandidate(null);
         setToast(null);
         setLastDrawResult(null);
         setModalContent(null);
@@ -1467,6 +1481,7 @@ export const useGameLogic = (config) => {
         setDishIntroPending(false);
         setCurrentDish(null);
         setWallCandidates(null);
+        setPendingWallCandidate(null);
         setPhase('pre_game');
     };
 
@@ -1548,6 +1563,8 @@ export const useGameLogic = (config) => {
         // Actions
         startGame,
         selectWall,
+        confirmWallReveal,
+        pendingWallCandidate,
         selectRow,
         selectColumn,
         endTurn,

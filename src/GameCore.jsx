@@ -52,8 +52,8 @@ const GameCore = () => {
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
-        startGame, selectWall, selectRow, selectColumn, endTurn, continueToNextTurn,
-        wallCandidates,
+        startGame, selectWall, confirmWallReveal, selectRow, selectColumn, endTurn, continueToNextTurn,
+        wallCandidates, pendingWallCandidate,
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
@@ -259,7 +259,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'between_turns' || phase === 'wall_choice') && (
+                {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'between_turns' || phase === 'wall_choice' || phase === 'wall_reveal') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -805,6 +805,25 @@ const GameCore = () => {
                         subtitle: t('今日菜单'),
                     } : null}
                     onDismiss={dismissDishIntro}
+                />
+
+                {/* Wall reveal — gated by explicit click, shows the modifier/
+                    level identity after the player has committed to a pick. */}
+                <RoundTransition
+                    reveal={phase === 'wall_reveal' && pendingWallCandidate ? (
+                        pendingWallCandidate.level ? {
+                            icon: pendingWallCandidate.level.icon || '📐',
+                            name: (language === 'en' && pendingWallCandidate.level.name_en) ? pendingWallCandidate.level.name_en : t(pendingWallCandidate.level.name),
+                            desc: (language === 'en' && pendingWallCandidate.level.description_en) ? pendingWallCandidate.level.description_en : (t(pendingWallCandidate.level.description) || t('特殊地形关卡')),
+                            subtitle: t('奖品墙揭晓'),
+                        } : {
+                            icon: pendingWallCandidate.wallType?.icon || '🎬',
+                            name: t(pendingWallCandidate.wallType?.name || ''),
+                            desc: t(pendingWallCandidate.wallType?.desc || ''),
+                            subtitle: t('奖品墙揭晓'),
+                        }
+                    ) : null}
+                    onDismiss={confirmWallReveal}
                 />
             </div>
         </div>
