@@ -1021,6 +1021,13 @@ export const useGameLogic = (config) => {
                 count: yieldCount,
                 id: Date.now(),
             });
+            // Cluster windfall: surface the multi-payout when modifiers
+            // boosted a sticker cluster above its base 1.
+            if (drawnCell.type === 'sticker' && clusterMembers && (yieldCount > 1 || clusterMembers.length > 1)) {
+                const stickerName = obtainedItem.item?.name || obtainedItem.name;
+                const tag = yieldCount > 1 ? ` ×${yieldCount}` : '';
+                showToast(`${obtainedItem.item.icon} ${t(stickerName)}${tag} (${t('簇')} ${clusterMembers.length})`, 'success');
+            }
             if (yieldCount > 1) {
                 for (let i = 0; i < yieldCount; i++) {
                     addToInventory({ ...obtainedItem, uid: generateUID() });

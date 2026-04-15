@@ -486,6 +486,7 @@ export const EN_TRANSLATIONS = {
     "已接取的订单已满": "Active orders full",
     "获得新订单": "New order received",
     "新订单": "New Order",
+    "簇": "Cluster",
     "今日菜单": "Today's Dish",
     "组建今日订单": "Build Today's Orders",
     "为今天的菜挑选订单": "Pick today's orders",
