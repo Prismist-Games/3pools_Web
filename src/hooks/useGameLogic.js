@@ -32,14 +32,22 @@ export const useGameLogic = (config) => {
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
     const [phase, setPhase] = useState('pre_game');
-    // phases: 'pre_game' | 'pool_selection' | 'drawing' | 'game_over'
+    // phases: 'pre_game' | 'wall_choice' | 'drawing' | 'voucher_draft' | 'game_over'
 
     // --- Action Points ---
     const [actionPoints, setActionPoints] = useState(AP_CONFIG.maxAP);
 
-    // --- Wall Shop State ---
-    const [revealedPools, setRevealedPools] = useState([]);   // shop wall instances (count: AP_CONFIG.wallShopSize)
-    const [displayedProfitCards, setDisplayedProfitCards] = useState([]); // displayed profit cards (count: AP_CONFIG.displayCardCount)
+    // --- Wall Choice State ---
+    const [wallCandidates, setWallCandidates] = useState([]); // 3 candidates for wall_choice phase
+
+    // --- Voucher Shelf State ---
+    const [voucherShelf, setVoucherShelf] = useState([]); // length 5 during gameplay, empty outside
+    const [voucherDraftCandidates, setVoucherDraftCandidates] = useState(null); // null or length-2 array
+
+    // --- Turn Transition Context ---
+    // Snapshot of danger-card rotation info captured in endTurn and consumed in
+    // continueToNextTurn after the voucher_draft phase resolves.
+    const [pendingTurnContext, setPendingTurnContext] = useState(null);
 
     // --- Pool State ---
     const [currentPool, setCurrentPool] = useState(null);   // { uid, poolType, grid, cellCounts } or null
@@ -78,22 +86,18 @@ export const useGameLogic = (config) => {
     const isDrawAnimating = drawAnimState !== null;
     const drawLimitReached = currentPool ? drawCount >= (currentPool.poolType?.drawLimit ?? Infinity) : false;
     const canDraw = actionPoints >= AP_CONFIG.drawCost && phase === 'drawing' && !drawLimitReached;
-    const canRefreshWalls = actionPoints >= AP_CONFIG.refreshCost && phase === 'pool_selection';
 
     // =============================================
-    // WALL SHOP
+    // WALL CHOICE + VOUCHER SHELF
     // =============================================
 
-    // --- Slot card constants ---
-    const MAX_PROFIT_CARDS = 5;
-
-    // Cost-to-drawLimit mapping for wall shop
+    // Cost-to-drawLimit mapping for wall candidates (reused from old shop — same wall shape)
     const COST_DRAW_LIMIT = { 1: 3, 2: 5, 3: 7 };
 
-    /** Generate shop walls with random entry costs and draw limits */
-    const generateShopWalls = () => {
-        const shopWalls = generateWallShop(AP_CONFIG.wallShopSize);
-        return shopWalls.map(poolType => {
+    /** Roll a fresh set of 3 wall candidates for wall_choice phase */
+    const generateWallChoiceCandidates = () => {
+        const walls = generateWallShop(3);
+        return walls.map(poolType => {
             const entryCost = 1 + Math.floor(Math.random() * 3); // 1-3 AP
             const drawLimit = COST_DRAW_LIMIT[entryCost] || 5;
             return {
@@ -105,42 +109,38 @@ export const useGameLogic = (config) => {
         });
     };
 
-    /** Generate profit cards for the display */
-    const generateDisplayCards = () => {
-        const cards = [];
-        for (let i = 0; i < AP_CONFIG.displayCardCount; i++) {
-            cards.push(generateSlotCard('profit', { turnCreated: turnNumber }));
+    /** Roll a fresh full 5-voucher shelf */
+    const generateFullVoucherShelf = (turn) => {
+        const shelf = [];
+        for (let i = 0; i < 5; i++) {
+            shelf.push(generateSlotCard('profit', { turnCreated: turn }));
         }
-        return cards;
+        return shelf;
     };
 
-    /** Refresh wall shop — costs AP, replaces all walls + profit cards */
-    const refreshWalls = () => {
-        if (!canRefreshWalls) return;
-        setActionPoints(prev => prev - AP_CONFIG.refreshCost);
-        const newWalls = generateShopWalls();
-        setRevealedPools(newWalls);
-        setDisplayedProfitCards(generateDisplayCards());
-        showToast(`🔄 ${t('奖品墙已刷新')}`, 'info');
+    /** Roll 2 voucher candidates for voucher_draft phase */
+    const generateVoucherDraftCandidates = (turn) => {
+        return [
+            generateSlotCard('profit', { turnCreated: turn }),
+            generateSlotCard('profit', { turnCreated: turn }),
+        ];
     };
 
-    /** Check if player can enter a specific pool */
-    const canEnterPool = (pool) => {
-        return actionPoints >= pool.entryCost && phase === 'pool_selection';
-    };
-
-    /** Enter a pool — pay AP, generate grid with biased weights, switch to drawing */
-    const enterPool = (poolUid) => {
-        const pool = revealedPools.find(p => p.uid === poolUid);
+    /**
+     * pickWall — called from WallPicker in wall_choice phase. Pays entry AP cost,
+     * builds the grid, switches to drawing.
+     */
+    const pickWall = (index) => {
+        if (phase !== 'wall_choice') return;
+        const pool = wallCandidates[index];
         if (!pool) return;
-        if (!canEnterPool(pool)) {
+        if (actionPoints < pool.entryCost) {
             showToast(t('行动点不足'), 'warning');
             return;
         }
 
         setActionPoints(prev => prev - pool.entryCost);
 
-        // Generate grid with biased sticker weights
         const stickerWeightsOverride = pool.poolType._bias
             ? buildBiasedStickerWeights(pool.poolType._bias)
             : undefined;
@@ -156,48 +156,51 @@ export const useGameLogic = (config) => {
         setDrawCount(0);
         setLastDrawResult(null);
         setLastDrawDirection(null);
+        setWallCandidates([]);
         setPhase('drawing');
     };
 
-    /** Exit current pool — remove wall from shop, return to pool_selection */
-    const exitPool = () => {
-        if (!currentPool) return;
-        // Remove the wall from the shop
-        setRevealedPools(prev => prev.filter(p => p.uid !== currentPool.uid));
+    /**
+     * exitWall — clear currentPool, re-roll wall candidates, return to wall_choice.
+     * Turn is NOT ended — remaining AP carries over.
+     */
+    const exitWall = () => {
         setCurrentPool(null);
         setMatrix(null);
         setDrawCount(0);
         setLastDrawResult(null);
         setLastDrawDirection(null);
-        setPhase('pool_selection');
+        setWallCandidates(generateWallChoiceCandidates());
+        setPhase('wall_choice');
     };
 
-    /** Take a displayed profit card — costs AP, adds to player's slot cards */
-    const takeDisplayCard = (cardId) => {
-        if (actionPoints < AP_CONFIG.takeCardCost) {
-            showToast(t('行动点不足'), 'warning');
-            return;
-        }
-        const profitCount = slotCards.filter(c => c.type === 'profit').length;
-        if (profitCount >= MAX_PROFIT_CARDS) {
-            showToast(t('兑换券已满'), 'warning');
-            return;
-        }
-        const card = displayedProfitCards.find(c => c.id === cardId);
-        if (!card) return;
+    /**
+     * replaceVoucher — commit a draft candidate into a shelf slot, then finish
+     * the turn transition via continueToNextTurn.
+     */
+    const replaceVoucher = (candidateIdx, targetSlotIdx) => {
+        if (phase !== 'voucher_draft') return;
+        if (!voucherDraftCandidates) return;
+        const candidate = voucherDraftCandidates[candidateIdx];
+        if (!candidate) return;
+        if (targetSlotIdx < 0 || targetSlotIdx >= voucherShelf.length) return;
 
-        setActionPoints(prev => prev - AP_CONFIG.takeCardCost);
-        setDisplayedProfitCards(prev => prev.filter(c => c.id !== cardId));
-        setSlotCards(prev => [...prev, card]);
-        showToast(`💎 ${t('获取兑换券')}`, 'success');
+        setVoucherShelf(prev => {
+            const next = [...prev];
+            next[targetSlotIdx] = candidate;
+            return next;
+        });
+        setVoucherDraftCandidates(null);
+        continueToNextTurn();
     };
 
-    /** Check if a displayed card can be taken */
-    const canTakeCard = (cardId) => {
-        const profitCount = slotCards.filter(c => c.type === 'profit').length;
-        return actionPoints >= AP_CONFIG.takeCardCost
-            && profitCount < MAX_PROFIT_CARDS
-            && phase === 'pool_selection';
+    /**
+     * skipVoucherDraft — shelf unchanged, finish the turn transition.
+     */
+    const skipVoucherDraft = () => {
+        if (phase !== 'voucher_draft') return;
+        setVoucherDraftCandidates(null);
+        continueToNextTurn();
     };
 
     // =============================================
@@ -264,18 +267,17 @@ export const useGameLogic = (config) => {
     };
 
     /**
-     * Collect reward items from all satisfied profit cards. Stickers NOT consumed.
-     * Backpack capacity does NOT apply at evacuation — every satisfied reward
-     * counts toward the final score.
-     * @returns {object[]} reward items minted from satisfied profit cards
+     * Collect reward items from all satisfied vouchers on the shelf.
+     * Stickers are NOT consumed. Backpack capacity does NOT apply at
+     * evacuation — every satisfied reward counts toward the final score.
      */
     const collectEvacuationRewards = () => {
         const rewardItems = [];
-        for (const card of slotCards) {
-            if (card.type !== 'profit') continue;
-            if (!canSatisfyCard(card, inventory)) continue;
-            if (!card.reward?.items) continue;
-            for (const item of card.reward.items) {
+        for (const voucher of voucherShelf) {
+            if (!voucher) continue;
+            if (!canSatisfyCard(voucher, inventory)) continue;
+            if (!voucher.reward?.items) continue;
+            for (const item of voucher.reward.items) {
                 // Spread to preserve rarity/tags/nameEn (needed by Kitchen scoring).
                 rewardItems.push({
                     ...item,
@@ -292,12 +294,11 @@ export const useGameLogic = (config) => {
         setSlotCards(prev => prev.filter(c => c.id !== cardId));
     };
 
-    // Derived: separate card types for easy access
-    const profitCards = slotCards.filter(c => c.type === 'profit');
+    // Derived: danger cards come from slotCards (which is now pure-danger since
+    // profits moved to voucherShelf). Evacuation reads from the shelf.
     const dangerCards_slot = slotCards.filter(c => c.type === 'danger');
 
-    // Evacuation: player must currently hold at least N satisfied profit cards.
-    const satisfiedProfitCount = profitCards.filter(c => canSatisfyCard(c, inventory)).length;
+    const satisfiedProfitCount = voucherShelf.filter(v => v && canSatisfyCard(v, inventory)).length;
     const canEvacuate = satisfiedProfitCount >= EVACUATION_PROFIT_REQUIREMENT;
 
     // Simple capacity: just inventory count (no slot counting)
@@ -321,26 +322,20 @@ export const useGameLogic = (config) => {
         setDrawCount(0);
         setTotalDrawCount(0);
         setTurnNumber(1);
-
-        // Reset lives
         setLives(INITIAL_LIVES);
 
-        // Create initial slot cards: turn 1 danger only (profit cards now come from display)
-        const turn1DangerCount = Math.ceil(1 / 2); // Turn 1: 1 danger card
-        const turn1DangerCards = [];
-        for (let i = 0; i < turn1DangerCount; i++) {
-            turn1DangerCards.push(generateSlotCard('danger', { turnCreated: 1 }));
-        }
-        setSlotCards([...turn1DangerCards]);
+        // Turn 1 danger card (rotation scaling starts at 1, same as before).
+        const turn1Dangers = [generateSlotCard('danger', { turnCreated: 1 })];
+        setSlotCards(turn1Dangers);
 
-        // Generate wall shop + displayed profit cards
-        const shopWalls = generateShopWalls();
-        setRevealedPools(shopWalls);
-        setDisplayedProfitCards(generateDisplayCards());
+        // Pre-roll a full 5-voucher shelf and a fresh 3-candidate wall choice.
+        setVoucherShelf(generateFullVoucherShelf(1));
+        setVoucherDraftCandidates(null);
+        setWallCandidates(generateWallChoiceCandidates());
 
         setCurrentPool(null);
         setMatrix(null);
-        setPhase('pool_selection');
+        setPhase('wall_choice');
     };
 
     /** End current turn manually (forfeits remaining AP) */
@@ -353,14 +348,26 @@ export const useGameLogic = (config) => {
                 .flatMap(c => Object.keys(getRequirements(c)))
         ));
 
-        // Check danger slot cards before moving to next turn
+        // Check danger slot cards before opening the voucher draft
         checkDangerCards();
 
-        startNextTurn(prevDangerStickerTypes);
+        // Stash rotation context so continueToNextTurn can honor it after the draft
+        setPendingTurnContext({ excludeStickerTypes: prevDangerStickerTypes });
+
+        // Every turn end unconditionally opens a voucher draft
+        setVoucherDraftCandidates(generateVoucherDraftCandidates(turnNumber + 1));
+        setPhase('voucher_draft');
     };
 
-    /** Start a new turn — reset AP, generate new danger cards */
-    const startNextTurn = (excludeStickerTypes = []) => {
+    /**
+     * continueToNextTurn — entered from replaceVoucher or skipVoucherDraft after
+     * the draft is resolved. Resets AP, spawns new danger cards, routes to
+     * drawing (if a wall is held) or wall_choice (if not).
+     */
+    const continueToNextTurn = () => {
+        const excludeStickerTypes = pendingTurnContext?.excludeStickerTypes ?? [];
+        setPendingTurnContext(null);
+
         const nextTurn = turnNumber + 1;
         setTurnNumber(nextTurn);
         setActionPoints(AP_CONFIG.maxAP);
@@ -368,8 +375,7 @@ export const useGameLogic = (config) => {
         setLastDrawDirection(null);
         setDrawCount(0);
 
-        // Auto-generate danger cards — count scales with turn number
-        // TODO (tuning): adjust scaling formula after playtesting
+        // Danger card count scales with turn number (unchanged from previous flow).
         const dangerCardCount = Math.ceil(nextTurn / 2);
         const newDangerCards = [];
         for (let i = 0; i < dangerCardCount; i++) {
@@ -378,19 +384,16 @@ export const useGameLogic = (config) => {
                 excludeStickerTypes,
             }));
         }
-
-        // No auto-generate profit cards — they only come from the display
         setSlotCards(prev => [...prev, ...newDangerCards]);
 
-        // Return to pool selection — clear current pool/matrix
-        setCurrentPool(null);
-        setMatrix(null);
-
-        // Refill + refresh wall shop and profit card display for new turn
-        setRevealedPools(generateShopWalls());
-        setDisplayedProfitCards(generateDisplayCards());
-
-        setPhase('pool_selection');
+        // If the player still holds a wall, resume drawing. Otherwise roll fresh
+        // wall candidates — this covers the "drained wall then ended turn" case.
+        if (currentPool) {
+            setPhase('drawing');
+        } else {
+            setWallCandidates(generateWallChoiceCandidates());
+            setPhase('wall_choice');
+        }
     };
 
     // =============================================
@@ -576,7 +579,19 @@ export const useGameLogic = (config) => {
             return newMatrix;
         };
 
-        setMatrix(prev => nullDrawnCells(prev));
+        // Null the drawn cells and check if the wall is now fully drained.
+        // If so, schedule a transition to wall_choice on the next tick —
+        // doing it here (not in a setTimeout before setMatrix) keeps the
+        // order deterministic and avoids flicker.
+        let drainedAfterThisDraw = false;
+        setMatrix(prev => {
+            const next = nullDrawnCells(prev);
+            drainedAfterThisDraw = next.every(row => row.every(c => c === null));
+            return next;
+        });
+        if (drainedAfterThisDraw) {
+            setTimeout(() => exitWall(), 400);
+        }
 
         if (obtainedItem) {
             setFlyingItem({
@@ -722,8 +737,10 @@ export const useGameLogic = (config) => {
         setPhase('pre_game');
         setMatrix(null);
         setCurrentPool(null);
-        setRevealedPools([]);
-        setDisplayedProfitCards([]);
+        setWallCandidates([]);
+        setVoucherShelf([]);
+        setVoucherDraftCandidates(null);
+        setPendingTurnContext(null);
         setActionPoints(AP_CONFIG.maxAP);
         setLastDrawDirection(null);
         setDrawCount(0);
@@ -747,8 +764,10 @@ export const useGameLogic = (config) => {
         setTurnNumber(0);
         setMatrix(null);
         setCurrentPool(null);
-        setRevealedPools([]);
-        setDisplayedProfitCards([]);
+        setWallCandidates([]);
+        setVoucherShelf([]);
+        setVoucherDraftCandidates(null);
+        setPendingTurnContext(null);
         setActionPoints(AP_CONFIG.maxAP);
         setLastDrawDirection(null);
         setDrawCount(0);
@@ -800,24 +819,22 @@ export const useGameLogic = (config) => {
         maxAP: AP_CONFIG.maxAP,
         apDrawCost: AP_CONFIG.drawCost,
 
-        // Wall Shop
-        revealedPools,
-        displayedProfitCards,
-        canRefreshWalls,
-        refreshWalls,
-        enterPool,
-        exitPool,
-        canEnterPool,
-        takeDisplayCard,
-        canTakeCard,
+        // Wall Choice
+        wallCandidates,
+        pickWall,
+        exitWall,
+
+        // Voucher Shelf + Draft
+        voucherShelf,
+        voucherDraftCandidates,
+        replaceVoucher,
+        skipVoucherDraft,
 
         // Pool state
         currentPool,
         drawLimitReached,
 
-        // Slot cards (passive matching)
-        slotCards,
-        profitCards,
+        // Danger cards + evacuation (passive matching)
         dangerCards: dangerCards_slot,
         canEvacuate,
         satisfiedProfitCount,
