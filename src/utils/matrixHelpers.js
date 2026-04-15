@@ -57,14 +57,6 @@ export function pickWallStickers(allStickers, min = 2, max = 4) {
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
-// --- Outside-item cells on the wall ---
-// Probability and count for spawning out-of-game items directly as wall cells.
-// Each wall rolls against OUTSIDE_ITEM_WALL_CHANCE; on hit, 1–2 items are placed.
-// Drawing the cell adds the item directly to the inventory.
-const OUTSIDE_ITEM_WALL_CHANCE = 0.3; // 20–40% target: using 30%
-const OUTSIDE_ITEM_MIN = 1;
-const OUTSIDE_ITEM_MAX = 2;
-
 /**
  * Generate a wall matrix for one turn using sticker types and a wallColor config.
  *
@@ -115,24 +107,9 @@ export function generateWall(wallStickers, wallColor, extraCells) {
     cellCounts.bomb = (cellCounts.bomb || 0) + 1;
   }
 
-  // Place 1–2 out-of-game item cells (30% chance per wall).
-  // Drawing the cell adds the item directly to the inventory.
-  if (Math.random() < OUTSIDE_ITEM_WALL_CHANCE) {
-    const count = OUTSIDE_ITEM_MIN
-      + Math.floor(Math.random() * (OUTSIDE_ITEM_MAX - OUTSIDE_ITEM_MIN + 1));
-    for (let i = 0; i < count && posIdx < emptyAfterDoom.length; i++, posIdx++) {
-      const [r, c] = emptyAfterDoom[posIdx];
-      const itemDef = OUT_OF_GAME_ITEMS[Math.floor(Math.random() * OUT_OF_GAME_ITEMS.length)];
-      grid[r][c] = {
-        type: 'out_of_game',
-        icon: itemDef.icon,
-        name: itemDef.name,
-        item: { ...itemDef },
-        uid: generateUID(),
-      };
-      cellCounts.out_of_game++;
-    }
-  }
+  // Out-of-game items never spawn directly on walls anymore — they come
+  // exclusively from satisfied vouchers at evacuation. (Previously 30% of
+  // walls seeded 1–2 items, but that short-circuits the voucher mechanic.)
 
   // Place instant-effect extra cells (from wall function)
   if (extraCells) {
