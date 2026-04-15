@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { generatePoolGrid } from '../utils/matrixHelpers';
+import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from '../data/v2Config';
-import { AP_CONFIG, INITIAL_LIVES } from '../data/v3Config';
-import { POOL_TYPES, generateWallShop, buildBiasedStickerWeights } from '../data/poolTypes';
+import { AP_CONFIG, INITIAL_LIVES, WALL_COLORS, WALL_FUNCTIONS } from '../data/v3Config';
 import { generateSlotCard, canSatisfyCard, getRequirements, EVACUATION_PROFIT_REQUIREMENT } from '../data/slotCards';
 
 import { useLanguage } from '../contexts/LanguageContext';
@@ -91,22 +90,54 @@ export const useGameLogic = (config) => {
     // WALL CHOICE + VOUCHER SHELF
     // =============================================
 
-    // Cost-to-drawLimit mapping for wall candidates (reused from old shop — same wall shape)
-    const COST_DRAW_LIMIT = { 1: 3, 2: 5, 3: 7 };
-
-    /** Roll a fresh set of 3 wall candidates for wall_choice phase */
+    /**
+     * Roll a fresh set of 3 wall candidates for the wall_choice phase.
+     * Each candidate has a random color, a random function for that color
+     * (no duplicates within a batch), pre-generated grid + cellCounts, and a
+     * drawLimit pulled from the function (default 5).
+     *
+     * Shape matches what WallPicker renders: { wallColor, wallFunction,
+     * stickers, grid, cellCounts, drawLimit, unlockCondition }.
+     */
     const generateWallChoiceCandidates = () => {
-        const walls = generateWallShop(3);
-        return walls.map(poolType => {
-            const entryCost = 1 + Math.floor(Math.random() * 3); // 1-3 AP
-            const drawLimit = COST_DRAW_LIMIT[entryCost] || 5;
-            return {
+        const wallColorValues = Object.values(WALL_COLORS);
+        const candidates = [];
+        const usedFunctionIds = new Set();
+        let attempts = 0;
+
+        while (candidates.length < 3 && attempts < 30) {
+            attempts++;
+            const wallColor = wallColorValues[Math.floor(Math.random() * wallColorValues.length)];
+
+            // Pick a function not already used in this batch
+            const colorFunctions = (WALL_FUNCTIONS[wallColor.id] || []).filter(f => !usedFunctionIds.has(f.id));
+            if (colorFunctions.length === 0) continue;
+            const wallFunction = colorFunctions[Math.floor(Math.random() * colorFunctions.length)];
+            usedFunctionIds.add(wallFunction.id);
+
+            const gc = wallFunction.gridCells || {};
+            const gridCells = Object.keys(gc).length > 0 ? gc : undefined;
+
+            const stickerRange = wallColor.stickerRange || [3, 4];
+            const stickers = pickWallStickers(STICKER_TYPES, stickerRange[0], stickerRange[1]);
+            const { grid, cellCounts } = generateWall(stickers, wallColor, gridCells);
+
+            const drawLimit = wallFunction.drawLimit ?? 5;
+
+            candidates.push({
                 uid: generateUID(),
-                poolType: { ...poolType, drawLimit },
-                entryCost,
+                wallColor,
+                wallFunction,
+                stickers,
+                grid,
+                cellCounts,
                 drawLimit,
-            };
-        });
+                unlockCondition: {},
+                entryCost: 0,
+            });
+        }
+
+        return candidates;
     };
 
     /** Roll a fresh full 5-voucher shelf */
@@ -127,32 +158,31 @@ export const useGameLogic = (config) => {
     };
 
     /**
-     * pickWall — called from WallPicker in wall_choice phase. Pays entry AP cost,
-     * builds the grid, switches to drawing.
+     * pickWall — called from WallPicker in wall_choice phase. Uses the candidate's
+     * pre-built grid (generated in generateWallChoiceCandidates) and switches to
+     * drawing. No AP cost — entry is free in the sequential flow.
      */
     const pickWall = (index) => {
         if (phase !== 'wall_choice') return;
-        const pool = wallCandidates[index];
-        if (!pool) return;
-        if (actionPoints < pool.entryCost) {
-            showToast(t('行动点不足'), 'warning');
-            return;
-        }
-
-        setActionPoints(prev => prev - pool.entryCost);
-
-        const stickerWeightsOverride = pool.poolType._bias
-            ? buildBiasedStickerWeights(pool.poolType._bias)
-            : undefined;
-        const { grid, cellCounts } = generatePoolGrid(pool.poolType, STICKER_TYPES, OUT_OF_GAME_ITEMS, stickerWeightsOverride);
+        const candidate = wallCandidates[index];
+        if (!candidate) return;
 
         setCurrentPool({
-            uid: pool.uid,
-            poolType: pool.poolType,
-            cellCounts,
-            entryCost: pool.entryCost,
+            uid: candidate.uid,
+            wallColor: candidate.wallColor,
+            wallFunction: candidate.wallFunction,
+            stickers: candidate.stickers,
+            cellCounts: candidate.cellCounts,
+            drawLimit: candidate.drawLimit,
+            // Keep poolType-shaped fields that ResourceMatrix / GameCore header read:
+            poolType: {
+                name: candidate.wallFunction?.name || '奖品墙',
+                icon: candidate.wallColor?.icon || '🏷️',
+                drawLimit: candidate.drawLimit,
+                _bias: candidate.stickers?.map(s => s.id),
+            },
         });
-        setMatrix(grid);
+        setMatrix(candidate.grid);
         setDrawCount(0);
         setLastDrawResult(null);
         setLastDrawDirection(null);
@@ -161,8 +191,9 @@ export const useGameLogic = (config) => {
     };
 
     /**
-     * exitWall — clear currentPool, re-roll wall candidates, return to wall_choice.
-     * Turn is NOT ended — remaining AP carries over.
+     * exitWall — end the current wall and auto-end the turn. The player flows
+     * through voucher_draft and then lands in wall_choice with fresh candidates
+     * and a new turn's AP. Also used by the drain detector in completeDrawAnim.
      */
     const exitWall = () => {
         setCurrentPool(null);
@@ -170,8 +201,7 @@ export const useGameLogic = (config) => {
         setDrawCount(0);
         setLastDrawResult(null);
         setLastDrawDirection(null);
-        setWallCandidates(generateWallChoiceCandidates());
-        setPhase('wall_choice');
+        endTurn();
     };
 
     /**
