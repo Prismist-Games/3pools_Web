@@ -45,11 +45,12 @@ const STICKER_STYLE = {
     bg: 'bg-gradient-to-b from-indigo-50 to-violet-50',
 };
 
-// Out-of-game items: uniform amber-tinted card (no per-tier coloring).
-// Tier is communicated via the star count glyphs above the icon.
-const STAR_STYLE = {
-    border: 'border-amber-300',
-    bg: 'bg-gradient-to-b from-amber-50 to-amber-100',
+// Out-of-game items: color varies by star tier (1–4).
+const STAR_STYLES = {
+    1: { border: 'border-slate-300',  bg: 'bg-gradient-to-b from-slate-50  to-slate-100'  },
+    2: { border: 'border-green-400',  bg: 'bg-gradient-to-b from-green-50  to-green-100'  },
+    3: { border: 'border-blue-400',   bg: 'bg-gradient-to-b from-blue-50   to-blue-100'   },
+    4: { border: 'border-purple-400', bg: 'bg-gradient-to-b from-purple-50 to-purple-100' },
 };
 
 const GameCard = ({
@@ -67,7 +68,7 @@ const GameCard = ({
     const style = sticker
         ? STICKER_STYLE
         : hasStars
-            ? STAR_STYLE
+            ? (STAR_STYLES[stars] ?? STAR_STYLES[4])
             : { border: 'border-gray-300', bg: 'bg-white' };
 
     const starText = hasStars
@@ -79,7 +80,12 @@ const GameCard = ({
             className={`relative inline-flex flex-col items-center justify-center border-2 shadow-sm ${style.border} ${style.bg} ${sz.wrapper} ${className}`}
         >
             {starText && (
-                <span className={`${sz.starText} text-amber-500 font-black leading-none tracking-tighter`}>
+                <span className={`${sz.starText} font-black leading-none tracking-tighter ${
+                    stars === 1 ? 'text-slate-400' :
+                    stars === 2 ? 'text-green-500' :
+                    stars === 3 ? 'text-blue-500'  :
+                                  'text-purple-500'
+                }`}>
                     {starText}
                 </span>
             )}

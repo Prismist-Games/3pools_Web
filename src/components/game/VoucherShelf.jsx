@@ -21,6 +21,7 @@ export default function VoucherShelf({
     onSlotClick,
     t,
 }) {
+    const filledCount = shelf.filter(v => v).length;
     const satisfiedCount = shelf.filter(v => v && canSatisfyCard(v, inventory)).length;
     const evacReady = satisfiedCount >= evacuationProfitRequirement;
 
@@ -39,7 +40,7 @@ export default function VoucherShelf({
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                         evacReady ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'
                     }`}>
-                        {satisfiedCount}/{evacuationProfitRequirement}
+                        {filledCount}/{shelf.length}
                     </span>
                 </div>
             </div>
@@ -51,6 +52,27 @@ export default function VoucherShelf({
                     const reqs = voucher ? getRequirements(voucher) : {};
                     const reqEntries = Object.entries(reqs);
                     const clickable = highlightForDraft && !!onSlotClick;
+
+                    // Empty slot
+                    if (!voucher) {
+                        return (
+                            <button
+                                key={slotIdx}
+                                type="button"
+                                onClick={clickable ? () => onSlotClick(slotIdx) : undefined}
+                                disabled={!clickable}
+                                className={`w-full rounded-lg border-2 border-dashed p-2 h-12 flex items-center justify-center transition-all ${
+                                    clickable
+                                        ? 'border-amber-400 bg-amber-50 cursor-pointer hover:border-amber-500 hover:bg-amber-100 ring-2 ring-amber-400 ring-offset-1'
+                                        : 'border-gray-200 bg-gray-50 cursor-default'
+                                }`}
+                            >
+                                <span className={`text-xs font-medium ${clickable ? 'text-amber-500' : 'text-gray-300'}`}>
+                                    {clickable ? t('+ 放置') : t('空槽')}
+                                </span>
+                            </button>
+                        );
+                    }
 
                     const borderClass = satisfied
                         ? 'border-emerald-400 bg-gradient-to-b from-emerald-50 to-green-50'
@@ -82,7 +104,7 @@ export default function VoucherShelf({
                                     return (
                                         <div
                                             key={stickerType}
-                                            className={`relative w-8 h-8 rounded-lg border-2 flex items-center justify-center text-sm ${
+                                            className={`relative w-10 h-10 rounded-lg border-2 flex items-center justify-center text-lg ${
                                                 typeSatisfied
                                                     ? 'border-emerald-400 bg-emerald-50'
                                                     : 'border-dashed border-gray-300 bg-white/50'
@@ -92,7 +114,7 @@ export default function VoucherShelf({
                                                 {info?.icon || '?'}
                                             </span>
                                             {count > 1 && (
-                                                <span className="absolute -top-1 -right-1.5 text-[8px] font-bold text-white bg-gray-700 rounded-full px-1 leading-tight">
+                                                <span className="absolute -top-1 -right-2 text-[9px] font-bold text-white bg-gray-700 rounded-full px-1 leading-tight">
                                                     ×{count}
                                                 </span>
                                             )}
@@ -111,7 +133,7 @@ export default function VoucherShelf({
                                             label={t(item.name)}
                                             stars={item.stars}
                                             tags={item.tags}
-                                            size="sm"
+                                            size="md"
                                         />
                                     ))}
                                 </div>

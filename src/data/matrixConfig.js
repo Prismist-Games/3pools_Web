@@ -60,6 +60,10 @@ export const MATRIX_CONFIG = {
       icon: '⚠️',
       name: '危险格',
     },
+    voucher_cell: {
+      icon: '🎟️',
+      name: '兑换券格',
+    },
     backpack: {
       icon: '🎒',
       name: '背包扩容',

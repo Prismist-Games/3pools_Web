@@ -42,6 +42,8 @@ export const useGameLogic = (config) => {
     // --- Voucher Shelf State ---
     const [voucherShelf, setVoucherShelf] = useState([]); // length 5 during gameplay, empty outside
     const [voucherDraftCandidates, setVoucherDraftCandidates] = useState(null); // null or length-2 array
+    // Mid-wall voucher draft triggered by drawing a voucher_cell (does not advance the turn)
+    const [wallVoucherDraftCandidates, setWallVoucherDraftCandidates] = useState(null);
 
     // --- Turn Transition Context ---
     // Snapshot of danger-card rotation info captured in endTurn and consumed in
@@ -89,7 +91,7 @@ export const useGameLogic = (config) => {
     // --- Derived State ---
     const isDrawAnimating = drawAnimState !== null;
     const drawLimitReached = currentPool ? drawCount >= (currentPool.poolType?.drawLimit ?? Infinity) : false;
-    const canDraw = actionPoints >= AP_CONFIG.drawCost && phase === 'drawing' && !drawLimitReached;
+    const canDraw = actionPoints >= AP_CONFIG.drawCost && phase === 'drawing' && !drawLimitReached && !wallVoucherDraftCandidates;
 
     // =============================================
     // WALL CHOICE + VOUCHER SHELF
@@ -127,7 +129,7 @@ export const useGameLogic = (config) => {
             if (usedTypeIds.has(wallType.id)) continue;
             usedTypeIds.add(wallType.id);
 
-            const stickers = pickWallStickers(STICKER_TYPES, 3, 4);
+            const stickers = pickWallStickers(STICKER_TYPES, 3, 3);
             const { grid } = generateWall(stickers, null, undefined);
 
             candidates.push({
@@ -141,11 +143,11 @@ export const useGameLogic = (config) => {
         return candidates;
     };
 
-    /** Roll a fresh full 5-voucher shelf */
-    const generateFullVoucherShelf = (turn) => {
+    /** Roll a voucher shelf with `count` filled slots (rest null), always length 5 */
+    const generateVoucherShelf = (count, turn) => {
         const shelf = [];
         for (let i = 0; i < 5; i++) {
-            shelf.push(generateSlotCard('profit', { turnCreated: turn }));
+            shelf.push(i < count ? generateSlotCard('profit', { turnCreated: turn }) : null);
         }
         return shelf;
     };
@@ -221,7 +223,7 @@ export const useGameLogic = (config) => {
             poolType: {
                 name: wallType.name,
                 icon: wallType.icon,
-                drawLimit: Infinity,
+                drawLimit: 5,
                 _bias: candidate.stickers?.map(s => s.id),
             },
         });
@@ -274,6 +276,25 @@ export const useGameLogic = (config) => {
         if (phase !== 'voucher_draft') return;
         setVoucherDraftCandidates(null);
         continueToNextTurn();
+    };
+
+    /** Mid-wall voucher draft: place selected candidate into a shelf slot, then resume drawing. */
+    const resolveWallVoucherDraft = (candidateIdx, targetSlotIdx) => {
+        if (!wallVoucherDraftCandidates) return;
+        const candidate = wallVoucherDraftCandidates[candidateIdx];
+        if (!candidate) return;
+        if (targetSlotIdx < 0 || targetSlotIdx >= voucherShelf.length) return;
+        setVoucherShelf(prev => {
+            const next = [...prev];
+            next[targetSlotIdx] = candidate;
+            return next;
+        });
+        setWallVoucherDraftCandidates(null);
+    };
+
+    /** Mid-wall voucher draft: discard both candidates and resume drawing. */
+    const skipWallVoucherDraft = () => {
+        setWallVoucherDraftCandidates(null);
     };
 
     // =============================================
@@ -402,8 +423,8 @@ export const useGameLogic = (config) => {
         setSlotCards(turn1Dangers);
         setPendingDangerCards(0);
 
-        // Pre-roll a full 5-voucher shelf and a fresh 3-candidate wall choice.
-        setVoucherShelf(generateFullVoucherShelf(1));
+        // Pre-roll a 3-voucher shelf (max 5 slots) and a fresh 3-candidate wall choice.
+        setVoucherShelf(generateVoucherShelf(3, 1));
         setVoucherDraftCandidates(null);
         setWallCandidates(generateWallChoiceCandidates());
 
@@ -449,10 +470,9 @@ export const useGameLogic = (config) => {
         setLastDrawDirection(null);
         setDrawCount(0);
 
-        // Danger card count = turn-scaled baseline + any pending extras queued by
+        // Danger card count = 1 fixed baseline + any pending extras queued by
         // danger cells drawn during this past turn.
-        const baselineCount = Math.ceil(nextTurn / 2);
-        const totalDangerCount = baselineCount + pendingDangerCards;
+        const totalDangerCount = 1 + pendingDangerCards;
         const newDangerCards = [];
         for (let i = 0; i < totalDangerCount; i++) {
             newDangerCards.push(generateSlotCard('danger', {
@@ -614,6 +634,10 @@ export const useGameLogic = (config) => {
             const n = mult || 1;
             setPendingDangerCards(prev => prev + n);
             showToast(`⚠️ ${t('下回合危险卡')} +${n}`, 'warning');
+        } else if (drawnCell.type === 'voucher_cell') {
+            // Open a mid-wall 2-of-1 voucher draft; drawing is paused until resolved.
+            setWallVoucherDraftCandidates(generateVoucherDraftCandidates(turnNumber));
+            showToast(`🎟️ ${t('兑换券格！')}`, 'success');
         }
 
         // Mutate the grid: null drawn cells, bomb explosion, hidden-wall
@@ -736,7 +760,10 @@ export const useGameLogic = (config) => {
             drainedAfterThisDraw = next.every(row => row.every(c => c === null));
             return next;
         });
+        const drawLimit = currentPool?.poolType?.drawLimit ?? Infinity;
         if (drainedAfterThisDraw) {
+            setTimeout(() => exitWall(), 400);
+        } else if (drawCount >= drawLimit) {
             setTimeout(() => exitWall(), 400);
         }
 
@@ -987,6 +1014,10 @@ export const useGameLogic = (config) => {
         voucherDraftCandidates,
         replaceVoucher,
         skipVoucherDraft,
+        // Mid-wall voucher draft
+        wallVoucherDraftCandidates,
+        resolveWallVoucherDraft,
+        skipWallVoucherDraft,
 
         // Pool state
         currentPool,

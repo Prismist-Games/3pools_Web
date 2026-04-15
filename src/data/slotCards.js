@@ -34,15 +34,16 @@ export const SLOT_CARD_CONFIG = {
 };
 
 /**
- * Difficulty tiers for profit cards.
- * Maps slot count to reward tier ranges (star levels of OUT_OF_GAME_ITEMS).
- * More slots → higher tier rewards.
+ * Required sticker count per reward star tier.
+ * Multi-item vouchers get a -1 discount per extra item beyond the first.
  */
-const PROFIT_REWARD_TIERS = [
-    // slots → which ORDER_TEMPLATE difficulties to reference
-    { slots: 2, difficulties: ['easy'] },
-    { slots: 3, difficulties: ['easy', 'medium'] },
-];
+const STAR_STICKER_COUNT = { 1: 2, 2: 3, 3: 4, 4: 5 };
+
+function computeProfitStickerCount(tiers) {
+    const base = tiers.reduce((sum, tier) => sum + (STAR_STICKER_COUNT[tier] ?? 2), 0);
+    const discount = Math.max(0, tiers.length - 1); // -1 per extra item
+    return Math.max(2, base - discount);
+}
 
 // =============================================
 // HELPERS
@@ -67,33 +68,33 @@ function pickRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/** Pick a weighted-random item from an array of objects with a `weight` field */
+function pickWeighted(arr) {
+    const total = arr.reduce((sum, item) => sum + (item.weight ?? 1), 0);
+    let roll = Math.random() * total;
+    for (const item of arr) {
+        roll -= item.weight ?? 1;
+        if (roll <= 0) return item;
+    }
+    return arr[arr.length - 1];
+}
+
 /**
- * Generate reward items for a profit card based on slot count.
- * Uses ORDER_TEMPLATES to determine difficulty → reward tiers,
- * then picks random OUT_OF_GAME_ITEMS at those tiers.
+ * Generate reward items for a profit card.
+ * Picks a template by weight, then derives sticker requirement from reward tiers.
+ * Returns { items, stickerCount }.
  */
-function generateProfitReward(slotCount) {
-    // Find matching tier config
-    const tierConfig = PROFIT_REWARD_TIERS.find(t => t.slots === slotCount)
-        || PROFIT_REWARD_TIERS[PROFIT_REWARD_TIERS.length - 1];
+function generateProfitReward() {
+    const candidates = ORDER_TEMPLATES.filter(t => t.rewardTiers.length === 1 && t.rewardTiers[0] <= 4);
+    const template = pickWeighted(candidates.length > 0 ? candidates : ORDER_TEMPLATES);
 
-    // Pick a matching ORDER_TEMPLATE by difficulty, capped at 2 reward items
-    const matchingTemplates = ORDER_TEMPLATES.filter(
-        t => tierConfig.difficulties.includes(t.difficulty) && t.rewardTiers.length <= 2
-    );
-    const template = matchingTemplates.length > 0
-        ? pickRandom(matchingTemplates)
-        : pickRandom(ORDER_TEMPLATES.filter(t => t.rewardTiers.length <= 2) || ORDER_TEMPLATES);
-
-    // Generate reward items from the template's reward tiers (truncate to 2 max)
     const tiers = template.rewardTiers.slice(0, 2);
     const items = tiers.map(tier => {
-        const candidates = OUT_OF_GAME_ITEMS.filter(i => i.stars === tier);
-        if (candidates.length === 0) return { ...OUT_OF_GAME_ITEMS[0] };
-        return { ...pickRandom(candidates) };
+        const pool = OUT_OF_GAME_ITEMS.filter(i => i.stars === tier);
+        return { ...(pool.length > 0 ? pickRandom(pool) : OUT_OF_GAME_ITEMS[0]) };
     });
 
-    return { items };
+    return { items, stickerCount: computeProfitStickerCount(tiers) };
 }
 
 // =============================================
@@ -119,9 +120,17 @@ export function generateSlotCard(type, options = {}) {
         throw new Error(`Unknown slot card type: ${type}`);
     }
 
-    // Determine slot count
-    const slotCount = options.slotCount
-        ?? (config.minSlots + Math.floor(Math.random() * (config.maxSlots - config.minSlots + 1)));
+    // For profit cards: generate reward first, derive sticker count from tiers.
+    // For danger cards: use config range directly.
+    let reward = null;
+    let slotCount;
+    if (type === 'profit') {
+        reward = generateProfitReward();
+        slotCount = reward.stickerCount;
+    } else {
+        slotCount = options.slotCount
+            ?? (config.minSlots + Math.floor(Math.random() * (config.maxSlots - config.minSlots + 1)));
+    }
 
     // Determine how many distinct sticker types to spread across slots
     const maxTypes = type === 'profit'
@@ -147,7 +156,7 @@ export function generateSlotCard(type, options = {}) {
             slots.push({
                 stickerType: chosenTypes[typeIdx],
                 filled: false,
-                filledStickerUid: null, // uid of the sticker placed here (for unfill)
+                filledStickerUid: null,
             });
         }
     }
@@ -164,12 +173,8 @@ export function generateSlotCard(type, options = {}) {
         slots,
     };
 
-    // Profit cards get rewards
-    if (type === 'profit') {
-        card.reward = generateProfitReward(slotCount);
-    }
+    if (reward) card.reward = reward;
 
-    // Danger cards track creation turn
     if (type === 'danger') {
         card.turnCreated = options.turnCreated ?? 0;
     }

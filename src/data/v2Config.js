@@ -161,16 +161,16 @@ export const DISHES = [
 export const ORDER_TEMPLATES = [
     // 1 个奖励 (~25%)
     { id: 'a',  difficulty: 'easy',    rewardTiers: [1],       totalStickers: 2, stickerTypes: 1, weight: 8  },
-    { id: 'b',  difficulty: 'medium',  rewardTiers: [2],       totalStickers: 3, stickerTypes: 2, weight: 7  },
-    { id: 'c',  difficulty: 'hard',    rewardTiers: [3],       totalStickers: 4, stickerTypes: 3, weight: 5  },
-    { id: 'c2', difficulty: 'hard',    rewardTiers: [4],       totalStickers: 5, stickerTypes: 3, weight: 4  },
+    { id: 'b',  difficulty: 'medium',  rewardTiers: [2],       totalStickers: 3, stickerTypes: 2, weight: 6  },
+    { id: 'c',  difficulty: 'hard',    rewardTiers: [3],       totalStickers: 4, stickerTypes: 3, weight: 4  },
+    { id: 'c2', difficulty: 'hard',    rewardTiers: [4],       totalStickers: 5, stickerTypes: 3, weight: 2  },
     { id: 'd',  difficulty: 'extreme', rewardTiers: [5],       totalStickers: 6, stickerTypes: 4, weight: 3  },
     // 2 个奖励 (~50%)
-    { id: 'e',  difficulty: 'easy',    rewardTiers: [1, 1],    totalStickers: 3, stickerTypes: 1, weight: 14 },
-    { id: 'f',  difficulty: 'medium',  rewardTiers: [1, 2],    totalStickers: 4, stickerTypes: 2, weight: 12 },
-    { id: 'g',  difficulty: 'medium',  rewardTiers: [2, 2],    totalStickers: 4, stickerTypes: 2, weight: 10 },
-    { id: 'h',  difficulty: 'hard',    rewardTiers: [2, 3],    totalStickers: 5, stickerTypes: 3, weight: 8  },
-    { id: 'h2', difficulty: 'hard',    rewardTiers: [3, 4],    totalStickers: 5, stickerTypes: 3, weight: 6  },
+    { id: 'e',  difficulty: 'easy',    rewardTiers: [1, 1],    totalStickers: 3, stickerTypes: 1, weight: 9  },
+    { id: 'f',  difficulty: 'medium',  rewardTiers: [1, 2],    totalStickers: 4, stickerTypes: 2, weight: 8  },
+    { id: 'g',  difficulty: 'medium',  rewardTiers: [2, 2],    totalStickers: 4, stickerTypes: 2, weight: 7  },
+    { id: 'h',  difficulty: 'hard',    rewardTiers: [2, 3],    totalStickers: 5, stickerTypes: 3, weight: 11 },
+    { id: 'h2', difficulty: 'hard',    rewardTiers: [3, 4],    totalStickers: 5, stickerTypes: 3, weight: 9  },
     // 3 个奖励 (~25%)
     { id: 'i',  difficulty: 'easy',    rewardTiers: [1, 1, 1], totalStickers: 3, stickerTypes: 1, weight: 8  },
     { id: 'j',  difficulty: 'medium',  rewardTiers: [1, 1, 2], totalStickers: 4, stickerTypes: 2, weight: 7  },

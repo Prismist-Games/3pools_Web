@@ -48,6 +48,14 @@ function variedCount(base) {
   return Math.max(0, Math.round(base + (Math.random() - 0.5) * 2));
 }
 
+/** Box-Muller normal sample, rounded and clamped to [min, max] */
+function randomNormalInt(mean, stddev, min, max) {
+  const u1 = Math.random() || 1e-10;
+  const u2 = Math.random();
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  return Math.max(min, Math.min(max, Math.round(mean + z * stddev)));
+}
+
 /**
  * Randomly pick min–max sticker types from the full sticker array.
  */
@@ -111,9 +119,9 @@ export function generateWall(wallStickers, wallColor, extraCells) {
   // exclusively from satisfied vouchers at evacuation. (Previously 30% of
   // walls seeded 1–2 items, but that short-circuits the voucher mechanic.)
 
-  // Place danger cells: ~10% of the grid (rounded to the nearest int).
+  // Place danger cells: Normal(μ=4, σ=1.5), clamped to [1, 8].
   // Drawing a danger cell queues an extra danger card for next turn.
-  const dangerCount = Math.round(gridSize * gridSize * 0.10);
+  const dangerCount = randomNormalInt(3, 1.5, 1, 8);
   for (let i = 0; i < dangerCount && posIdx < emptyAfterDoom.length; i++, posIdx++) {
     const [r, c] = emptyAfterDoom[posIdx];
     grid[r][c] = {
@@ -123,6 +131,19 @@ export function generateWall(wallStickers, wallColor, extraCells) {
       uid: generateUID(),
     };
     cellCounts.danger_cell = (cellCounts.danger_cell || 0) + 1;
+  }
+
+  // Place voucher cells: exactly 1 per wall
+  const voucherCellCount = 1;
+  for (let i = 0; i < voucherCellCount && posIdx < emptyAfterDoom.length; i++, posIdx++) {
+    const [r, c] = emptyAfterDoom[posIdx];
+    grid[r][c] = {
+      type: 'voucher_cell',
+      icon: specialCells.voucher_cell.icon,
+      name: specialCells.voucher_cell.name,
+      uid: generateUID(),
+    };
+    cellCounts.voucher_cell = (cellCounts.voucher_cell || 0) + 1;
   }
 
   // Place instant-effect extra cells (from wall function)

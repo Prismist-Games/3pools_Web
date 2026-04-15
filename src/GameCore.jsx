@@ -28,6 +28,7 @@ const GameCore = () => {
     const [kitchenOpen, setKitchenOpen] = useState(false);
     const [kitchenDishIdx, setKitchenDishIdx] = useState(0);
     const [armedCandidateIdx, setArmedCandidateIdx] = useState(null);
+    const [wallArmedCandidateIdx, setWallArmedCandidateIdx] = useState(null);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -44,6 +45,7 @@ const GameCore = () => {
         wallCandidates, pickWall, exitWall,
         // Voucher shelf + draft
         voucherShelf, voucherDraftCandidates, replaceVoucher, skipVoucherDraft,
+        wallVoucherDraftCandidates, resolveWallVoucherDraft, skipWallVoucherDraft,
         // Pool state
         currentPool, drawLimitReached,
         lives,
@@ -72,10 +74,39 @@ const GameCore = () => {
         setArmedCandidateIdx(null);
     };
 
+    // Arm handler: if the shelf has an empty slot, auto-place directly without
+    // requiring the player to click the shelf.
+    const handleArmCandidate = (idx) => {
+        if (idx === null) { setArmedCandidateIdx(null); return; }
+        const emptySlotIdx = voucherShelf.findIndex(v => !v);
+        if (emptySlotIdx !== -1) {
+            replaceVoucher(idx, emptySlotIdx);
+        } else {
+            setArmedCandidateIdx(idx);
+        }
+    };
+
     // Wrap skip so the local armed state is also cleared.
     const handleSkipDraft = () => {
         skipVoucherDraft();
         setArmedCandidateIdx(null);
+    };
+
+    // Mid-wall voucher draft handlers
+    const handleWallShelfSlotClick = (slotIdx) => {
+        if (wallArmedCandidateIdx === null) return;
+        resolveWallVoucherDraft(wallArmedCandidateIdx, slotIdx);
+        setWallArmedCandidateIdx(null);
+    };
+
+    const handleArmWallCandidate = (idx) => {
+        if (idx === null) { setWallArmedCandidateIdx(null); return; }
+        const emptySlotIdx = voucherShelf.findIndex(v => !v);
+        if (emptySlotIdx !== -1) {
+            resolveWallVoucherDraft(idx, emptySlotIdx);
+        } else {
+            setWallArmedCandidateIdx(idx);
+        }
     };
 
     // --- Draw scanning animation interval ---
@@ -266,7 +297,7 @@ const GameCore = () => {
                                 candidates={voucherDraftCandidates || []}
                                 inventory={inventory}
                                 armedCandidateIdx={armedCandidateIdx}
-                                onArm={setArmedCandidateIdx}
+                                onArm={handleArmCandidate}
                                 onSkip={handleSkipDraft}
                                 t={t}
                             />
@@ -286,7 +317,8 @@ const GameCore = () => {
                                 shelf={voucherShelf}
                                 inventory={inventory}
                                 evacuationProfitRequirement={evacuationProfitRequirement}
-                                highlightForDraft={false}
+                                highlightForDraft={!!wallVoucherDraftCandidates && wallArmedCandidateIdx !== null}
+                                onSlotClick={handleWallShelfSlotClick}
                                 t={t}
                             />
                             {/* Main: grid area */}
@@ -306,6 +338,9 @@ const GameCore = () => {
                                         <span className="text-[10px] text-gray-400 flex-1 truncate">
                                             {t(currentPool.wallType.desc)}
                                         </span>
+                                        <span className="text-[11px] font-bold tabular-nums text-green-700 bg-green-100 px-2 py-0.5 rounded-full shrink-0">
+                                            {drawCount} / {currentPool?.poolType?.drawLimit ?? '∞'}
+                                        </span>
                                         <button
                                             onClick={exitWall}
                                             disabled={isDrawAnimating}
@@ -315,6 +350,18 @@ const GameCore = () => {
                                         </button>
                                     </div>
                                 )}
+                                {/* Mid-wall voucher draft overlay */}
+                                {wallVoucherDraftCandidates && (
+                                    <VoucherDraftPicker
+                                        candidates={wallVoucherDraftCandidates}
+                                        inventory={inventory}
+                                        armedCandidateIdx={wallArmedCandidateIdx}
+                                        onArm={handleArmWallCandidate}
+                                        onSkip={() => { skipWallVoucherDraft(); setWallArmedCandidateIdx(null); }}
+                                        t={t}
+                                    />
+                                )}
+
                                 {/* Draw grid */}
                                 <div className="flex justify-center">
                                     <ResourceMatrix
@@ -495,9 +542,9 @@ const GameCore = () => {
     // --- Right-panel passive cards (danger + evacuation) ---
     // Stacks above the inventory in each gameplay phase's right column.
     function renderPassiveSideCards() {
-        // Next-turn danger preview: baseline scales with turn number, +
+        // Next-turn danger preview: fixed baseline of 1, +
         // any extras queued by danger cells drawn this turn.
-        const nextTurnBaseline = Math.ceil((turnNumber + 1) / 2);
+        const nextTurnBaseline = 1;
         const nextTurnDangerTotal = nextTurnBaseline + (pendingDangerCards || 0);
 
         return (

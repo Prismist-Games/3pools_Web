@@ -32,6 +32,15 @@ const WallPicker = ({ candidates, onSelect }) => {
                             {t(wall.wallType.desc)}
                         </p>
 
+                        {(() => {
+                            const dangerCount = wall.grid.flat().filter(c => c?.type === 'danger_cell').length;
+                            return dangerCount > 0 ? (
+                                <div className="text-[10px] text-orange-400 mb-2">
+                                    ⚠️ {dangerCount} {t('危险格')}
+                                </div>
+                            ) : null;
+                        })()}
+
                         <div className="text-[9px] text-gray-300 uppercase tracking-wide mb-1">
                             {t('贴纸')}
                         </div>

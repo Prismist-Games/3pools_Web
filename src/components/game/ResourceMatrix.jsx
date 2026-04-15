@@ -103,6 +103,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时下回合额外 +1 危险卡');
+    } else if (cell.type === 'voucher_cell') {
+        icon = cell.icon;
+        name = t(cell.name);
+        desc = t('抽中时立即进行1次兑换券2选1');
     } else if (cell.type === 'fast_pass') {
         icon = cell.icon;
         name = t(cell.name);
@@ -161,7 +165,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_accumulation'
         || cell.type === 'gold' || cell.type === 'evacuation' || cell.type === 'out_of_game'
         || cell.type === 'refresh' || cell.type === 'order' || cell.type === 'pass' || cell.type === 'shield' || cell.type === 'bomb'
-        || cell.type === 'backpack' || cell.type === 'fast_pass' || cell.type === 'danger_cell');
+        || cell.type === 'backpack' || cell.type === 'fast_pass' || cell.type === 'danger_cell' || cell.type === 'voucher_cell');
     const { top, bottom, left, right } = adjacency;
 
     // Rounded corners — only on external corners
@@ -210,6 +214,8 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         bgClass = 'bg-gray-800 border-gray-900';
     } else if (cell.type === 'danger_cell') {
         bgClass = 'bg-rose-100 border-rose-400';
+    } else if (cell.type === 'voucher_cell') {
+        bgClass = 'bg-amber-100 border-amber-400';
     } else if (cell.type === 'backpack') {
         bgClass = 'bg-amber-100 border-amber-300';
     } else if (cell.type === 'fast_pass') {
