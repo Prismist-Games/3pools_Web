@@ -987,22 +987,10 @@ export const EN_TRANSLATIONS = {
     "张兑换券满足": "vouchers satisfied",
 
     // --- Wall ---
-    "奖品墙商店": "Wall Shop",
-    "刷新奖品墙": "Refresh Walls",
-    "奖品墙已刷新": "Walls refreshed",
-    "开始游戏来获取奖品墙": "Start the game to get walls",
-    "刷新消耗": "Refresh costs",
     "偏好": "Bias",
-    "退出危险墙": "Exit Danger Wall",
-    "进入危险墙": "Enter Danger Wall",
-    "危险墙": "Danger Wall",
 
-    // --- Wall Shop + Profit Card Display ---
-    "兑换券商店": "Voucher Shop",
+    // --- Wall picker + voucher draft shared ---
     "获取": "Acquire",
-    "获取兑换券": "Acquire Voucher",
-    "暂无兑换券": "No vouchers",
-    "兑换券已满": "Vouchers full",
     "无法进入": "Cannot enter",
     "退出奖品墙": "Exit Prize Wall",
     "已达上限": "Limit reached",
