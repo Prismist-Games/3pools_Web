@@ -45,7 +45,7 @@ function tryPlaceShape(shape, startRow, startCol, grid, gridSize) {
 /**
  * Randomly pick min–max sticker types from the full sticker array.
  */
-export function pickWallStickers(allStickers, min = 3, max = 4) {
+export function pickWallStickers(allStickers, min = 3, max = 3) {
   const count = min + Math.floor(Math.random() * (max - min + 1));
   const shuffled = [...allStickers].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));

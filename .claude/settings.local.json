@@ -67,7 +67,11 @@
       "WebFetch(domain:dispatchgame.net)",
       "Bash(curl -s http://localhost:5173/3pools_Web/)",
       "Bash(node:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(gh search *)",
+      "mcp__plugin_github_github__search_repositories",
+      "mcp__plugin_github_github__get_file_contents",
+      "Bash(npx *)"
     ]
   }
 }

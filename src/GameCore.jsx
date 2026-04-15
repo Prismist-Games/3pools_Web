@@ -154,13 +154,7 @@ const GameCore = () => {
                         <h1 className="text-base font-black tracking-tight">{t('梦想厨房')}</h1>
                         <div className="flex items-center gap-2">
                             <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[11px] font-bold">
-                                {t('场次')} {expeditionNumber}/{expeditionConfig.expeditionCount}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
-                                {t('回合')} {turnNumber}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
-                                ⭐ {totalScore}/{expeditionConfig.scoreToWin}
+                                Day {expeditionNumber}
                             </span>
                             <button onClick={toggleLanguage} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-600 border border-indigo-200 hover:bg-indigo-200 transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
                             <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-100 text-red-500 border border-red-200 hover:bg-red-200 transition-colors">{t('重置')}</button>
@@ -170,24 +164,11 @@ const GameCore = () => {
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                         </div>
                     </div>
-                    {/* Row 2: In-game Resources */}
-                    <div className="flex items-center gap-5 px-4 py-2">
-                        <div className="flex items-center gap-1">
-                            <span className="text-rose-400 text-xs">❤️</span>
-                            <span className="text-sm font-black text-rose-600">{hp}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-amber-400 text-xs">💰</span>
-                            <span className="text-sm font-black text-amber-600">{gold}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-slate-400 text-xs">💀</span>
-                            <span className="text-sm font-black text-slate-600">Lv.{doomLevel}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-teal-400 text-xs">🎒</span>
-                            <span className="text-sm font-black text-teal-600">{inventory.length}<span className="text-xs font-normal text-gray-400">/{maxInventorySize}</span></span>
-                        </div>
+                    {/* Row 2: HP as hearts */}
+                    <div className="flex items-center gap-1 px-4 py-2">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <span key={i} className="text-base">{i < hp ? '❤️' : '🤍'}</span>
+                        ))}
                     </div>
                 </div>
 
@@ -195,15 +176,12 @@ const GameCore = () => {
                 {phase === 'pre_game' && (
                     <div className="text-center py-20">
                         <h2 className="text-2xl font-bold mb-4">{t('梦想厨房')}</h2>
-                        <p className="text-gray-500 mb-2">{t('回合制原型')} v2</p>
-                        {expeditionNumber > 0 && (
-                            <p className="text-sm text-gray-400 mb-4">{t('累计')}: {totalScore} {t('分')}</p>
-                        )}
+                        <p className="text-gray-500 mb-6">{t('回合制原型')} v2</p>
                         <button
                             onClick={startGame}
                             className="px-8 py-3 bg-blue-500 text-white rounded-lg text-lg font-bold hover:bg-blue-600 transition-colors"
                         >
-                            {t('开始第')} {expeditionNumber + 1} {t('场')}
+                            {t('开始')} Day {expeditionNumber + 1}
                         </button>
                     </div>
                 )}
@@ -317,22 +295,24 @@ const GameCore = () => {
                                         </div>
                                     )}
 
-                                    {/* End turn button */}
-                                    <div className="mt-4 flex gap-2">
+                                    {/* Remaining draws + end button */}
+                                    <div className="mt-4">
+                                        <div className="mb-2 text-center">
+                                            <span className="text-sm font-bold text-gray-600">{t('剩余抽取')}: </span>
+                                            <span className="text-lg font-black text-amber-600">{gold}</span>
+                                            <span className="text-sm text-gray-400"> / 5</span>
+                                        </div>
                                         <button
                                             onClick={endTurn}
                                             disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
-                                            className={`px-6 py-2 rounded-lg font-bold transition-colors ${
+                                            className={`w-full px-6 py-2 rounded-lg font-bold transition-colors ${
                                                 isDoomResolving || isDrawAnimating || pendingItems.length > 0
                                                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                                     : 'bg-gray-700 text-white hover:bg-gray-800'
                                             }`}
                                         >
-                                            {t('结束回合')}
+                                            {t('结束抽奖')}
                                         </button>
-                                        {gold <= 0 && !isDoomResolving && (
-                                            <span className="text-sm text-gray-400 self-center">{t('金币已用完')}</span>
-                                        )}
                                     </div>
                                 </div>
                             )}
@@ -340,12 +320,17 @@ const GameCore = () => {
                             {/* Between turns */}
                             {phase === 'between_turns' && (
                                 <div className="text-center py-8">
-                                    <h2 className="text-xl font-bold mb-2">{t('回合')} {turnNumber} {t('结束')}</h2>
-                                    <p className="text-gray-500 mb-2">
-                                        {t('菜篮')}: {inventory.length}/{maxInventorySize} | HP: {hp} | 💀 Lv.{doomLevel}
+                                    <h2 className="text-xl font-bold mb-3">{t('抽奖结束')}</h2>
+                                    <div className="flex items-center justify-center gap-1 mb-1">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                            <span key={i} className="text-lg">{i < hp ? '❤️' : '🤍'}</span>
+                                        ))}
+                                    </div>
+                                    <p className="text-gray-500 text-sm mb-4">
+                                        {t('厄运等级')}: 💀 Lv.{doomLevel}
                                     </p>
                                     <p className="text-gray-400 text-sm mb-6">
-                                        {t('下回合将增加')} 1 {t('个危险格子')}
+                                        {t('下次进入抽奖将添加一个厄运标记')}
                                     </p>
 
                                     <div className="flex gap-4 justify-center">
@@ -353,13 +338,13 @@ const GameCore = () => {
                                             onClick={continueToNextTurn}
                                             className="px-8 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition-colors"
                                         >
-                                            {t('继续下一回合')}
+                                            {t('继续')}
                                         </button>
                                         <button
                                             onClick={handleEvacuate}
                                             className="px-8 py-3 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition-colors"
                                         >
-                                            {t('撤离')}（{inventory.filter(i => i.isOutOfGame).reduce((s, i) => s + (i.rarity || i.score || 0), 0)} {t('分')}）
+                                            {t('回到餐厅')}
                                         </button>
                                     </div>
                                 </div>

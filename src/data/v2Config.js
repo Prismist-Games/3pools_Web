@@ -131,7 +131,7 @@ export const DISHES = [
                 name: '主料', required: true, accept: '海鲜', prefer: '虾',
                 trigger: {
                     whenTag: '贝',
-                    spawnSlot: { name: '主料', required: false, accept: '海鲜', prefer: '', exclude: '贝' },
+                    spawnSlot: { name: '主料', required: false, accept: '海鲜', prefer: '虾', exclude: '贝' },
                 },
             },
             { name: '基底', required: true,  accept: '主食', prefer: '面' },
