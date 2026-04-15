@@ -768,6 +768,8 @@ export const EN_TRANSLATIONS = {
     "抽取消耗": "Draw costs",
     "翻池消耗": "Flip costs",
     "行动点不足": "Not enough AP",
+    "此行已空": "Row is empty",
+    "此列已空": "Column is empty",
     "行动点耗尽，回合结束": "AP depleted, turn ends",
     "揭晓可用环节": "Reveal Available Segment",
     "揭晓新环节": "Reveal New Segment",
@@ -1000,6 +1002,11 @@ export const EN_TRANSLATIONS = {
     "无法进入": "Cannot enter",
     "退出奖品墙": "Exit Prize Wall",
     "已达上限": "Limit reached",
+
+    // --- Inventory "needed by card" hint ---
+    "卡牌需要": "Needed by card",
+    "需": "need",
+    "持有的卡牌需要此印花，回收前请确认": "A held card needs this sticker — think twice before recycling",
 
     // --- Kitchen (out-of-game scoring system) ---
     "厨房": "Kitchen",

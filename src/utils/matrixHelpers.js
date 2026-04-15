@@ -394,59 +394,6 @@ export function generatePoolGrid(poolType, allStickers, allItems, stickerWeights
     return { grid, cellCounts };
 }
 
-/**
- * Apply gravity + refill to a grid after a cell is drawn.
- * For each column, cells above gaps fall down, and new random stickers
- * fill empty positions at the top (uniform distribution across all 8 types).
- *
- * @param {Array[][]} grid — the grid (mutated in place and returned)
- * @param {Array} allStickers — STICKER_TYPES array for generating refills
- * @returns {Array[][]} the same grid reference, after gravity + refill
- */
-export function applyGravityAndRefill(grid, allStickers) {
-    const rows = grid.length;
-    const cols = grid[0].length;
-
-    for (let c = 0; c < cols; c++) {
-        // Collect non-null cells from bottom to top, remembering their original row
-        const filled = [];
-        for (let r = rows - 1; r >= 0; r--) {
-            if (grid[r][c] !== null) {
-                filled.push({ cell: grid[r][c], origRow: r });
-            }
-        }
-
-        // How many empty spots need refilling at the top
-        const emptyCount = rows - filled.length;
-
-        // Place existing cells at the bottom, tagging fallDistance
-        for (let i = 0; i < filled.length; i++) {
-            const destRow = rows - 1 - i;
-            const { cell, origRow } = filled[i];
-            const distance = destRow - origRow; // how many rows this cell fell
-            cell.fallDistance = distance > 0 ? distance : 0;
-            cell.isNew = false;
-            grid[destRow][c] = cell;
-        }
-
-        // Fill empty spots at the top with new random stickers
-        for (let i = 0; i < emptyCount; i++) {
-            const sticker = allStickers[Math.floor(Math.random() * allStickers.length)];
-            grid[i][c] = {
-                type: 'sticker',
-                item: { ...sticker },
-                uid: generateUID(),
-                groupId: generateUID(),
-                shapeSize: 1,
-                fallDistance: i + 1, // falls from above the grid (row -1, -2, etc.)
-                isNew: true,
-            };
-        }
-    }
-
-    return grid;
-}
-
 /** Internal: get filtered items list for a pool type */
 function _getPoolItems(poolType, allItems) {
     if (poolType.itemFilter === null) {

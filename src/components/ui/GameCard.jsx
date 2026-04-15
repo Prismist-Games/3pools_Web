@@ -56,6 +56,7 @@ const GameCard = ({
     icon,
     label,
     stars,
+    tags,
     sticker = false,
     size = 'md',
     count,
@@ -94,7 +95,7 @@ const GameCard = ({
     if (!label) return card;
 
     return hasStars
-        ? <GameTooltip icon={icon} title={label} text={starText}>{card}</GameTooltip>
+        ? <GameTooltip icon={icon} title={label} text={starText} tags={tags}>{card}</GameTooltip>
         : <GameTooltip text={label}>{card}</GameTooltip>;
 };
 

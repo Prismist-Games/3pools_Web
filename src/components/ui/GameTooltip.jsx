@@ -1,5 +1,6 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 /**
  * Portal-based tooltip matching the CellTooltip style:
@@ -14,7 +15,8 @@ import { createPortal } from 'react-dom';
  *     <button>按钮</button>
  *   </GameTooltip>
  */
-const GameTooltip = ({ children, title, text, icon }) => {
+const GameTooltip = ({ children, title, text, icon, tags }) => {
+    const { t } = useLanguage();
     const ref = useRef(null);
     const [visible, setVisible] = useState(false);
     const [pos, setPos] = useState(null);
@@ -57,7 +59,16 @@ const GameTooltip = ({ children, title, text, icon }) => {
                                 {title && <span className="font-black text-amber-300 text-sm">{title}</span>}
                             </div>
                         )}
-                        <p className="text-[11px] text-slate-300 leading-relaxed">{text}</p>
+                        {text && <p className="text-[11px] text-slate-300 leading-relaxed">{text}</p>}
+                        {tags && tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                                {tags.map(tag => (
+                                    <span key={tag} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-200">
+                                        {t(tag)}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
                         <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-slate-900" />

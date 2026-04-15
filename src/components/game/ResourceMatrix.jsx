@@ -127,6 +127,15 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
                 <p className="text-[11px] text-slate-300 leading-relaxed">
                     {desc}
                 </p>
+                {cell.type === 'out_of_game' && cell.item?.tags && cell.item.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                        {cell.item.tags.map(tag => (
+                            <span key={tag} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-200">
+                                {t(tag)}
+                            </span>
+                        ))}
+                    </div>
+                )}
             </div>
             <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
                 <div className="w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-slate-900" />
@@ -150,44 +159,6 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         || cell.type === 'refresh' || cell.type === 'order' || cell.type === 'pass' || cell.type === 'shield' || cell.type === 'bomb'
         || cell.type === 'backpack' || cell.type === 'fast_pass');
     const { top, bottom, left, right } = adjacency;
-
-    // Fall animation: when cell has fallDistance, start offset upward, then animate to 0.
-    // We use direct DOM manipulation via ref to avoid React batching issues:
-    // 1. useLayoutEffect sets the initial offset (before paint)
-    // 2. Double-rAF triggers the transition (after browser paints the offset)
-    const cellFallDistance = cell?.fallDistance || 0;
-    const cellUid = cell?.uid;
-
-    useLayoutEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-        if (cellFallDistance > 0) {
-            // Phase 1: position above, no transition
-            el.style.transition = 'none';
-            el.style.transform = `translateY(${-cellFallDistance * TRACK}px)`;
-            // Phase 2: double-rAF ensures browser has painted the offset
-            let raf2, cleanup;
-            const raf1 = requestAnimationFrame(() => {
-                raf2 = requestAnimationFrame(() => {
-                    el.style.transition = 'transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1)';
-                    el.style.transform = '';
-                    // Phase 3: clear inline styles after animation so Tailwind transitions work
-                    cleanup = setTimeout(() => {
-                        el.style.transition = '';
-                        el.style.transform = '';
-                    }, 300);
-                });
-            });
-            return () => {
-                cancelAnimationFrame(raf1);
-                if (raf2) cancelAnimationFrame(raf2);
-                if (cleanup) clearTimeout(cleanup);
-            };
-        } else {
-            el.style.transition = '';
-            el.style.transform = '';
-        }
-    }, [cellUid, cellFallDistance]);
 
     // Rounded corners — only on external corners
     const isConnected = top || bottom || left || right;
@@ -423,9 +394,10 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
             {/* Column buttons row — offset by row-button area */}
             <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
                 {Array.from({ length: numCols }, (_, colIndex) => {
-                    // Empty cells are drawable too — column is always active while draws remain.
+                    // Disable columns with no filled cells — nothing to draw.
+                    const colHasCells = matrix.some(row => row[colIndex] !== null);
                     const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
-                    const colClickable = canDraw && !altBlocked;
+                    const colClickable = canDraw && !altBlocked && colHasCells;
                     return (
                         <button
                             key={colIndex}
@@ -455,9 +427,10 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
                 {/* Row buttons */}
                 <div className="flex flex-col mr-2" style={{ paddingTop: HALF }}>
                     {matrix.map((row, rowIndex) => {
-                        // Empty cells are drawable too — row is always active while draws remain.
+                        // Disable rows with no filled cells — nothing to draw.
+                        const rowHasCells = row.some(cell => cell !== null);
                         const altBlockedRow = wallType?.id === 'alternating' && lastDrawDirection === 'row';
-                        const rowClickable = canDraw && !altBlockedRow;
+                        const rowClickable = canDraw && !altBlockedRow && rowHasCells;
                         return (
                             <button
                                 key={rowIndex}

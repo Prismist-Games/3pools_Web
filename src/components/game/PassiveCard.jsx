@@ -186,7 +186,7 @@ function PassiveCardBase({
                     {card.reward?.items && (
                         <div className="flex items-center gap-1 flex-wrap">
                             {card.reward.items.map((item, i) => (
-                                <GameCard key={i} icon={item.icon} label={t(item.name)} stars={item.stars} size="md" />
+                                <GameCard key={i} icon={item.icon} label={t(item.name)} stars={item.stars} tags={item.tags} size="md" />
                             ))}
                         </div>
                     )}

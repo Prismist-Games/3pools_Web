@@ -106,11 +106,11 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
     const matchStyle = placed ? (MATCH_BORDER[slotResult.matchLevel] || MATCH_BORDER.none) : '';
 
     return (
-        <div className={`flex flex-col bg-kitchen-card rounded-xl border-2 shadow-[0_2px_0_#D4B896] overflow-hidden min-w-[140px]
-            ${isSpawned ? 'border-kitchen-info-border ring-1 ring-kitchen-info/40' : 'border-kitchen-gold-border-muted'}`}>
+        <div className={`flex flex-col bg-kitchen-card rounded-xl border-2 shadow-[0_3px_0_#B8996C] overflow-hidden min-w-[140px]
+            ${isSpawned ? 'border-kitchen-info-border ring-1 ring-kitchen-info/40' : 'border-kitchen-wood-border'}`}>
             {/* Header */}
             <div className={`px-3 py-1.5 border-b border-dashed flex items-center justify-between
-                ${isSpawned ? 'bg-[#F0F8FF] border-kitchen-info-border/60' : 'bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-kitchen-gold-border-muted'}`}>
+                ${isSpawned ? 'bg-[#F0F8FF] border-kitchen-info-border/60' : 'bg-gradient-to-b from-[#FFF3E0] to-[#FFE8C8] border-kitchen-wood-border/60'}`}>
                 <span className="text-xs font-bold text-kitchen-text-body">
                     {isSpawned && <Plus size={10} className="inline mr-0.5 text-kitchen-info-border" />}
                     {t(slot.name)}
@@ -150,7 +150,7 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
             )}
 
             {/* Rules */}
-            <div className="px-3 py-2 border-t border-kitchen-gold-border-muted/50 space-y-1">
+            <div className="px-3 py-2 border-t border-kitchen-wood-border/50 bg-[#FFFAEF] space-y-1">
                 {slot.accept ? (
                     <>
                         <div className="flex items-center gap-1.5 text-[10px]">
@@ -179,7 +179,7 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                             </div>
                         )}
                         {slot.crossBonus && (
-                            <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-kitchen-gold-border-muted/50 mt-1">
+                            <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-kitchen-wood-border/40 mt-1">
                                 <span className="text-pink-500 w-8 text-right">🔗</span>
                                 <span className="text-pink-600">
                                     {t(slot.crossBonus.requireSlot)}{t('为')} <TagBadge tag={slot.crossBonus.requireTag} className="bg-pink-600 text-pink-100" /> {t('时')} +{slot.crossBonus.points}
@@ -195,7 +195,7 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                 )}
                 {/* Trigger rule display */}
                 {slot.trigger && (
-                    <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-kitchen-gold-border-muted/50 mt-1">
+                    <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-kitchen-wood-border/40 mt-1">
                         <span className="text-kitchen-info-border w-8 text-right">⚡</span>
                         <span className="text-kitchen-info-border">
                             {t('放入')} <TagBadge tag={slot.trigger.whenTag} className="bg-kitchen-info text-white" /> {t('时额外开启一个栏位')}
@@ -315,7 +315,7 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
 
     return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div className="bg-[#F5F0E8] rounded-2xl shadow-2xl border-2 border-kitchen-gold-border w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-[#E8D4B0] rounded-2xl shadow-2xl border-2 border-kitchen-wood-shadow w-full max-w-3xl max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-b-2 border-kitchen-wood-border px-6 py-4 flex items-center justify-between rounded-t-2xl"
                     style={{ backgroundImage: 'radial-gradient(circle, rgba(180,140,80,0.1) 1px, transparent 1px)', backgroundSize: '14px 14px' }}>
@@ -351,7 +351,7 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
                     </div>
 
                     {/* Score summary + thresholds */}
-                    <div className="mb-6 py-3 px-4 bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border-muted shadow-[0_2px_0_#D4B896]">
+                    <div className="mb-6 py-3 px-4 bg-[#FFF3D0] rounded-xl border-2 border-kitchen-gold shadow-[0_3px_0_#D4952A]">
                         <div className="text-center text-sm text-kitchen-text-secondary">
                             {t('总分')}: <span className="font-bold text-lg text-kitchen-text-title">{result.total.toFixed(1)}</span>
                             <span className="text-kitchen-text-muted mx-2">/</span>
@@ -365,7 +365,7 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
                                 </span>
                             </div>
                         )}
-                        <div className="mt-3 pt-3 border-t border-kitchen-gold-border-muted/50 grid grid-cols-5 gap-1 text-center text-[10px]">
+                        <div className="mt-3 pt-3 border-t border-kitchen-gold/50 grid grid-cols-5 gap-1 text-center text-[10px]">
                             {[
                                 { label: '翻车', delta: -2, min: 0, max: dish.baseline * 0.5, color: 'text-kitchen-danger-text' },
                                 { label: '勉强', delta: -1, min: dish.baseline * 0.5, max: dish.baseline, color: 'text-[#B8803C]' },
@@ -389,9 +389,9 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
                         </div>
                     </div>
 
-                    {/* Fridge */}
-                    <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border-muted shadow-[0_2px_0_#D4B896] p-4">
-                        <div className="text-xs font-bold text-kitchen-text-body uppercase tracking-wide mb-3">
+                    {/* Fridge — cool-tinted to signal "cold storage" and separate it from the warm slot/score panels */}
+                    <div className="bg-[#E8F4FC] rounded-xl border-2 border-kitchen-info-border shadow-[0_3px_0_#4A8EA6] p-4">
+                        <div className="text-xs font-bold text-kitchen-info-border uppercase tracking-wide mb-3">
                             🧊 {t('冰箱')} ({fridgeItems.length})
                         </div>
                         {fridgeItems.length === 0 ? (
@@ -424,7 +424,7 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
                     {/* Actions */}
                     <div className="flex gap-3 mt-6">
                         <button onClick={clearAll}
-                            className="flex-1 py-2.5 rounded-xl border-2 border-kitchen-gold-border-muted bg-kitchen-card text-sm font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors flex items-center justify-center gap-1.5 shadow-[0_2px_0_#D4B896]">
+                            className="flex-1 py-2.5 rounded-xl border-2 border-kitchen-wood-border bg-kitchen-card text-sm font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors flex items-center justify-center gap-1.5 shadow-[0_3px_0_#B8996C]">
                             <Trash2 size={15} /> {t('清空')}
                         </button>
                         <button onClick={handleCook} disabled={mergedPlacements.every(p => !p)}

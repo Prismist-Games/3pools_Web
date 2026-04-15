@@ -7,6 +7,7 @@ import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 
 import GameCard from './components/ui/GameCard';
+import GameTooltip from './components/ui/GameTooltip';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS, DISHES } from './data/v2Config';
 import { AP_CONFIG } from './data/v3Config';
 import { canSatisfyCard, getRequirements, getStickerTypeInfo } from './data/slotCards';
@@ -353,7 +354,7 @@ const GameCore = () => {
                                                         {card.reward?.items && (
                                                             <div className="flex items-center gap-1 flex-wrap">
                                                                 {card.reward.items.map((item, i) => (
-                                                                    <GameCard key={i} icon={item.icon} label={t(item.name)} stars={item.stars} size="md" />
+                                                                    <GameCard key={i} icon={item.icon} label={t(item.name)} stars={item.stars} tags={item.tags} size="md" />
                                                                 ))}
                                                             </div>
                                                         )}
@@ -492,7 +493,7 @@ const GameCore = () => {
                                         <div className="flex flex-wrap gap-3">
                                             {exp.items.map((item, j) => (
                                                 <div key={j} className="flex flex-col items-center">
-                                                    <GameCard icon={item.icon} label={t(item.name)} stars={item.stars} size="lg" />
+                                                    <GameCard icon={item.icon} label={t(item.name)} stars={item.stars} tags={item.tags} size="lg" />
                                                     <span className="text-[10px] text-gray-500 mt-1 truncate max-w-[56px] text-center">{t(item.name)}</span>
                                                 </div>
                                             ))}
@@ -645,6 +646,16 @@ const GameCore = () => {
         const hasStickerItems = Object.keys(stickerCounts).length > 0;
         const hasTierItems = Object.values(tierCounts).some(n => n > 0);
 
+        // Sticker types referenced by any held profit/danger card — marks inventory
+        // stickers as "load-bearing" so players don't recycle them blindly.
+        const neededStickerIds = new Set();
+        for (const card of slotCards) {
+            const reqs = getRequirements(card);
+            for (const key of Object.keys(reqs)) {
+                if (key !== 'any') neededStickerIds.add(key);
+            }
+        }
+
         return (
             <div ref={inventoryRef} className="bg-white rounded-lg shadow-sm border">
                 <div className="px-3 py-2 border-b border-gray-100">
@@ -670,8 +681,23 @@ const GameCore = () => {
                             {STICKER_TYPES.map(st => {
                                 const count = stickerCounts[st.id] || 0;
                                 if (count === 0) return null;
-                                return (
-                                    <GameCard key={st.id} icon={st.icon} label={t(st.name)} sticker size="sm" count={count} />
+                                const needed = neededStickerIds.has(st.id);
+                                const chip = (
+                                    <div className={`relative ${needed ? 'rounded p-0.5 ring-1 ring-indigo-400 bg-indigo-100/60' : ''}`}>
+                                        <GameCard icon={st.icon} label={t(st.name)} sticker size="sm" count={count} />
+                                        {needed && (
+                                            <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-[7px] font-black px-0.5 rounded-full ring-1 ring-white leading-none">
+                                                📌
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                                return needed ? (
+                                    <GameTooltip key={st.id} title={t('卡牌需要')} text={t('持有的卡牌需要此印花，回收前请确认')}>
+                                        {chip}
+                                    </GameTooltip>
+                                ) : (
+                                    <React.Fragment key={st.id}>{chip}</React.Fragment>
                                 );
                             })}
                         </div>
@@ -734,6 +760,7 @@ const GameCore = () => {
                                             icon={pItem.icon}
                                             label={pItem.name}
                                             stars={pItem.isOutOfGame ? pItem.stars : undefined}
+                                            tags={pItem.isOutOfGame ? pItem.tags : undefined}
                                             sticker={pItem.isSticker}
                                             size="md"
                                         />
@@ -775,17 +802,29 @@ const GameCore = () => {
                                             icon={item.icon}
                                             label={t(item.name)}
                                             stars={item.isOutOfGame ? item.stars : undefined}
+                                            tags={item.isOutOfGame ? item.tags : undefined}
                                             sticker={item.isSticker}
                                             size="md"
                                             className={`${isRecycleSelected ? 'border-red-400 bg-red-100' : ''}
                                                 ${canReplace ? 'hover:border-red-400' : ''}
-                                                ${recycleMode && item ? 'hover:border-red-400' : ''}`}
+                                                ${recycleMode && item ? 'hover:border-red-400' : ''}
+                                                ${item?.isSticker && neededStickerIds.has(item.stickerId) ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
                                         />
                                     ) : (
                                         <div className="w-10 h-10 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50" />
                                     )}
                                     {item?.isOutOfGame && bonusItemMap.has(item.id) && (
                                         <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusItemMap.get(item.id)}</span>
+                                    )}
+                                    {item?.isSticker && neededStickerIds.has(item.stickerId) && (
+                                        <span className="absolute -top-1.5 -right-1.5 z-20">
+                                            <GameTooltip title={t('卡牌需要')} text={t('持有的卡牌需要此印花，回收前请确认')}>
+                                                <span className="inline-flex items-center gap-0.5 bg-indigo-500 text-white text-[8px] font-black px-1 py-[1px] rounded-full ring-2 ring-white shadow-md leading-none">
+                                                    <span>📌</span>
+                                                    <span>{t('需')}</span>
+                                                </span>
+                                            </GameTooltip>
+                                        </span>
                                     )}
                                 </div>
                             );

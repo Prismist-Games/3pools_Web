@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { generatePoolGrid, applyGravityAndRefill } from '../utils/matrixHelpers';
+import { generatePoolGrid } from '../utils/matrixHelpers';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from '../data/v2Config';
 import { AP_CONFIG, INITIAL_LIVES } from '../data/v3Config';
 import { POOL_TYPES, generateWallShop, buildBiasedStickerWeights } from '../data/poolTypes';
@@ -276,11 +276,9 @@ export const useGameLogic = (config) => {
             if (!canSatisfyCard(card, inventory)) continue;
             if (!card.reward?.items) continue;
             for (const item of card.reward.items) {
+                // Spread to preserve rarity/tags/nameEn (needed by Kitchen scoring).
                 rewardItems.push({
-                    id: item.id,
-                    name: item.name,
-                    icon: item.icon,
-                    stars: item.stars,
+                    ...item,
                     isOutOfGame: true,
                     uid: generateUID(),
                 });
@@ -413,9 +411,14 @@ export const useGameLogic = (config) => {
         setFlyingItem(null);
 
         const row = matrix[rowIndex];
-        // Empty cells (null) are drawable too — they yield no effect but still consume a draw.
-        const activeCols = row.map((_, colIndex) => colIndex);
-        if (activeCols.length === 0) return;
+        // Skip empty (null) cells — the random pick only considers filled cells.
+        const activeCols = row
+            .map((cell, colIndex) => (cell !== null ? colIndex : -1))
+            .filter(i => i !== -1);
+        if (activeCols.length === 0) {
+            showToast(t('此行已空'), 'info');
+            return;
+        }
 
         // Pay AP cost
         setActionPoints(prev => prev - AP_CONFIG.drawCost);
@@ -459,9 +462,14 @@ export const useGameLogic = (config) => {
         setLastDrawResult(null);
         setFlyingItem(null);
 
-        // Empty cells (null) are drawable too.
-        const activeCols = matrix.map((_, rowIndex) => rowIndex);
-        if (activeCols.length === 0) return;
+        // Skip empty (null) cells — the random pick only considers filled cells.
+        const activeCols = matrix
+            .map((row, rowIndex) => (row[colIndex] !== null ? rowIndex : -1))
+            .filter(i => i !== -1);
+        if (activeCols.length === 0) {
+            showToast(t('此列已空'), 'info');
+            return;
+        }
 
         setActionPoints(prev => prev - AP_CONFIG.drawCost);
         setDrawCount(prev => prev + 1);
@@ -521,7 +529,7 @@ export const useGameLogic = (config) => {
             // Bomb: destroy adjacent 8 cells
         }
 
-        // Phase 1: Null drawn cells (show gap), then Phase 2: gravity + refill after delay.
+        // Null out drawn cells — they stay empty (wall content is finite, no auto-refill).
         // Multi-cell shapes: all cells in the group become null.
         const nullDrawnCells = (prevMatrix) => {
             const newMatrix = prevMatrix.map(r => r.map(c => c ? { ...c } : null));
@@ -568,17 +576,7 @@ export const useGameLogic = (config) => {
             return newMatrix;
         };
 
-        // Phase 1: null the drawn cells to show the gap
         setMatrix(prev => nullDrawnCells(prev));
-
-        // Phase 2: after a brief delay, apply gravity + refill (triggers fall animation)
-        setTimeout(() => {
-            setMatrix(prev => {
-                const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
-                applyGravityAndRefill(newMatrix, STICKER_TYPES);
-                return newMatrix;
-            });
-        }, 120);
 
         if (obtainedItem) {
             setFlyingItem({
@@ -690,7 +688,12 @@ export const useGameLogic = (config) => {
             showToast(`🎁 ${t('物品兑换券兑换')} ×${rewardItems.length}`, 'success');
         }
         setSlotCards([]);
-        finishEvacuation([...inventory, ...rewardItems], 'evacuated');
+        // Merge rewards into live inventory so the game-over Kitchen fridge
+        // can see the items the player just earned. Inventory is cleared on
+        // startNextExpedition / handleReset.
+        const finalInventory = [...inventory, ...rewardItems];
+        setInventory(finalInventory);
+        finishEvacuation(finalInventory, 'evacuated');
     };
 
     /** Collect out-of-game items from inventory */
