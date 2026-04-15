@@ -291,28 +291,21 @@ const GameCore = () => {
                             />
                             {/* Main: grid area */}
                             <div className="flex-1 min-w-0 flex flex-col gap-3">
-                                {/* Wall info bar */}
-                                {currentPool && (
+                                {/* Wall info bar — wallType + sticker palette + exit */}
+                                {currentPool?.wallType && (
                                     <div className="flex items-center gap-3 px-3 py-2 rounded-lg border-2 border-green-300 bg-green-50">
-                                        <span className="text-xl">{currentPool.poolType?.icon || '🏷️'}</span>
-                                        <span className="font-black text-sm">{t(currentPool.poolType?.name || '奖品墙')}</span>
-                                        {currentPool.poolType?._bias && (
+                                        <span className="text-xl">{currentPool.wallType.icon}</span>
+                                        <span className="font-black text-sm">{t(currentPool.wallType.name)}</span>
+                                        {currentPool.stickers && (
                                             <div className="flex items-center gap-0.5">
-                                                {currentPool.poolType._bias.map(biasId => {
-                                                    const info = getStickerTypeInfo(biasId);
-                                                    return info ? <span key={biasId} className="text-sm">{info.icon}</span> : null;
-                                                })}
+                                                {currentPool.stickers.map(s => (
+                                                    <span key={s.id} className="text-sm" title={t(s.name)}>{s.icon}</span>
+                                                ))}
                                             </div>
                                         )}
-                                        <span className="text-[11px] text-gray-500 font-medium">
-                                            {t('抽取')}: {drawCount}/{currentPool.poolType?.drawLimit ?? '∞'}
+                                        <span className="text-[10px] text-gray-400 flex-1 truncate">
+                                            {t(currentPool.wallType.desc)}
                                         </span>
-                                        {drawLimitReached && (
-                                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                                {t('已达上限')}
-                                            </span>
-                                        )}
-                                        <div className="flex-1" />
                                         <button
                                             onClick={exitWall}
                                             disabled={isDrawAnimating}
@@ -330,9 +323,9 @@ const GameCore = () => {
                                         onSelectColumn={selectColumn}
                                         phase={phase}
                                         disabled={isDrawAnimating || pendingItems.length > 0 || !canDraw}
-                                        disabledReason={drawLimitReached ? t('已达上限') : !canDraw ? t('行动点不足') : null}
+                                        disabledReason={!canDraw ? t('行动点不足') : null}
                                         drawAnimState={drawAnimState}
-                                        wallType={null}
+                                        wallType={currentPool?.wallType}
                                         lastDrawDirection={lastDrawDirection}
                                         bonusItemMap={bonusItemMap}
                                     />

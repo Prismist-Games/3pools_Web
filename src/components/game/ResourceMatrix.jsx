@@ -382,15 +382,6 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, phase, disabled, 
 
     return (
         <div>
-            {wallType && (
-                <div className="text-center mb-2">
-                    <span className="text-sm font-bold">{wallType.icon} {t(wallType.name)}</span>
-                    {wallType.id !== 'basic' && (
-                        <p className="text-[11px] text-gray-400 mt-0.5">{t(wallType.desc)}</p>
-                    )}
-                </div>
-            )}
-
             {/* Column buttons row — offset by row-button area */}
             <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
                 {Array.from({ length: numCols }, (_, colIndex) => {

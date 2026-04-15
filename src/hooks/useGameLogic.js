@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from '../data/v2Config';
-import { AP_CONFIG, INITIAL_LIVES, WALL_COLORS, WALL_FUNCTIONS } from '../data/v3Config';
+import { AP_CONFIG, INITIAL_LIVES, WALL_TYPES } from '../data/v3Config';
 import { generateSlotCard, canSatisfyCard, getRequirements, EVACUATION_PROFIT_REQUIREMENT } from '../data/slotCards';
 
 import { useLanguage } from '../contexts/LanguageContext';
@@ -91,49 +91,45 @@ export const useGameLogic = (config) => {
     // =============================================
 
     /**
+     * Weighted pick of one wall type from WALL_TYPES.
+     */
+    const pickWallType = () => {
+        const total = WALL_TYPES.reduce((s, t) => s + t.weight, 0);
+        let roll = Math.random() * total;
+        for (const t of WALL_TYPES) {
+            roll -= t.weight;
+            if (roll <= 0) return t;
+        }
+        return WALL_TYPES[0];
+    };
+
+    /**
      * Roll a fresh set of 3 wall candidates for the wall_choice phase.
-     * Each candidate has a random color, a random function for that color
-     * (no duplicates within a batch), pre-generated grid + cellCounts, and a
-     * drawLimit pulled from the function (default 5).
+     * Each candidate rolls a distinct wallType + sticker set and pre-builds
+     * a plain grid (wall-type mutations like hidden/multiplier are applied
+     * at pickWall time, not here, so the picker preview stays uniform).
      *
-     * Shape matches what WallPicker renders: { wallColor, wallFunction,
-     * stickers, grid, cellCounts, drawLimit, unlockCondition }.
+     * Shape: { uid, stickers, grid, wallType }.
      */
     const generateWallChoiceCandidates = () => {
-        const wallColorValues = Object.values(WALL_COLORS);
         const candidates = [];
-        const usedFunctionIds = new Set();
+        const usedTypeIds = new Set();
         let attempts = 0;
 
         while (candidates.length < 3 && attempts < 30) {
             attempts++;
-            const wallColor = wallColorValues[Math.floor(Math.random() * wallColorValues.length)];
+            const wallType = pickWallType();
+            if (usedTypeIds.has(wallType.id)) continue;
+            usedTypeIds.add(wallType.id);
 
-            // Pick a function not already used in this batch
-            const colorFunctions = (WALL_FUNCTIONS[wallColor.id] || []).filter(f => !usedFunctionIds.has(f.id));
-            if (colorFunctions.length === 0) continue;
-            const wallFunction = colorFunctions[Math.floor(Math.random() * colorFunctions.length)];
-            usedFunctionIds.add(wallFunction.id);
-
-            const gc = wallFunction.gridCells || {};
-            const gridCells = Object.keys(gc).length > 0 ? gc : undefined;
-
-            const stickerRange = wallColor.stickerRange || [3, 4];
-            const stickers = pickWallStickers(STICKER_TYPES, stickerRange[0], stickerRange[1]);
-            const { grid, cellCounts } = generateWall(stickers, wallColor, gridCells);
-
-            const drawLimit = wallFunction.drawLimit ?? 5;
+            const stickers = pickWallStickers(STICKER_TYPES, 3, 4);
+            const { grid } = generateWall(stickers, null, undefined);
 
             candidates.push({
                 uid: generateUID(),
-                wallColor,
-                wallFunction,
                 stickers,
                 grid,
-                cellCounts,
-                drawLimit,
-                unlockCondition: {},
-                entryCost: 0,
+                wallType,
             });
         }
 
@@ -158,31 +154,73 @@ export const useGameLogic = (config) => {
     };
 
     /**
-     * pickWall — called from WallPicker in wall_choice phase. Uses the candidate's
-     * pre-built grid (generated in generateWallChoiceCandidates) and switches to
-     * drawing. No AP cost — entry is free in the sequential flow.
+     * pickWall — called from WallPicker in wall_choice phase. Clones the
+     * pre-built grid and applies wall-type mutations (hidden masking for
+     * 'hidden', multiplier flags for 'multiplier'). Drift and alternating
+     * mutate at draw time, not here. No AP cost — entry is free.
      */
     const pickWall = (index) => {
         if (phase !== 'wall_choice') return;
         const candidate = wallCandidates[index];
         if (!candidate) return;
 
+        const wallType = candidate.wallType;
+        // Clone the grid so mutations don't leak into the unused candidates.
+        const grid = candidate.grid.map(r => r.map(c => c ? { ...c } : null));
+
+        if (wallType.id === 'hidden') {
+            // Mark ~hiddenRatio of cells as hidden. Group cells hide together.
+            const ratio = wallType.hiddenRatio || 0.3;
+            const hiddenGroups = new Set();
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < grid[r].length; c++) {
+                    const cell = grid[r][c];
+                    if (!cell || (cell.type !== 'sticker' && cell.type !== 'item')) continue;
+                    if (cell.groupId && hiddenGroups.has(cell.groupId)) continue;
+                    if (Math.random() < ratio) {
+                        if (cell.groupId) {
+                            hiddenGroups.add(cell.groupId);
+                        } else {
+                            cell.hidden = true;
+                        }
+                    }
+                }
+            }
+            // Propagate group hiding to all cells in marked groups.
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < grid[r].length; c++) {
+                    if (grid[r][c]?.groupId && hiddenGroups.has(grid[r][c].groupId)) {
+                        grid[r][c].hidden = true;
+                    }
+                }
+            }
+        } else if (wallType.id === 'multiplier') {
+            // Mark ~multiplierRatio of cells with multiplier = 2.
+            const ratio = wallType.multiplierRatio || 0.2;
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < grid[r].length; c++) {
+                    const cell = grid[r][c];
+                    if (cell && Math.random() < ratio) {
+                        cell.multiplier = 2;
+                    }
+                }
+            }
+        }
+
         setCurrentPool({
             uid: candidate.uid,
-            wallColor: candidate.wallColor,
-            wallFunction: candidate.wallFunction,
+            wallType,
             stickers: candidate.stickers,
-            cellCounts: candidate.cellCounts,
-            drawLimit: candidate.drawLimit,
-            // Keep poolType-shaped fields that ResourceMatrix / GameCore header read:
+            // Backwards-compat poolType sub-object so GameCore's drawing
+            // header and drawLimitReached derived state keep working.
             poolType: {
-                name: candidate.wallFunction?.name || '奖品墙',
-                icon: candidate.wallColor?.icon || '🏷️',
-                drawLimit: candidate.drawLimit,
+                name: wallType.name,
+                icon: wallType.icon,
+                drawLimit: Infinity,
                 _bias: candidate.stickers?.map(s => s.id),
             },
         });
-        setMatrix(candidate.grid);
+        setMatrix(grid);
         setDrawCount(0);
         setLastDrawResult(null);
         setLastDrawDirection(null);
@@ -551,7 +589,9 @@ export const useGameLogic = (config) => {
 
         setLastDrawDirection(direction);
 
+        const mult = drawnCell?.multiplier || 1;
         let obtainedItem = null;
+        const wallTypeId = currentPool?.wallType?.id;
 
         // --- Normal wall draw handling ---
         if (drawnCell === null || drawnCell.type === 'blank') {
@@ -559,12 +599,12 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'item' || drawnCell.type === 'sticker' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
         } else if (drawnCell.type === 'bomb') {
-            // Bomb: destroy adjacent 8 cells
+            // Bomb: destroy adjacent 8 cells (handled below in the matrix update)
         }
 
-        // Null out drawn cells — they stay empty (wall content is finite, no auto-refill).
-        // Multi-cell shapes: all cells in the group become null.
-        const nullDrawnCells = (prevMatrix) => {
+        // Mutate the grid: null drawn cells, bomb explosion, hidden-wall
+        // adjacent reveal, drift shuffle.
+        const mutateGrid = (prevMatrix) => {
             const newMatrix = prevMatrix.map(r => r.map(c => c ? { ...c } : null));
 
             if (drawnCell?.groupId) {
@@ -606,16 +646,79 @@ export const useGameLogic = (config) => {
                 showToast('💣 ' + t('炸弹爆炸！'), 'warning');
             }
 
+            // Hidden wall: reveal adjacent hidden cells (whole group reveals together)
+            if (wallTypeId === 'hidden') {
+                const revealGroups = new Set();
+                const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+                for (const [dr, dc] of dirs) {
+                    const nr = finalRowIndex + dr;
+                    const nc = finalColIndex + dc;
+                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length) {
+                        const neighbor = newMatrix[nr][nc];
+                        if (neighbor?.hidden) {
+                            if (neighbor.groupId) {
+                                revealGroups.add(neighbor.groupId);
+                            } else {
+                                neighbor.hidden = false;
+                            }
+                        }
+                    }
+                }
+                if (revealGroups.size > 0) {
+                    for (let r = 0; r < newMatrix.length; r++) {
+                        for (let c = 0; c < newMatrix[r].length; c++) {
+                            if (newMatrix[r][c]?.groupId && revealGroups.has(newMatrix[r][c].groupId)) {
+                                newMatrix[r][c].hidden = false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Drift wall: shuffle remaining non-null cells to random positions
+            // across the entire grid (including previously-empty slots).
+            if (wallTypeId === 'drift') {
+                const cells = [];
+                for (let r = 0; r < newMatrix.length; r++) {
+                    for (let c = 0; c < newMatrix[r].length; c++) {
+                        if (newMatrix[r][c] !== null) {
+                            cells.push(newMatrix[r][c]);
+                            newMatrix[r][c] = null;
+                        }
+                    }
+                }
+                // Shuffle cells
+                for (let i = cells.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [cells[i], cells[j]] = [cells[j], cells[i]];
+                }
+                // Collect all positions and shuffle
+                const allPositions = [];
+                for (let r = 0; r < newMatrix.length; r++) {
+                    for (let c = 0; c < newMatrix[r].length; c++) {
+                        allPositions.push([r, c]);
+                    }
+                }
+                for (let i = allPositions.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [allPositions[i], allPositions[j]] = [allPositions[j], allPositions[i]];
+                }
+                // Redistribute cells into first N shuffled positions
+                for (let i = 0; i < cells.length; i++) {
+                    const [r, c] = allPositions[i];
+                    newMatrix[r][c] = cells[i];
+                }
+            }
+
             return newMatrix;
         };
 
-        // Null the drawn cells and check if the wall is now fully drained.
-        // If so, schedule a transition to wall_choice on the next tick —
-        // doing it here (not in a setTimeout before setMatrix) keeps the
-        // order deterministic and avoids flicker.
+        // Null the drawn cells (and apply wall-type mutations), then check
+        // if the wall is fully drained. If so schedule exitWall on the next
+        // tick — doing it inside the updater keeps the order deterministic.
         let drainedAfterThisDraw = false;
         setMatrix(prev => {
-            const next = nullDrawnCells(prev);
+            const next = mutateGrid(prev);
             drainedAfterThisDraw = next.every(row => row.every(c => c === null));
             return next;
         });
@@ -632,7 +735,16 @@ export const useGameLogic = (config) => {
                 colIndex: finalColIndex,
                 id: Date.now(),
             });
-            addToInventory(obtainedItem);
+            // Multiplier wall: add the item mult times. Only applies to
+            // stickers/items (multiplying out_of_game items is unbalanced).
+            if (mult > 1 && (obtainedItem.type === 'sticker' || obtainedItem.type === 'item')) {
+                for (let i = 0; i < mult; i++) {
+                    addToInventory({ ...obtainedItem, uid: generateUID() });
+                }
+                showToast(`×${mult} ${t('贴纸')}`, 'success');
+            } else {
+                addToInventory(obtainedItem);
+            }
         }
 
         setLastDrawResult({
