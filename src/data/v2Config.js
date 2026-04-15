@@ -208,7 +208,8 @@ export const SETUP_CONFIG = {
 };
 
 // --- 墙贴纸数量范围 ---
+// 每面墙随机刷出 min..max 种贴纸，从全部 STICKER_TYPES 中均匀抽取。
 export const WALL_STICKER_COUNT = {
     min: 3,
-    max: 3,
+    max: 4,
 };

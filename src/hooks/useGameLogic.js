@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { generateWall } from '../utils/matrixHelpers';
+import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { pickTemplate, LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES, REFRESH_CONFIG, SETUP_CONFIG, DISHES } from '../data/v2Config';
+import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES, REFRESH_CONFIG, SETUP_CONFIG, DISHES, WALL_STICKER_COUNT } from '../data/v2Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -246,19 +246,11 @@ export const useGameLogic = (config) => {
             };
         } else {
             const wallType = pickWallType();
-            // Collect sticker IDs required by current shelf orders. Every
-            // sticker cell on the wall will independently roll from this
-            // needed set (not a fixed 3-4-type pool). If there are no
-            // orders, fall back to the full sticker roster.
-            const neededIds = new Set();
-            for (const order of bulletinBoard) {
-                for (const req of (order.requirements || [])) {
-                    neededIds.add(req.stickerId);
-                }
-            }
-            const stickers = neededIds.size > 0
-                ? STICKER_TYPES.filter(s => neededIds.has(s.id))
-                : STICKER_TYPES;
+            // Each procedural wall picks 3-4 sticker types uniformly from
+            // the full STICKER_TYPES roster. The wall is not constrained by
+            // current order requirements — match-up between shelf and wall
+            // is part of the strategic choice.
+            const stickers = pickWallStickers(STICKER_TYPES, WALL_STICKER_COUNT.min, WALL_STICKER_COUNT.max);
             const { grid, doomCellCount } = generateWall(stickers);
             candidate = { stickers, grid, doomCellCount, wallType, level: null };
         }
