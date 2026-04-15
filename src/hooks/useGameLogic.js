@@ -152,8 +152,15 @@ export const useGameLogic = (config) => {
     const [bulletinBoard, setBulletinBoard] = useState([]);
     const [refreshCharges, setRefreshCharges] = useState(REFRESH_CONFIG.initialCharges);
 
-    // --- Incoming Order (flies to bulletin between turns) ---
-    const [incomingOrder, setIncomingOrder] = useState(null);
+    // --- Incoming Order Queue ---
+    // Each element is { id, candidates: [orderA, orderB] }. UI reads the
+    // front (`incomingQueue[0]`) and consumes via confirm/discard/replace.
+    // A queue (vs single slot) lets simultaneous sources stack without
+    // overwriting — e.g. completion auto-refill + manual refresh.
+    const [incomingQueue, setIncomingQueue] = useState([]);
+    // Hoisted up here so any future effect can safely depend on it without
+    // hitting the temporal dead zone.
+    const [pendingChosenOrder, setPendingChosenOrder] = useState(null);
 
     // --- UI State ---
     const [toast, setToast] = useState(null);
@@ -1045,31 +1052,27 @@ export const useGameLogic = (config) => {
     // ORDER SYSTEM
     // =============================================
 
-    /** Queue a new order as incoming with two candidates (player picks one) */
+    /** Push a new 2-candidate incoming event to the back of the queue. */
     const addBulletinOrder = () => {
-        setIncomingOrder({ candidates: [generateOrder(), generateOrder()] });
+        setIncomingQueue(prev => [...prev, {
+            id: generateUID(),
+            candidates: [generateOrder(), generateOrder()],
+        }]);
     };
 
-    /** Clear incoming order state. Phase transitions are no longer tied to
-     *  incoming orders — continue-to-next-turn goes straight to startNewTurn. */
-    const resolveIncomingAndProceed = () => {
-        setIncomingOrder(null);
-    };
-
-    /** Player picks one of the two incoming candidates. If shelf not full, add directly.
-     *  If shelf is full, store the chosen order as pendingChosenOrder for replacement step. */
-    const [pendingChosenOrder, setPendingChosenOrder] = useState(null);
-
+    /** Player picks one of the two candidates at the front of the queue.
+     *  If shelf is full, hold the chosen order as pendingChosenOrder and
+     *  enter replacement mode. Either way the queue head is consumed. */
     const confirmIncomingOrder = (chosenOrder) => {
-        if (!incomingOrder) return;
+        const head = incomingQueue[0];
+        if (!head) return;
         if (bulletinBoard.length >= orderConfig.bulletinCapacity) {
-            // Shelf full — store chosen order, player must pick which to replace
             setPendingChosenOrder(chosenOrder);
-            setIncomingOrder(null);
+            setIncomingQueue(prev => prev.slice(1));
             return;
         }
         setBulletinBoard(prev => [...prev, chosenOrder]);
-        resolveIncomingAndProceed();
+        setIncomingQueue(prev => prev.slice(1));
     };
 
     /** Replace a shelf order with the pending chosen order (when shelf is full) */
@@ -1077,13 +1080,16 @@ export const useGameLogic = (config) => {
         if (!pendingChosenOrder) return;
         setBulletinBoard(prev => prev.map(o => o.id === orderId ? pendingChosenOrder : o));
         setPendingChosenOrder(null);
-        resolveIncomingAndProceed();
     };
 
-    /** Discard the incoming order (skip both candidates) */
+    /** Discard current incoming event. If a replacement is pending, cancel
+     *  that step; otherwise drop the queue head (player declined both). */
     const discardIncomingOrder = () => {
-        setPendingChosenOrder(null);
-        resolveIncomingAndProceed();
+        if (pendingChosenOrder) {
+            setPendingChosenOrder(null);
+            return;
+        }
+        setIncomingQueue(prev => prev.slice(1));
     };
 
     /** Check if player has required stickers to submit an order (checks bulletinBoard) */
@@ -1143,12 +1149,12 @@ export const useGameLogic = (config) => {
         showToast(t('订单完成'), 'success');
     };
 
-    /** Manual refresh: consume 1 charge to generate 2 new candidates.
-     *  Since shelf is always at capacity, this always routes through the
-     *  replacement step (player picks which existing order to swap out). */
+    /** Manual refresh: consume 1 charge to push a new 2-candidate event to
+     *  the queue. Multiple refreshes can stack — the player will resolve
+     *  them one at a time. Blocked only during an active replacement step. */
     const triggerRefresh = () => {
         if (refreshCharges <= 0) return;
-        if (incomingOrder) return; // don't double-queue
+        if (pendingChosenOrder) return;
         setRefreshCharges(c => c - 1);
         addBulletinOrder();
     };
@@ -1288,7 +1294,7 @@ export const useGameLogic = (config) => {
         setBulletinBoard([]);
         setPendingChosenOrder(null);
         setRefreshCharges(REFRESH_CONFIG.initialCharges);
-        setIncomingOrder(null);
+        setIncomingQueue([]);
         setToast(null);
         setLastDrawResult(null);
         setModalContent(null);
@@ -1333,6 +1339,7 @@ export const useGameLogic = (config) => {
         setBulletinBoard([]);
         setPendingChosenOrder(null);
         setRefreshCharges(REFRESH_CONFIG.initialCharges);
+        setIncomingQueue([]);
         setPhase('pre_game');
     };
 
@@ -1431,7 +1438,8 @@ export const useGameLogic = (config) => {
         submitOrder,
         canSubmitOrder,
         triggerRefresh,
-        incomingOrder,
+        incomingOrder: incomingQueue[0] || null,
+        incomingQueueLength: incomingQueue.length,
         confirmIncomingOrder,
         discardIncomingOrder,
         replaceBulletinOrder,

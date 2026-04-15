@@ -82,7 +82,10 @@ const BulletinBoard = ({
     const { t } = useLanguage();
     const isReplacing = !!pendingChosenOrder;
     const hasInlinePicker = !!incomingOrder && incomingOrder.candidates;
-    const refreshDisabled = !onRefresh || (refreshCharges ?? 0) <= 0 || hasInlinePicker || isReplacing;
+    // Refresh may be queued while a picker is shown — it just pushes another
+    // pick-1-of-2 to the back of the queue. Only block during an active
+    // replacement step (shelf full, player still choosing which to swap).
+    const refreshDisabled = !onRefresh || (refreshCharges ?? 0) <= 0 || isReplacing;
 
     return (
         <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark rounded-xl border-2 border-kitchen-wood-border shadow-[0_3px_0_#C8A880]"
