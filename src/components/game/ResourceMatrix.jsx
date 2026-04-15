@@ -161,7 +161,9 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     } else if (cell.type === 'doom_resolution') {
         bgClass = 'bg-[#FFF0EE] border-kitchen-danger';
     } else if (cell.type === 'doom_upgrade') {
-        bgClass = 'bg-[#FFF8F0] border-[#E8B860]';
+        // Red family (distinct tint from doom_resolution) so both read as
+        // hazards at a glance — the icon (💀 vs ⬆️) is the differentiator.
+        bgClass = 'bg-[#FFE8DC] border-[#E06040]';
     } else if (cell.type === 'item' || cell.type === 'sticker') {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     } else if (cell.type === 'gold') {
