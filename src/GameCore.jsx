@@ -7,10 +7,11 @@ import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 
 import GameCard from './components/ui/GameCard';
-import { STICKER_TYPES, OUT_OF_GAME_ITEMS } from './data/v2Config';
+import { STICKER_TYPES, OUT_OF_GAME_ITEMS, DISHES } from './data/v2Config';
 import { AP_CONFIG } from './data/v3Config';
 import { canSatisfyCard, getRequirements, getStickerTypeInfo } from './data/slotCards';
 import CardDock from './components/game/CardDock';
+import Kitchen from './components/game/Kitchen';
 
 
 /** Wall card for the shop — compact layout for 5-in-a-row */
@@ -83,6 +84,8 @@ const GameCore = () => {
     const [recycleSelected, setRecycleSelected] = useState(new Set());
     const [debugOpen, setDebugOpen] = useState(false);
     const [debugSelectedItem, setDebugSelectedItem] = useState(null);
+    const [kitchenOpen, setKitchenOpen] = useState(false);
+    const [kitchenDishIdx, setKitchenDishIdx] = useState(0);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -240,6 +243,12 @@ const GameCore = () => {
 
                         <button onClick={toggleLanguage} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 border border-indigo-200 hover:bg-indigo-200 transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
                         <button onClick={handleReset} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-500 border border-red-200 hover:bg-red-200 transition-colors">{t('重置')}</button>
+                        <button
+                            onClick={() => { setKitchenDishIdx(idx => (idx + 1) % DISHES.length); setKitchenOpen(true); }}
+                            className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors"
+                        >
+                            🍳 {t('厨房')}
+                        </button>
                         <button onClick={() => setDebugOpen(prev => !prev)} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                     </div>
                 </div>
@@ -525,6 +534,16 @@ const GameCore = () => {
                     >
                         {flyingItem.icon}
                     </div>
+                )}
+
+                {/* Kitchen Modal (out-of-game scoring system) */}
+                {kitchenOpen && (
+                    <Kitchen
+                        inventory={inventory}
+                        dish={DISHES[kitchenDishIdx]}
+                        onCook={() => setKitchenOpen(false)}
+                        onClose={() => setKitchenOpen(false)}
+                    />
                 )}
 
                 {/* Debug Modal */}
