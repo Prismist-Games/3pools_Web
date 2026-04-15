@@ -11,7 +11,7 @@ import GameTooltip from './components/ui/GameTooltip';
 import { STICKER_TYPES, OUT_OF_GAME_ITEMS, DISHES } from './data/v2Config';
 import { AP_CONFIG } from './data/v3Config';
 import { canSatisfyCard, getRequirements, getStickerTypeInfo } from './data/slotCards';
-import CardDock from './components/game/CardDock';
+import { PassiveCard } from './components/game/PassiveCard';
 import Kitchen from './components/game/Kitchen';
 import WallPicker from './components/game/WallPicker';
 import VoucherShelf from './components/game/VoucherShelf';
@@ -139,9 +139,6 @@ const GameCore = () => {
         };
     })();
 
-    // Compute sticker count for CardDock evacuation display
-
-
     return (
         <div className="h-screen bg-slate-100 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4">
@@ -246,7 +243,8 @@ const GameCore = () => {
                                 gold={Infinity}
                             />
                         </div>
-                        <div className="w-72 flex-shrink-0 self-start">
+                        <div className="w-72 flex-shrink-0 self-start flex flex-col gap-2">
+                            {renderPassiveSideCards()}
                             {renderInventory()}
                         </div>
                     </div>
@@ -273,7 +271,8 @@ const GameCore = () => {
                                 t={t}
                             />
                         </div>
-                        <div className="w-72 flex-shrink-0 self-start">
+                        <div className="w-72 flex-shrink-0 self-start flex flex-col gap-2">
+                            {renderPassiveSideCards()}
                             {renderInventory()}
                         </div>
                     </div>
@@ -354,8 +353,9 @@ const GameCore = () => {
 
                             </div>
 
-                            {/* Inventory (right panel) */}
-                            <div className="w-72 flex-shrink-0 self-start">
+                            {/* Right panel: danger + evacuation + inventory */}
+                            <div className="w-72 flex-shrink-0 self-start flex flex-col gap-2">
+                                {renderPassiveSideCards()}
                                 {renderInventory()}
                             </div>
                         </div>
@@ -496,20 +496,36 @@ const GameCore = () => {
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
             </div>
             </div>{/* end scrollable area */}
-
-            {/* Card Dock — fixed at bottom of viewport */}
-            <CardDock
-                dangerCards={dangerCards}
-                inventory={inventory}
-                canEvacuate={canEvacuate}
-                satisfiedProfitCount={satisfiedProfitCount}
-                evacuationProfitRequirement={evacuationProfitRequirement}
-                evacuate={evacuate}
-                phase={phase}
-                t={t}
-            />
         </div>
     );
+
+    // --- Right-panel passive cards (danger + evacuation) ---
+    // Stacks above the inventory in each gameplay phase's right column.
+    function renderPassiveSideCards() {
+        return (
+            <div className="flex flex-col gap-2">
+                {dangerCards.map(card => (
+                    <PassiveCard
+                        key={card.id}
+                        card={card}
+                        type="danger"
+                        inventory={inventory}
+                        t={t}
+                    />
+                ))}
+                <PassiveCard
+                    card={null}
+                    type="evacuation"
+                    inventory={inventory}
+                    canEvacuate={canEvacuate}
+                    onEvacuate={evacuate}
+                    satisfiedProfitCount={satisfiedProfitCount}
+                    evacuationProfitRequirement={evacuationProfitRequirement}
+                    t={t}
+                />
+            </div>
+        );
+    }
 
     // --- Inventory render helper (simplified — no drag, no ghost items) ---
     function renderInventory() {
