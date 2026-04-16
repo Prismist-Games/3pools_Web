@@ -553,4 +553,12 @@ export const EN_TRANSLATIONS = {
     "判定失败": "FAILURE",
     "关闭": "Close",
     "覆盖率": "Coverage",
+
+    // --- Fate Wall Doom Modal ---
+    "厄运抽取": "Doom Draw",
+    "选择一行或一列承受厄运": "Select a row or column to bear the doom",
+    "此行/列被完全保护，请重选": "This line is fully protected, please choose another",
+    "幸运符吸收了厄运！": "Lucky charm absorbed the doom!",
+    "列": "Col",
+    "行": "Row",
 };
