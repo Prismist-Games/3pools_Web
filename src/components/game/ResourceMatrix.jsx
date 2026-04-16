@@ -1,6 +1,7 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { CHARM_CONFIGS, getCharmDescription } from '../../data/charms';
 
 /** Tooltip for grid cells — Portal-based, same style as ToolItemTooltip */
 const CellTooltip = ({ cell, anchorRef, visible, t }) => {
@@ -62,6 +63,11 @@ const CellTooltip = ({ cell, anchorRef, visible, t }) => {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时爆炸，摧毁周围所有格子');
+    } else if (cell.type === 'fate_cell' && cell.charm) {
+        const cfg = CHARM_CONFIGS[cell.charm.type];
+        icon = cfg?.icon ?? cell.icon;
+        name = t(cfg?.name ?? cell.name);
+        desc = `${t('抽中获得幸运符')} · ${getCharmDescription(cell.charm)}`;
     } else {
         return null;
     }
@@ -105,7 +111,8 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
-        || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb');
+        || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
+        || cell.type === 'fate_cell');
     const { top, bottom, left, right } = adjacency;
 
     // Rounded corners — only on external corners
@@ -145,6 +152,8 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
         bgClass = sc[cell.item?.score] || 'bg-pink-100 border-pink-400';
     } else if (cell.type === 'bomb') {
         bgClass = 'bg-gray-800 border-gray-900';
+    } else if (cell.type === 'fate_cell') {
+        bgClass = 'bg-amber-50 border-amber-300';
     } else {
         bgClass = 'bg-white border-gray-300';
     }
@@ -189,6 +198,11 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
             onMouseLeave={hasTip ? () => setHovered(false) : undefined}
         >
             {cellContent}
+            {cell !== null && cell.type === 'fate_cell' && cell.charm && (
+                <span className="text-[9px] text-amber-600 leading-none mt-0.5 truncate max-w-[48px] font-medium">
+                    {t(CHARM_CONFIGS[cell.charm.type]?.name ?? cell.name)}
+                </span>
+            )}
             {cell !== null && (cell.type === 'item' || cell.type === 'sticker') && !cell.hidden && (
                 <span className="text-[9px] text-gray-600 leading-none mt-0.5 truncate max-w-[48px] font-medium">
                     {t(cell.item.name)}
@@ -202,7 +216,7 @@ const GridCell = ({ cell, cellContent, t, rowIndex, colIndex, adjacency, highlig
 /**
  * 5×5 grid display for turn-based prototype.
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, onHoverLine }) => {
     const { t } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -326,8 +340,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                         <button
                             key={colIndex}
                             onClick={() => colClickable && onSelectColumn(colIndex)}
-                            onMouseEnter={() => { if (colClickable) { setHoveredCol(colIndex); reportHover(null, colIndex); } }}
-                            onMouseLeave={() => { setHoveredCol(null); reportHover(null, null); }}
+                            onMouseEnter={() => { if (colClickable) { setHoveredCol(colIndex); reportHover(null, colIndex); onHoverLine?.({ direction: 'col', lineIndex: colIndex }); } }}
+                            onMouseLeave={() => { setHoveredCol(null); reportHover(null, null); onHoverLine?.(null); }}
                             disabled={!colClickable}
                             className={`
                                 rounded-lg text-xs font-black flex-shrink-0
@@ -358,8 +372,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             <button
                                 key={rowIndex}
                                 onClick={() => rowClickable && onSelectRow(rowIndex)}
-                                onMouseEnter={() => { if (rowClickable) { setHoveredRow(rowIndex); reportHover(rowIndex, null); } }}
-                                onMouseLeave={() => { setHoveredRow(null); reportHover(null, null); }}
+                                onMouseEnter={() => { if (rowClickable) { setHoveredRow(rowIndex); reportHover(rowIndex, null); onHoverLine?.({ direction: 'row', lineIndex: rowIndex }); } }}
+                                onMouseLeave={() => { setHoveredRow(null); reportHover(null, null); onHoverLine?.(null); }}
                                 disabled={!rowClickable}
                                 className={`
                                     rounded-lg text-xs font-black flex-shrink-0

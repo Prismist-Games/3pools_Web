@@ -45,7 +45,7 @@ export const NON_COPYABLE_CHARMS = [
 export const CHARM_CONFIGS = {
   blank: {
     icon: '⬜',
-    name: '空白',
+    name: '空白幸运符',
     isPersistent: true,
     isPassive: true,
     isBlank: true,
@@ -212,7 +212,7 @@ export function generateCharm(type) {
 /** Returns a short description of the charm's Luck and Doom effects */
 export function getCharmDescription(charm) {
   switch (charm.type) {
-    case 'blank': return '起手空白 | Doom: 吸收 1 次';
+    case 'blank': return 'Doom: 吸收 1 次';
     case 'draw_count': return 'Luck: +1 抽取次数 | Doom: 消耗';
     case 'sticker': return 'Luck: +1 随机贴纸 | Doom: 消耗';
     case 'order': return 'Luck: +1 订单 | Doom: 消耗';

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useGameLogic } from './hooks/useGameLogic';
 import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
@@ -14,13 +15,13 @@ import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
 import { FateWall } from './components/game/FateWall';
-import { FateWallPlacementModal } from './components/game/FateWallPlacementModal';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
     const inventoryRef = useRef(null);
     const bulletinRef = useRef(null);
     const [hoveredStickerIds, setHoveredStickerIds] = useState(null);
+    const [hoveredPrizeWallLine, setHoveredPrizeWallLine] = useState(null);
     const [recycleMode, setRecycleMode] = useState(false);
     const [recycleSelected, setRecycleSelected] = useState(new Set());
     const [synthesizeMode, setSynthesizeMode] = useState(false);
@@ -32,6 +33,7 @@ const GameCore = () => {
     const [aiCookingOpen, setAiCookingOpen] = useState(false);
     const [aiCustomer, setAiCustomer] = useState(pickRandomCustomer);
     const [kitchenOpen, setKitchenOpen] = useState(false);
+    const [fateWallOpen, setFateWallOpen] = useState(false);
     const [kitchenDishIdx, setKitchenDishIdx] = useState(0);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
@@ -60,8 +62,8 @@ const GameCore = () => {
         submitOrder, canSubmitOrder,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         debugAddStorageItems,
-        fateWall, pendingCharm, confirmCharmPlacement,
-        luckPhase, luckResult, handleLuckSelect, confirmLuck,
+        fateWall, pendingCharm, pendingCharmsQueue, confirmCharmPlacement,
+        luckPhase, luckResult, fateDrawAnim, handleLuckSelect, confirmLuck,
         copyMirrorState, handleCopyMirrorSelectSource, handleCopyMirrorSelectTarget,
         doomDrawPhase, doomDrawQueue, doomDrawTotal, doomDrawResult,
         handleDoomSelect, confirmDoomDraw,
@@ -154,7 +156,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'luck_draw' || phase === 'drawing' || phase === 'between_turns') && (
+                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'drawing' || phase === 'between_turns') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -227,7 +229,14 @@ const GameCore = () => {
 
                             {/* Wall choice phase */}
                             {phase === 'wall_choice' && wallCandidates && (
-                                <WallPicker candidates={wallCandidates} onSelect={selectWall} />
+                                <div>
+                                    <div className="text-center mb-3 pt-4">
+                                        <span className="inline-block px-5 py-1.5 bg-indigo-600 text-white text-sm font-black rounded-full shadow tracking-wide">
+                                            {language === 'zh' ? `第 ${turnNumber} 轮` : `Round ${turnNumber}`}
+                                        </span>
+                                    </div>
+                                    <WallPicker candidates={wallCandidates} onSelect={selectWall} />
+                                </div>
                             )}
 
                             {/* Drawing phase */}
@@ -245,6 +254,7 @@ const GameCore = () => {
                                         wallType={currentWallType}
                                         lastDrawDirection={lastDrawDirection}
                                         onHoverStickerIds={setHoveredStickerIds}
+                                        onHoverLine={setHoveredPrizeWallLine}
                                         bonusItemMap={bonusItemMap}
                                     />
 
@@ -319,7 +329,7 @@ const GameCore = () => {
                         </div>
 
                         {/* RIGHT SIDEBAR */}
-                        <div className="w-64 flex-shrink-0 flex flex-col gap-4 self-start">
+                        <div className="w-72 flex-shrink-0 flex flex-col gap-4 self-start">
                             <ScoreBoard
                                 expeditionNumber={expeditionNumber}
                                 expeditionScores={expeditionScores}
@@ -328,49 +338,82 @@ const GameCore = () => {
                                 bonusItems={bonusItems}
                             />
 
-                            {/* Fate Wall */}
-                            <div className={`rounded-lg shadow-sm border ${
-                                luckPhase !== 'idle' ? 'bg-white border-purple-200' :
-                                doomDrawPhase !== 'idle' ? 'bg-white border-red-200' :
-                                'bg-white border-gray-100'
-                            }`}>
-                                <div className="px-3 py-2 border-b border-inherit flex items-center justify-between">
-                                    <h3 className={`text-xs font-semibold uppercase tracking-wide ${
-                                        luckPhase !== 'idle' ? 'text-purple-500' :
-                                        doomDrawPhase !== 'idle' ? 'text-red-500' :
-                                        'text-gray-400'
-                                    }`}>
-                                        {luckPhase !== 'idle'
-                                            ? t('幸运抽取')
-                                            : doomDrawPhase !== 'idle'
-                                                ? `${t('厄运抽取')} ${doomDrawTotal - doomDrawQueue + 1}/${doomDrawTotal}`
-                                                : t('命运网格')}
-                                    </h3>
-                                    <div className="flex items-center gap-3 text-sm">
-                                        <span>❤️ <span className="text-green-400 font-bold">{hp}</span></span>
-                                        <span>💀 <span className="text-red-400 font-bold">{doomLevel}</span></span>
+                            {/* Fate Wall — inline card, no overlap with center content */}
+                            {(() => {
+                                const isPlacementActive = !!pendingCharm && luckPhase === 'idle' && doomDrawPhase === 'idle';
+                                const isFateCardActive = luckPhase !== 'idle' || doomDrawPhase !== 'idle' || isPlacementActive;
+                                const isPairedDraw = fateDrawAnim?.type === 'paired_luck';
+                                const isExpanded = isFateCardActive || isPairedDraw || fateWallOpen;
+                                const canToggle = !isFateCardActive && !isPairedDraw;
+
+                                const headerColor = isPlacementActive ? 'text-amber-500'
+                                    : luckPhase !== 'idle' ? 'text-purple-500'
+                                    : doomDrawPhase !== 'idle' ? 'text-red-500'
+                                    : 'text-gray-400';
+
+                                const headerTitle = isPlacementActive
+                                    ? t('放置幸运符')
+                                    : luckPhase !== 'idle'
+                                        ? t('幸运抽取')
+                                        : doomDrawPhase !== 'idle'
+                                            ? `${t('厄运抽取')} ${doomDrawTotal - doomDrawQueue + 1}/${doomDrawTotal}`
+                                            : t('命运');
+
+                                return (
+                                    <div className={`bg-white rounded-lg shadow-sm border ${isFateCardActive ? 'border-amber-200 shadow-amber-100' : 'border-gray-200'}`}>
+                                        <div
+                                            className={`px-3 py-2 flex items-center justify-between gap-2 ${isExpanded ? 'border-b border-gray-100' : ''} ${canToggle ? 'cursor-pointer hover:bg-gray-50' : ''} rounded-t-lg`}
+                                            onClick={canToggle ? () => setFateWallOpen(v => !v) : undefined}
+                                        >
+                                            <div className="min-w-0">
+                                                <h3 className={`text-xs font-semibold uppercase tracking-wide ${headerColor}`}>
+                                                    {headerTitle}
+                                                </h3>
+                                                {isPlacementActive && (
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">{t('依次放置幸运符到格子中')}</p>
+                                                )}
+                                                {luckPhase !== 'idle' && (
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">{t('选择行或列，随机激活其中一个幸运符，获得其效果')}</p>
+                                                )}
+                                                {doomDrawPhase !== 'idle' && (
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">{t('选择行或列承受厄运，幸运符可帮你挡下，否则损失生命值')}</p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm shrink-0">
+                                                <span>❤️ <span className="text-green-400 font-bold">{hp}</span></span>
+                                                <span>💀 <span className="text-red-400 font-bold">{doomLevel}</span></span>
+                                                {canToggle && (
+                                                    <span className="text-gray-300 text-xs">{isExpanded ? '▼' : '▲'}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {isExpanded && (
+                                            <div className="p-2">
+                                                <FateWall
+                                                    cells={fateWall.cells}
+                                                    luckPhase={luckPhase}
+                                                    luckResult={luckResult}
+                                                    onLuckSelect={handleLuckSelect}
+                                                    onLuckConfirm={confirmLuck}
+                                                    copyMirrorState={copyMirrorState}
+                                                    onCopyMirrorSelectSource={handleCopyMirrorSelectSource}
+                                                    onCopyMirrorSelectTarget={handleCopyMirrorSelectTarget}
+                                                    doomPhase={doomDrawPhase}
+                                                    doomResult={doomDrawResult}
+                                                    doomIndex={doomDrawTotal - doomDrawQueue + 1}
+                                                    doomTotal={doomDrawTotal}
+                                                    doomLevel={doomLevel}
+                                                    onDoomSelect={handleDoomSelect}
+                                                    onDoomConfirm={confirmDoomDraw}
+                                                    fateDrawAnim={fateDrawAnim}
+                                                    placementMode={isPlacementActive ? { charm: pendingCharm.charm, allCharms: [pendingCharm.charm, ...pendingCharmsQueue], onPlace: confirmCharmPlacement } : null}
+                                                    mirrorHighlight={hoveredPrizeWallLine}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                                <div className="p-2">
-                                    <FateWall
-                                        cells={fateWall.cells}
-                                        luckPhase={luckPhase}
-                                        luckResult={luckResult}
-                                        onLuckSelect={handleLuckSelect}
-                                        onLuckConfirm={confirmLuck}
-                                        copyMirrorState={copyMirrorState}
-                                        onCopyMirrorSelectSource={handleCopyMirrorSelectSource}
-                                        onCopyMirrorSelectTarget={handleCopyMirrorSelectTarget}
-                                        doomPhase={doomDrawPhase}
-                                        doomResult={doomDrawResult}
-                                        doomIndex={doomDrawTotal - doomDrawQueue + 1}
-                                        doomTotal={doomDrawTotal}
-                                        doomLevel={doomLevel}
-                                        onDoomSelect={handleDoomSelect}
-                                        onDoomConfirm={confirmDoomDraw}
-                                    />
-                                </div>
-                            </div>
+                                );
+                            })()}
 
                             {/* Inventory */}
                             <div ref={inventoryRef} className="bg-white rounded-lg shadow-sm border">
@@ -675,13 +718,35 @@ const GameCore = () => {
                 {/* Kitchen Modal */}
                 {kitchenOpen && <Kitchen inventory={inventory} dish={DISHES[kitchenDishIdx]} onCook={(result) => { setKitchenOpen(false); }} onClose={() => setKitchenOpen(false)} />}
 
-                {/* Fate Wall Placement Modal */}
-                {pendingCharm && (
-                    <FateWallPlacementModal
-                        pendingCharm={pendingCharm}
-                        fateWallCells={fateWall.cells}
-                        onPlace={confirmCharmPlacement}
-                    />
+                {/* Pre-game charm placement — centered portal overlay */}
+                {phase === 'pre_game' && !!pendingCharm && createPortal(
+                    <>
+                        <div className="fixed inset-0 z-[890] bg-black/60" />
+                        <div className="fixed inset-0 z-[900] flex items-center justify-center">
+                            <div className="bg-white rounded-lg shadow-sm border border-amber-200 w-[300px]">
+                                <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-500">{t('放置幸运符')}</h3>
+                                        <p className="text-[10px] text-gray-400 mt-0.5">{t('依次放置幸运符到格子中')}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm shrink-0">
+                                        <span>❤️ <span className="text-green-400 font-bold">{hp}</span></span>
+                                        <span>💀 <span className="text-red-400 font-bold">{doomLevel}</span></span>
+                                    </div>
+                                </div>
+                                <div className="p-2">
+                                    <FateWall
+                                        cells={fateWall.cells}
+                                        luckPhase="idle"
+                                        doomPhase="idle"
+                                        fateDrawAnim={null}
+                                        placementMode={{ charm: pendingCharm.charm, allCharms: [pendingCharm.charm, ...pendingCharmsQueue], onPlace: confirmCharmPlacement }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </>,
+                    document.body
                 )}
 
                 {/* Toast */}

@@ -3,10 +3,12 @@ import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { CHARM_CONFIGS } from '../../data/charms';
 
-export function FateWallPlacementModal({ pendingCharm, fateWallCells, onPlace }) {
+export function FateWallPlacementModal({ pendingCharm, fateWallCells, onPlace, queueRemaining = 0 }) {
   const { t } = useLanguage();
   const charm = pendingCharm.charm;
   const cfg = CHARM_CONFIGS[charm.type];
+  const totalToPlace = queueRemaining + 1;
+  const isInitialSetup = totalToPlace > 1 || queueRemaining > 0;
 
   const canPlace = (index) => {
     const cell = fateWallCells[index];
@@ -18,7 +20,12 @@ export function FateWallPlacementModal({ pendingCharm, fateWallCells, onPlace })
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-gray-900 border border-yellow-500 rounded-xl p-6 max-w-sm w-full shadow-2xl">
-        <h2 className="text-yellow-400 text-lg font-bold mb-2">{t('放置幸运符')}</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-yellow-400 text-lg font-bold">{t('放置幸运符')}</h2>
+          {isInitialSetup && (
+            <span className="text-gray-400 text-sm">{queueRemaining} {t('个待放置')}</span>
+          )}
+        </div>
         <div className="flex items-center gap-3 mb-4 p-3 bg-gray-800 rounded-lg">
           <span className="text-2xl">{cfg.icon}</span>
           <div>

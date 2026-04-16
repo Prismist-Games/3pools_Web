@@ -1,5 +1,6 @@
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { INGREDIENTS } from '../data/v2Config';
+import { generateCharm, rollCharmType, CHARM_CONFIGS } from '../data/charms';
 
 function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
@@ -156,10 +157,13 @@ export function generateWall(wallStickers) {
           uid: generateUID(),
         };
       } else if (roll < fateCellChance) {
+        const charm = generateCharm(rollCharmType());
+        const charmCfg = CHARM_CONFIGS[charm.type];
         grid[row][col] = {
           type: 'fate_cell',
-          icon: specialCells.fateCell.icon,
-          name: specialCells.fateCell.name,
+          charm,
+          icon: charmCfg?.icon ?? specialCells.fateCell.icon,
+          name: charmCfg?.name ?? specialCells.fateCell.name,
           uid: generateUID(),
         };
       }

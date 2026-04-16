@@ -555,7 +555,7 @@ export const EN_TRANSLATIONS = {
     "覆盖率": "Coverage",
 
     // --- Fate Wall System ---
-    "命运网格": "Fate Wall",
+    "命运": "Fate",
     "幸运抽取": "Luck Draw",
     "选择一行或一列进行幸运抽取": "Choose a row or column for the Luck draw",
     "此行/列为空，请重选": "This row/col is empty — please re-select",
@@ -563,6 +563,15 @@ export const EN_TRANSLATIONS = {
     "选择一行或一列承受厄运": "Select a row or column to bear the doom",
     "此行/列被完全保护，请重选": "This line is fully protected, please choose another",
     "幸运符吸收了厄运！": "Lucky charm absorbed the doom!",
+    "✨ 抽取中...": "✨ Drawing...",
+    "💀 命中中...": "💀 Targeting...",
+    "空白幸运符": "Blank Charm",
+    "奖品墙同行/列自动触发": "Auto-triggered — same row/col as the prize wall draw",
+    "选择行或列，随机激活其中一个幸运符，获得其效果": "Pick a row or column — a random charm inside activates and gives you its bonus",
+    "选择行或列承受厄运，幸运符可帮你挡下，否则损失生命值": "Pick a row or column to take the hit — a charm there will absorb it, otherwise you lose HP",
+    "个待放置": "more to place",
+    "点击空格放置": "Click a slot to place",
+    "依次放置幸运符到格子中": "Place each charm into the grid",
     "行": "Row",
     "列": "Col",
 
@@ -571,6 +580,7 @@ export const EN_TRANSLATIONS = {
     "选择一个位置放置": "Choose a position to place",
     "必须放置才能继续": "Placement required to continue",
     "获得幸运符": "Charm obtained",
+    "抽中获得幸运符": "Draw to receive charm",
 
     // Charm names
     "空白": "Blank",

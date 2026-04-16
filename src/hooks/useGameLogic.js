@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { getRowIndices, getColIndices, getDoomTarget, isLineFullyProtected, getNeighbors } from '../utils/fateWallHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
@@ -106,6 +106,8 @@ export const useGameLogic = (config) => {
     const [turnBonuses, setTurnBonuses] = useState({ draws: 0, orders: 0, stickers: 0 });
     const [pendingCharm, setPendingCharm] = useState(null);
     // null | { charm: CharmObject }
+    const [pendingCharmsQueue, setPendingCharmsQueue] = useState([]);
+    // Queue of charms still to be placed (used for initial setup)
 
     // Luck phase state
     const [luckPhase, setLuckPhase] = useState('idle'); // 'idle' | 'selecting' | 'result'
@@ -114,6 +116,8 @@ export const useGameLogic = (config) => {
     const [copyMirrorState, setCopyMirrorState] = useState(null);
     // null | { step: 'select_source', charmIndex, sourceOptions: number[] }
     //       | { step: 'select_target', charmIndex, sourceIndex, emptySlots: number[], newCharm }
+    const [fateDrawAnim, setFateDrawAnim] = useState(null);
+    // null | { lineIndices, finalIndex, phase: 'scanning'|'settled', tick, totalTicks, currentHighlight, type: 'luck'|'doom', pendingCharm? }
 
     // Doom draw state
     const [doomDrawQueue, setDoomDrawQueue] = useState(0);
@@ -145,13 +149,24 @@ export const useGameLogic = (config) => {
     const [drawAnimState, setDrawAnimState] = useState(null);
     // { direction: 'row'|'column', rowIndex, colIndex, activeCols, finalColIndex, finalRowIndex, finalHighlight, drawnCell, tick, totalTicks, currentHighlight, phase: 'scanning'|'settled' }
 
-    // Helper used in multiple places
-    const createInitialFateWallCells = () => {
-        const cells = Array(16).fill(null);
-        for (const idx of [5, 6, 9, 10]) {
-            cells[idx] = generateCharm(CHARM_TYPES.BLANK);
-        }
-        return cells;
+    // Queue initial charms (3 blank + 1 random) for player to place before first turn.
+    // Called from startGame and startNextExpedition.
+    // confirmCharmPlacement watches the queue and calls startNewTurn() when it empties
+    // while phase is still 'pre_game'.
+    const setupInitialCharms = () => {
+        setFateWall({ cells: Array(16).fill(null) });
+        const charms = [
+            generateCharm(CHARM_TYPES.BLANK),
+            generateCharm(CHARM_TYPES.BLANK),
+            generateCharm(CHARM_TYPES.BLANK),
+            generateCharm(CHARM_TYPES.BLANK),
+            generateCharm(rollCharmType()),
+            generateCharm(rollCharmType()),
+            generateCharm(rollCharmType()),
+            generateCharm(rollCharmType()),
+        ];
+        setPendingCharmsQueue(charms.slice(1));
+        setPendingCharm({ charm: charms[0] });
     };
 
     // =============================================
@@ -209,9 +224,8 @@ export const useGameLogic = (config) => {
             attempts++;
         }
         setBulletinBoard(initial);
-        setFateWall({ cells: createInitialFateWallCells() });
         setTurnBonuses({ draws: 0, orders: 0, stickers: 0 });
-        startNewTurn();
+        setupInitialCharms(); // player places charms; startNewTurn fires after last placement
     };
 
     /** End current turn: resolve doom once, then go to between-turns decision */
@@ -276,8 +290,7 @@ export const useGameLogic = (config) => {
 
         setMatrix(grid);
         setWallCandidates(null);
-        setPhase('luck_draw');
-        setLuckPhase('selecting');
+        setPhase('drawing');
     };
 
     // =============================================
@@ -290,6 +303,7 @@ export const useGameLogic = (config) => {
     const selectRow = (rowIndex) => {
         if (phase !== 'drawing') return;
         if (isDrawAnimating) return;
+        if (fateDrawAnim !== null) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
         // Alternating wall: block consecutive row draws
@@ -331,12 +345,30 @@ export const useGameLogic = (config) => {
             currentHighlight: activeCols[0],
             phase: 'scanning',
         });
+
+        // Start paired Fate Wall draw simultaneously on the same row
+        const fateIndices = getRowIndices(rowIndex);
+        const fateFilled = fateIndices.filter(i => fateWall.cells[i] !== null);
+        if (fateFilled.length > 0) {
+            const fateCharmIndex = fateFilled[Math.floor(Math.random() * fateFilled.length)];
+            setFateDrawAnim({
+                lineIndices: fateIndices,
+                finalIndex: fateCharmIndex,
+                phase: 'scanning',
+                tick: 0,
+                totalTicks: 8,
+                currentHighlight: fateIndices[0],
+                type: 'paired_luck',
+                pendingCharm: fateWall.cells[fateCharmIndex],
+            });
+        }
     };
 
     /** Select a column — starts scanning animation top-to-bottom, then resolves */
     const selectColumn = (colIndex) => {
         if (phase !== 'drawing') return;
         if (isDrawAnimating) return;
+        if (fateDrawAnim !== null) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix) return;
         // Alternating wall: block consecutive column draws
@@ -377,6 +409,23 @@ export const useGameLogic = (config) => {
             currentHighlight: activeCols[0],
             phase: 'scanning',
         });
+
+        // Start paired Fate Wall draw simultaneously on the same column
+        const fateIndices = getColIndices(colIndex);
+        const fateFilled = fateIndices.filter(i => fateWall.cells[i] !== null);
+        if (fateFilled.length > 0) {
+            const fateCharmIndex = fateFilled[Math.floor(Math.random() * fateFilled.length)];
+            setFateDrawAnim({
+                lineIndices: fateIndices,
+                finalIndex: fateCharmIndex,
+                phase: 'scanning',
+                tick: 0,
+                totalTicks: 8,
+                currentHighlight: fateIndices[0],
+                type: 'paired_luck',
+                pendingCharm: fateWall.cells[fateCharmIndex],
+            });
+        }
     };
 
     /** Advance draw scanning animation — sequential through active cells */
@@ -421,8 +470,7 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'fate_cell') {
-            const charmType = rollCharmType();
-            const charm = generateCharm(charmType);
+            const charm = drawnCell.charm ?? generateCharm(rollCharmType());
             setPendingCharm({ charm });
             showToast(`✨ ${t('获得幸运符')}: ${t(charm.type)}`, 'info');
         }
@@ -570,6 +618,8 @@ export const useGameLogic = (config) => {
         }
 
         if (doomEffects.resolutions > 0) {
+            // Cancel paired fate draw if doom resolution fires immediately
+            setFateDrawAnim(null);
             resolveDoom(null, doomLevel * doomEffects.resolutions);
         }
 
@@ -818,22 +868,18 @@ export const useGameLogic = (config) => {
 
     const handleDoomSelect = ({ direction, lineIndex }) => {
         if (doomDrawPhase !== 'selecting') return;
-
+        const allIndices = direction === 'row' ? getRowIndices(lineIndex) : getColIndices(lineIndex);
         const targetIndex = getDoomTarget(fateWall.cells, direction, lineIndex);
-        const targetCell = fateWall.cells[targetIndex];
-
-        let blocked = false;
-        let hpLoss = 0;
-
-        if (targetCell !== null) {
-            blocked = true;
-            removeCharm(targetIndex);
-        } else {
-            hpLoss = 1;
-        }
-
-        setDoomDrawResult({ hitIndex: targetIndex, blocked, hpLoss });
-        setDoomDrawPhase('result');
+        setDoomDrawPhase('animating');
+        setFateDrawAnim({
+            lineIndices: allIndices,
+            finalIndex: targetIndex,
+            phase: 'scanning',
+            tick: 0,
+            totalTicks: 12,
+            currentHighlight: allIndices[0],
+            type: 'doom',
+        });
     };
 
     const confirmDoomDraw = () => {
@@ -921,8 +967,10 @@ export const useGameLogic = (config) => {
         setExpeditionScores([]);
         setTotalScore(0);
         setBonusItems([]);
-        setFateWall({ cells: createInitialFateWallCells() });
+        setFateWall({ cells: Array(16).fill(null) });
         setTurnBonuses({ draws: 0, orders: 0, stickers: 0 });
+        setPendingCharm(null);
+        setPendingCharmsQueue([]);
         setDoomDrawQueue(0);
         setDoomDrawTotal(0);
         setDoomDrawPhase('idle');
@@ -950,7 +998,6 @@ export const useGameLogic = (config) => {
         setPendingItems([]);
         setBulletinBoard([]);
         setPendingChosenOrder(null);
-        setFateWall({ cells: createInitialFateWallCells() });
         setTurnBonuses({ draws: 0, orders: 0, stickers: 0 });
         setDoomDrawQueue(0);
         setDoomDrawTotal(0);
@@ -959,6 +1006,7 @@ export const useGameLogic = (config) => {
         setAfterDoomAction(null);
         setDoomDelayCount(0);
         setPhase('pre_game');
+        setupInitialCharms(); // queue charms for player placement before new expedition's first turn
     };
 
     // =============================================
@@ -1208,10 +1256,17 @@ export const useGameLogic = (config) => {
         const filled = indices.filter(i => fateWall.cells[i] !== null);
         if (filled.length === 0) return;
         const charmIndex = filled[Math.floor(Math.random() * filled.length)];
-        const charm = fateWall.cells[charmIndex];
-        const effectDescription = applyLuckEffect(charm, charmIndex);
-        setLuckResult({ charm, charmIndex, effectDescription });
-        setLuckPhase('result');
+        setLuckPhase('animating');
+        setFateDrawAnim({
+            lineIndices: indices,
+            finalIndex: charmIndex,
+            phase: 'scanning',
+            tick: 0,
+            totalTicks: 12,
+            currentHighlight: indices[0],
+            type: 'luck',
+            pendingCharm: fateWall.cells[charmIndex],
+        });
     };
 
     const confirmLuck = () => {
@@ -1272,10 +1327,75 @@ export const useGameLogic = (config) => {
     const confirmCharmPlacement = (index) => {
         if (!pendingCharm) return;
         placeCharm(index, pendingCharm.charm);
-        setPendingCharm(null);
+        if (pendingCharmsQueue.length > 0) {
+            const [next, ...rest] = pendingCharmsQueue;
+            setPendingCharm({ charm: next });
+            setPendingCharmsQueue(rest);
+        } else {
+            setPendingCharm(null);
+            setPendingCharmsQueue([]);
+            // If we just finished initial setup, start the first turn
+            if (phase === 'pre_game') startNewTurn();
+        }
     };
 
     const discardPendingCharm = () => setPendingCharm(null);
+
+    // =============================================
+    // FATE WALL DRAW ANIMATION
+    // =============================================
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        if (!fateDrawAnim) return;
+        if (fateDrawAnim.phase === 'scanning') {
+            const progress = fateDrawAnim.tick / fateDrawAnim.totalTicks;
+            const interval = Math.max(40, 40 + Math.pow(progress, 2) * 160);
+            const id = setTimeout(() => {
+                setFateDrawAnim(prev => {
+                    if (!prev || prev.phase !== 'scanning') return prev;
+                    const nextTick = prev.tick + 1;
+                    if (nextTick >= prev.totalTicks) {
+                        return { ...prev, phase: 'settled', currentHighlight: prev.finalIndex };
+                    }
+                    return {
+                        ...prev,
+                        tick: nextTick,
+                        currentHighlight: prev.lineIndices[nextTick % prev.lineIndices.length],
+                    };
+                });
+            }, interval);
+            return () => clearTimeout(id);
+        }
+        if (fateDrawAnim.phase === 'settled') {
+            const capturedAnim = fateDrawAnim;
+            const capturedCells = fateWall.cells;
+            const id = setTimeout(() => {
+                if (capturedAnim.type === 'paired_luck') {
+                    const charm = capturedCells[capturedAnim.finalIndex] ?? capturedAnim.pendingCharm;
+                    if (charm) {
+                        const effectDescription = applyLuckEffect(charm, capturedAnim.finalIndex);
+                        if (effectDescription) showToast(`✨ ${effectDescription}`, 'info');
+                    }
+                    setFateDrawAnim(null);
+                } else if (capturedAnim.type === 'luck') {
+                    const charm = capturedCells[capturedAnim.finalIndex] ?? capturedAnim.pendingCharm;
+                    const effectDescription = applyLuckEffect(charm, capturedAnim.finalIndex);
+                    setLuckResult({ charm, charmIndex: capturedAnim.finalIndex, effectDescription });
+                    setLuckPhase('result');
+                    setFateDrawAnim(null);
+                } else {
+                    const targetCell = capturedCells[capturedAnim.finalIndex];
+                    const blocked = targetCell !== null;
+                    if (blocked) removeCharm(capturedAnim.finalIndex);
+                    setDoomDrawResult({ hitIndex: capturedAnim.finalIndex, blocked, hpLoss: blocked ? 0 : 1 });
+                    setDoomDrawPhase('result');
+                    setFateDrawAnim(null);
+                }
+            }, 400);
+            return () => clearTimeout(id);
+        }
+    }, [fateDrawAnim]); // intentionally omits applyLuckEffect/removeCharm — stable enough for prototype
 
     // =============================================
     // RETURN
@@ -1361,12 +1481,14 @@ export const useGameLogic = (config) => {
         placeCharm,
         removeCharm,
         pendingCharm,
+        pendingCharmsQueue,
         confirmCharmPlacement,
         discardPendingCharm,
 
         // Luck phase
         luckPhase,
         luckResult,
+        fateDrawAnim,
         handleLuckSelect,
         confirmLuck,
         copyMirrorState,
