@@ -529,13 +529,11 @@ export const EN_TRANSLATIONS = {
     "加入货架": "Add to Shelf",
     "放弃": "Discard",
     "货架已满，选择一个替换": "Shelf full — select one to replace",
-    "额外加分": "Bonus Items (+1)",
     "暂无已接订单": "No active orders",
     "需要": "Need",
     "难度": "Difficulty",
     "选择要替换的订单": "Select an order to replace",
     "取消": "Cancel",
-    "今日食材": "Today's Ingredients",
     "场次": "Round",
     "第": "Round",
     "场": "",
@@ -647,7 +645,6 @@ export const EN_TRANSLATIONS = {
     "菜篮": "Basket",
     "贴纸": "Sticker",
     "食材": "Ingredient",
-    "今日食材": "Today's Ingredients",
 
     // --- Game Guide ---
     "快速指南": "Quick Guide",

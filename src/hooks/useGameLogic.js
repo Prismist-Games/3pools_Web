@@ -193,7 +193,6 @@ export const useGameLogic = (config) => {
     // Legacy state retained for backward compat; not driven by the cook loop.
     const [expeditionScores, setExpeditionScores] = useState([]);
     const [totalScore, setTotalScore] = useState(0);
-    const [bonusItems, setBonusItems] = useState([]); // 3 random ingredients that give +1 bonus per game
 
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
@@ -375,11 +374,6 @@ export const useGameLogic = (config) => {
      *  wall's per-cell sticker roll can draw from the orders the player
      *  just chose, instead of falling back to the full sticker roster. */
     const startGame = () => {
-        if (expeditionNumber === 0) {
-            const shuffled = [...INGREDIENTS].sort(() => Math.random() - 0.5);
-            const bonusValues = [1, 2, 3];
-            setBonusItems(shuffled.slice(0, 3).map((item, i) => ({ ...item, bonusValue: bonusValues[i] })));
-        }
         setExpeditionNumber(prev => prev + 1);
 
         // Pick today's dish — fixed order by day. Day 1 → DISHES[0],
@@ -1406,7 +1400,7 @@ export const useGameLogic = (config) => {
 
     /** Player clicks past the cook result screen to start the next day.
      *  Resets per-day state (HP, doom, inventory, orders, matrix, etc.)
-     *  but keeps dayNumber, popularity, bonusItems. Returns to pre_game
+     *  but keeps dayNumber, popularity. Returns to pre_game
      *  so the normal startGame → setup → day loop takes over. */
     const startNextDay = () => {
         setTurnNumber(0);
@@ -1497,7 +1491,6 @@ export const useGameLogic = (config) => {
         setLastCookResult(null);
         setExpeditionScores([]);
         setTotalScore(0);
-        setBonusItems([]);
     };
 
     /** Reset per-expedition state but keep meta state, return to pre_game */
@@ -1566,7 +1559,6 @@ export const useGameLogic = (config) => {
         expeditionScores,
         totalScore,
         expeditionConfig,
-        bonusItems,
 
         // Turn state
         turnNumber,
