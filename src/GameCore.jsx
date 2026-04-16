@@ -17,6 +17,27 @@ import { GameGuide } from './components/ui/GameGuide';
 import RoundTransition from './components/ui/RoundTransition';
 import WallPicker from './components/game/WallPicker';
 
+// DIAG: temporary wrapper to log mount/unmount of the fly element
+const FlyElementDiag = ({ flyId, icon, count, style }) => {
+    useEffect(() => {
+        console.log('[FLY-DIAG] element MOUNTED, key =', flyId, 'at', Date.now());
+        return () => console.log('[FLY-DIAG] element UNMOUNTED, key =', flyId, 'at', Date.now());
+    }, [flyId]);
+    return (
+        <div
+            style={style}
+            className="fly-to-inventory w-16 h-16 rounded-xl bg-white border-2 border-gray-300 shadow-2xl flex items-center justify-center text-2xl relative"
+        >
+            {icon}
+            {count > 1 && (
+                <span className="absolute -top-1 -right-1 bg-kitchen-gold text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow ring-2 ring-white">
+                    ×{count}
+                </span>
+            )}
+        </div>
+    );
+};
+
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
     const inventoryRef = useRef(null);
@@ -141,6 +162,7 @@ const GameCore = () => {
     // calls). Cache the style the moment flyingItem appears.
     const [flyStyle, setFlyStyle] = useState(null);
     useEffect(() => {
+        console.log('[FLY-DIAG] effect4 fired, flyingItem?.id =', flyingItem?.id, 'at', Date.now());
         if (!flyingItem) { setFlyStyle(null); return; }
         const cellEl = document.querySelector(`[data-cell="${flyingItem.rowIndex}-${flyingItem.colIndex}"]`);
         const invEl = inventoryRef.current;
@@ -773,18 +795,13 @@ const GameCore = () => {
 
                 {/* Flying item animation */}
                 {flyingItem && flyStyle && (
-                    <div
+                    <FlyElementDiag
                         key={flyingItem.id}
+                        flyId={flyingItem.id}
+                        icon={flyingItem.icon}
+                        count={flyingItem.count}
                         style={flyStyle}
-                        className="fly-to-inventory w-16 h-16 rounded-xl bg-white border-2 border-gray-300 shadow-2xl flex items-center justify-center text-2xl relative"
-                    >
-                        {flyingItem.icon}
-                        {flyingItem.count > 1 && (
-                            <span className="absolute -top-1 -right-1 bg-kitchen-gold text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow ring-2 ring-white">
-                                ×{flyingItem.count}
-                            </span>
-                        )}
-                    </div>
+                    />
                 )}
 
 

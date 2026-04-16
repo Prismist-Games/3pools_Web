@@ -1020,13 +1020,15 @@ export const useGameLogic = (config) => {
             // computed up front). Non-stickers use the legacy per-cell
             // multiplier × buffMult chain.
             const yieldCount = drawnCell.type === 'sticker' ? clusterYield : mult;
+            const flyId = Date.now();
+            console.log('[FLY-DIAG] setFlyingItem called, id =', flyId, 'clusterMembers =', clusterMembers?.length ?? 'none', 'yieldCount =', yieldCount);
             setFlyingItem({
                 icon: obtainedItem.item.icon,
                 name: obtainedItem.item.name,
                 rowIndex: finalRowIndex,
                 colIndex: finalColIndex,
                 count: yieldCount,
-                id: Date.now(),
+                id: flyId,
             });
             // Cluster windfall: surface the multi-payout when modifiers
             // boosted a sticker cluster above its base 1.
