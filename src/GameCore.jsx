@@ -344,7 +344,7 @@ const GameCore = () => {
                                                         ? 'bg-kitchen-card/60 border-2 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
                                                         : phase === 'drawing_sub'
                                                             ? 'bg-kitchen-info border-2 border-kitchen-info-border text-white hover:brightness-95'
-                                                            : 'bg-gradient-to-b from-kitchen-wood-light to-kitchen-wood-dark border-2 border-kitchen-wood-border text-kitchen-card hover:brightness-105 shadow-[0_2px_0_#C8A880]'
+                                                            : 'bg-gradient-to-b from-kitchen-wood-light to-kitchen-wood-dark border-2 border-kitchen-wood-border text-kitchen-text-title hover:brightness-105 shadow-[0_2px_0_#C8A880]'
                                                 }`}
                                             >
                                                 {phase === 'drawing_sub' ? t('结束事件') : t('结束抽奖')}
