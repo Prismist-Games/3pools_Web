@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
-import { generateCharm, CHARM_TYPES } from '../data/charms';
+import { generateCharm, rollCharmType, CHARM_TYPES } from '../data/charms';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -114,6 +114,8 @@ export const useGameLogic = (config) => {
     // --- Fate Wall State ---
     const [fateWall, setFateWall] = useState({ cells: Array(16).fill(null) });
     const [turnBonuses, setTurnBonuses] = useState({ draws: 0, orders: 0, stickers: 0 });
+    const [pendingCharm, setPendingCharm] = useState(null);
+    // null | { charm: CharmObject }
 
     // --- Inventory State ---
     const [inventory, setInventory] = useState([]);
@@ -433,6 +435,11 @@ export const useGameLogic = (config) => {
             showToast(t('获得新订单'), 'info');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
+        } else if (drawnCell.type === 'fate_cell') {
+            const charmType = rollCharmType();
+            const charm = generateCharm(charmType);
+            setPendingCharm({ charm });
+            showToast(`✨ ${t('获得幸运符')}: ${t(charm.type)}`, 'info');
         }
 
         // Remove drawn cell(s) + hidden reveal + drift shuffle
@@ -1019,6 +1026,14 @@ export const useGameLogic = (config) => {
         });
     };
 
+    const confirmCharmPlacement = (index) => {
+        if (!pendingCharm) return;
+        placeCharm(index, pendingCharm.charm);
+        setPendingCharm(null);
+    };
+
+    const discardPendingCharm = () => setPendingCharm(null);
+
     // =============================================
     // RETURN
     // =============================================
@@ -1102,6 +1117,9 @@ export const useGameLogic = (config) => {
         turnBonuses,
         placeCharm,
         removeCharm,
+        pendingCharm,
+        confirmCharmPlacement,
+        discardPendingCharm,
 
         debugAddStorageItems: (items) => {
             setExpeditionScores(prev => [...prev, { score: 0, baseScore: 0, bonusScore: 0, items }]);
