@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
-import BulletinBoard, { SCORE_STYLE, RewardCard, IngredientTip, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
+import BulletinBoard, { SCORE_STYLE, RewardCard, IngredientTip, StickerTip, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
 import Tooltip from './components/ui/Tooltip';
 // ActiveOrders removed — order submit is now on BulletinBoard directly
 import DispatchJudgment from './components/game/DispatchJudgment';
@@ -611,10 +611,7 @@ const GameCore = () => {
                                             }
                                             if (item?.isSticker) {
                                                 return <Tooltip key={i} content={
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xl">{item.icon}</span>
-                                                        <span className="font-bold">{t(item.name)}</span>
-                                                    </div>
+                                                    <StickerTip sticker={item} inventory={inventory} />
                                                 }>{cell}</Tooltip>;
                                             }
                                             return <div key={i}>{cell}</div>;

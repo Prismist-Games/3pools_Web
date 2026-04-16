@@ -134,7 +134,8 @@ const Prologue = ({ onComplete }) => {
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder={t('输入你的名字')}
                                 className="mx-1.5 px-2 py-0.5 border-b-2 border-kitchen-gold-border-muted bg-transparent
-                                    text-center text-base font-bold text-kitchen-text-title w-32
+                                    text-center text-sm font-bold text-kitchen-text-title w-40
+                                    placeholder:text-xs placeholder:font-normal placeholder:text-kitchen-text-muted
                                     focus:border-kitchen-gold focus:outline-none transition-colors"
                                 maxLength={12}
                                 autoFocus

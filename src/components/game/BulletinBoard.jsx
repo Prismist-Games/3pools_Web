@@ -20,6 +20,44 @@ const SCORE_STYLE = RARITY_STYLE;
 
 const RARITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
 
+/** Shared tooltip content for a sticker. Pass inventory + stickerId to
+ *  show Have/Need if used in an order-requirement context; pass only the
+ *  sticker object (stickerId, name, icon) + inventory for inventory tooltip. */
+const StickerTip = ({ sticker, inventory, requiredCount }) => {
+    const { t } = useLanguage();
+    const stickerId = sticker.stickerId || sticker.id;
+    const owned = inventory ? inventory.filter(i => i.stickerId === stickerId).length : 0;
+    const showCount = requiredCount !== undefined;
+    const enough = showCount && owned >= requiredCount;
+    return (
+        <>
+            <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-2xl leading-none">{sticker.icon}</span>
+                <div>
+                    <div className="font-bold text-sm leading-tight">{t(sticker.name)}</div>
+                    <div className="text-[10px] text-cyan-400">{t('贴纸')}</div>
+                </div>
+            </div>
+            {showCount && (
+                <div className="border-t border-gray-700/50 pt-1.5 mt-1">
+                    <div className="flex justify-between text-[11px]">
+                        <span className="text-gray-400">{t('持有 / 需要')}</span>
+                        <span className={`font-bold ${enough ? 'text-green-400' : 'text-red-400'}`}>{owned} / {requiredCount}</span>
+                    </div>
+                </div>
+            )}
+            {!showCount && inventory && (
+                <div className="border-t border-gray-700/50 pt-1.5 mt-1">
+                    <div className="flex justify-between text-[11px]">
+                        <span className="text-gray-400">{t('持有')}</span>
+                        <span className="font-bold text-gray-200">{owned}</span>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+};
+
 /** Shared tooltip content for any ingredient/food item */
 const IngredientTip = ({ item }) => {
     const { t, language } = useLanguage();
@@ -243,21 +281,7 @@ const BulletinBoard = ({
                                             const isHovered = hoveredStickerIds?.has(req.stickerId);
                                             return (
                                                 <Tooltip key={i} content={
-                                                    <>
-                                                        <div className="flex items-center gap-2 mb-1.5">
-                                                            <span className="text-2xl leading-none">{req.icon}</span>
-                                                            <div>
-                                                                <div className="font-bold text-sm leading-tight">{t(req.name)}</div>
-                                                                <div className="text-[10px] text-cyan-400">{t('贴纸')}</div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="border-t border-gray-700/50 pt-1.5 mt-1">
-                                                            <div className="flex justify-between text-[11px]">
-                                                                <span className="text-gray-400">{t('持有 / 需要')}</span>
-                                                                <span className={`font-bold ${enough ? 'text-green-400' : 'text-red-400'}`}>{owned} / {req.count}</span>
-                                                            </div>
-                                                        </div>
-                                                    </>
+                                                    <StickerTip sticker={req} inventory={inventory} requiredCount={req.count} />
                                                 }>
                                                     <div className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
                                                         <div className={`w-7 h-7 rounded border ${
@@ -288,4 +312,4 @@ const BulletinBoard = ({
 };
 
 export default BulletinBoard;
-export { RewardCard, IngredientTip, RARITY_STYLE, SCORE_STYLE, DIFFICULTY_STYLE };
+export { RewardCard, IngredientTip, StickerTip, RARITY_STYLE, SCORE_STYLE, DIFFICULTY_STYLE };

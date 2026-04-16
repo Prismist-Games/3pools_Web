@@ -163,11 +163,10 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     } else if (cell === null || cell.type === 'empty') {
         bgClass = 'bg-[#F8F4EC] border-[#D4C8B0]';
     } else if (cell.type === 'doom_resolution') {
-        bgClass = 'bg-[#FFF0EE] border-kitchen-danger';
+        bgClass = 'bg-[#FFB8A8] border-[#D04020]';
     } else if (cell.type === 'doom_upgrade') {
-        // Red family (distinct tint from doom_resolution) so both read as
-        // hazards at a glance — the icon (💀 vs ⬆️) is the differentiator.
-        bgClass = 'bg-[#FFE8DC] border-[#E06040]';
+        // Stronger red background so the ⬆️ arrow reads clearly as danger.
+        bgClass = 'bg-[#FFB8A8] border-[#D04020]';
     } else if (cell.type === 'item' || cell.type === 'sticker') {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     } else if (cell.type === 'gold') {
