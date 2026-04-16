@@ -387,8 +387,12 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     useEffect(() => {
         if (drawAnimState?.phase === 'settled' && drawAnimState?.drawnCell?.type === 'doom_resolution') {
             setDoomFlash(true);
-            const timer = setTimeout(() => setDoomFlash(false), 1000);
-            return () => clearTimeout(timer);
+            // Intentionally no cleanup: drawAnimState clears to null ~300ms
+            // after settle (completeDrawAnim), but the doom flash is meant
+            // to last a full 1s. Returning a clearTimeout cleanup made the
+            // dep change cancel the timer mid-flight, leaving doomFlash
+            // stuck true and the CRT/vignette permanently on the wall.
+            setTimeout(() => setDoomFlash(false), 1000);
         }
     }, [drawAnimState]);
 
