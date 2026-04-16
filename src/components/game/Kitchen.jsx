@@ -324,7 +324,7 @@ const KitchenScene = ({ dish }) => (
 // ── Kitchen Component ──
 
 const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantPhase = false, viewOnly = false, viewOnlyAction }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const dish = dishOverride || DISHES[0];
 
     const [placements, setPlacements] = useState(() => dish.slots.map(() => null));
@@ -468,12 +468,19 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                     {/* Kitchen scene — tile map, restaurant phase only */}
                     {isRestaurantPhase && <KitchenScene dish={dish} />}
 
-                    {/* Dish info — only in modal; restaurant phase shows via sidebar DishCard */}
-                    {!isRestaurantPhase && (
+                    {/* Dish header — shown in modal mode and view-only (day-start) mode */}
+                    {(!isRestaurantPhase || viewOnly) && (
                         <div className="text-center mb-6">
-                            <span className="text-4xl">{dish.icon}</span>
-                            <h2 className="text-xl font-bold mt-2 text-kitchen-text-title">{t('今日菜品')}：{t(dish.name)}</h2>
-                            {dish.nameEn && <p className="text-sm text-kitchen-text-muted italic">{dish.nameEn}</p>}
+                            <div className="text-xs text-kitchen-text-muted tracking-widest uppercase mb-1">{t('今日菜品')}</div>
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="text-3xl">{dish.icon}</span>
+                                <h2 className="text-xl font-black text-kitchen-text-title">
+                                    {(language === 'en' && dish.nameEn) ? dish.nameEn : t(dish.name)}
+                                </h2>
+                            </div>
+                            {language !== 'en' && dish.nameEn && (
+                                <p className="text-xs text-kitchen-text-muted italic mt-1">{dish.nameEn}</p>
+                            )}
                         </div>
                     )}
 
