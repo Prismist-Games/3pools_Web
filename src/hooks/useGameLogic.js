@@ -181,11 +181,19 @@ export const useGameLogic = (config) => {
     const [inventoryBonus, setInventoryBonus] = useState(0);
     const maxInventorySize = baseInventorySize + inventoryBonus;
 
-    // --- Expedition State ---
-    const [expeditionNumber, setExpeditionNumber] = useState(0);
+    // --- Day / Meta State ---
+    // Switched from expedition (3-run cap, totalScore goal) to day (unbounded,
+    // popularity-driven). expeditionNumber/setExpeditionNumber aliased to
+    // day state so legacy reads don't break.
+    const [dayNumber, setDayNumber] = useState(0);
+    const [popularity, setPopularity] = useState(10);
+    const [lastCookResult, setLastCookResult] = useState(null);
+    const expeditionNumber = dayNumber;
+    const setExpeditionNumber = setDayNumber;
+    // Legacy state retained for backward compat; not driven by the cook loop.
     const [expeditionScores, setExpeditionScores] = useState([]);
     const [totalScore, setTotalScore] = useState(0);
-    const [bonusItems, setBonusItems] = useState([]); // 3 random item IDs that give +1 bonus per game
+    const [bonusItems, setBonusItems] = useState([]); // 3 random ingredients that give +1 bonus per game
 
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
@@ -1365,24 +1373,81 @@ export const useGameLogic = (config) => {
     };
 
     // =============================================
-    // EVACUATION & GAME OVER
+    // EVACUATION → RESTAURANT → COOK RESULT → NEXT DAY
     // =============================================
 
-    const handleEvacuate = () => {
-        const outOfGameItems = inventory.filter(i => i.isOutOfGame);
-        const bonusMap = new Map(bonusItems.map(b => [b.id, b.bonusValue || 2]));
-        const baseScore = outOfGameItems.reduce((sum, item) => sum + (item.score || 0), 0);
-        const bonusScore = outOfGameItems.reduce((sum, item) => sum + (bonusMap.get(item.id) || 0), 0);
-        const score = baseScore + bonusScore;
-        setExpeditionScores(prev => [...prev, { score, baseScore, bonusScore, items: outOfGameItems }]);
-        setTotalScore(prev => prev + score);
-        setModalContent('evacuated');
-        setPhase('game_over');
+    /** Player evacuates — leave the show, take the basket back to the
+     *  kitchen. Transitions into the full-screen restaurant phase where
+     *  the player assembles the dish from collected ingredients. */
+    const returnToRestaurant = () => {
+        setPhase('restaurant');
     };
 
+    /** Legacy alias: handleEvacuate now routes to the restaurant phase
+     *  instead of ending the run. The full-screen Kitchen component
+     *  renders while phase === 'restaurant'. */
+    const handleEvacuate = returnToRestaurant;
+
+    /** Invoked by Kitchen's cook button. Consumes the placed ingredient
+     *  uids from inventory, bumps popularity, stores the result for the
+     *  cook_result phase to display. */
+    const handleCookResult = (result, usedUids) => {
+        if (usedUids && usedUids.length > 0) {
+            const uidSet = new Set(usedUids);
+            setInventory(prev => prev.filter(item => !uidSet.has(item.uid)));
+        }
+        setPopularity(prev => Math.max(0, prev + (result?.popularityDelta || 0)));
+        setLastCookResult(result);
+        setPhase('cook_result');
+    };
+
+    /** Player clicks past the cook result screen to start the next day.
+     *  Resets per-day state (HP, doom, inventory, orders, matrix, etc.)
+     *  but keeps dayNumber, popularity, bonusItems. Returns to pre_game
+     *  so the normal startGame → setup → day loop takes over. */
+    const startNextDay = () => {
+        setTurnNumber(0);
+        setGold(0);
+        setMatrix(null);
+        setWallCandidates(null);
+        setPendingWallCandidate(null);
+        setCurrentWallType(null);
+        setCurrentLevel(null);
+        setLastDrawDirection(null);
+        setHp(doomConfig.initialHP);
+        setDoomGrid(() => {
+            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
+                grid[i] = { type: 'danger' };
+            }
+            return grid;
+        });
+        setDoomLevel(doomConfig.initialDoomLevel);
+        setIsDoomResolving(false);
+        setDoomAnimState(null);
+        setDoomResolutionResult(null);
+        setAfterDoomAction(null);
+        setInventory([]);
+        setToast(null);
+        setLastDrawResult(null);
+        setModalContent(null);
+        setFlyingItem(null);
+        setDrawAnimState(null);
+        setPendingItems([]);
+        setBulletinBoard([]);
+        setPendingChosenOrder(null);
+        setRefreshCharges(REFRESH_CONFIG.initialCharges);
+        setIncomingQueue([]);
+        setDishIntroPending(false);
+        setCurrentDish(null);
+        setLastCookResult(null);
+        setPhase('pre_game');
+    };
+
+    /** HP-zero path: no restaurant, no cook. Basket is lost entirely and
+     *  the run ends. Player has to reset to start over. */
     const handleGameOver = () => {
         setInventory([]);
-        setExpeditionScores(prev => [...prev, { score: 0, items: [] }]);
         setModalContent('game_over');
         setPhase('game_over');
     };
@@ -1424,7 +1489,9 @@ export const useGameLogic = (config) => {
         setFlyingItem(null);
         setDrawAnimState(null);
         setPendingItems([]);
-        setExpeditionNumber(0);
+        setDayNumber(0);
+        setPopularity(10);
+        setLastCookResult(null);
         setExpeditionScores([]);
         setTotalScore(0);
         setBonusItems([]);
@@ -1487,7 +1554,11 @@ export const useGameLogic = (config) => {
     // =============================================
 
     return {
-        // Expedition state
+        // Day / Meta state
+        dayNumber,
+        popularity,
+        lastCookResult,
+        // Legacy aliases (expeditionNumber === dayNumber)
         expeditionNumber,
         expeditionScores,
         totalScore,
@@ -1555,6 +1626,9 @@ export const useGameLogic = (config) => {
         endTurn,
         continueToNextTurn,
         handleEvacuate,
+        returnToRestaurant,
+        handleCookResult,
+        startNextDay,
         handleReset,
         startNextExpedition,
         tickDoomResolution,

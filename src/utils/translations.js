@@ -17,6 +17,8 @@ export const EN_TRANSLATIONS = {
     "时额外开启一个栏位": "opens an extra slot",
     "开额外栏位": "opens extra slot",
     "必填槽位未填": "Required slots unfilled",
+    "人气值": "Popularity",
+    "继续下一天": "Next Day",
     "为": "=",
     "时": "then",
     "人气": "Popularity",

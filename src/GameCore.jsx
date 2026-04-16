@@ -54,7 +54,9 @@ const GameCore = () => {
         drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
         startGame, selectWall, confirmWallReveal, selectRow, selectColumn, endTurn, continueToNextTurn,
         wallCandidates, pendingWallCandidate,
-        handleEvacuate, handleReset, startNextExpedition,
+        handleEvacuate, returnToRestaurant, handleCookResult, startNextDay,
+        handleReset, startNextExpedition,
+        dayNumber, popularity, lastCookResult,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
         replaceInventoryItem, discardInventoryItem, synthesizeItems, discardPendingItem, debugAddItem,
@@ -603,6 +605,58 @@ const GameCore = () => {
                                 </div>
                             </div>
 
+                        </div>
+                    </div>
+                )}
+
+                {/* Restaurant phase — full-screen kitchen for end-of-day cooking */}
+                {phase === 'restaurant' && currentDish && (
+                    <Kitchen
+                        inventory={inventory}
+                        dish={currentDish}
+                        onCook={(result, usedUids) => handleCookResult(result, usedUids)}
+                        onClose={() => {}}
+                        isRestaurantPhase={true}
+                    />
+                )}
+
+                {/* Cook result — rating + popularity delta, then continue to next day */}
+                {phase === 'cook_result' && lastCookResult && currentDish && (
+                    <div className="text-center py-12">
+                        <span className="text-6xl">{currentDish.icon}</span>
+                        <h2 className="text-2xl font-bold mt-4 mb-2 text-kitchen-text-title">
+                            {language === 'en' && currentDish.nameEn ? currentDish.nameEn : t(currentDish.name)}
+                        </h2>
+                        <div className={`text-4xl font-black mt-2 ${
+                            lastCookResult.popularityDelta >= 2 ? 'text-kitchen-gold-deep' :
+                            lastCookResult.popularityDelta >= 1 ? 'text-purple-500' :
+                            lastCookResult.popularityDelta >= 0 ? 'text-kitchen-success-border' :
+                            lastCookResult.popularityDelta >= -1 ? 'text-[#B8803C]' : 'text-kitchen-danger-text'
+                        }`}>
+                            {t(lastCookResult.rating)}
+                        </div>
+                        <p className="text-lg text-kitchen-text-secondary mt-2 mb-6">
+                            {t('总分')}: {lastCookResult.total.toFixed(1)}
+                        </p>
+
+                        {/* Popularity */}
+                        <div className="inline-block bg-gradient-to-b from-kitchen-card to-[#FFF3E0] rounded-xl border-2 border-kitchen-gold-border-muted shadow-[0_2px_0_#D4B896] px-10 py-5 mb-8">
+                            <div className="text-xs text-kitchen-text-muted tracking-widest mb-1">{t('人气值')}</div>
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="text-3xl font-black text-kitchen-text-title">{popularity}</span>
+                                <span className={`text-xl font-bold ${lastCookResult.popularityDelta >= 0 ? 'text-kitchen-success-border' : 'text-kitchen-danger-text'}`}>
+                                    {lastCookResult.popularityDelta >= 0 ? '+' : ''}{lastCookResult.popularityDelta}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <button
+                                onClick={startNextDay}
+                                className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body text-lg font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
+                            >
+                                {t('继续下一天')}
+                            </button>
                         </div>
                     </div>
                 )}
