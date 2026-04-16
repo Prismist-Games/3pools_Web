@@ -71,7 +71,8 @@
       "Bash(gh search *)",
       "mcp__plugin_github_github__search_repositories",
       "mcp__plugin_github_github__get_file_contents",
-      "Bash(npx *)"
+      "Bash(npx *)",
+      "Bash(cat /Users/ziggy/GitHub/3pools_Web/.claude/lessons/*.md)"
     ]
   }
 }

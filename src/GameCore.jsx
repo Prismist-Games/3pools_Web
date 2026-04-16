@@ -15,8 +15,6 @@ import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
 import { FateWall } from './components/game/FateWall';
 import { FateWallPlacementModal } from './components/game/FateWallPlacementModal';
-import { FateWallLuckModal } from './components/game/FateWallLuckModal';
-import { FateWallDoomModal } from './components/game/FateWallDoomModal';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -330,10 +328,24 @@ const GameCore = () => {
                                 bonusItems={bonusItems}
                             />
 
-                            {/* Doom Status + Fate Wall */}
-                            <div className="bg-white rounded-lg shadow-sm border">
-                                <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-                                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('命运网格')}</h3>
+                            {/* Fate Wall */}
+                            <div className={`rounded-lg shadow-sm border ${
+                                luckPhase !== 'idle' ? 'bg-white border-purple-200' :
+                                doomDrawPhase !== 'idle' ? 'bg-white border-red-200' :
+                                'bg-white border-gray-100'
+                            }`}>
+                                <div className="px-3 py-2 border-b border-inherit flex items-center justify-between">
+                                    <h3 className={`text-xs font-semibold uppercase tracking-wide ${
+                                        luckPhase !== 'idle' ? 'text-purple-500' :
+                                        doomDrawPhase !== 'idle' ? 'text-red-500' :
+                                        'text-gray-400'
+                                    }`}>
+                                        {luckPhase !== 'idle'
+                                            ? t('幸运抽取')
+                                            : doomDrawPhase !== 'idle'
+                                                ? `${t('厄运抽取')} ${doomDrawTotal - doomDrawQueue + 1}/${doomDrawTotal}`
+                                                : t('命运网格')}
+                                    </h3>
                                     <div className="flex items-center gap-3 text-sm">
                                         <span>❤️ <span className="text-green-400 font-bold">{hp}</span></span>
                                         <span>💀 <span className="text-red-400 font-bold">{doomLevel}</span></span>
@@ -342,7 +354,20 @@ const GameCore = () => {
                                 <div className="p-2">
                                     <FateWall
                                         cells={fateWall.cells}
-                                        label={null}
+                                        luckPhase={luckPhase}
+                                        luckResult={luckResult}
+                                        onLuckSelect={handleLuckSelect}
+                                        onLuckConfirm={confirmLuck}
+                                        copyMirrorState={copyMirrorState}
+                                        onCopyMirrorSelectSource={handleCopyMirrorSelectSource}
+                                        onCopyMirrorSelectTarget={handleCopyMirrorSelectTarget}
+                                        doomPhase={doomDrawPhase}
+                                        doomResult={doomDrawResult}
+                                        doomIndex={doomDrawTotal - doomDrawQueue + 1}
+                                        doomTotal={doomDrawTotal}
+                                        doomLevel={doomLevel}
+                                        onDoomSelect={handleDoomSelect}
+                                        onDoomConfirm={confirmDoomDraw}
                                     />
                                 </div>
                             </div>
@@ -656,32 +681,6 @@ const GameCore = () => {
                         pendingCharm={pendingCharm}
                         fateWallCells={fateWall.cells}
                         onPlace={confirmCharmPlacement}
-                    />
-                )}
-
-                {/* Fate Wall Luck Modal */}
-                {(phase === 'luck_draw') && (
-                    <FateWallLuckModal
-                        fateWallCells={fateWall.cells}
-                        onSelect={handleLuckSelect}
-                        result={luckResult}
-                        onConfirm={confirmLuck}
-                        copyMirrorState={copyMirrorState}
-                        onCopyMirrorSelectSource={handleCopyMirrorSelectSource}
-                        onCopyMirrorSelectTarget={handleCopyMirrorSelectTarget}
-                    />
-                )}
-
-                {/* Fate Wall Doom Modal */}
-                {(doomDrawPhase === 'selecting' || doomDrawPhase === 'result') && (
-                    <FateWallDoomModal
-                        fateWallCells={fateWall.cells}
-                        doomIndex={doomDrawTotal - doomDrawQueue + 1}
-                        doomTotal={doomDrawTotal}
-                        doomLevel={doomLevel}
-                        onSelect={handleDoomSelect}
-                        result={doomDrawResult}
-                        onConfirm={confirmDoomDraw}
                     />
                 )}
 
