@@ -176,15 +176,22 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
             <div className="px-3 py-2 border-t border-kitchen-gold-border-muted/50 space-y-1">
                 {(slot.rules && slot.rules.length > 0) ? (
                     <>
-                        {/* Default (non-matching) line */}
-                        <div className="flex items-center gap-1.5 text-[10px]">
-                            <span className="text-kitchen-text-muted w-8 text-right font-mono">×{slot.defaultMultiplier ?? 0.5}</span>
-                            <span className="text-kitchen-text-muted">{t('其他')}</span>
-                        </div>
+                        {/* Default (non-matching) line — tag left, multiplier right */}
+                        {(() => {
+                            const m = slot.defaultMultiplier ?? 0.5;
+                            const isPenalty = m < 1;
+                            return (
+                                <div className="flex items-center gap-1.5 text-[10px]">
+                                    <span className={`flex-1 ${isPenalty ? 'text-kitchen-danger-text' : 'text-kitchen-text-muted'}`}>{t('其他')}</span>
+                                    <span className={`font-mono font-bold ${isPenalty ? 'text-kitchen-danger-text' : 'text-kitchen-text-muted'}`}>×{Math.round(m * 100)}%</span>
+                                </div>
+                            );
+                        })()}
                         {/* Each rule, sorted by multiplier ascending */}
                         {[...slot.rules].sort((a, b) => a.multiplier - b.multiplier).map((rule, ri) => {
+                            const isPenalty = rule.multiplier < 1;
                             const isTop = rule.multiplier >= 2;
-                            const color = isTop ? 'text-kitchen-gold-deep' : 'text-kitchen-success-border';
+                            const color = isPenalty ? 'text-kitchen-danger-text' : isTop ? 'text-kitchen-gold-deep' : 'text-kitchen-success-border';
                             let label;
                             if (rule.match?.tag) {
                                 label = <TagBadge tag={rule.match.tag} className={isTop ? 'bg-kitchen-gold text-kitchen-text-title' : ''} />;
@@ -195,24 +202,26 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                             }
                             return (
                                 <div key={ri} className="flex items-center gap-1.5 text-[10px]">
-                                    <span className={`${color} w-8 text-right font-mono font-bold`}>×{rule.multiplier}</span>
-                                    {label}
+                                    <span className="flex-1">{label}</span>
+                                    <span className={`${color} font-mono font-bold`}>×{Math.round(rule.multiplier * 100)}%</span>
                                 </div>
                             );
                         })}
                         {slot.exclude && (
                             <div className="flex items-center gap-1.5 text-[10px]">
-                                <span className="text-kitchen-danger-text w-8 text-right font-mono font-bold">✗</span>
-                                <span className="text-kitchen-danger-text">{t('不可放入')}</span>
-                                <TagBadge tag={slot.exclude} className="bg-kitchen-danger text-white" />
+                                <span className="flex-1 flex items-center gap-1">
+                                    <span className="text-kitchen-danger-text">{t('不可放入')}</span>
+                                    <TagBadge tag={slot.exclude} className="bg-kitchen-danger text-white" />
+                                </span>
+                                <span className="text-kitchen-danger-text font-mono font-bold">✗</span>
                             </div>
                         )}
                         {slot.crossBonus && (
                             <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-kitchen-gold-border-muted/50 mt-1">
-                                <span className="text-pink-500 w-8 text-right">🔗</span>
-                                <span className="text-pink-600">
+                                <span className="text-pink-500">🔗</span>
+                                <span className="flex-1 text-pink-600">
                                     {t(slot.crossBonus.requireSlot)}{t('为')} <TagBadge tag={slot.crossBonus.requireTag} className="bg-pink-600 text-pink-100" /> {t('时')}
-                                    {slot.crossBonus.multiplier ? ` ×${slot.crossBonus.multiplier}` : ` +${slot.crossBonus.points}`}
+                                    {slot.crossBonus.multiplier ? ` ×${Math.round(slot.crossBonus.multiplier * 100)}%` : ` +${slot.crossBonus.points}`}
                                 </span>
                             </div>
                         )}
@@ -220,8 +229,8 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                 ) : (
                     /* No rules = open slot */
                     <div className="flex items-center gap-1.5 text-[10px]">
-                        <span className="text-kitchen-info-border w-8 text-right font-mono font-bold">×{slot.defaultMultiplier ?? 1}</span>
-                        <span className="text-kitchen-info-border">{t('任意食材')}</span>
+                        <span className="flex-1 text-kitchen-info-border">{t('任意食材')}</span>
+                        <span className="text-kitchen-info-border font-mono font-bold">×{Math.round((slot.defaultMultiplier ?? 1) * 100)}%</span>
                     </div>
                 )}
                 {/* Trigger rule display */}
