@@ -71,7 +71,10 @@
       "Bash(gh search *)",
       "mcp__plugin_github_github__search_repositories",
       "mcp__plugin_github_github__get_file_contents",
-      "Bash(npx *)"
+      "Bash(npx *)",
+      "Bash(node -e \"const sharp = require\\('sharp'\\); sharp\\('assets/chef_backhome.png'\\).metadata\\(\\).then\\(m => console.log\\(m.width, m.height\\)\\)\")",
+      "Bash(python3 -c \"from PIL import Image; im=Image.open\\('assets/chef_backhome.png'\\); print\\(im.size\\)\")",
+      "Bash(identify \"assets/chef_backhome.png\")"
     ]
   }
 }

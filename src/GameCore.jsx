@@ -7,9 +7,11 @@ import BulletinBoard, { SCORE_STYLE, RewardCard, IngredientTip, DIFFICULTY_STYLE
 import Tooltip from './components/ui/Tooltip';
 // ActiveOrders removed — order submit is now on BulletinBoard directly
 import ScoreBoard from './components/game/ScoreBoard';
+import DishCard from './components/game/DishCard';
 import DispatchJudgment from './components/game/DispatchJudgment';
 import AICooking, { pickRandomCustomer } from './components/game/AICooking';
 import Kitchen from './components/game/Kitchen';
+import SpritePreview from './components/game/SpritePreview';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
@@ -30,7 +32,7 @@ const GameCore = () => {
     const [aiCookingOpen, setAiCookingOpen] = useState(false);
     const [aiCustomer, setAiCustomer] = useState(pickRandomCustomer);
     const [kitchenOpen, setKitchenOpen] = useState(false);
-    const [kitchenDishIdx, setKitchenDishIdx] = useState(0);
+    const [spritePreviewOpen, setSpritePreviewOpen] = useState(false);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -42,6 +44,7 @@ const GameCore = () => {
     );
 
     const {
+        dayNumber, popularity, lastCookResult,
         expeditionNumber, expeditionScores, totalScore, expeditionConfig, bonusItems,
         turnNumber, gold, phase,
         matrix, wallCandidates, lastDrawResult, currentWallType, lastDrawDirection,
@@ -52,7 +55,8 @@ const GameCore = () => {
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating,
         startGame, selectRow, selectColumn, endTurn, continueToNextTurn, selectWall,
-        handleEvacuate, handleReset, startNextExpedition,
+        handleEvacuate, returnToRestaurant, handleCookResult, startNextDay,
+        handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
         replaceInventoryItem, discardInventoryItem, synthesizeItems, discardPendingItem, debugAddItem,
@@ -61,6 +65,9 @@ const GameCore = () => {
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         debugAddStorageItems,
     } = state;
+
+    // Dish cycles with day number
+    const kitchenDishIdx = Math.max(0, dayNumber - 1) % DISHES.length;
 
     // --- Doom animation interval ---
     useEffect(() => {
@@ -161,6 +168,7 @@ const GameCore = () => {
                             <button onClick={() => setDispatchOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-800 text-amber-200 border border-amber-600 hover:bg-amber-700 transition-colors">{t('派遣')}</button>
                             <button onClick={() => setAiCookingOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-orange-600 text-orange-100 border border-orange-500 hover:bg-orange-500 transition-colors">🍳 AI炼菜</button>
                             <button onClick={() => setKitchenOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-600 text-red-100 border border-red-500 hover:bg-red-500 transition-colors">🍳 厨房</button>
+                            <button onClick={() => setSpritePreviewOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-cyan-800 text-cyan-200 border border-cyan-600 hover:bg-cyan-700 transition-colors">🎬 {t('动画')}</button>
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                         </div>
                     </div>
@@ -353,13 +361,7 @@ const GameCore = () => {
 
                         {/* RIGHT SIDEBAR */}
                         <div className="w-64 flex-shrink-0 flex flex-col gap-4 self-start">
-                            <ScoreBoard
-                                expeditionNumber={expeditionNumber}
-                                expeditionScores={expeditionScores}
-                                totalScore={totalScore}
-                                victoryScore={expeditionConfig.scoreToWin}
-                                bonusItems={bonusItems}
-                            />
+                            <DishCard dish={DISHES[kitchenDishIdx]} />
 
                             {/* Doom Grid */}
                             <div className="bg-white rounded-lg shadow-sm border">
@@ -575,6 +577,56 @@ const GameCore = () => {
                     </div>
                 )}
 
+                {/* Restaurant phase — full-screen kitchen */}
+                {phase === 'restaurant' && (
+                    <Kitchen
+                        inventory={inventory}
+                        dish={DISHES[kitchenDishIdx]}
+                        onCook={(result, usedUids) => handleCookResult(result, usedUids)}
+                        onClose={() => {}} // can't close during restaurant phase
+                        isRestaurantPhase={true}
+                    />
+                )}
+
+                {/* Cook result — show rating and continue to next day */}
+                {phase === 'cook_result' && lastCookResult && (
+                    <div className="text-center py-12">
+                        <span className="text-5xl">{DISHES[kitchenDishIdx]?.icon}</span>
+                        <h2 className="text-xl font-bold mt-4 mb-2">{DISHES[kitchenDishIdx]?.name}</h2>
+                        <div className={`text-3xl font-black mt-2 ${
+                            lastCookResult.popularityDelta >= 2 ? 'text-yellow-500' :
+                            lastCookResult.popularityDelta >= 1 ? 'text-purple-500' :
+                            lastCookResult.popularityDelta >= 0 ? 'text-green-500' :
+                            lastCookResult.popularityDelta >= -1 ? 'text-orange-500' : 'text-red-500'
+                        }`}>
+                            {lastCookResult.rating}
+                        </div>
+                        <p className="text-lg text-gray-600 mt-2 mb-6">
+                            {t('总分')}: {lastCookResult.total.toFixed(1)}
+                        </p>
+
+                        {/* Popularity display */}
+                        <div className="inline-block bg-white rounded-xl border border-gray-200 shadow-sm px-8 py-4 mb-8">
+                            <div className="text-sm text-gray-400 mb-1">{t('人气值')}</div>
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="text-2xl font-black text-gray-800">{popularity}</span>
+                                <span className={`text-lg font-bold ${lastCookResult.popularityDelta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                    {lastCookResult.popularityDelta >= 0 ? '+' : ''}{lastCookResult.popularityDelta}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <button
+                                onClick={startNextDay}
+                                className="px-8 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition-colors"
+                            >
+                                {t('继续下一天')}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Game over / Evacuated */}
                 {phase === 'game_over' && (
                     <div className="text-center py-12">
@@ -646,8 +698,8 @@ const GameCore = () => {
                     </div>
                 )}
 
-                {/* Doom resolution result (persistent after confirm) */}
-                {doomResolutionResult && !isDoomResolving && (
+                {/* Doom resolution result (only during show phases) */}
+                {doomResolutionResult && !isDoomResolving && phase !== 'restaurant' && phase !== 'cook_result' && phase !== 'game_over' && phase !== 'pre_game' && (
                     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-lg shadow-lg">
                         <div className="text-sm">
                             💀 {t('厄运结算')}:
@@ -735,6 +787,9 @@ const GameCore = () => {
 
                 {/* Kitchen Modal */}
                 {kitchenOpen && <Kitchen inventory={inventory} dish={DISHES[kitchenDishIdx]} onCook={(result) => { setKitchenOpen(false); }} onClose={() => setKitchenOpen(false)} />}
+
+                {/* Sprite Preview Modal */}
+                {spritePreviewOpen && <SpritePreview onClose={() => setSpritePreviewOpen(false)} />}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}

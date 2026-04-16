@@ -78,16 +78,21 @@ export const useGameLogic = (config) => {
     const expeditionConfig = config.expedition || { expeditionCount: 3, scoreToWin: 30 };
     const maxInventorySize = config.inventorySize || config.stages[0].inventorySize;
 
-    // --- Expedition State ---
-    const [expeditionNumber, setExpeditionNumber] = useState(0);
+    // --- Day / Meta State ---
+    const [dayNumber, setDayNumber] = useState(0);
+    const [popularity, setPopularity] = useState(10); // 人气值
+    const [lastCookResult, setLastCookResult] = useState(null); // stored after cooking for result screen
+
+    // --- Legacy aliases (to minimize breakage) ---
+    const [expeditionNumber, setExpeditionNumber] = [dayNumber, setDayNumber];
     const [expeditionScores, setExpeditionScores] = useState([]);
     const [totalScore, setTotalScore] = useState(0);
-    const [bonusItems, setBonusItems] = useState([]); // 3 random item IDs that give +1 bonus per game
+    const [bonusItems, setBonusItems] = useState([]);
 
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
     const [gold, setGold] = useState(0);
-    const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'wall_choice' | 'drawing' | 'between_turns' | 'game_over'
+    const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'wall_choice' | 'drawing' | 'between_turns' | 'restaurant' | 'cook_result' | 'game_over'
 
     // --- Grid State ---
     const [matrix, setMatrix] = useState(null);
@@ -877,16 +882,59 @@ export const useGameLogic = (config) => {
     // EVACUATION & GAME OVER
     // =============================================
 
-    const handleEvacuate = () => {
-        const outOfGameItems = inventory.filter(i => i.isOutOfGame);
-        const bonusMap = new Map(bonusItems.map(b => [b.id, b.bonusValue || 2]));
-        const baseScore = outOfGameItems.reduce((sum, item) => sum + (item.score || 0), 0);
-        const bonusScore = outOfGameItems.reduce((sum, item) => sum + (bonusMap.get(item.id) || 0), 0);
-        const score = baseScore + bonusScore;
-        setExpeditionScores(prev => [...prev, { score, baseScore, bonusScore, items: outOfGameItems }]);
-        setTotalScore(prev => prev + score);
-        setModalContent('evacuated');
-        setPhase('game_over');
+    /** Return to restaurant — transition from show to kitchen phase */
+    const returnToRestaurant = () => {
+        setPhase('restaurant');
+    };
+
+    /** Legacy alias */
+    const handleEvacuate = returnToRestaurant;
+
+    /** Handle cooking result — consume placed ingredients, update popularity */
+    const handleCookResult = (result, usedUids) => {
+        // Remove used ingredients from inventory
+        if (usedUids && usedUids.length > 0) {
+            const uidSet = new Set(usedUids);
+            setInventory(prev => prev.filter(item => !uidSet.has(item.uid)));
+        }
+        // Update popularity
+        setPopularity(prev => Math.max(0, prev + (result.popularityDelta || 0)));
+        setLastCookResult(result);
+        setPhase('cook_result');
+    };
+
+    /** Start next day — reset show state, keep popularity. dayNumber increments in startGame */
+    const startNextDay = () => {
+        setTurnNumber(0);
+        setGold(0);
+        setMatrix(null);
+        setWallCandidates(null);
+        setCurrentWallType(null);
+        setLastDrawDirection(null);
+        setHp(doomConfig.initialHP);
+        setDoomGrid(() => {
+            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
+                grid[i] = { type: 'danger' };
+            }
+            return grid;
+        });
+        setDoomLevel(doomConfig.initialDoomLevel);
+        setIsDoomResolving(false);
+        setDoomAnimState(null);
+        setDoomResolutionResult(null);
+        setAfterDoomAction(null);
+        setInventory([]);
+        setToast(null);
+        setLastDrawResult(null);
+        setModalContent(null);
+        setFlyingItem(null);
+        setDrawAnimState(null);
+        setPendingItems([]);
+        setBulletinBoard([]);
+        setPendingChosenOrder(null);
+        setLastCookResult(null);
+        setPhase('pre_game');
     };
 
     const handleGameOver = () => {
@@ -983,7 +1031,10 @@ export const useGameLogic = (config) => {
     // =============================================
 
     return {
-        // Expedition state
+        // Day / Meta state
+        dayNumber,
+        popularity,
+        lastCookResult,
         expeditionNumber,
         expeditionScores,
         totalScore,
@@ -1038,6 +1089,9 @@ export const useGameLogic = (config) => {
         continueToNextTurn,
         selectWall,
         handleEvacuate,
+        returnToRestaurant,
+        handleCookResult,
+        startNextDay,
         handleReset,
         startNextExpedition,
         tickDoomResolution,

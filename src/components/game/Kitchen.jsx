@@ -1,29 +1,43 @@
 import React, { useState, useMemo } from 'react';
 import { X, ChefHat, Trash2, Plus } from 'lucide-react';
-import { DISHES } from '../../data/v2Config';
+import { DISHES, INGREDIENTS } from '../../data/v2Config';
+
+// Lookup map: item id → item object
+const INGREDIENT_MAP = Object.fromEntries(INGREDIENTS.map(i => [i.id, i]));
 import { RARITY_STYLE, IngredientTip } from './BulletinBoard';
 import Tooltip from '../ui/Tooltip';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 // ── Matching & Scoring ──
+// Rules-based matching: each slot has rules[], evaluate all, take highest multiplier
 
 function getSlotMatch(ingredient, slot) {
-    if (!slot.accept) {
-        return { multiplier: 1, matchLevel: 'any' };
-    }
     const tags = ingredient.tags || [];
+    // Exclude check
     if (slot.exclude && tags.includes(slot.exclude)) {
-        return { multiplier: 0, matchLevel: 'excluded' };
+        return { multiplier: 0, matchLevel: 'excluded', matchedRule: null };
     }
-    // prefer can be string or array
-    const preferList = !slot.prefer ? [] : Array.isArray(slot.prefer) ? slot.prefer : [slot.prefer];
-    if (preferList.length > 0 && preferList.some(p => tags.includes(p))) {
-        return { multiplier: 2, matchLevel: 'prefer' };
+    const rules = slot.rules || [];
+    // No rules = open slot (配料), use defaultMultiplier
+    if (rules.length === 0) {
+        return { multiplier: slot.defaultMultiplier ?? 1, matchLevel: 'default', matchedRule: null };
     }
-    if (tags.includes(slot.accept)) {
-        return { multiplier: 1, matchLevel: 'accept' };
+    // Evaluate all rules, take the highest multiplier
+    let bestMultiplier = slot.defaultMultiplier ?? 0.5;
+    let bestRule = null;
+    for (const rule of rules) {
+        let matches = false;
+        if (rule.match.tag) matches = tags.includes(rule.match.tag);
+        else if (rule.match.id) matches = ingredient.id === rule.match.id;
+        // Future: rule.match.minRarity, rule.match.tags, etc.
+        if (matches && rule.multiplier > bestMultiplier) {
+            bestMultiplier = rule.multiplier;
+            bestRule = rule;
+        }
     }
-    return { multiplier: 0.5, matchLevel: 'none' };
+    // Determine match level for styling
+    const matchLevel = bestRule ? (bestMultiplier >= 2 ? 'best' : 'good') : 'none';
+    return { multiplier: bestMultiplier, matchLevel, matchedRule: bestRule };
 }
 
 function canPlaceInSlot(ingredient, slot) {
@@ -32,28 +46,48 @@ function canPlaceInSlot(ingredient, slot) {
 }
 
 function scoreDish(dish, effectiveSlots, placements) {
-    // First pass: base scores
-    const slotScores = effectiveSlots.map((slot, i) => {
-        const ing = placements[i];
-        if (!ing) return { score: 0, empty: true, required: slot.required, crossBonus: 0 };
-        const base = ing.rarity || 1;
-        const { multiplier, matchLevel } = getSlotMatch(ing, slot);
-        return { score: base * multiplier, matchLevel, empty: false, required: slot.required, crossBonus: 0 };
+    // Pre-check which crossBonus conditions are met
+    const crossBonusActive = effectiveSlots.map((slot) => {
+        if (!slot.crossBonus) return false;
+        const { requireSlot, requireTag } = slot.crossBonus;
+        const targetIdx = effectiveSlots.findIndex(s => s.name === requireSlot);
+        if (targetIdx < 0 || !placements[targetIdx]) return false;
+        const targetTags = placements[targetIdx].tags || [];
+        return targetTags.includes(requireTag);
     });
 
-    // Second pass: cross-slot bonuses
-    effectiveSlots.forEach((slot, i) => {
-        if (!slot.crossBonus || !placements[i]) return;
-        const { requireSlot, requireTag, points } = slot.crossBonus;
-        // Find the target slot by name and check if its ingredient has the required tag
-        const targetIdx = effectiveSlots.findIndex(s => s.name === requireSlot);
-        if (targetIdx >= 0 && placements[targetIdx]) {
-            const targetTags = placements[targetIdx].tags || [];
-            if (targetTags.includes(requireTag)) {
-                slotScores[i].score += points;
-                slotScores[i].crossBonus = points;
+    // Single pass: compute each slot's score, applying crossBonus multiplier where active
+    const slotScores = effectiveSlots.map((slot, i) => {
+        const ing = placements[i];
+        if (!ing) return { score: 0, empty: true, required: slot.required, crossBonusActive: crossBonusActive[i] };
+        const base = ing.rarity || 1;
+        const { multiplier, matchLevel } = getSlotMatch(ing, slot);
+
+        let finalScore = base * multiplier;
+        let crossBonusAmount = 0;
+
+        if (crossBonusActive[i]) {
+            const cb = slot.crossBonus;
+            if (cb.multiplier) {
+                // Multiplier-type: multiply the slot's score
+                const boosted = finalScore * cb.multiplier;
+                crossBonusAmount = boosted - finalScore;
+                finalScore = boosted;
+            } else if (cb.points) {
+                // Flat points-type (legacy support)
+                finalScore += cb.points;
+                crossBonusAmount = cb.points;
             }
         }
+
+        return {
+            score: finalScore,
+            matchLevel,
+            empty: false,
+            required: slot.required,
+            crossBonus: crossBonusAmount,
+            crossBonusActive: crossBonusActive[i],
+        };
     });
 
     const total = slotScores.reduce((s, x) => s + x.score, 0);
@@ -76,12 +110,95 @@ function scoreDish(dish, effectiveSlots, placements) {
 // ── Styling ──
 
 const MATCH_BORDER = {
-    prefer: 'border-yellow-400 bg-yellow-50',
-    accept: 'border-green-400 bg-green-50',
-    any: 'border-blue-300 bg-blue-50',
+    best: 'border-yellow-400 bg-yellow-50',
+    good: 'border-green-400 bg-green-50',
+    default: 'border-blue-300 bg-blue-50',
     none: 'border-gray-300 bg-gray-100',
     excluded: 'border-red-300 bg-red-50',
 };
+
+// ── Top-down kitchen scene (RPG style) ──
+
+const T = 26;
+
+// Tile definitions: [background, borderColor, emoji?, emojiSize?]
+// Using a simple array for compactness
+const _t = (bg, bd, em, sz) => ({ bg, bd, em, sz });
+const TL = {
+    // Walls
+    W:  _t('#5c4033','#4a3228'),
+    wn: _t('#5c4033','#4a3228','🪟',14),
+    wp: _t('#5c4033','#4a3228','🖼️',12),
+    dr: _t('#7a6548','#5c4033'),
+    // Floor — single warm tone, no pattern
+    F:  _t('#f0e0c0','#eadab8'),
+    // Kitchen counter
+    ct: _t('#9a8a78','#887868'),
+    st: _t('#9a8a78','#887868','🔥',13),
+    pt: _t('#9a8a78','#887868','🫕',13),
+    kn: _t('#9a8a78','#887868','🔪',11),
+    sk: _t('#9a8a78','#887868','💧',11),
+    fr: _t('#c8d0d8','#b0b8c0','🧊',13),
+    sh: _t('#5c4033','#4a3228','📚',12),
+    // Table — warm brown
+    tb: _t('#a0782c','#8a6820'),
+    td: _t('#a0782c','#8a6820','🍽️',14),
+    DS: _t('#a0782c','#8a6820'),
+    // Chair — rounded, lighter
+    cr: _t('#c8a870','#b89860'),
+    // Deco
+    pl: _t('#f0e0c0','#eadab8','🌿',14),
+    lm: _t('#f0e0c0','#eadab8','🕯️',12),
+    rg: _t('#d4b088','#c8a478'),
+    // Characters
+    CH: _t('#f0e0c0','#eadab8','👨‍🍳',17),
+    CU: _t('#f0e0c0','#eadab8','🧑',17),
+};
+
+const SC = [
+    'W  W  W  wn W  W  W  W  wn W  W  wp W  W',
+    'W  fr ct st pt kn sk ct F  F  F  sh F  W',
+    'W  F  F  F  F  F  F  F  F  F  F  F  F  W',
+    'W  F  CH F  F  F  cr tb td tb cr F  lm W',
+    'W  F  F  F  rg rg F  tb DS tb F  CU F  W',
+    'W  F  F  F  rg rg cr tb tb tb cr F  pl W',
+    'W  F  F  F  F  F  F  F  F  F  F  F  F  W',
+    'W  W  W  W  dr dr W  W  W  W  W  W  W  W',
+].map(row => row.split(/\s+/));
+
+const KitchenScene = ({ dish }) => (
+    <div className="mb-4 flex justify-center">
+        <div className="inline-block rounded-xl overflow-hidden shadow-lg" style={{ border: '3px solid #4a3228', background: '#4a3228' }}>
+            {SC.map((row, ri) => (
+                <div key={ri} className="flex">
+                    {row.map((cell, ci) => {
+                        const t = TL[cell] || TL.F;
+                        const isDish = cell === 'DS';
+                        const isChair = cell === 'cr';
+                        return (
+                            <div
+                                key={ci}
+                                style={{
+                                    width: T, height: T,
+                                    backgroundColor: t.bg,
+                                    borderRight: `1px solid ${t.bd}`,
+                                    borderBottom: `1px solid ${t.bd}`,
+                                    borderRadius: isChair ? 6 : 0,
+                                }}
+                                className="flex items-center justify-center"
+                            >
+                                {isDish && dish?.icon
+                                    ? <span style={{ fontSize: 15 }}>{dish.icon}</span>
+                                    : t.em && <span style={{ fontSize: t.sz || 13 }}>{t.em}</span>
+                                }
+                            </div>
+                        );
+                    })}
+                </div>
+            ))}
+        </div>
+    </div>
+);
 
 const RATING_STYLE = {
     '惊艳': 'text-yellow-500',
@@ -142,33 +259,40 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                     <span className="text-sm font-black text-gray-800">{slotResult.score.toFixed(1)}</span>
                     <span className="text-[10px] text-gray-400 ml-1">{t('分')}</span>
                     {slotResult.crossBonus > 0 && (
-                        <span className="text-[10px] text-pink-500 font-bold ml-1">(🔗+{slotResult.crossBonus})</span>
+                        <span className="text-[10px] text-pink-500 font-bold ml-1">(🔗 +{slotResult.crossBonus.toFixed(1)})</span>
                     )}
                 </div>
             )}
 
-            {/* Rules */}
+            {/* Rules — rendered from slot.rules[] */}
             <div className="px-3 py-2 border-t border-gray-100 space-y-1">
-                {slot.accept ? (
+                {(slot.rules && slot.rules.length > 0) ? (
                     <>
+                        {/* Default (non-matching) line */}
                         <div className="flex items-center gap-1.5 text-[10px]">
-                            <span className="text-gray-400 w-8 text-right font-mono">×0.5</span>
+                            <span className="text-gray-400 w-8 text-right font-mono">×{slot.defaultMultiplier ?? 0.5}</span>
                             <span className="text-gray-400">{t('其他')}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[10px]">
-                            <span className="text-green-600 w-8 text-right font-mono font-bold">×1</span>
-                            <TagBadge tag={slot.accept} />
-                        </div>
-                        {slot.prefer && (
-                            <div className="flex items-center gap-1.5 text-[10px]">
-                                <span className="text-yellow-600 w-8 text-right font-mono font-bold">×2</span>
-                                <span className="flex gap-1 flex-wrap">
-                                    {(Array.isArray(slot.prefer) ? slot.prefer : [slot.prefer]).map(p => (
-                                        <TagBadge key={p} tag={p} className="bg-yellow-600 text-yellow-100" />
-                                    ))}
-                                </span>
-                            </div>
-                        )}
+                        {/* Each rule, sorted by multiplier ascending */}
+                        {[...slot.rules].sort((a, b) => a.multiplier - b.multiplier).map((rule, ri) => {
+                            const isTop = rule.multiplier >= 2;
+                            const color = isTop ? 'text-yellow-600' : 'text-green-600';
+                            // Determine label: tag match shows as badge, id match shows item name
+                            let label;
+                            if (rule.match.tag) {
+                                label = <TagBadge tag={rule.match.tag} className={isTop ? 'bg-yellow-600 text-yellow-100' : ''} />;
+                            } else if (rule.match.id) {
+                                const item = INGREDIENT_MAP[rule.match.id];
+                                label = <span className={`font-bold ${color}`}>{item ? `${item.icon} ${item.name}` : rule.match.id}</span>;
+                            }
+                            return (
+                                <div key={ri} className="flex items-center gap-1.5 text-[10px]">
+                                    <span className={`${color} w-8 text-right font-mono font-bold`}>×{rule.multiplier}</span>
+                                    {label}
+                                </div>
+                            );
+                        })}
+                        {/* Exclude rule */}
                         {slot.exclude && (
                             <div className="flex items-center gap-1.5 text-[10px]">
                                 <span className="text-red-400 w-8 text-right font-mono font-bold">✗</span>
@@ -176,22 +300,25 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                                 <TagBadge tag={slot.exclude} className="bg-red-600 text-red-100" />
                             </div>
                         )}
+                        {/* Cross bonus */}
                         {slot.crossBonus && (
                             <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-gray-100 mt-1">
                                 <span className="text-pink-500 w-8 text-right">🔗</span>
                                 <span className="text-pink-600">
-                                    {slot.crossBonus.requireSlot}为 <TagBadge tag={slot.crossBonus.requireTag} className="bg-pink-600 text-pink-100" /> 时 +{slot.crossBonus.points}
+                                    {slot.crossBonus.requireSlot}{t('为')} <TagBadge tag={slot.crossBonus.requireTag} className="bg-pink-600 text-pink-100" /> {t('时')}
+                                    {slot.crossBonus.multiplier ? ` 倍率 ×${slot.crossBonus.multiplier}` : ` +${slot.crossBonus.points}`}
                                 </span>
                             </div>
                         )}
                     </>
                 ) : (
+                    /* No rules = open slot */
                     <div className="flex items-center gap-1.5 text-[10px]">
-                        <span className="text-blue-500 w-8 text-right font-mono font-bold">×1</span>
+                        <span className="text-blue-500 w-8 text-right font-mono font-bold">×{slot.defaultMultiplier ?? 1}</span>
                         <span className="text-blue-500">{t('任意食材')}</span>
                     </div>
                 )}
-                {/* Trigger rule display */}
+                {/* Trigger */}
                 {slot.trigger && (
                     <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-gray-100 mt-1">
                         <span className="text-cyan-500 w-8 text-right">⚡</span>
@@ -207,7 +334,7 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
 
 // ── Kitchen Component ──
 
-const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
+const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantPhase = false }) => {
     const { t } = useLanguage();
     const dish = dishOverride || DISHES[0];
 
@@ -264,6 +391,10 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
 
     const result = useMemo(() => scoreDish(dish, effectiveSlots, mergedPlacements), [dish, effectiveSlots, mergedPlacements]);
 
+    // Validation: all required slots must be filled
+    const missingRequired = effectiveSlots.filter((slot, i) => slot.required && !mergedPlacements[i]);
+    const canCook = missingRequired.length === 0;
+
     const placeIngredient = (slotIdx) => {
         if (selectedFridgeIdx === null) return;
         const ing = fridgeItems[selectedFridgeIdx];
@@ -316,7 +447,9 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
     };
 
     const handleCook = () => {
-        if (onCook) onCook(result);
+        // Collect UIDs of all placed ingredients
+        const usedUids = mergedPlacements.filter(Boolean).map(p => p.uid);
+        if (onCook) onCook(result, usedUids);
     };
 
     const clearAll = () => {
@@ -324,25 +457,29 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
         setSpawnedPlacements({});
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-                    <div className="flex items-center gap-3 text-white">
-                        <ChefHat size={24} />
-                        <h1 className="font-bold text-xl">{t('厨房')}</h1>
-                    </div>
-                    <button onClick={onClose} className="text-white/80 hover:text-white"><X size={22} /></button>
+    const content = (
+        <div className={isRestaurantPhase ? 'w-full max-w-3xl mx-auto' : 'bg-gray-50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto'}>
+            {/* Header */}
+            <div className={`bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4 flex items-center justify-between ${isRestaurantPhase ? 'rounded-xl mb-4' : 'rounded-t-2xl'}`}>
+                <div className="flex items-center gap-3 text-white">
+                    <ChefHat size={24} />
+                    <h1 className="font-bold text-xl">{t('厨房')}</h1>
                 </div>
+                {!isRestaurantPhase && <button onClick={onClose} className="text-white/80 hover:text-white"><X size={22} /></button>}
+            </div>
 
-                <div className="p-6">
-                    {/* Dish info */}
-                    <div className="text-center mb-6">
-                        <span className="text-4xl">{dish.icon}</span>
-                        <h2 className="text-xl font-bold mt-2">{t('今日菜品')}：{dish.name}</h2>
-                        <p className="text-sm text-gray-400">{dish.nameEn}</p>
-                    </div>
+            <div className={isRestaurantPhase ? '' : 'p-6'}>
+                    {/* Kitchen scene — top-down tile map */}
+                    {isRestaurantPhase && <KitchenScene dish={dish} />}
+
+                    {/* Dish info (compact when inline) */}
+                    {!isRestaurantPhase && (
+                        <div className="text-center mb-6">
+                            <span className="text-4xl">{dish.icon}</span>
+                            <h2 className="text-xl font-bold mt-2">{t('今日菜品')}：{dish.name}</h2>
+                            <p className="text-sm text-gray-400">{dish.nameEn}</p>
+                        </div>
+                    )}
 
                     {/* Slots */}
                     <div className="flex gap-3 justify-center flex-wrap mb-6">
@@ -360,42 +497,10 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
                         ))}
                     </div>
 
-                    {/* Score summary + thresholds */}
-                    <div className="mb-6 py-3 px-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                        <div className="text-center text-sm text-gray-500">
-                            {t('总分')}: <span className="font-bold text-lg text-gray-800">{result.total.toFixed(1)}</span>
-                            <span className="text-gray-300 mx-2">/</span>
-                            <span className="text-gray-400">{t('基准')} {result.baseline}</span>
-                        </div>
-                        {result.total > 0 && (
-                            <div className={`text-center text-xl font-black mt-1 ${RATING_STYLE[result.rating]}`}>
-                                {result.rating}
-                                <span className="text-sm ml-2 font-bold">
-                                    {result.popularityDelta > 0 ? `人气 +${result.popularityDelta}` : `人气 ${result.popularityDelta}`}
-                                </span>
-                            </div>
-                        )}
-                        <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-5 gap-1 text-center text-[10px]">
-                            {[
-                                { label: '翻车', delta: -2, min: 0, max: dish.baseline * 0.5, color: 'text-red-500' },
-                                { label: '勉强', delta: -1, min: dish.baseline * 0.5, max: dish.baseline, color: 'text-orange-500' },
-                                { label: '合格', delta: 0, min: dish.baseline, max: dish.baseline * 1.8, color: 'text-green-500' },
-                                { label: '优秀', delta: +1, min: dish.baseline * 1.8, max: dish.baseline * 2.5, color: 'text-purple-500' },
-                                { label: '惊艳', delta: +2, min: dish.baseline * 2.5, max: null, color: 'text-yellow-500' },
-                            ].map((tier, idx) => {
-                                const isActive = result.total > 0 && result.rating === tier.label;
-                                return (
-                                    <div key={idx} className={`py-1 rounded ${isActive ? 'bg-gray-100 ring-1 ring-gray-300' : ''}`}>
-                                        <div className={`font-black ${tier.color}`}>{tier.label}</div>
-                                        <div className="text-gray-400">
-                                            {tier.max ? `${tier.min}–${tier.max}` : `≥${tier.min}`}
-                                        </div>
-                                        <div className={`font-bold ${tier.color}`}>
-                                            {tier.delta > 0 ? `+${tier.delta}` : tier.delta}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                    {/* Score — only number, no rating text */}
+                    <div className="mb-6 py-3 px-4 bg-white rounded-xl border border-gray-200 shadow-sm text-center">
+                        <div className="text-sm text-gray-500">
+                            {t('总分')}: <span className="font-bold text-2xl text-gray-800">{result.total.toFixed(1)}</span>
                         </div>
                     </div>
 
@@ -431,19 +536,33 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
                         )}
                     </div>
 
+                    {/* Required slots hint */}
+                    {!canCook && (
+                        <div className="text-center text-xs text-red-500 mt-4">
+                            {t('必填槽位未填')}：{missingRequired.map(s => s.name).join('、')}
+                        </div>
+                    )}
+
                     {/* Actions */}
-                    <div className="flex gap-3 mt-6">
+                    <div className="flex gap-3 mt-4">
                         <button onClick={clearAll}
                             className="flex-1 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-400 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
                             <Trash2 size={15} /> {t('清空')}
                         </button>
-                        <button onClick={handleCook} disabled={mergedPlacements.every(p => !p)}
+                        <button onClick={handleCook} disabled={!canCook}
                             className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-bold hover:from-orange-600 hover:to-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-md">
                             <ChefHat size={15} /> {t('开始烹饪')}
                         </button>
                     </div>
                 </div>
             </div>
+        );
+
+    // Modal wrapper for toolbar access; inline for restaurant phase
+    if (isRestaurantPhase) return content;
+    return (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            {content}
         </div>
     );
 };
