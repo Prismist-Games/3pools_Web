@@ -200,7 +200,9 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     if (highlight === 'settled') {
         highlightClass = 'ring-3 ring-kitchen-gold scale-110 z-20 shadow-lg shadow-[rgba(232,168,48,0.3)] transition-all duration-200 animate-cell-flip';
     } else if (highlight === 'scanning') {
-        highlightClass = 'ring-2 ring-kitchen-gold/60 z-10 transition-all duration-75';
+        // Cursor cell — extends scan-row styling so the row tint stays steady
+        // as the cursor sweeps. Ring + stronger glow + z-10 mark the cursor.
+        highlightClass = 'bg-[rgba(232,168,48,0.18)] border-kitchen-gold shadow-[0_0_10px_rgba(232,168,48,0.35)] ring-2 ring-kitchen-gold z-10 transition-all duration-75';
     } else if (highlight === 'scan-row') {
         highlightClass = 'bg-[rgba(232,168,48,0.08)] border-kitchen-gold shadow-[0_0_8px_rgba(232,168,48,0.15)] transition-all duration-75';
     } else if (highlight === 'hover') {
