@@ -20,7 +20,7 @@ function getSpecialCells(grid, language) {
 
             const info = {
                 bomb: { icon: '💣', label: language === 'en' ? 'Bomb' : '炸弹' },
-                gold: { icon: '💰', label: language === 'en' ? 'Gold' : '金币' },
+                gold: { icon: '🎫', label: language === 'en' ? 'Draws' : '抽数' },
                 order_cell: { icon: '📋', label: language === 'en' ? 'Order' : '订单' },
                 out_of_game: { icon: '🎁', label: language === 'en' ? 'Item' : '物品' },
                 heal: { icon: '❤️‍🩹', label: language === 'en' ? 'Heal' : '生命恢复' },

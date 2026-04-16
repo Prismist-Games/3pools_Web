@@ -246,7 +246,7 @@ export default function LevelEditor() {
 
             {/* Gold override */}
             <div>
-              <label className="text-xs text-gray-400">进入金币数</label>
+              <label className="text-xs text-gray-400">进入抽数</label>
               <div className="flex items-center gap-2 mt-1">
                 <input
                   type="number"

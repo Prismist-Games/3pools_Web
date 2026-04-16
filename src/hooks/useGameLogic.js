@@ -655,7 +655,7 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'gold') {
             const goldGain = drawnCell.goldAmount * mult;
             setGold(prev => prev + goldGain);
-            showToast(`${t('金币')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
+            showToast(`${t('抽数')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'order_cell') {
             // Order cells now grant a refresh charge (capped). Popcorn
             // multiplier does not apply — each cell is a single +1.
@@ -750,7 +750,7 @@ export const useGameLogic = (config) => {
             } else if (mirrorCell.type === 'gold') {
                 const g = mirrorCell.goldAmount * mMult;
                 setGold(prev => prev + g);
-                showToast(`🪞 ${t('镜像')} ${t('金币')} +${g}`, 'success');
+                showToast(`🪞 ${t('镜像')} ${t('抽数')} +${g}`, 'success');
             } else if (mirrorCell.type === 'order_cell') {
                 setRefreshCharges(prev => {
                     if (prev >= REFRESH_CONFIG.maxCharges) return prev;

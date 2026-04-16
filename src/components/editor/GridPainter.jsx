@@ -8,7 +8,7 @@ const CELL_DISPLAY = {
   doom_upgrade: { icon: '⚠️', bg: 'bg-red-700/60', label: '厄运升级' },
   any_doom: { icon: '💀?', bg: 'bg-red-800/40', label: '随机厄运' },
   bomb: { icon: '💣', bg: 'bg-orange-900/60', label: '炸弹' },
-  gold: { icon: '💰', bg: 'bg-yellow-700/60', label: '金币' },
+  gold: { icon: '🎫', bg: 'bg-yellow-700/60', label: '抽数' },
   order: { icon: '📋', bg: 'bg-blue-700/60', label: '订单' },
   out_of_game: { icon: '🎁', bg: 'bg-purple-700/60', label: '出口物品' },
   out_of_game_1: { icon: '🧸', bg: 'bg-green-700/60', label: '1分物品' },

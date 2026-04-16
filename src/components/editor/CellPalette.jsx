@@ -8,7 +8,7 @@ const PALETTE_ITEMS = [
   { type: CELL_TYPES.DOOM_UPGRADE, icon: '⚠️', label: '厄运升级', category: '厄运' },
   { type: CELL_TYPES.ANY_DOOM, icon: '💀?', label: '随机厄运', category: '厄运' },
   { type: CELL_TYPES.BOMB, icon: '💣', label: '炸弹', category: '特殊' },
-  { type: CELL_TYPES.GOLD, icon: '💰', label: '金币', category: '特殊' },
+  { type: CELL_TYPES.GOLD, icon: '🎫', label: '抽数', category: '特殊' },
   { type: CELL_TYPES.ORDER, icon: '📋', label: '订单', category: '特殊' },
   { type: CELL_TYPES.OUT_OF_GAME, icon: '🎁', label: '出口物品（随机）', category: '特殊' },
   { type: CELL_TYPES.OUT_OF_GAME_1, icon: '🧸', label: '1分物品', category: '特殊' },

@@ -35,7 +35,7 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
     } else if (cell.type === 'gold') {
         icon = cell.icon;
         name = t(cell.name);
-        desc = t('抽中时获得金币');
+        desc = t('抽中时获得抽数');
     } else if (cell.type === 'order_cell') {
         icon = cell.icon;
         name = t(cell.name);

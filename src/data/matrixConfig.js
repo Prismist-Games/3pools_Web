@@ -25,9 +25,9 @@ export const MATRIX_CONFIG = {
   specialCells: {
     gold: {
       spawnChance: 0.06,  // 6% per cell position
-      icon: '💰',
-      name: '金币',
-      goldRange: [1, 2],  // random gold amount [min, max]
+      icon: '🎫',
+      name: '抽数',
+      goldRange: [1, 2],  // random draw-count amount [min, max]
     },
     order: {
       spawnChance: 0.04,  // 4% per cell position

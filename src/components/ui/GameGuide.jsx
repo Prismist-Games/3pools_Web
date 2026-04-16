@@ -93,8 +93,8 @@ export const GameGuide = ({ onClose }) => {
                                 <span><b>{t('订单')}</b> — {t('获得新订单')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <span className="w-5 text-center">💰</span>
-                                <span><b>{t('金币')}</b> — {t('获得额外金币')}</span>
+                                <span className="w-5 text-center">🎫</span>
+                                <span><b>{t('抽数')}</b> — {t('获得额外抽数')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className="w-5 text-center">💣</span>

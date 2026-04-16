@@ -554,7 +554,8 @@ export const EN_TRANSLATIONS = {
     // --- Tooltips ---
     "抽中时触发厄运结算，不获得物品": "Triggers doom resolution when drawn, no item obtained",
     "抽中时厄运等级+1，不获得物品": "Doom level +1 when drawn, no item obtained",
-    "抽中时获得金币": "Gain gold when drawn",
+    "抽中时获得抽数": "Gain draws when drawn",
+    "抽数": "Draws",
     "抽中时获得一个新订单": "Gain a new order when drawn",
     "抽中时直接获得食材": "Directly obtain an ingredient",
     "抽中时爆炸，摧毁周围所有格子": "Explodes when drawn, destroying all surrounding cells",
@@ -664,7 +665,7 @@ export const EN_TRANSLATIONS = {
     "厄运更危险": "Doom gets worse",
     "直接获得食材": "Get ingredient directly",
     "获得新订单": "Get a new order",
-    "获得额外金币": "Get extra gold",
+    "获得额外抽数": "Get extra draws",
     "爆炸摧毁周围格子": "Destroys surrounding cells",
     "回复生命值": "Restore HP",
     "增加菜篮容量": "Expand basket",
