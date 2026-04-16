@@ -321,7 +321,7 @@ const GameCore = () => {
                                                     : 'bg-gray-100 text-gray-500'
                                             }`}>
                                                 {lastDrawResult.obtained
-                                                    ? `${t('获得')}: ${lastDrawResult.obtained.item.icon} ${t(lastDrawResult.obtained.item.name)}`
+                                                    ? `${t('获得')}: ${lastDrawResult.obtained.item.icon} ${language === 'en' && lastDrawResult.obtained.item.nameEn ? lastDrawResult.obtained.item.nameEn : t(lastDrawResult.obtained.item.name)}`
                                                     : t('未获得物品')
                                                 }
                                             </div>
