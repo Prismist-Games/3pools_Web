@@ -7,7 +7,8 @@ import Tooltip from './components/ui/Tooltip';
 // ActiveOrders removed — order submit is now on BulletinBoard directly
 import ScoreBoard from './components/game/ScoreBoard';
 import DispatchJudgment from './components/game/DispatchJudgment';
-import Kitchen, { SlotPreview } from './components/game/Kitchen';
+import Kitchen from './components/game/Kitchen';
+import DishCard from './components/game/DishCard';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
@@ -228,29 +229,16 @@ const GameCore = () => {
                         </div>
                         <div className="flex-1 min-w-0 flex flex-col items-center justify-start pt-6">
                             {currentDish && (
-                                <div className="max-w-3xl w-full">
-                                    <div className="bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold rounded-2xl p-5 shadow-[0_3px_0_#D4952A] text-center mb-4">
-                                        <div className="text-xs text-kitchen-text-muted mb-1 tracking-widest">{t('今日菜单')}</div>
-                                        <div className="flex items-center justify-center gap-3 mb-1">
-                                            <span className="text-5xl">{currentDish.icon}</span>
-                                            <div className="text-left">
-                                                <div className="text-xl font-bold text-kitchen-text-title leading-tight">{t(currentDish.name)}</div>
-                                                {currentDish.nameEn && (
-                                                    <div className="text-[11px] italic text-kitchen-text-muted">{currentDish.nameEn}</div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="text-xs text-kitchen-text-secondary mt-2">
+                                <div className="max-w-md w-full">
+                                    <div className="text-center mb-3">
+                                        <div className="text-xs text-kitchen-text-muted tracking-widest mb-1">{t('今日菜单')}</div>
+                                        <div className="text-xs text-kitchen-text-secondary">
                                             {dishIntroPending
                                                 ? t('为今天的菜挑选订单')
                                                 : `${t('组建今日订单')} · ${bulletinBoard.length} / 5`}
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap gap-3 justify-center">
-                                        {currentDish.slots.map((slot, i) => (
-                                            <SlotPreview key={i} slot={slot} />
-                                        ))}
-                                    </div>
+                                    <DishCard dish={currentDish} />
                                 </div>
                             )}
                         </div>

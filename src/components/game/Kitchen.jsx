@@ -6,24 +6,36 @@ import Tooltip from '../ui/Tooltip';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 // ── Matching & Scoring ──
+// Rules-based matching: each slot has rules[], each rule has
+// { match: { tag | id }, multiplier }. Evaluate all rules, take the
+// highest multiplier among matches. No matches → defaultMultiplier.
+// exclude (optional) hard-blocks placement.
+
+function ruleMatches(ingredient, rule) {
+    if (rule.match?.tag) return (ingredient.tags || []).includes(rule.match.tag);
+    if (rule.match?.id) return ingredient.id === rule.match.id;
+    return false;
+}
 
 function getSlotMatch(ingredient, slot) {
-    if (!slot.accept) {
-        return { multiplier: 1, matchLevel: 'any' };
-    }
     const tags = ingredient.tags || [];
     if (slot.exclude && tags.includes(slot.exclude)) {
-        return { multiplier: 0, matchLevel: 'excluded' };
+        return { multiplier: 0, matchLevel: 'excluded', matchedRule: null };
     }
-    // prefer can be string or array
-    const preferList = !slot.prefer ? [] : Array.isArray(slot.prefer) ? slot.prefer : [slot.prefer];
-    if (preferList.length > 0 && preferList.some(p => tags.includes(p))) {
-        return { multiplier: 2, matchLevel: 'prefer' };
+    const rules = slot.rules || [];
+    if (rules.length === 0) {
+        return { multiplier: slot.defaultMultiplier ?? 1, matchLevel: 'default', matchedRule: null };
     }
-    if (tags.includes(slot.accept)) {
-        return { multiplier: 1, matchLevel: 'accept' };
+    let best = null;
+    for (const rule of rules) {
+        if (!ruleMatches(ingredient, rule)) continue;
+        if (!best || rule.multiplier > best.multiplier) best = rule;
     }
-    return { multiplier: 0.5, matchLevel: 'none' };
+    if (best) {
+        const level = best.multiplier >= 2 ? 'prefer' : best.multiplier >= 1 ? 'accept' : 'none';
+        return { multiplier: best.multiplier, matchLevel: level, matchedRule: best };
+    }
+    return { multiplier: slot.defaultMultiplier ?? 0.5, matchLevel: 'none', matchedRule: null };
 }
 
 function canPlaceInSlot(ingredient, slot) {
@@ -41,18 +53,22 @@ function scoreDish(dish, effectiveSlots, placements) {
         return { score: base * multiplier, matchLevel, empty: false, required: slot.required, crossBonus: 0 };
     });
 
-    // Second pass: cross-slot bonuses
+    // Second pass: cross-slot bonuses. Supports both legacy points (flat
+    // addition) and new multiplier (multiplicative on slot score).
     effectiveSlots.forEach((slot, i) => {
         if (!slot.crossBonus || !placements[i]) return;
-        const { requireSlot, requireTag, points } = slot.crossBonus;
-        // Find the target slot by name and check if its ingredient has the required tag
+        const { requireSlot, requireTag, points, multiplier } = slot.crossBonus;
         const targetIdx = effectiveSlots.findIndex(s => s.name === requireSlot);
-        if (targetIdx >= 0 && placements[targetIdx]) {
-            const targetTags = placements[targetIdx].tags || [];
-            if (targetTags.includes(requireTag)) {
-                slotScores[i].score += points;
-                slotScores[i].crossBonus = points;
-            }
+        if (targetIdx < 0 || !placements[targetIdx]) return;
+        const targetTags = placements[targetIdx].tags || [];
+        if (!targetTags.includes(requireTag)) return;
+        if (multiplier) {
+            const bonusScore = slotScores[i].score * (multiplier - 1);
+            slotScores[i].score += bonusScore;
+            slotScores[i].crossBonus = bonusScore;
+        } else if (points) {
+            slotScores[i].score += points;
+            slotScores[i].crossBonus = points;
         }
     });
 
@@ -100,73 +116,8 @@ const TagBadge = ({ tag, className = '' }) => {
     );
 };
 
-// ── Slot Preview (read-only — used in the opening dish reveal) ──
-
-const SlotPreview = ({ slot, isSpawned = false }) => {
-    const { t } = useLanguage();
-    return (
-        <div className={`flex flex-col bg-kitchen-card rounded-xl border-2 shadow-[0_2px_0_#D4B896] overflow-hidden min-w-[140px]
-            ${isSpawned ? 'border-kitchen-info-border ring-1 ring-kitchen-info/40' : 'border-kitchen-gold-border-muted'}`}>
-            <div className={`px-3 py-1.5 border-b border-dashed flex items-center justify-between
-                ${isSpawned ? 'bg-[#F0F8FF] border-kitchen-info-border/60' : 'bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-kitchen-gold-border-muted'}`}>
-                <span className="text-xs font-bold text-kitchen-text-body">{t(slot.name)}</span>
-                {slot.required && <span className="text-[9px] text-kitchen-danger-text font-bold">{t('必填')}</span>}
-            </div>
-            <div className="px-3 py-2 space-y-1">
-                {slot.accept ? (
-                    <>
-                        <div className="flex items-center gap-1.5 text-[10px]">
-                            <span className="text-kitchen-text-muted w-8 text-right font-mono">×0.5</span>
-                            <span className="text-kitchen-text-muted">{t('其他')}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[10px]">
-                            <span className="text-green-700 w-8 text-right font-mono font-bold">×1</span>
-                            <TagBadge tag={slot.accept} />
-                        </div>
-                        {slot.prefer && (
-                            <div className="flex items-center gap-1.5 text-[10px]">
-                                <span className="text-kitchen-gold-deep w-8 text-right font-mono font-bold">×2</span>
-                                <span className="flex gap-1 flex-wrap">
-                                    {(Array.isArray(slot.prefer) ? slot.prefer : [slot.prefer]).map(p => (
-                                        <TagBadge key={p} tag={p} className="bg-kitchen-gold text-kitchen-text-title" />
-                                    ))}
-                                </span>
-                            </div>
-                        )}
-                        {slot.exclude && (
-                            <div className="flex items-center gap-1.5 text-[10px]">
-                                <span className="text-kitchen-danger-text w-8 text-right font-mono font-bold">✗</span>
-                                <span className="text-kitchen-danger-text">{t('不可放入')}</span>
-                                <TagBadge tag={slot.exclude} className="bg-kitchen-danger text-white" />
-                            </div>
-                        )}
-                        {slot.crossBonus && (
-                            <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-kitchen-gold-border-muted/50 mt-1">
-                                <span className="text-pink-500 w-8 text-right">🔗</span>
-                                <span className="text-pink-600">
-                                    {t(slot.crossBonus.requireSlot)}{t('为')} <TagBadge tag={slot.crossBonus.requireTag} className="bg-pink-600 text-pink-100" /> {t('时')} +{slot.crossBonus.points}
-                                </span>
-                            </div>
-                        )}
-                    </>
-                ) : (
-                    <div className="flex items-center gap-1.5 text-[10px]">
-                        <span className="text-kitchen-info-border w-8 text-right font-mono font-bold">×1</span>
-                        <span className="text-kitchen-info-border">{t('任意食材')}</span>
-                    </div>
-                )}
-                {slot.trigger && (
-                    <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-kitchen-gold-border-muted/50 mt-1">
-                        <span className="text-kitchen-info-border w-8 text-right">⚡</span>
-                        <span className="text-kitchen-info-border">
-                            {t('放入')} <TagBadge tag={slot.trigger.whenTag} className="bg-kitchen-info text-white" /> {t('时额外开启一个栏位')}
-                        </span>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
+// SlotPreview removed — DishCard (components/game/DishCard.jsx) now handles
+// the read-only dish+slot display with rules[]-aware rendering.
 
 // ── Slot Card ──
 
@@ -521,4 +472,4 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
 };
 
 export default Kitchen;
-export { scoreDish, getSlotMatch, SlotPreview };
+export { scoreDish, getSlotMatch };

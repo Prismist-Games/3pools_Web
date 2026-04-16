@@ -15,6 +15,7 @@ export const EN_TRANSLATIONS = {
     "不可放入": "Cannot place",
     "放入": "Place",
     "时额外开启一个栏位": "opens an extra slot",
+    "开额外栏位": "opens extra slot",
     "为": "=",
     "时": "then",
     "人气": "Popularity",
