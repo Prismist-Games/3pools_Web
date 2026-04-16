@@ -330,23 +330,14 @@ const GameCore = () => {
                                 bonusItems={bonusItems}
                             />
 
-                            {/* Doom Status */}
+                            {/* Doom Status + Fate Wall */}
                             <div className="bg-white rounded-lg shadow-sm border">
-                                <div className="px-3 py-2 border-b border-gray-100">
-                                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('厄运')}</h3>
-                                </div>
-                                <div className="p-3">
-                                    <div className="flex items-center gap-3 text-sm py-1">
+                                <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('命运网格')}</h3>
+                                    <div className="flex items-center gap-3 text-sm">
                                         <span>❤️ <span className="text-green-400 font-bold">{hp}</span></span>
                                         <span>💀 <span className="text-red-400 font-bold">{doomLevel}</span></span>
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Fate Wall */}
-                            <div className="bg-white rounded-lg shadow-sm border">
-                                <div className="px-3 py-2 border-b border-gray-100">
-                                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('命运网格')}</h3>
                                 </div>
                                 <div className="p-2">
                                     <FateWall
@@ -687,6 +678,7 @@ const GameCore = () => {
                         fateWallCells={fateWall.cells}
                         doomIndex={doomDrawTotal - doomDrawQueue + 1}
                         doomTotal={doomDrawTotal}
+                        doomLevel={doomLevel}
                         onSelect={handleDoomSelect}
                         result={doomDrawResult}
                         onConfirm={confirmDoomDraw}

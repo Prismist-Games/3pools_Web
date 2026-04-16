@@ -15,7 +15,7 @@ import { getRowIndices, getColIndices, isLineFullyProtected } from '../../utils/
  *   onConfirm: () => void
  */
 export function FateWallDoomModal({
-  fateWallCells, doomIndex, doomTotal, onSelect, result, onConfirm
+  fateWallCells, doomIndex, doomTotal, doomLevel, onSelect, result, onConfirm
 }) {
   const { t } = useLanguage();
   const [hoveredLine, setHoveredLine] = useState(null);
@@ -45,6 +45,7 @@ export function FateWallDoomModal({
         <h2 className="text-red-400 text-lg font-bold mb-1">
           💀 {t('厄运抽取')} {doomIndex}/{doomTotal}
         </h2>
+        <p className="text-gray-500 text-xs">{t('厄运等级')}: {doomLevel}</p>
         <p className="text-gray-400 text-xs mb-4">{t('选择一行或一列承受厄运')}</p>
 
         {/* Col buttons */}
