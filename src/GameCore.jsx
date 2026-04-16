@@ -57,15 +57,8 @@ const GameCore = () => {
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
-    // Compute bonus item IDs as a Set (stable reference via useMemo)
-    // Map of item ID → bonus value
-    const bonusItemMap = React.useMemo(
-        () => new Map(state.bonusItems?.map(b => [b.id, b.bonusValue || 2]) || []),
-        [state.bonusItems]
-    );
-
     const {
-        expeditionNumber, expeditionScores, totalScore, expeditionConfig, bonusItems,
+        expeditionNumber, expeditionScores, totalScore, expeditionConfig,
         turnNumber, gold, phase,
         matrix, lastDrawResult, currentWallType, currentLevel, lastDrawDirection,
         hp, doomGrid, doomLevel, dangerCount,
@@ -241,7 +234,6 @@ const GameCore = () => {
                                     onReplaceIncoming={replaceBulletinOrder}
                                     refreshCharges={0}
                                     hoveredStickerIds={hoveredStickerIds}
-                                    bonusItemMap={bonusItemMap}
                                     setupMode={true}
                                 />
                             )}
@@ -283,7 +275,6 @@ const GameCore = () => {
                                     refreshCharges={refreshCharges}
                                     onRefresh={triggerRefresh}
                                     hoveredStickerIds={hoveredStickerIds}
-                                    bonusItemMap={bonusItemMap}
                                 />
                             )}
                         </div>
@@ -329,7 +320,6 @@ const GameCore = () => {
                                             wallType={currentWallType}
                                             lastDrawDirection={lastDrawDirection}
                                             onHoverStickerIds={setHoveredStickerIds}
-                                            bonusItemMap={bonusItemMap}
                                             gravityDrops={gravityDrops}
                                             rotationMoves={rotationMoves}
                                             growthFlashes={growthFlashes}
@@ -622,9 +612,6 @@ const GameCore = () => {
                                                         <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow`}>
                                                             {item.rarity || item.score}
                                                         </span>
-                                                    )}
-                                                    {item?.isOutOfGame && bonusItemMap.has(item.id) && (
-                                                        <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusItemMap.get(item.id)}</span>
                                                     )}
                                                 </div>
                                             );

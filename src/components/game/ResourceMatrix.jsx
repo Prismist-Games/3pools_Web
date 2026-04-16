@@ -303,7 +303,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 /**
  * Wall grid display for turn-based prototype (size from MATRIX_CONFIG.gridSize).
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, gravityDrops, rotationMoves, growthFlashes }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, gravityDrops, rotationMoves, growthFlashes }) => {
     const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -437,17 +437,13 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         if (cell.type === 'out_of_game') {
             const badgeColor = { 1: 'bg-green-500', 2: 'bg-blue-500', 3: 'bg-purple-500', 4: 'bg-orange-500' };
             const r = cell.item?.rarity || cell.item?.score || 1;
-            const bonusVal = bonusItemMap?.get(cell.item?.id);
             return (
                 <>
                     <span className="text-xl">{cell.item?.icon || cell.icon}</span>
                     <span className={`absolute -bottom-1 -right-1 ${badgeColor[r] || 'bg-amber-500'} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10`}>
                         {r}
                     </span>
-                    {bonusVal && (
-                        <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusVal}</span>
-                    )}
-                    {cell.multiplier && cell.multiplier > 1 && !bonusVal && (
+                    {cell.multiplier && cell.multiplier > 1 && (
                         <span className="absolute -top-1 -right-1 bg-amber-400 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10">×{cell.multiplier}</span>
                     )}
                 </>

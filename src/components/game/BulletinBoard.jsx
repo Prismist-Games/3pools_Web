@@ -87,7 +87,7 @@ const IngredientTip = ({ item }) => {
     );
 };
 
-const RewardCard = ({ reward, size = 'md', bonusValue }) => {
+const RewardCard = ({ reward, size = 'md' }) => {
     const { t } = useLanguage();
     const rarity = reward.rarity || reward.score || 1;
     const s = RARITY_STYLE[rarity] || RARITY_STYLE[1];
@@ -103,9 +103,6 @@ const RewardCard = ({ reward, size = 'md', bonusValue }) => {
                 <span className={`absolute -bottom-1 -right-1 ${s.badge} text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow`}>
                     {rarity}
                 </span>
-                {bonusValue && (
-                    <span className="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center z-10">+{bonusValue}</span>
-                )}
             </div>
         </Tooltip>
     );
@@ -116,7 +113,7 @@ const BulletinBoard = ({
     incomingOrder, onConfirmIncoming, onDiscardIncoming,
     pendingChosenOrder, onReplaceIncoming,
     refreshCharges, onRefresh,
-    hoveredStickerIds, bonusItemMap,
+    hoveredStickerIds,
     setupMode = false,
 }) => {
     const { t } = useLanguage();
@@ -171,7 +168,7 @@ const BulletinBoard = ({
                                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
                                             <div className="flex gap-0.5">
                                                 {candidate.rewards.map((r, i) => (
-                                                    <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                                                    <RewardCard key={i} reward={r} size="sm" />
                                                 ))}
                                             </div>
                                         </div>
@@ -207,7 +204,7 @@ const BulletinBoard = ({
                         <div className="text-[11px] font-bold text-kitchen-gold-deep mb-1.5">{t('货架已满，选择下方订单替换')}</div>
                         <div className="flex items-center gap-1 mb-1.5">
                             {pendingChosenOrder.rewards.map((r, i) => (
-                                <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                                <RewardCard key={i} reward={r} size="sm" />
                             ))}
                         </div>
                         {pendingChosenOrder.requirements && pendingChosenOrder.requirements.length > 0 && (
@@ -255,7 +252,7 @@ const BulletinBoard = ({
                                             </span>
                                             <div className="flex gap-0.5">
                                                 {order.rewards.map((r, i) => (
-                                                    <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                                                    <RewardCard key={i} reward={r} size="sm" />
                                                 ))}
                                             </div>
                                         </div>
