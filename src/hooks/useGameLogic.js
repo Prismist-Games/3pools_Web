@@ -1036,6 +1036,75 @@ export const useGameLogic = (config) => {
                 }
                 break;
             }
+            case CHARM_TYPES.COMPOUND: {
+                const newGrowth = Math.min(4, charm.growthCount + 1);
+                const base = newGrowth + catalystBonus;
+                const available = DRAW_CAP - turnBonuses.draws;
+                const actual = Math.min(base, available);
+                setFateWall(prev => {
+                    const newCells = [...prev.cells];
+                    if (newCells[charmIndex]) {
+                        newCells[charmIndex] = { ...newCells[charmIndex], growthCount: newGrowth };
+                    }
+                    return { cells: newCells };
+                });
+                if (actual > 0) {
+                    setGold(prev => prev + actual);
+                    setTurnBonuses(prev => ({ ...prev, draws: prev.draws + actual }));
+                    effectDescription = `+${actual} ${t('抽取次数')} (复利 ×${newGrowth})${hasCatalyst ? ' ✦' : ''}`;
+                } else {
+                    effectDescription = t('抽取次数上限');
+                }
+                break;
+            }
+            case CHARM_TYPES.COMPOUND_STICKER: {
+                const newGrowth = Math.min(3, charm.growthCount + 1);
+                const base = newGrowth + catalystBonus;
+                const available = STICKER_CAP - turnBonuses.stickers;
+                const actual = Math.min(base, available);
+                setFateWall(prev => {
+                    const newCells = [...prev.cells];
+                    if (newCells[charmIndex]) {
+                        newCells[charmIndex] = { ...newCells[charmIndex], growthCount: newGrowth };
+                    }
+                    return { cells: newCells };
+                });
+                for (let i = 0; i < actual; i++) {
+                    const stickerTypes = [...STICKER_TYPES];
+                    const picked = stickerTypes[Math.floor(Math.random() * stickerTypes.length)];
+                    addToInventory({ type: 'sticker', item: picked, uid: Math.random().toString(36).substr(2,9) });
+                }
+                if (actual > 0) {
+                    setTurnBonuses(prev => ({ ...prev, stickers: prev.stickers + actual }));
+                    effectDescription = `+${actual} ${t('贴纸')} (复利 ×${newGrowth})${hasCatalyst ? ' ✦' : ''}`;
+                } else {
+                    effectDescription = t('贴纸上限');
+                }
+                break;
+            }
+            case CHARM_TYPES.COMPOUND_ORDER: {
+                const newGrowth = Math.min(3, charm.growthCount + 1);
+                const base = newGrowth + catalystBonus;
+                const available = ORDER_CAP - turnBonuses.orders;
+                const actual = Math.min(base, available);
+                setFateWall(prev => {
+                    const newCells = [...prev.cells];
+                    if (newCells[charmIndex]) {
+                        newCells[charmIndex] = { ...newCells[charmIndex], growthCount: newGrowth };
+                    }
+                    return { cells: newCells };
+                });
+                for (let i = 0; i < actual; i++) {
+                    setBulletinBoard(prev => [...prev, generateOrder()]);
+                }
+                if (actual > 0) {
+                    setTurnBonuses(prev => ({ ...prev, orders: prev.orders + actual }));
+                    effectDescription = `+${actual} ${t('订单')} (复利 ×${newGrowth})${hasCatalyst ? ' ✦' : ''}`;
+                } else {
+                    effectDescription = t('订单上限');
+                }
+                break;
+            }
             case CHARM_TYPES.BLANK:
             case CHARM_TYPES.CATALYST:
             case CHARM_TYPES.GUARD_STONE:
