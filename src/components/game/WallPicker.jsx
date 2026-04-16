@@ -47,8 +47,15 @@ function getSpecialCells(grid, language) {
  * a confirmation reveal with the modifier follows in the wall_reveal
  * phase before drawing starts.
  */
-const WallPicker = ({ candidates, onSelect }) => {
+const WallPicker = ({ candidates, onSelect, onHoverStickerIds }) => {
     const { t, language } = useLanguage();
+
+    const reportHover = (wall) => {
+        if (!onHoverStickerIds) return;
+        if (!wall) { onHoverStickerIds(null); return; }
+        const ids = new Set(wall.stickers.map(s => s.id));
+        onHoverStickerIds(ids.size > 0 ? ids : null);
+    };
 
     return (
         <div className="text-center py-6">
@@ -61,6 +68,8 @@ const WallPicker = ({ candidates, onSelect }) => {
                         <button
                             key={idx}
                             onClick={() => onSelect(idx)}
+                            onMouseEnter={() => reportHover(wall)}
+                            onMouseLeave={() => reportHover(null)}
                             className="w-52 bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border-muted
                                 shadow-[0_2px_0_#D4B896] hover:border-kitchen-gold hover:shadow-[0_2px_0_#D4952A,0_0_12px_rgba(232,168,48,0.15)]
                                 hover:-translate-y-1 transition-all duration-150 text-left overflow-hidden

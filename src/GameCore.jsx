@@ -285,7 +285,7 @@ const GameCore = () => {
                         <div className="flex-1 min-w-0">
                             {/* Wall choice phase — 3-choose-1 */}
                             {phase === 'wall_choice' && wallCandidates && (
-                                <WallPicker candidates={wallCandidates} onSelect={selectWall} />
+                                <WallPicker candidates={wallCandidates} onSelect={selectWall} onHoverStickerIds={setHoveredStickerIds} />
                             )}
 
                             {/* Drawing phase */}
