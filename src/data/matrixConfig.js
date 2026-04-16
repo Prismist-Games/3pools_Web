@@ -44,6 +44,11 @@ export const MATRIX_CONFIG = {
       icon: '💣',
       name: '炸弹',
     },
+    fateCell: {
+      spawnChance: 0.08,
+      icon: '✨',
+      name: '潜能格',
+    },
   },
 
   // Item shape system — Tetris-like polyominoes

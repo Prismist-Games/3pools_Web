@@ -116,6 +116,7 @@ export function generateWall(wallStickers) {
       const orderChance = goldChance + specialCells.order.spawnChance;
       const outOfGameChance = orderChance + specialCells.outOfGame.spawnChance;
       const bombChance = outOfGameChance + (specialCells.bomb?.spawnChance || 0);
+      const fateCellChance = bombChance + (specialCells.fateCell?.spawnChance || 0);
 
       if (roll < goldChance) {
         const [min, max] = specialCells.gold.goldRange;
@@ -152,6 +153,13 @@ export function generateWall(wallStickers) {
           type: 'bomb',
           icon: specialCells.bomb.icon,
           name: specialCells.bomb.name,
+          uid: generateUID(),
+        };
+      } else if (roll < fateCellChance) {
+        grid[row][col] = {
+          type: 'fate_cell',
+          icon: specialCells.fateCell.icon,
+          name: specialCells.fateCell.name,
           uid: generateUID(),
         };
       }
