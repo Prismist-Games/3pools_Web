@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
+import { getRowIndices, getColIndices } from '../utils/fateWallHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
 import { generateCharm, rollCharmType, CHARM_TYPES } from '../data/charms';
@@ -116,6 +117,11 @@ export const useGameLogic = (config) => {
     const [turnBonuses, setTurnBonuses] = useState({ draws: 0, orders: 0, stickers: 0 });
     const [pendingCharm, setPendingCharm] = useState(null);
     // null | { charm: CharmObject }
+
+    // Luck phase state
+    const [luckPhase, setLuckPhase] = useState('idle'); // 'idle' | 'selecting' | 'result'
+    const [luckResult, setLuckResult] = useState(null);
+    // luckResult: { charm, charmIndex, effectDescription }
 
     // --- Inventory State ---
     const [inventory, setInventory] = useState([]);
@@ -290,7 +296,8 @@ export const useGameLogic = (config) => {
 
         setMatrix(grid);
         setWallCandidates(null);
-        setPhase('drawing');
+        setPhase('luck_draw');
+        setLuckPhase('selecting');
     };
 
     // =============================================
@@ -1007,6 +1014,94 @@ export const useGameLogic = (config) => {
     };
 
     // =============================================
+    // LUCK PHASE
+    // =============================================
+
+    const applyLuckEffect = (charm, charmIndex) => {
+        const DRAW_CAP = 5;
+        const ORDER_CAP = 3;
+        const STICKER_CAP = 3;
+        let effectDescription = '';
+
+        switch (charm.type) {
+            case CHARM_TYPES.DRAW_COUNT: {
+                const available = DRAW_CAP - turnBonuses.draws;
+                const actual = Math.min(1, available);
+                if (actual > 0) {
+                    setGold(prev => prev + actual);
+                    setTurnBonuses(prev => ({ ...prev, draws: prev.draws + actual }));
+                    effectDescription = `+${actual} ${t('抽取次数')}`;
+                } else {
+                    effectDescription = t('抽取次数上限');
+                }
+                break;
+            }
+            case CHARM_TYPES.STICKER: {
+                const available = STICKER_CAP - turnBonuses.stickers;
+                const actual = Math.min(1, available);
+                if (actual > 0) {
+                    const stickerTypes = [...STICKER_TYPES];
+                    const picked = stickerTypes[Math.floor(Math.random() * stickerTypes.length)];
+                    addToInventory({
+                        type: 'sticker',
+                        item: picked,
+                        uid: Math.random().toString(36).substr(2, 9),
+                    });
+                    setTurnBonuses(prev => ({ ...prev, stickers: prev.stickers + actual }));
+                    effectDescription = `+1 ${t('贴纸')}: ${picked.name}`;
+                } else {
+                    effectDescription = t('贴纸上限');
+                }
+                break;
+            }
+            case CHARM_TYPES.ORDER: {
+                const available = ORDER_CAP - turnBonuses.orders;
+                const actual = Math.min(1, available);
+                if (actual > 0) {
+                    setBulletinBoard(prev => [...prev, generateOrder()]);
+                    setTurnBonuses(prev => ({ ...prev, orders: prev.orders + actual }));
+                    effectDescription = `+1 ${t('订单')}`;
+                } else {
+                    effectDescription = t('订单上限');
+                }
+                break;
+            }
+            case CHARM_TYPES.BLANK:
+            case CHARM_TYPES.CATALYST:
+            case CHARM_TYPES.GUARD_STONE:
+            case CHARM_TYPES.BAIT:
+                effectDescription = t('无效果');
+                break;
+            default:
+                effectDescription = t('效果待实现');
+                break;
+        }
+
+        if (!charm.isPersistent) {
+            removeCharm(charmIndex);
+        }
+
+        return effectDescription;
+    };
+
+    const handleLuckSelect = ({ direction, lineIndex }) => {
+        const indices = direction === 'row' ? getRowIndices(lineIndex) : getColIndices(lineIndex);
+        const filled = indices.filter(i => fateWall.cells[i] !== null);
+        if (filled.length === 0) return;
+        const charmIndex = filled[Math.floor(Math.random() * filled.length)];
+        const charm = fateWall.cells[charmIndex];
+        const effectDescription = applyLuckEffect(charm, charmIndex);
+        setLuckResult({ charm, charmIndex, effectDescription });
+        setLuckPhase('result');
+    };
+
+    const confirmLuck = () => {
+        setLuckResult(null);
+        setLuckPhase('idle');
+        setPhase('drawing');
+    };
+
+    // =============================================
     // FATE WALL ACTIONS
     // =============================================
 
@@ -1120,6 +1215,12 @@ export const useGameLogic = (config) => {
         pendingCharm,
         confirmCharmPlacement,
         discardPendingCharm,
+
+        // Luck phase
+        luckPhase,
+        luckResult,
+        handleLuckSelect,
+        confirmLuck,
 
         debugAddStorageItems: (items) => {
             setExpeditionScores(prev => [...prev, { score: 0, baseScore: 0, bonusScore: 0, items }]);

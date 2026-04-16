@@ -15,6 +15,7 @@ import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
 import { FateWall } from './components/game/FateWall';
 import { FateWallPlacementModal } from './components/game/FateWallPlacementModal';
+import { FateWallLuckModal } from './components/game/FateWallLuckModal';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -63,6 +64,7 @@ const GameCore = () => {
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         debugAddStorageItems,
         fateWall, pendingCharm, confirmCharmPlacement,
+        luckPhase, luckResult, handleLuckSelect, confirmLuck,
     } = state;
 
     // --- Doom animation interval ---
@@ -190,7 +192,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'drawing' || phase === 'between_turns') && (
+                {(phase === 'incoming_order' || phase === 'wall_choice' || phase === 'luck_draw' || phase === 'drawing' || phase === 'between_turns') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -758,6 +760,16 @@ const GameCore = () => {
                         pendingCharm={pendingCharm}
                         fateWallCells={fateWall.cells}
                         onPlace={confirmCharmPlacement}
+                    />
+                )}
+
+                {/* Fate Wall Luck Modal */}
+                {(phase === 'luck_draw') && (
+                    <FateWallLuckModal
+                        fateWallCells={fateWall.cells}
+                        onSelect={handleLuckSelect}
+                        result={luckResult}
+                        onConfirm={confirmLuck}
                     />
                 )}
 
