@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
-import { getRowIndices, getColIndices } from '../utils/fateWallHelpers';
+import { getRowIndices, getColIndices, getDoomTarget, isLineFullyProtected } from '../utils/fateWallHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
 import { generateCharm, rollCharmType, CHARM_TYPES } from '../data/charms';
@@ -112,6 +112,15 @@ export const useGameLogic = (config) => {
     const [luckResult, setLuckResult] = useState(null);
     // luckResult: { charm, charmIndex, effectDescription }
 
+    // Doom draw state
+    const [doomDrawQueue, setDoomDrawQueue] = useState(0);
+    const [doomDrawTotal, setDoomDrawTotal] = useState(0);
+    const [doomDrawPhase, setDoomDrawPhase] = useState('idle'); // 'idle' | 'selecting' | 'result'
+    const [doomDrawResult, setDoomDrawResult] = useState(null);
+    // null | { hitIndex: number|null, blocked: boolean, hpLoss: number }
+    const [afterDoomAction, setAfterDoomAction] = useState(null); // null | 'end_turn'
+    const [doomDelayCount, setDoomDelayCount] = useState(0);
+
     // --- Inventory State ---
     const [inventory, setInventory] = useState([]);
 
@@ -149,6 +158,7 @@ export const useGameLogic = (config) => {
     /** Start a new turn: generate grid, give gold */
     const startNewTurn = () => {
         setTurnBonuses({ draws: 0, orders: 0, stickers: 0 });
+        setDoomDelayCount(0);
         const newTurnNumber = turnNumber + 1;
         setTurnNumber(newTurnNumber);
         setGold(turnConfig.goldPerTurn);
@@ -557,9 +567,7 @@ export const useGameLogic = (config) => {
         }
 
         if (doomEffects.resolutions > 0) {
-            for (let i = 0; i < doomEffects.resolutions; i++) {
-                resolveDoom();
-            }
+            resolveDoom(null, doomLevel * doomEffects.resolutions);
         }
 
         setLastDrawResult({
@@ -789,10 +797,77 @@ export const useGameLogic = (config) => {
     // DOOM RESOLUTION
     // =============================================
 
-    // Stubbed — will be replaced by fate wall doom draw in Task 12
-    const resolveDoom = (action = null) => {
-        if (action === 'end_turn') {
-            setPhase('between_turns');
+    const resolveDoom = (action = null, forceCount = null) => {
+        if (action) setAfterDoomAction(action);
+        const count = forceCount !== null
+            ? forceCount
+            : action === 'end_turn'
+                ? Math.max(0, doomLevel - doomDelayCount)
+                : doomLevel;
+        if (count <= 0) {
+            if (action === 'end_turn') setPhase('between_turns');
+            return;
+        }
+        setDoomDrawQueue(count);
+        setDoomDrawTotal(count);
+        setDoomDrawPhase('selecting');
+    };
+
+    const handleDoomSelect = ({ direction, lineIndex }) => {
+        if (doomDrawPhase !== 'selecting') return;
+
+        const targetIndex = getDoomTarget(fateWall.cells, direction, lineIndex);
+        const targetCell = fateWall.cells[targetIndex];
+
+        let blocked = false;
+        let hpLoss = 0;
+
+        if (targetCell !== null) {
+            blocked = true;
+            removeCharm(targetIndex);
+        } else {
+            hpLoss = 1;
+        }
+
+        setDoomDrawResult({ hitIndex: targetIndex, blocked, hpLoss });
+        setDoomDrawPhase('result');
+    };
+
+    const confirmDoomDraw = () => {
+        const result = doomDrawResult;
+        const hpLoss = result?.hpLoss ?? 0;
+        let newHp = hp;
+
+        if (hpLoss > 0) {
+            newHp = Math.max(0, hp - hpLoss);
+            setHp(newHp);
+            showToast(`❤️ HP -${hpLoss}`, 'error');
+        }
+
+        setDoomDrawResult(null);
+        const remaining = doomDrawQueue - 1;
+        setDoomDrawQueue(remaining);
+
+        if (newHp <= 0) {
+            setDoomDrawPhase('idle');
+            setDoomDrawQueue(0);
+            setDoomDrawTotal(0);
+            setAfterDoomAction(null);
+            setDoomDelayCount(0);
+            handleGameOver();
+            return;
+        }
+
+        if (remaining > 0) {
+            setDoomDrawPhase('selecting');
+        } else {
+            setDoomDrawPhase('idle');
+            setDoomDelayCount(0);
+            const action = afterDoomAction;
+            setAfterDoomAction(null);
+            if (action === 'end_turn') {
+                setPhase('between_turns');
+            }
         }
     };
 
@@ -845,6 +920,12 @@ export const useGameLogic = (config) => {
         setBonusItems([]);
         setFateWall({ cells: createInitialFateWallCells() });
         setTurnBonuses({ draws: 0, orders: 0, stickers: 0 });
+        setDoomDrawQueue(0);
+        setDoomDrawTotal(0);
+        setDoomDrawPhase('idle');
+        setDoomDrawResult(null);
+        setAfterDoomAction(null);
+        setDoomDelayCount(0);
     };
 
     /** Reset per-expedition state but keep meta state, return to pre_game */
@@ -868,6 +949,12 @@ export const useGameLogic = (config) => {
         setPendingChosenOrder(null);
         setFateWall({ cells: createInitialFateWallCells() });
         setTurnBonuses({ draws: 0, orders: 0, stickers: 0 });
+        setDoomDrawQueue(0);
+        setDoomDrawTotal(0);
+        setDoomDrawPhase('idle');
+        setDoomDrawResult(null);
+        setAfterDoomAction(null);
+        setDoomDelayCount(0);
         setPhase('pre_game');
     };
 
@@ -1027,6 +1114,12 @@ export const useGameLogic = (config) => {
         hp,
         doomLevel,
         resolveDoom,
+        doomDrawPhase,
+        doomDrawQueue,
+        doomDrawTotal,
+        doomDrawResult,
+        handleDoomSelect,
+        confirmDoomDraw,
 
         // Inventory
         inventory,

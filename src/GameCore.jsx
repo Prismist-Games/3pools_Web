@@ -16,6 +16,7 @@ import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
 import { FateWall } from './components/game/FateWall';
 import { FateWallPlacementModal } from './components/game/FateWallPlacementModal';
 import { FateWallLuckModal } from './components/game/FateWallLuckModal';
+import { FateWallDoomModal } from './components/game/FateWallDoomModal';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -63,6 +64,8 @@ const GameCore = () => {
         debugAddStorageItems,
         fateWall, pendingCharm, confirmCharmPlacement,
         luckPhase, luckResult, handleLuckSelect, confirmLuck,
+        doomDrawPhase, doomDrawQueue, doomDrawTotal, doomDrawResult,
+        handleDoomSelect, confirmDoomDraw,
     } = state;
 
     // --- Draw scanning animation interval ---
@@ -269,9 +272,9 @@ const GameCore = () => {
                                         </div>
                                         <button
                                             onClick={endTurn}
-                                            disabled={isDrawAnimating || pendingItems.length > 0}
+                                            disabled={isDrawAnimating || pendingItems.length > 0 || doomDrawPhase !== 'idle'}
                                             className={`w-full px-6 py-2 rounded-lg font-bold transition-colors ${
-                                                isDrawAnimating || pendingItems.length > 0
+                                                isDrawAnimating || pendingItems.length > 0 || doomDrawPhase !== 'idle'
                                                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                                     : 'bg-gray-700 text-white hover:bg-gray-800'
                                             }`}
@@ -671,6 +674,18 @@ const GameCore = () => {
                         onSelect={handleLuckSelect}
                         result={luckResult}
                         onConfirm={confirmLuck}
+                    />
+                )}
+
+                {/* Fate Wall Doom Modal */}
+                {(doomDrawPhase === 'selecting' || doomDrawPhase === 'result') && (
+                    <FateWallDoomModal
+                        fateWallCells={fateWall.cells}
+                        doomIndex={doomDrawTotal - doomDrawQueue + 1}
+                        doomTotal={doomDrawTotal}
+                        onSelect={handleDoomSelect}
+                        result={doomDrawResult}
+                        onConfirm={confirmDoomDraw}
                     />
                 )}
 
