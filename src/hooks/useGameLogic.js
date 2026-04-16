@@ -1105,6 +1105,18 @@ export const useGameLogic = (config) => {
                 }
                 break;
             }
+            case CHARM_TYPES.DELAY_DOOM: {
+                const reduction = 1 + catalystBonus;
+                setDoomDelayCount(prev => prev + reduction);
+                effectDescription = `${t('厄运次数')} -${reduction}`;
+                break;
+            }
+            case CHARM_TYPES.ENHANCED_DELAY: {
+                const reduction = 2 + catalystBonus;
+                setDoomDelayCount(prev => prev + reduction);
+                effectDescription = `${t('厄运次数')} -${reduction}`;
+                break;
+            }
             case CHARM_TYPES.BLANK:
             case CHARM_TYPES.CATALYST:
             case CHARM_TYPES.GUARD_STONE:
