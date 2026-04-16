@@ -10,7 +10,7 @@ import DispatchJudgment from './components/game/DispatchJudgment';
 import Kitchen, { SlotPreview } from './components/game/Kitchen';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
-import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
+import { STICKER_TYPES, INGREDIENTS, DISHES, WALL_TYPES } from './data/v2Config';
 import { Link } from 'react-router-dom';
 import { GameGuide } from './components/ui/GameGuide';
 import RoundTransition from './components/ui/RoundTransition';
@@ -56,7 +56,7 @@ const GameCore = () => {
         handleEvacuate, handleReset, startNextExpedition,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
-        replaceInventoryItem, discardInventoryItem, synthesizeItems, discardPendingItem, debugAddItem,
+        replaceInventoryItem, discardInventoryItem, synthesizeItems, discardPendingItem, debugAddItem, debugForceNextModifier,
         bulletinBoard, pendingChosenOrder, refreshCharges,
         submitOrder, canSubmitOrder, triggerRefresh,
         incomingOrder, incomingQueueLength, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
@@ -740,6 +740,21 @@ const GameCore = () => {
                                 <button onClick={() => setDebugOpen(false)} className="text-gray-500 hover:text-gray-200 text-lg leading-none">×</button>
                             </div>
                             <div className="p-4">
+                                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Force Next Modifier</div>
+                                <div className="flex flex-wrap gap-1 mb-3">
+                                    {WALL_TYPES.map(wt => (
+                                        <button key={wt.id} onClick={() => debugForceNextModifier(wt.id)}
+                                            className="px-2 py-1 rounded border text-[10px] border-gray-600 bg-gray-800 hover:border-blue-400 hover:bg-blue-900 text-gray-200 transition-colors"
+                                            title={`Force ${wt.id} as next modifier (one shot, biases 1 of 3 candidates next turn)`}>
+                                            {wt.icon} {wt.id}
+                                        </button>
+                                    ))}
+                                    <button onClick={() => debugForceNextModifier(null)}
+                                        className="px-2 py-1 rounded border text-[10px] border-gray-600 bg-gray-800 hover:border-red-400 hover:bg-red-900 text-gray-400 transition-colors"
+                                        title="Clear forced modifier">
+                                        ✕ clear
+                                    </button>
+                                </div>
                                 <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Stickers</div>
                                 <div className="flex flex-wrap gap-1.5 mb-3">
                                     {STICKER_TYPES.map(s => (

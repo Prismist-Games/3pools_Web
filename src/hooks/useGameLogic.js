@@ -75,6 +75,10 @@ function pickWallType() {
     return WALL_TYPES.find(t => t.id === id) || WALL_TYPES[0];
 }
 
+// Debug: one-shot override that makes startNewTurn SKIP the 3-choose-1
+// picker and jump straight to wall_reveal of this modifier. Cleared on use.
+let _forcedNextWall = null;
+
 /**
  * Finalize a procedural wall candidate at generation time so the picker
  * preview matches what the player will see in-game. Conveyor's per-instance
@@ -311,6 +315,25 @@ export const useGameLogic = (config) => {
 
         // Reset draw direction for alternating wall
         setLastDrawDirection(null);
+
+        // Debug: forced next wall — skip the 3-choose-1 entirely and go
+        // straight to wall_reveal so the player can drop in and test a
+        // specific modifier on demand.
+        if (_forcedNextWall) {
+            const forcedId = _forcedNextWall;
+            _forcedNextWall = null;
+            const rawWallType = WALL_TYPES.find(t => t.id === forcedId);
+            if (rawWallType) {
+                const stickers = pickWallStickers(STICKER_TYPES, WALL_STICKER_COUNT.min, WALL_STICKER_COUNT.max);
+                const { grid: baseGrid, doomCellCount } = generateWall(stickers);
+                const { wallType, grid } = finalizeProceduralCandidate(rawWallType, baseGrid);
+                const candidate = { stickers, grid, doomCellCount, wallType, level: null };
+                setWallCandidates(null);
+                setPendingWallCandidate(candidate);
+                setPhase('wall_reveal');
+                return;
+            }
+        }
 
         // Generate 3 wall candidates and enter the wall_choice phase. Each
         // candidate is EITHER a hand-crafted level OR a procedural wall —
@@ -1789,6 +1812,24 @@ export const useGameLogic = (config) => {
         discardInventoryItem,
         synthesizeItems,
         debugAddItem,
+        debugForceNextModifier: (id) => {
+            _forcedNextWall = id || null;
+            // If currently sitting on the picker, swap right now so the
+            // player doesn't have to commit + wait for next startNewTurn.
+            if (id && phase === 'wall_choice') {
+                const rawWallType = WALL_TYPES.find(t => t.id === id);
+                if (rawWallType) {
+                    _forcedNextWall = null;
+                    const stickers = pickWallStickers(STICKER_TYPES, WALL_STICKER_COUNT.min, WALL_STICKER_COUNT.max);
+                    const { grid: baseGrid, doomCellCount } = generateWall(stickers);
+                    const { wallType, grid } = finalizeProceduralCandidate(rawWallType, baseGrid);
+                    const candidate = { stickers, grid, doomCellCount, wallType, level: null };
+                    setWallCandidates(null);
+                    setPendingWallCandidate(candidate);
+                    setPhase('wall_reveal');
+                }
+            }
+        },
         discardPendingItem,
         submitOrder,
         canSubmitOrder,
