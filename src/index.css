@@ -223,6 +223,19 @@ body {
     100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.0); transform: scale(1); }
 }
 
+/* Channel-flow source-edge water bar: subtle pulse so the player
+   immediately reads the bar as "source", separate from any cell
+   highlight. The two axes use separate keyframes only because we
+   pulse box-shadow opacity, which is cheap and uniform either way. */
+@keyframes channel-flow-pulse-h {
+    0%, 100% { box-shadow: 0 0 8px rgba(56, 168, 232, 0.45); }
+    50%      { box-shadow: 0 0 16px rgba(56, 168, 232, 0.75); }
+}
+@keyframes channel-flow-pulse-v {
+    0%, 100% { box-shadow: 0 0 8px rgba(56, 168, 232, 0.45); }
+    50%      { box-shadow: 0 0 16px rgba(56, 168, 232, 0.75); }
+}
+
 @layer utilities {
   .scrollbar-hide::-webkit-scrollbar {
       display: none;

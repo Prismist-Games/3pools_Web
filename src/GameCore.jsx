@@ -815,12 +815,25 @@ const GameCore = () => {
                             name: (language === 'en' && pendingWallCandidate.level.name_en) ? pendingWallCandidate.level.name_en : t(pendingWallCandidate.level.name),
                             desc: (language === 'en' && pendingWallCandidate.level.description_en) ? pendingWallCandidate.level.description_en : (t(pendingWallCandidate.level.description) || t('特殊地形关卡')),
                             subtitle: t('奖品墙揭晓'),
-                        } : {
-                            icon: pendingWallCandidate.wallType?.icon || '🎬',
-                            name: t(pendingWallCandidate.wallType?.name || ''),
-                            desc: t(pendingWallCandidate.wallType?.desc || ''),
-                            subtitle: t('奖品墙揭晓'),
-                        }
+                        } : (() => {
+                            const wt = pendingWallCandidate.wallType;
+                            let desc = t(wt?.desc || '');
+                            if (wt?.id === 'channel_flow' && wt.sourceEdge) {
+                                const edgeLabel = {
+                                    top:    t('上'),
+                                    bottom: t('下'),
+                                    left:   t('左'),
+                                    right:  t('右'),
+                                }[wt.sourceEdge] || '';
+                                desc = `${desc} ${t('水源方向')}: ${edgeLabel}`;
+                            }
+                            return {
+                                icon: wt?.icon || '🎬',
+                                name: t(wt?.name || ''),
+                                desc,
+                                subtitle: t('奖品墙揭晓'),
+                            };
+                        })()
                     ) : null}
                     onDismiss={confirmWallReveal}
                 />

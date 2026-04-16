@@ -285,6 +285,19 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
             }}
         >
             {cellContent}
+            {/* Channel-flow dug overlay: translucent blue canal layer
+                indicating the cell is carved. Sits above content (zIndex 8)
+                but is non-blocking so tooltips and animations still work. */}
+            {cell?.dug && (
+                <div
+                    className="pointer-events-none absolute inset-0 rounded-lg"
+                    style={{
+                        background: 'linear-gradient(135deg, rgba(56,168,232,0.32), rgba(120,200,240,0.22))',
+                        boxShadow: 'inset 0 0 8px rgba(56,168,232,0.4)',
+                        zIndex: 8,
+                    }}
+                />
+            )}
             {isBuffed && (
                 <span className="absolute -top-1 -left-1 bg-amber-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-20">
                     ×{buffCoverage + 1}
@@ -765,6 +778,37 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             </div>
                         );
                     })()}
+                    {/* Channel flow modifier: animated water source bar
+                        anchored on the source edge. The bar sits OUTSIDE
+                        the grid (overhanging by 12px) so it visually reads
+                        as "water about to enter". */}
+                    {wallType?.id === 'channel_flow' && wallType.sourceEdge && (() => {
+                        const size = MATRIX_CONFIG.gridSize;
+                        const sideLen = size * TRACK;
+                        const BAR = 10;
+                        const OVERHANG = 12;
+                        const edge = wallType.sourceEdge;
+                        const baseStyle = {
+                            position: 'absolute',
+                            background: 'repeating-linear-gradient(90deg, rgba(56,168,232,0.85) 0 14px, rgba(120,200,240,0.85) 14px 28px)',
+                            boxShadow: '0 0 12px rgba(56,168,232,0.55)',
+                            borderRadius: '4px',
+                            zIndex: 4,
+                            pointerEvents: 'none',
+                        };
+                        let style;
+                        if (edge === 'top') {
+                            style = { ...baseStyle, top: `-${OVERHANG}px`, left: '0px', width: `${sideLen}px`, height: `${BAR}px`, animation: 'channel-flow-pulse-h 2s ease-in-out infinite' };
+                        } else if (edge === 'bottom') {
+                            style = { ...baseStyle, bottom: `-${OVERHANG}px`, left: '0px', width: `${sideLen}px`, height: `${BAR}px`, animation: 'channel-flow-pulse-h 2s ease-in-out infinite' };
+                        } else if (edge === 'left') {
+                            style = { ...baseStyle, top: '0px', left: `-${OVERHANG}px`, width: `${BAR}px`, height: `${sideLen}px`, background: 'repeating-linear-gradient(0deg, rgba(56,168,232,0.85) 0 14px, rgba(120,200,240,0.85) 14px 28px)', animation: 'channel-flow-pulse-v 2s ease-in-out infinite' };
+                        } else { // right
+                            style = { ...baseStyle, top: '0px', right: `-${OVERHANG}px`, width: `${BAR}px`, height: `${sideLen}px`, background: 'repeating-linear-gradient(0deg, rgba(56,168,232,0.85) 0 14px, rgba(120,200,240,0.85) 14px 28px)', animation: 'channel-flow-pulse-v 2s ease-in-out infinite' };
+                        }
+                        return <div style={style} />;
+                    })()}
+
                     {matrix.flatMap((row, rowIndex) =>
                         row.map((cell, colIndex) => {
                             // Hover: cell is in hovered row or hovered column

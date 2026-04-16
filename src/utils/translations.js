@@ -582,6 +582,13 @@ export const EN_TRANSLATIONS = {
     "抽完之后，原地会冒出一颗新炸弹。越抽越多，越抽越危险！": "A fresh bomb pops up where you just drew. The more you draw, the more bombs — stay sharp!",
     "左右两半像镜子里的倒影。抽一格，对面那格也一起到手。": "The two halves are mirror images. Draw one cell and its reflection comes to you too.",
     "抽完之后，原地会爆出一颗膨化格。膨化格周围的东西，抽到都会变多哦！": "A popcorn bursts up where you just drew. Cells next to a popcorn give you more when drawn!",
+    "开渠引流": "Channel & Flow",
+    "抽到的格子只是被挖成水渠。回合结束时水从一条边涌入，沿水渠流过的格子才结算。": "Drawn cells are only carved into canals. At end of turn, water flows in from one edge — only cells the water reaches are resolved.",
+    "水源方向": "Water source",
+    "上": "Top",
+    "下": "Bottom",
+    "左": "Left",
+    "右": "Right",
     "镜像": "Mirror",
 
     // --- Level-related UI ---

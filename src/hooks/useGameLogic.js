@@ -94,6 +94,13 @@ function finalizeProceduralCandidate(rawWallType, baseGrid) {
             conveyorDirection: Math.random() < 0.5 ? 1 : -1,
         };
     }
+    if (wallType?.id === 'channel_flow') {
+        const edges = ['top', 'bottom', 'left', 'right'];
+        wallType = {
+            ...wallType,
+            sourceEdge: edges[Math.floor(Math.random() * edges.length)],
+        };
+    }
 
     const grid = baseGrid.map(r => r.map(c => c ? { ...c } : null));
 
@@ -413,9 +420,204 @@ export const useGameLogic = (config) => {
         startNewTurn();
     }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
 
-    /** End current turn: resolve doom once, then go to between-turns decision */
+    /** Channel-flow water resolution. Runs at end of turn, before the
+     *  standard end-turn doom round. BFS from dug source-edge cells; each
+     *  visited cell resolves under the same rules a normal draw would,
+     *  except every effect is queued / batched so we apply state changes
+     *  in one pass. Returns the count of doom_resolution cells flooded —
+     *  the caller folds that into the doom resolution call so animation
+     *  fires once. */
+    const resolveWaterFlow = () => {
+        if (!matrix || currentWallType?.id !== 'channel_flow') return 0;
+        const sourceEdge = currentWallType.sourceEdge;
+        if (!sourceEdge) return 0;
+
+        const rows = matrix.length;
+        const cols = matrix[0].length;
+
+        // Step 1: entry points = dug cells on the source edge.
+        const entryPoints = [];
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (!matrix[r][c]?.dug) continue;
+                const onEdge = (
+                    (sourceEdge === 'top'    && r === 0) ||
+                    (sourceEdge === 'bottom' && r === rows - 1) ||
+                    (sourceEdge === 'left'   && c === 0) ||
+                    (sourceEdge === 'right'  && c === cols - 1)
+                );
+                if (onEdge) entryPoints.push([r, c]);
+            }
+        }
+        if (entryPoints.length === 0) return 0;
+
+        // Step 2: BFS through dug cells, recording each wave layer.
+        const visited = new Set();
+        const layers = [];
+        for (const [r, c] of entryPoints) visited.add(`${r}-${c}`);
+        let frontier = entryPoints;
+        while (frontier.length > 0) {
+            layers.push(frontier);
+            const next = [];
+            for (const [r, c] of frontier) {
+                for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                    const key = `${nr}-${nc}`;
+                    if (visited.has(key)) continue;
+                    if (!matrix[nr][nc]?.dug) continue;
+                    visited.add(key);
+                    next.push([nr, nc]);
+                }
+            }
+            frontier = next;
+        }
+
+        // Step 3: walk layers and produce a new matrix + batched effects.
+        const newMatrix = matrix.map(r => r.map(c => c ? { ...c } : null));
+        const consumed = new Set();
+        const inventoryAdds = [];
+        let goldGain = 0;
+        let healGain = 0;
+        let bagExpand = 0;
+        let refreshGain = 0;
+        let totalDoomResolutions = 0;
+        let totalDoomUpgrades = 0;
+        let bombFired = false;
+
+        // Cell becomes content-empty but keeps its dug flag (so water in
+        // later waves can still flow over it). Non-dug cells just go to
+        // null — no canal here, no future traversal.
+        const clearContent = (r, c) => {
+            const cell = newMatrix[r][c];
+            if (!cell) return;
+            const wasDug = !!cell.dug;
+            newMatrix[r][c] = wasDug
+                ? { type: 'empty', dug: true, uid: generateUID() }
+                : null;
+        };
+
+        for (const layer of layers) {
+            // Sub-pass 1: collect content (stickers via cluster, items,
+            // gold, refresh, heal, expand). Same-wave cells collected here
+            // are immune to bombs that detonate in sub-pass 2.
+            for (const [r, c] of layer) {
+                if (consumed.has(`${r}-${c}`)) continue;
+                const cell = newMatrix[r][c];
+                if (!cell) continue;
+
+                if (cell.type === 'sticker') {
+                    const members = getClusterMembers(newMatrix, r, c);
+                    if (members.length === 0) continue;
+                    let yieldCount = 1;
+                    for (const [mr, mc] of members) {
+                        const m = newMatrix[mr][mc];
+                        yieldCount += (m?.multiplier || 1) - 1;
+                        yieldCount += countBuffFieldCoverage(newMatrix, mr, mc);
+                    }
+                    for (let i = 0; i < yieldCount; i++) {
+                        inventoryAdds.push({ ...cell, uid: generateUID() });
+                    }
+                    for (const [mr, mc] of members) {
+                        consumed.add(`${mr}-${mc}`);
+                        clearContent(mr, mc);
+                    }
+                } else if (cell.type === 'item' || cell.type === 'out_of_game') {
+                    inventoryAdds.push({ ...cell });
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                } else if (cell.type === 'gold') {
+                    goldGain += cell.goldAmount || 0;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                } else if (cell.type === 'order_cell') {
+                    refreshGain += 1;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                } else if (cell.type === 'heal') {
+                    healGain += cell.healAmount || 1;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                } else if (cell.type === 'backpack_expand') {
+                    bagExpand += cell.expandAmount || 1;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                }
+            }
+
+            // Sub-pass 2: structural / global effects (bomb, doom). Read
+            // the ORIGINAL matrix to detect type — newMatrix may have just
+            // been cleared by sub-pass 1 (cluster member that was a bomb is
+            // impossible since bombs aren't stickers, but stay safe).
+            for (const [r, c] of layer) {
+                const orig = matrix[r][c];
+                if (!orig) continue;
+                if (orig.type === 'bomb') {
+                    for (const [dr, dc] of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]) {
+                        const nr = r + dr;
+                        const nc = c + dc;
+                        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                        if (consumed.has(`${nr}-${nc}`)) continue;
+                        consumed.add(`${nr}-${nc}`);
+                        clearContent(nr, nc);
+                    }
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                    bombFired = true;
+                } else if (orig.type === 'doom_resolution') {
+                    totalDoomResolutions += 1;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                } else if (orig.type === 'doom_upgrade') {
+                    totalDoomUpgrades += 1;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                }
+            }
+        }
+
+        setMatrix(newMatrix);
+        if (goldGain > 0) {
+            setGold(prev => prev + goldGain);
+            showToast(`💧 ${t('金币')} +${goldGain}`, 'success');
+        }
+        if (healGain > 0) {
+            setHp(prev => Math.min(prev + healGain, doomConfig.initialHP));
+            showToast(`💧 ❤️‍🩹 HP +${healGain}`, 'success');
+        }
+        if (bagExpand > 0) {
+            setInventoryBonus(prev => prev + bagExpand);
+            showToast(`💧 🎒 ${t('菜篮')} +${bagExpand}`, 'success');
+        }
+        if (refreshGain > 0) {
+            setRefreshCharges(prev => Math.min(prev + refreshGain, REFRESH_CONFIG.maxCharges));
+            showToast(`💧 🔄 ${t('刷新 +1')} ×${refreshGain}`, 'info');
+        }
+        if (totalDoomUpgrades > 0) {
+            setDoomLevel(prev => prev + totalDoomUpgrades);
+            showToast(`💧 ${t('厄运升级')} +${totalDoomUpgrades}`, 'warning');
+        }
+        for (const item of inventoryAdds) {
+            addToInventory(item);
+        }
+        if (bombFired) {
+            showToast('💧 💣 ' + t('炸弹爆炸！'), 'warning');
+        }
+
+        return totalDoomResolutions;
+    };
+
+    /** End current turn: resolve doom once, then go to between-turns decision.
+     *  Channel-flow walls first run water flow (which may queue extra doom
+     *  resolution rounds), then fold those into a single resolveDoom call. */
     const endTurn = () => {
-        resolveDoom('end_turn');
+        if (currentWallType?.id === 'channel_flow') {
+            const extraRounds = resolveWaterFlow();
+            resolveDoom('end_turn', 1 + extraRounds);
+        } else {
+            resolveDoom('end_turn');
+        }
     };
 
     /** Continue to next turn. Per-turn auto refill removed — shelf stays
@@ -517,7 +719,7 @@ export const useGameLogic = (config) => {
         const row = matrix[rowIndex];
         const activeCols = [];
         row.forEach((cell, colIndex) => {
-            if (cell !== null && cell.type !== 'empty') activeCols.push(colIndex);
+            if (cell !== null && cell.type !== 'empty' && !cell.dug) activeCols.push(colIndex);
         });
         if (activeCols.length === 0) return;
 
@@ -565,7 +767,7 @@ export const useGameLogic = (config) => {
         // activeCols here are actually active row indices for this column
         const activeCols = [];
         matrix.forEach((row, rowIndex) => {
-            if (row[colIndex] !== null && row[colIndex].type !== 'empty') activeCols.push(rowIndex);
+            if (row[colIndex] !== null && row[colIndex].type !== 'empty' && !row[colIndex].dug) activeCols.push(rowIndex);
         });
         if (activeCols.length === 0) return;
 
@@ -617,6 +819,28 @@ export const useGameLogic = (config) => {
 
         // Track draw direction for alternating wall
         setLastDrawDirection(direction);
+
+        // Channel flow: drawing only carves the cell into a canal; all
+        // resolution is deferred to end-of-turn water flow. Mark dug,
+        // preserve content, fire no effects.
+        if (currentWallType?.id === 'channel_flow') {
+            setMatrix(prev => {
+                const next = prev.map(r => r.map(c => c ? { ...c } : null));
+                if (next[finalRowIndex]?.[finalColIndex]) {
+                    next[finalRowIndex][finalColIndex].dug = true;
+                }
+                return next;
+            });
+            setLastDrawResult({
+                rowIndex: finalRowIndex,
+                colIndex: finalColIndex,
+                obtained: null,
+                doomEffects: { resolutions: 0, upgrades: 0 },
+                dugOnly: true,
+            });
+            setDrawAnimState(null);
+            return;
+        }
 
         // Buff field coverage at the drawn cell — bomb is explicitly unaffected.
         const buffCov = drawnCell.type === 'bomb'
