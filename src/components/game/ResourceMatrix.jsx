@@ -42,7 +42,7 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         desc = t('抽中时获得一个新订单');
     } else if (cell.type === 'out_of_game') {
         icon = cell.icon;
-        name = cell.item?.name || t(cell.name);
+        name = cell.item ? (language === 'en' && cell.item.nameEn ? cell.item.nameEn : t(cell.item.name)) : t(cell.name);
         const rarityStars = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
         const r = cell.item?.rarity || cell.item?.score || 1;
         const tags = cell.item?.tags || [];
@@ -52,11 +52,11 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
                 {tags.length > 0 && (
                     <span className="ml-2">
                         {tags.map(tag => (
-                            <span key={tag} className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 mr-1">{tag}</span>
+                            <span key={tag} className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 mr-1">{t(tag)}</span>
                         ))}
                     </span>
                 )}
-                {cell.item?.nameEn && (
+                {language !== 'en' && cell.item?.nameEn && (
                     <span className="block text-[10px] text-slate-400 italic mt-1">{cell.item.nameEn}</span>
                 )}
             </>
@@ -88,6 +88,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.icon || '🌽';
         name = t(cell.name || '膨化格');
         desc = t('抽中时无效果，周围的增益消失');
+    } else if (cell.type === 'sticker' || cell.type === 'item') {
+        icon = cell.item?.icon || cell.icon;
+        name = cell.item ? t(cell.item.name) : t(cell.name);
+        desc = t('抽中时获得此贴纸');
     } else {
         return null;
     }
@@ -147,10 +151,10 @@ function countBuffFieldCoverage(matrix, r, c) {
 const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, sameNeighbors, inHoveredCluster, onClusterHover }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
-    const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
+    const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
-        || cell.type === 'buff_field');
+        || cell.type === 'buff_field' || cell.type === 'sticker' || cell.type === 'item');
 
     // Cell background
     let bgClass;
@@ -288,11 +292,6 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
             {isBuffed && (
                 <span className="absolute -top-1 -left-1 bg-amber-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-20">
                     ×{buffCoverage + 1}
-                </span>
-            )}
-            {cell !== null && (cell.type === 'item' || cell.type === 'sticker') && !cell.hidden && (
-                <span className="text-[9px] text-gray-600 leading-none mt-0.5 truncate max-w-[48px] font-medium">
-                    {t(cell.item.name)}
                 </span>
             )}
             {hasTip && <CellTooltip cell={cell} anchorRef={ref} visible={hovered} t={t} language={language} />}
@@ -495,8 +494,18 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     const ROW_BTN_WIDTH = 36;
     const ROW_BTN_MARGIN = 8; // mr-2
 
+    // Fix container width to grid natural width so long modifier descriptions
+    // wrap instead of stretching the wall asymmetrically.
+    const FIXED_WALL_WIDTH = (matrix[0]?.length || 4) * CELL_SIZE
+        + ((matrix[0]?.length || 4) - 1) * GAP
+        + ROW_BTN_WIDTH + ROW_BTN_MARGIN
+        + 32; // p-4 padding
+
     return (
-        <div className={`bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-[3px] border-kitchen-wood-border rounded-[14px] p-4 shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)] transition-all duration-300${doomFlash ? ' crt-heavy vignette-heavy animate-signal-shake' : ''}`}>
+        <div
+            style={{ width: FIXED_WALL_WIDTH }}
+            className={`bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-[3px] border-kitchen-wood-border rounded-[14px] p-4 shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)] transition-all duration-300${doomFlash ? ' crt-heavy vignette-heavy animate-signal-shake' : ''}`}
+        >
             <div className="text-center mb-2 pb-2 border-b border-dashed border-kitchen-wood-border">
                 <span className="text-sm font-bold text-kitchen-text-body">🎯 {t('奖品墙')}</span>
             </div>
@@ -504,7 +513,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             {wallType && (
                 <div className="text-center mb-2">
                     <span className="text-sm font-bold">{wallType.icon} {t(wallType.name)}</span>
-                    <p className="text-[11px] text-gray-400 mt-0.5">{t(wallType.desc)}</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5 break-words">{t(wallType.desc)}</p>
                 </div>
             )}
 

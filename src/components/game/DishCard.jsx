@@ -16,15 +16,16 @@ const TagBadge = ({ tag, highlight, className = '' }) => {
 
 /** Render a compact rule label: tag → badge, id → item icon+name */
 const RuleLabel = ({ rule, highlight }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     if (rule.match?.tag) {
         return <TagBadge tag={rule.match.tag} highlight={highlight} />;
     }
     if (rule.match?.id) {
         const item = INGREDIENT_MAP[rule.match.id];
+        const itemName = item ? (language === 'en' && item.nameEn ? item.nameEn : t(item.name)) : rule.match.id;
         return (
             <span className={`text-[10px] font-bold ${highlight ? 'text-kitchen-gold-deep' : 'text-kitchen-text-body'}`}>
-                {item ? `${item.icon}${t(item.name)}` : rule.match.id}
+                {item ? `${item.icon}${itemName}` : rule.match.id}
             </span>
         );
     }

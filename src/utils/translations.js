@@ -57,6 +57,15 @@ export const EN_TRANSLATIONS = {
     "炉火慢歌": "Ballad of the Ember Hearth",
     "主料": "Main", "基底": "Base", "汤汁": "Broth", "配料": "Garnish", "底": "Base", "炖料": "Stew",
 
+    // --- Prologue / intro ---
+    "自定义你的角色": "Customize Your Character",
+    "选择一位厨师，开始你的故事": "Choose a chef to begin your story",
+    "选择一位厨师,开始你的故事": "Choose a chef to begin your story",
+    "无名厨师": "Nameless Chef",
+    "信号切换": "SIGNAL SWITCH",
+    "点击继续": "CLICK TO CONTINUE",
+    "抽中时获得此贴纸": "Draw to obtain this sticker",
+
     // --- UI General ---
     "当前订单": "Orders",
     "刷新所有订单": "Refresh All",

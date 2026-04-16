@@ -16,7 +16,7 @@ export const MATRIX_CONFIG = {
     },
     upgrade: {
       spawnChance: 0.05,  // 5% per cell position
-      icon: '⬆️',
+      icon: '🔺',
       name: '厄运升级',
     },
   },

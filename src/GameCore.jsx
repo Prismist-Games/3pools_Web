@@ -135,25 +135,28 @@ const GameCore = () => {
         return doomAnimState.spinningPositions.filter(p => p === cellIndex).length;
     };
 
-    // --- Compute fly animation position ---
-    const flyStyle = (() => {
-        if (!flyingItem) return null;
-        // Approximate cell position from grid layout
+    // --- Compute fly animation position ONCE per flyingItem.id ---
+    // Recomputing on every render causes the animation to restart when the
+    // inventory re-renders while a cluster is added (multiple addToInventory
+    // calls). Cache the style the moment flyingItem appears.
+    const [flyStyle, setFlyStyle] = useState(null);
+    useEffect(() => {
+        if (!flyingItem) { setFlyStyle(null); return; }
         const cellEl = document.querySelector(`[data-cell="${flyingItem.rowIndex}-${flyingItem.colIndex}"]`);
         const invEl = inventoryRef.current;
-        if (!cellEl || !invEl) return null;
+        if (!cellEl || !invEl) { setFlyStyle(null); return; }
         const cellRect = cellEl.getBoundingClientRect();
         const invRect = invEl.getBoundingClientRect();
-        return {
+        setFlyStyle({
             '--fly-dx': `${invRect.left + invRect.width / 2 - (cellRect.left + cellRect.width / 2)}px`,
-            '--fly-dy': `${invRect.top + 20 - (cellRect.top + cellRect.height / 2)}px`,
+            '--fly-dy': `${invRect.top + invRect.height / 2 - (cellRect.top + cellRect.height / 2)}px`,
             position: 'fixed',
             left: cellRect.left + cellRect.width / 2,
             top: cellRect.top + cellRect.height / 2,
             zIndex: 300,
             pointerEvents: 'none',
-        };
-    })();
+        });
+    }, [flyingItem?.id]);
 
     return (
         <div className="min-h-screen p-4">
@@ -603,9 +606,18 @@ const GameCore = () => {
                                                     )}
                                                 </div>
                                             );
-                                            return item?.isOutOfGame
-                                                ? <Tooltip key={i} content={<IngredientTip item={item} />}>{cell}</Tooltip>
-                                                : <div key={i}>{cell}</div>;
+                                            if (item?.isOutOfGame) {
+                                                return <Tooltip key={i} content={<IngredientTip item={item} />}>{cell}</Tooltip>;
+                                            }
+                                            if (item?.isSticker) {
+                                                return <Tooltip key={i} content={
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xl">{item.icon}</span>
+                                                        <span className="font-bold">{t(item.name)}</span>
+                                                    </div>
+                                                }>{cell}</Tooltip>;
+                                            }
+                                            return <div key={i}>{cell}</div>;
                                         })}
                                     </div>
                                 </div>
@@ -745,8 +757,8 @@ const GameCore = () => {
                     </div>
                 )}
 
-                {/* Doom resolution result (persistent after confirm) */}
-                {doomResolutionResult && !isDoomResolving && (
+                {/* Doom resolution result — only during show phases */}
+                {doomResolutionResult && !isDoomResolving && phase !== 'restaurant' && phase !== 'cook_result' && phase !== 'game_over' && phase !== 'pre_game' && (
                     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-lg shadow-lg">
                         <div className="text-sm">
                             💀 {t('厄运结算')}:

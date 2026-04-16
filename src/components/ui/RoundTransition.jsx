@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 /**
  * Black-screen CRT "signal switch" overlay shown at the start of each turn.
@@ -11,6 +12,7 @@ import React, { useEffect, useState } from 'react';
  *   onDismiss — called after the fade-out animation finishes
  */
 const RoundTransition = ({ reveal, onDismiss }) => {
+    const { t } = useLanguage();
     const [dismissing, setDismissing] = useState(false);
 
     // Reset dismissing state when a new reveal arrives
@@ -61,7 +63,7 @@ const RoundTransition = ({ reveal, onDismiss }) => {
                     textShadow: '0 0 20px rgba(232,200,120,0.5)',
                 }}
             >
-                <div className="text-xs font-mono text-[#888] mb-4 tracking-widest">— 信号切换 —</div>
+                <div className="text-xs font-mono text-[#888] mb-4 tracking-widest">— {t('信号切换')} —</div>
                 {reveal.subtitle && (
                     <div className="text-xs font-mono text-[#AAA] mb-2 tracking-wide">{reveal.subtitle}</div>
                 )}
@@ -84,7 +86,7 @@ const RoundTransition = ({ reveal, onDismiss }) => {
                     className="text-[11px] font-mono text-[#888] mt-6 tracking-widest animate-pulse"
                     style={{ textShadow: 'none' }}
                 >
-                    ▸ 点击继续 ◂
+                    ▸ {t('点击继续')} ◂
                 </div>
             </div>
         </div>

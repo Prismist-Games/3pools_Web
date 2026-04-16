@@ -22,15 +22,16 @@ const RARITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' 
 
 /** Shared tooltip content for any ingredient/food item */
 const IngredientTip = ({ item }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const rarity = item.rarity || item.score || 1;
     const s = RARITY_STYLE[rarity] || RARITY_STYLE[1];
+    const displayName = (language === 'en' && item.nameEn) ? item.nameEn : t(item.name);
     return (
         <>
             <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-2xl leading-none">{item.icon}</span>
                 <div>
-                    <div className="font-bold text-sm leading-tight">{t(item.name)}</div>
+                    <div className="font-bold text-sm leading-tight">{displayName}</div>
                     <div className={`text-[10px] ${s.labelColor}`}>{RARITY_STARS[rarity]}</div>
                 </div>
             </div>
@@ -41,7 +42,7 @@ const IngredientTip = ({ item }) => {
                     ))}
                 </div>
             )}
-            {item.nameEn && (
+            {language !== 'en' && item.nameEn && (
                 <p className="text-[10px] text-gray-500 italic mt-1.5">{item.nameEn}</p>
             )}
         </>

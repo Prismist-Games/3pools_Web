@@ -124,8 +124,9 @@ const TagBadge = ({ tag, className = '' }) => {
 // ── Slot Card ──
 
 const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, onRemove }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const matchStyle = placed ? (MATCH_BORDER[slotResult.matchLevel] || MATCH_BORDER.none) : '';
+    const placedName = placed ? (language === 'en' && placed.nameEn ? placed.nameEn : t(placed.name)) : '';
 
     return (
         <div className={`flex flex-col bg-kitchen-card rounded-xl border-2 shadow-[0_2px_0_#D4B896] overflow-hidden min-w-[140px]
@@ -151,7 +152,7 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                     <div className="flex items-center gap-2">
                         <span className="text-2xl">{placed.icon}</span>
                         <div>
-                            <div className="text-xs font-bold text-kitchen-text-title leading-tight">{t(placed.name)}</div>
+                            <div className="text-xs font-bold text-kitchen-text-title leading-tight">{placedName}</div>
                             <div className="text-[10px] text-kitchen-text-muted">{'★'.repeat(placed.rarity || 1)}</div>
                         </div>
                     </div>
@@ -189,7 +190,8 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                                 label = <TagBadge tag={rule.match.tag} className={isTop ? 'bg-kitchen-gold text-kitchen-text-title' : ''} />;
                             } else if (rule.match?.id) {
                                 const item = INGREDIENT_MAP[rule.match.id];
-                                label = <span className={`font-bold ${color}`}>{item ? `${item.icon} ${t(item.name)}` : rule.match.id}</span>;
+                                const itemName = item ? (language === 'en' && item.nameEn ? item.nameEn : t(item.name)) : rule.match.id;
+                                label = <span className={`font-bold ${color}`}>{item ? `${item.icon} ${itemName}` : rule.match.id}</span>;
                             }
                             return (
                                 <div key={ri} className="flex items-center gap-1.5 text-[10px]">
@@ -491,42 +493,10 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                         ))}
                     </div>
 
-                    {/* Score summary + thresholds */}
-                    <div className="mb-6 py-3 px-4 bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border-muted shadow-[0_2px_0_#D4B896]">
-                        <div className="text-center text-sm text-kitchen-text-secondary">
-                            {t('总分')}: <span className="font-bold text-lg text-kitchen-text-title">{result.total.toFixed(1)}</span>
-                            <span className="text-kitchen-text-muted mx-2">/</span>
-                            <span className="text-kitchen-text-muted">{t('基准')} {result.baseline}</span>
-                        </div>
-                        {result.total > 0 && (
-                            <div className={`text-center text-xl font-black mt-1 ${RATING_STYLE[result.rating]}`}>
-                                {t(result.rating)}
-                                <span className="text-sm ml-2 font-bold">
-                                    {result.popularityDelta > 0 ? `${t('人气')} +${result.popularityDelta}` : `${t('人气')} ${result.popularityDelta}`}
-                                </span>
-                            </div>
-                        )}
-                        <div className="mt-3 pt-3 border-t border-kitchen-gold-border-muted/50 grid grid-cols-5 gap-1 text-center text-[10px]">
-                            {[
-                                { label: '翻车', delta: -2, min: 0, max: dish.baseline * 0.5, color: 'text-kitchen-danger-text' },
-                                { label: '勉强', delta: -1, min: dish.baseline * 0.5, max: dish.baseline, color: 'text-[#B8803C]' },
-                                { label: '合格', delta: 0, min: dish.baseline, max: dish.baseline * 1.8, color: 'text-kitchen-success-border' },
-                                { label: '优秀', delta: +1, min: dish.baseline * 1.8, max: dish.baseline * 2.5, color: 'text-purple-500' },
-                                { label: '惊艳', delta: +2, min: dish.baseline * 2.5, max: null, color: 'text-kitchen-gold-deep' },
-                            ].map((tier, idx) => {
-                                const isActive = result.total > 0 && result.rating === tier.label;
-                                return (
-                                    <div key={idx} className={`py-1 rounded ${isActive ? 'bg-[#FFF8E0] ring-1 ring-kitchen-gold' : ''}`}>
-                                        <div className={`font-black ${tier.color}`}>{t(tier.label)}</div>
-                                        <div className="text-kitchen-text-muted">
-                                            {tier.max ? `${tier.min}–${tier.max}` : `≥${tier.min}`}
-                                        </div>
-                                        <div className={`font-bold ${tier.color}`}>
-                                            {tier.delta > 0 ? `+${tier.delta}` : tier.delta}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                    {/* Score — only number, no baseline / thresholds / rating during preview */}
+                    <div className="mb-6 py-3 px-4 bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border-muted shadow-[0_2px_0_#D4B896] text-center">
+                        <div className="text-sm text-kitchen-text-secondary">
+                            {t('总分')}: <span className="font-bold text-2xl text-kitchen-text-title">{result.total.toFixed(1)}</span>
                         </div>
                     </div>
 
