@@ -130,73 +130,12 @@ const BulletinBoard = ({
             {/* Panel header */}
             <div className="px-3 py-2 border-b border-dashed border-kitchen-wood-border flex items-center justify-between gap-2">
                 <h3 className="text-sm font-bold text-kitchen-text-body">📌 {t('货架')}</h3>
-                <div className="flex items-center gap-2">
-                    {onRefresh && (
-                        <button
-                            onClick={onRefresh}
-                            disabled={refreshDisabled}
-                            title={t('刷新订单')}
-                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border transition-colors
-                                ${refreshDisabled
-                                    ? 'bg-kitchen-card/60 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
-                                    : 'bg-[#FFF8E0] border-kitchen-gold text-kitchen-gold-deep hover:bg-[#FFF3E0]'}`}
-                        >
-                            🔄 ×{refreshCharges ?? 0}
-                        </button>
-                    )}
-                    <span className="text-[10px] text-kitchen-text-muted font-medium">{orders.length}/5</span>
-                </div>
+                <span className="text-[10px] text-kitchen-text-muted font-medium">{orders.length}/5</span>
             </div>
 
             <div className="p-2">
-                {/* Inline incoming order picker (shown when order_cell is drawn during play) */}
-                {hasInlinePicker && !isReplacing && (
-                    <div className="mb-2 p-2.5 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-lg">
-                        <div className="text-[11px] font-bold text-kitchen-gold-deep mb-1.5">
-                            {setupMode
-                                ? `${t('组建今日订单')} · ${orders.length + 1} / 5`
-                                : `${t('新订单')} — ${t('选择一个加入货架')}`}
-                        </div>
-                        <div className="flex flex-col gap-1.5 mb-2">
-                            {incomingOrder.candidates.map((candidate) => {
-                                const ds = DIFFICULTY_STYLE[candidate.difficulty] || DIFFICULTY_STYLE.easy;
-                                return (
-                                    <button key={candidate.id}
-                                        onClick={() => onConfirmIncoming(candidate)}
-                                        className="p-2 rounded-lg border border-kitchen-gold-border-muted bg-kitchen-card hover:border-kitchen-gold hover:bg-[#FFF3E0] transition-colors text-left">
-                                        <div className="flex items-center gap-1.5 mb-1">
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
-                                            <div className="flex gap-0.5">
-                                                {candidate.rewards.map((r, i) => (
-                                                    <RewardCard key={i} reward={r} size="sm" />
-                                                ))}
-                                            </div>
-                                        </div>
-                                        {candidate.requirements && candidate.requirements.length > 0 && (
-                                            <div className="flex gap-1 flex-wrap items-center">
-                                                <span className="text-[9px] text-kitchen-text-muted">{t('需要')}</span>
-                                                {candidate.requirements.map((req, i) => (
-                                                    <div key={i} className="flex items-center gap-0.5">
-                                                        <div className="w-5 h-5 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex items-center justify-center text-[10px] shadow-sm">
-                                                            {req.icon}
-                                                        </div>
-                                                        <span className="text-[9px] font-bold text-kitchen-text-secondary">x{req.count}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        {!setupMode && (
-                            <button onClick={onDiscardIncoming}
-                                className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">
-                                {t('放弃')}
-                            </button>
-                        )}
-                    </div>
-                )}
+                {/* Inline incoming picker removed — new orders are now chosen
+                    via the centered picker in GameCore's between_turns view. */}
 
                 {/* Replace mode hint (shelf full, player chose an incoming candidate) */}
                 {isReplacing && (

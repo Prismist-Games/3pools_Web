@@ -63,7 +63,7 @@ const GameCore = () => {
         matrix, lastDrawResult, currentWallType, currentLevel, lastDrawDirection,
         hp, doomGrid, doomLevel, dangerCount,
         isDoomResolving, doomAnimState, doomResolutionResult,
-        inventory, maxInventorySize, pendingItem, pendingItems,
+        inventory, fridge, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
@@ -217,43 +217,19 @@ const GameCore = () => {
                     </div>
                 )}
 
-                {/* Setup phase — dish intro overlay + 5× pick-1-of-2 */}
-                {phase === 'setup' && (
-                    <div className="flex gap-4">
-                        <div className="w-60 flex-shrink-0 flex flex-col gap-4 self-start">
-                            {bulletinBoard && (
-                                <BulletinBoard
-                                    orders={bulletinBoard}
-                                    inventory={inventory}
-                                    onSubmit={() => {}}
-                                    canSubmitOrder={() => false}
-                                    incomingOrder={incomingOrder}
-                                    onConfirmIncoming={confirmIncomingOrder}
-                                    onDiscardIncoming={() => {}}
-                                    pendingChosenOrder={pendingChosenOrder}
-                                    onReplaceIncoming={replaceBulletinOrder}
-                                    refreshCharges={0}
-                                    hoveredStickerIds={hoveredStickerIds}
-                                    setupMode={true}
-                                />
-                            )}
-                        </div>
-                        <div className="flex-1 min-w-0 flex flex-col items-center justify-start pt-6">
-                            {currentDish && (
-                                <div className="max-w-md w-full">
-                                    <div className="text-center mb-3">
-                                        <div className="text-xs text-kitchen-text-muted tracking-widest mb-1">{t('今日菜单')}</div>
-                                        <div className="text-xs text-kitchen-text-secondary">
-                                            {dishIntroPending
-                                                ? t('为今天的菜挑选订单')
-                                                : `${t('组建今日订单')} · ${bulletinBoard.length} / 5`}
-                                        </div>
-                                    </div>
-                                    <DishCard dish={currentDish} />
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                {/* Setup phase — detailed "today's dish" view (view-only) */}
+                {phase === 'setup' && currentDish && (
+                    <Kitchen
+                        inventory={fridge}
+                        dish={currentDish}
+                        isRestaurantPhase={true}
+                        viewOnly={true}
+                        viewOnlyAction={{
+                            label: language === 'en' ? `Start Day ${dayNumber}` : `开始 第 ${dayNumber} 天`,
+                            onClick: dismissDishIntro,
+                        }}
+                        onClose={() => {}}
+                    />
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
@@ -315,7 +291,7 @@ const GameCore = () => {
                                             gold={gold}
                                             drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
                                             phase={phase}
-                                            disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
+                                            disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
                                             drawAnimState={drawAnimState}
                                             wallType={currentWallType}
                                             lastDrawDirection={lastDrawDirection}
@@ -350,7 +326,7 @@ const GameCore = () => {
                                             )}
                                             <button
                                                 onClick={phase === 'drawing_sub' ? exitSubLevel : endTurn}
-                                                disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
+                                                disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
                                                 className={`w-full px-6 py-2 rounded-lg font-bold transition-colors ${
                                                     isDoomResolving || isDrawAnimating || pendingItems.length > 0
                                                         ? 'bg-kitchen-card/60 border-2 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
@@ -382,15 +358,73 @@ const GameCore = () => {
                                         {t('下次进入抽奖将添加一个厄运标记')}
                                     </p>
 
-                                    <div className="flex gap-4 justify-center">
+                                    {/* Centered incoming order picker — shown after leaving a wall */}
+                                    {incomingOrder && incomingOrder.candidates && !pendingChosenOrder && (
+                                        <div className="max-w-md mx-auto mb-6 p-4 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-2xl shadow-[0_3px_0_#D4952A]">
+                                            <div className="text-sm font-bold text-kitchen-gold-deep mb-3">
+                                                📋 {t('新订单')} — {t('选择一个加入货架')}
+                                                {incomingQueueLength > 1 && (
+                                                    <span className="ml-2 text-[11px] text-kitchen-text-muted">(还有 {incomingQueueLength - 1})</span>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                {incomingOrder.candidates.map((candidate) => {
+                                                    const ds = DIFFICULTY_STYLE[candidate.difficulty] || DIFFICULTY_STYLE.easy;
+                                                    return (
+                                                        <button key={candidate.id}
+                                                            onClick={() => confirmIncomingOrder(candidate)}
+                                                            className="p-3 rounded-lg border-2 border-kitchen-gold-border-muted bg-kitchen-card hover:border-kitchen-gold hover:bg-[#FFF3E0] transition-colors text-left">
+                                                            <div className="flex items-center gap-2 mb-1.5">
+                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
+                                                                <div className="flex gap-0.5">
+                                                                    {candidate.rewards.map((r, i) => (
+                                                                        <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                            {candidate.requirements && candidate.requirements.length > 0 && (
+                                                                <div className="flex gap-1 flex-wrap items-center">
+                                                                    <span className="text-[9px] text-kitchen-text-muted">{t('需要')}</span>
+                                                                    {candidate.requirements.map((req, i) => (
+                                                                        <div key={i} className="flex items-center gap-0.5">
+                                                                            <div className="w-5 h-5 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex items-center justify-center text-[10px] shadow-sm">
+                                                                                {req.icon}
+                                                                            </div>
+                                                                            <span className="text-[10px] font-bold text-kitchen-text-body">×{req.count}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Replacement step — shown when shelf was full and a choice was made */}
+                                    {pendingChosenOrder && (
+                                        <div className="max-w-md mx-auto mb-6 p-4 bg-[#FFF0EE] border-2 border-kitchen-danger rounded-2xl shadow-[0_3px_0_rgba(208,64,32,0.4)]">
+                                            <div className="text-sm font-bold text-kitchen-danger-text mb-2">
+                                                ⚠️ {t('货架已满，选择下方订单替换')}
+                                            </div>
+                                            <div className="text-xs text-kitchen-text-muted">
+                                                {t('在左侧货架点击要替换掉的订单')}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className={`flex gap-4 justify-center ${incomingOrder ? 'opacity-40 pointer-events-none' : ''}`}>
                                         <button
                                             onClick={continueToNextTurn}
+                                            disabled={!!incomingOrder}
                                             className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
                                         >
                                             {t('继续')}
                                         </button>
                                         <button
                                             onClick={handleEvacuate}
+                                            disabled={!!incomingOrder}
                                             className="px-8 py-3 bg-kitchen-success border-2 border-kitchen-success-border text-white font-bold rounded-xl shadow-[0_3px_0_rgba(96,160,112,0.5)] hover:brightness-95 transition-colors"
                                         >
                                             {t('回到餐厅')}
@@ -636,7 +670,7 @@ const GameCore = () => {
                 {/* Restaurant phase — full-screen kitchen for end-of-day cooking */}
                 {phase === 'restaurant' && currentDish && (
                     <Kitchen
-                        inventory={inventory}
+                        inventory={fridge}
                         dish={currentDish}
                         onCook={(result, usedUids) => handleCookResult(result, usedUids)}
                         onClose={() => {}}
@@ -792,6 +826,54 @@ const GameCore = () => {
                 )}
 
 
+                {/* Mid-wall incoming order picker — shown immediately when
+                    an order_cell is drawn during a wall. Pauses the wall
+                    (draws are already disabled by the picker's presence). */}
+                {(phase === 'drawing' || phase === 'drawing_sub') && incomingOrder && incomingOrder.candidates && !pendingChosenOrder && (
+                    <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
+                        <div className="max-w-md w-full p-5 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-2xl shadow-2xl">
+                            <div className="text-sm font-bold text-kitchen-gold-deep mb-3">
+                                📋 {t('新订单')} — {t('选择一个加入货架')}
+                                {incomingQueueLength > 1 && (
+                                    <span className="ml-2 text-[11px] text-kitchen-text-muted">({language === 'en' ? `${incomingQueueLength - 1} more` : `还有 ${incomingQueueLength - 1}`})</span>
+                                )}
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                {incomingOrder.candidates.map((candidate) => {
+                                    const ds = DIFFICULTY_STYLE[candidate.difficulty] || DIFFICULTY_STYLE.easy;
+                                    return (
+                                        <button key={candidate.id}
+                                            onClick={() => confirmIncomingOrder(candidate)}
+                                            className="p-3 rounded-lg border-2 border-kitchen-gold-border-muted bg-kitchen-card hover:border-kitchen-gold hover:bg-[#FFF3E0] transition-colors text-left">
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
+                                                <div className="flex gap-0.5">
+                                                    {candidate.rewards.map((r, i) => (
+                                                        <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            {candidate.requirements && candidate.requirements.length > 0 && (
+                                                <div className="flex gap-1 flex-wrap items-center">
+                                                    <span className="text-[9px] text-kitchen-text-muted">{t('需要')}</span>
+                                                    {candidate.requirements.map((req, i) => (
+                                                        <div key={i} className="flex items-center gap-0.5">
+                                                            <div className="w-5 h-5 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex items-center justify-center text-[10px] shadow-sm">
+                                                                {req.icon}
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-kitchen-text-body">×{req.count}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Debug Modal */}
                 {debugOpen && (
                     <div className="fixed inset-0 z-50 flex items-start justify-end p-4 pointer-events-none">
@@ -851,7 +933,7 @@ const GameCore = () => {
                 {dispatchOpen && <DispatchJudgment onClose={() => setDispatchOpen(false)} />}
 
                 {/* Kitchen Modal — uses today's dish (set during opening setup) */}
-                {kitchenOpen && currentDish && <Kitchen inventory={inventory} dish={currentDish} onCook={() => { setKitchenOpen(false); }} onClose={() => setKitchenOpen(false)} />}
+                {kitchenOpen && currentDish && <Kitchen inventory={fridge} dish={currentDish} onCook={() => { setKitchenOpen(false); }} onClose={() => setKitchenOpen(false)} />}
 
                 {/* Sprite Preview Modal */}
                 {spritePreviewOpen && <SpritePreview onClose={() => setSpritePreviewOpen(false)} />}
@@ -859,16 +941,8 @@ const GameCore = () => {
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
 
-                {/* Opening dish intro — click anywhere to continue */}
-                <RoundTransition
-                    reveal={dishIntroPending && currentDish ? {
-                        icon: currentDish.icon,
-                        name: t(currentDish.name),
-                        desc: currentDish.nameEn || '',
-                        subtitle: t('今日菜单'),
-                    } : null}
-                    onDismiss={dismissDishIntro}
-                />
+                {/* Dish intro overlay removed — the setup phase now renders
+                    the detailed Kitchen view directly, with a "Start Day" button. */}
 
                 {/* Wall reveal — gated by explicit click, shows the modifier/
                     level identity after the player has committed to a pick. */}

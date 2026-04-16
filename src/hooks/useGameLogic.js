@@ -238,7 +238,12 @@ export const useGameLogic = (config) => {
     const [afterDoomAction, setAfterDoomAction] = useState(null); // null | 'end_turn'
 
     // --- Inventory State ---
+    // inventory = show-only basket (菜篮)
+    // fridge    = home-side persistent storage (冰箱). On return-to-restaurant
+    //   all out-of-game items move from inventory to fridge; cooking consumes
+    //   from fridge. Leftovers persist across days.
     const [inventory, setInventory] = useState([]);
+    const [fridge, setFridge] = useState([]);
 
     // --- Inventory Pending Queue ---
     const [pendingItems, setPendingItems] = useState([]); // queue of items awaiting placement when inventory full
@@ -390,19 +395,16 @@ export const useGameLogic = (config) => {
         // (see dismissDishIntro below).
     };
 
-    /** Player dismisses the "today's dish" overlay — enqueue the 5
-     *  pick-1-of-2 events that build the initial order shelf. */
+    /** Player dismisses the "today's dish" overlay — auto-fill the shelf
+     *  with 4 initial orders. No more setup picking. */
     const dismissDishIntro = () => {
         if (!dishIntroPending) return;
         setDishIntroPending(false);
-        const events = [];
-        for (let i = 0; i < SETUP_CONFIG.pickCount; i++) {
-            events.push({
-                id: generateUID(),
-                candidates: [generateOrder(), generateOrder()],
-            });
+        const initial = [];
+        for (let i = 0; i < 4; i++) {
+            initial.push(generateOrder());
         }
-        setIncomingQueue(events);
+        setBulletinBoard(initial);
     };
 
     // When the setup queue drains (after the 5 initial picks), auto-start
@@ -657,16 +659,11 @@ export const useGameLogic = (config) => {
             setGold(prev => prev + goldGain);
             showToast(`${t('抽数')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'order_cell') {
-            // Order cells now grant a refresh charge (capped). Popcorn
-            // multiplier does not apply — each cell is a single +1.
-            setRefreshCharges(prev => {
-                if (prev >= REFRESH_CONFIG.maxCharges) {
-                    showToast(t('刷新次数已满'), 'warning');
-                    return prev;
-                }
-                showToast(`🔄 ${t('刷新 +1')}`, 'info');
-                return prev + 1;
-            });
+            // Order cells queue an additional pick-1-of-2 for the end of
+            // this wall (resolved in between_turns along with the default
+            // one from endTurn).
+            addBulletinOrder();
+            showToast(`📋 ${t('新订单')} +1`, 'info');
         } else if (drawnCell.type === 'heal') {
             const amount = (drawnCell.healAmount || 1) * mult;
             setHp(prev => Math.min(prev + amount, doomConfig.initialHP));
@@ -752,11 +749,8 @@ export const useGameLogic = (config) => {
                 setGold(prev => prev + g);
                 showToast(`🪞 ${t('镜像')} ${t('抽数')} +${g}`, 'success');
             } else if (mirrorCell.type === 'order_cell') {
-                setRefreshCharges(prev => {
-                    if (prev >= REFRESH_CONFIG.maxCharges) return prev;
-                    return prev + 1;
-                });
-                showToast(`🪞 ${t('镜像')}: 🔄 ${t('刷新 +1')}`, 'info');
+                addBulletinOrder();
+                showToast(`🪞 ${t('镜像')}: 📋 ${t('新订单')} +1`, 'info');
             } else if (mirrorCell.type === 'heal') {
                 const a = (mirrorCell.healAmount || 1) * mMult;
                 setHp(prev => Math.min(prev + a, doomConfig.initialHP));
@@ -1266,10 +1260,9 @@ export const useGameLogic = (config) => {
             return remaining;
         });
 
-        // Remove order from shelf and auto-spawn a 2-candidate incoming to
-        // fill the freed slot — shelf stays at capacity.
+        // Remove order from shelf. New orders arrive on wall exit (not on
+        // order completion) — see endTurn.
         setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
-        addBulletinOrder();
         showToast(t('订单完成'), 'success');
     };
 
@@ -1366,6 +1359,8 @@ export const useGameLogic = (config) => {
         if (afterDoomAction === 'end_turn') {
             setAfterDoomAction(null);
             setPhase('between_turns');
+            // Leaving a wall always offers a pick-1-of-2 order.
+            addBulletinOrder();
         }
     };
 
@@ -1374,9 +1369,16 @@ export const useGameLogic = (config) => {
     // =============================================
 
     /** Player evacuates — leave the show, take the basket back to the
-     *  kitchen. Transitions into the full-screen restaurant phase where
-     *  the player assembles the dish from collected ingredients. */
+     *  kitchen. Transfers out-of-game items from the basket (inventory)
+     *  into the home fridge (persistent across days), then clears them
+     *  out of the basket. Stickers stay in the inventory until startNextDay
+     *  resets it (they don't belong in the fridge). */
     const returnToRestaurant = () => {
+        const outOfGame = inventory.filter(i => i.isOutOfGame);
+        if (outOfGame.length > 0) {
+            setFridge(prev => [...prev, ...outOfGame]);
+            setInventory(prev => prev.filter(i => !i.isOutOfGame));
+        }
         setPhase('restaurant');
     };
 
@@ -1386,12 +1388,12 @@ export const useGameLogic = (config) => {
     const handleEvacuate = returnToRestaurant;
 
     /** Invoked by Kitchen's cook button. Consumes the placed ingredient
-     *  uids from inventory, bumps popularity, stores the result for the
-     *  cook_result phase to display. */
+     *  uids from the fridge (persistent home storage), bumps popularity,
+     *  stores the result for the cook_result phase to display. */
     const handleCookResult = (result, usedUids) => {
         if (usedUids && usedUids.length > 0) {
             const uidSet = new Set(usedUids);
-            setInventory(prev => prev.filter(item => !uidSet.has(item.uid)));
+            setFridge(prev => prev.filter(item => !uidSet.has(item.uid)));
         }
         setPopularity(prev => Math.max(0, prev + (result?.popularityDelta || 0)));
         setLastCookResult(result);
@@ -1472,6 +1474,7 @@ export const useGameLogic = (config) => {
         setDoomResolutionResult(null);
         setAfterDoomAction(null);
         setInventory([]);
+        setFridge([]);
         setBulletinBoard([]);
         setPendingChosenOrder(null);
         setRefreshCharges(REFRESH_CONFIG.initialCharges);
@@ -1593,6 +1596,7 @@ export const useGameLogic = (config) => {
 
         // Inventory
         inventory,
+        fridge,
         maxInventorySize,
         pendingItem,
         pendingItems,

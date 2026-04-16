@@ -43,7 +43,8 @@
       "Bash(git push:*)",
       "Bash(grep -l \"export\" /Users/ziggy/GitHub/3pools_Web/src/components/game/*.jsx)",
       "Bash(xargs -I {} basename {})",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(node *)"
     ]
   }
 }

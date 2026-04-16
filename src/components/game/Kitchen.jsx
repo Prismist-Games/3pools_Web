@@ -323,7 +323,7 @@ const KitchenScene = ({ dish }) => (
 
 // ── Kitchen Component ──
 
-const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantPhase = false }) => {
+const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantPhase = false, viewOnly = false, viewOnlyAction }) => {
     const { t } = useLanguage();
     const dish = dishOverride || DISHES[0];
 
@@ -500,10 +500,11 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                         </div>
                     </div>
 
-                    {/* Fridge */}
+                    {/* Fridge — always visible; view-only disables interaction */}
                     <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border-muted shadow-[0_2px_0_#D4B896] p-4">
                         <div className="text-xs font-bold text-kitchen-text-body uppercase tracking-wide mb-3">
                             🧊 {t('冰箱')} ({fridgeItems.length})
+                            {viewOnly && <span className="ml-2 text-[10px] font-normal text-kitchen-text-muted normal-case">({t('浏览')})</span>}
                         </div>
                         {fridgeItems.length === 0 ? (
                             <p className="text-sm text-kitchen-text-muted text-center py-4">{t('没有可用食材')}</p>
@@ -513,12 +514,14 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                                     const rarity = item.rarity || item.score || 1;
                                     const rs = RARITY_STYLE[rarity] || RARITY_STYLE[1];
                                     const isSelected = selectedFridgeIdx === idx;
+                                    const interactive = !viewOnly;
                                     return (
                                         <Tooltip key={item.uid} content={<IngredientTip item={item} />}>
                                             <div
-                                                onClick={() => setSelectedFridgeIdx(isSelected ? null : idx)}
-                                                className={`relative w-12 h-12 rounded-lg border-2 flex items-center justify-center text-xl cursor-pointer transition-all
-                                                    ${isSelected ? 'border-kitchen-gold bg-[#FFF8E0] ring-2 ring-kitchen-gold/50 scale-110' : `${rs.border} bg-gradient-to-b ${rs.bg} hover:scale-105`}`}
+                                                onClick={interactive ? () => setSelectedFridgeIdx(isSelected ? null : idx) : undefined}
+                                                className={`relative w-12 h-12 rounded-lg border-2 flex items-center justify-center text-xl transition-all
+                                                    ${interactive ? 'cursor-pointer' : 'cursor-default'}
+                                                    ${isSelected ? 'border-kitchen-gold bg-[#FFF8E0] ring-2 ring-kitchen-gold/50 scale-110' : `${rs.border} bg-gradient-to-b ${rs.bg} ${interactive ? 'hover:scale-105' : ''}`}`}
                                             >
                                                 {item.icon}
                                                 <span className={`absolute -bottom-1 -right-1 ${rs.badge} text-white text-[7px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow`}>
@@ -533,7 +536,7 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                     </div>
 
                     {/* Required-slots hint (restaurant phase only) */}
-                    {isRestaurantPhase && !canCook && (
+                    {isRestaurantPhase && !viewOnly && !canCook && (
                         <div className="text-center text-xs text-kitchen-danger-text mt-4">
                             {t('必填槽位未填')}：{missingRequired.map(s => t(s.name)).join('、')}
                         </div>
@@ -541,14 +544,23 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
 
                     {/* Actions */}
                     <div className="flex gap-3 mt-6">
-                        <button onClick={clearAll}
-                            className="flex-1 py-2.5 rounded-xl border-2 border-kitchen-gold-border-muted bg-kitchen-card text-sm font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors flex items-center justify-center gap-1.5 shadow-[0_2px_0_#D4B896]">
-                            <Trash2 size={15} /> {t('清空')}
-                        </button>
-                        <button onClick={handleCook} disabled={!canCook}
-                            className="flex-1 py-2.5 rounded-xl bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-sm font-bold text-kitchen-text-body hover:from-[#FFF3E0] hover:to-[#FFE8CC] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-[0_3px_0_#D4952A]">
-                            <ChefHat size={15} /> {t('开始烹饪')}
-                        </button>
+                        {viewOnly ? (
+                            <button onClick={viewOnlyAction?.onClick}
+                                className="flex-1 py-2.5 rounded-xl bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-sm font-bold text-kitchen-text-body hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-all flex items-center justify-center gap-1.5 shadow-[0_3px_0_#D4952A]">
+                                <ChefHat size={15} /> {viewOnlyAction?.label || t('开始今天')}
+                            </button>
+                        ) : (
+                            <>
+                                <button onClick={clearAll}
+                                    className="flex-1 py-2.5 rounded-xl border-2 border-kitchen-gold-border-muted bg-kitchen-card text-sm font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors flex items-center justify-center gap-1.5 shadow-[0_2px_0_#D4B896]">
+                                    <Trash2 size={15} /> {t('清空')}
+                                </button>
+                                <button onClick={handleCook} disabled={!canCook}
+                                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-sm font-bold text-kitchen-text-body hover:from-[#FFF3E0] hover:to-[#FFE8CC] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-[0_3px_0_#D4952A]">
+                                    <ChefHat size={15} /> {t('开始烹饪')}
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
