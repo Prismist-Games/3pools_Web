@@ -491,10 +491,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     const ROW_BTN_WIDTH = 36;
     const ROW_BTN_MARGIN = 8; // mr-2
 
-    const isDrawSettled = drawAnimState?.phase === 'settled';
-
     return (
-        <div className={`bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-[3px] border-kitchen-wood-border rounded-[14px] p-4 shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)] transition-all duration-300${doomFlash ? ' crt-heavy vignette-heavy animate-signal-shake' : isDrawSettled ? ' crt-light vignette' : ''}`}>
+        <div className={`bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-[3px] border-kitchen-wood-border rounded-[14px] p-4 shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)] transition-all duration-300${doomFlash ? ' crt-heavy vignette-heavy animate-signal-shake' : ''}`}>
             <div className="text-center mb-2 pb-2 border-b border-dashed border-kitchen-wood-border">
                 <span className="text-sm font-bold text-kitchen-text-body">🎯 {t('奖品墙')}</span>
             </div>
