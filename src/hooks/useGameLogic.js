@@ -75,6 +75,76 @@ function pickWallType() {
     return WALL_TYPES.find(t => t.id === id) || WALL_TYPES[0];
 }
 
+/**
+ * Finalize a procedural wall candidate at generation time so the picker
+ * preview matches what the player will see in-game. Conveyor's per-instance
+ * params are rolled here, and modifier-specific grid mutations (hidden mask,
+ * multiplier overlays, center_rotate anchor injection) are baked into the
+ * grid before it ever reaches the picker. Returns { wallType, grid } —
+ * applyWallCandidate then just sets state from these.
+ */
+function finalizeProceduralCandidate(rawWallType, baseGrid) {
+    let wallType = rawWallType;
+    if (wallType?.id === 'conveyor') {
+        const size = MATRIX_CONFIG.gridSize;
+        wallType = {
+            ...wallType,
+            conveyorAxis: Math.random() < 0.5 ? 'row' : 'col',
+            conveyorIndex: Math.floor(Math.random() * size),
+            conveyorDirection: Math.random() < 0.5 ? 1 : -1,
+        };
+    }
+
+    const grid = baseGrid.map(r => r.map(c => c ? { ...c } : null));
+
+    if (wallType?.id === 'hidden') {
+        const ratio = wallType.hiddenRatio || 0.3;
+        for (let r = 0; r < grid.length; r++) {
+            for (let c = 0; c < grid[r].length; c++) {
+                const cell = grid[r][c];
+                if (!cell || (cell.type !== 'sticker' && cell.type !== 'item')) continue;
+                if (Math.random() < ratio) cell.hidden = true;
+            }
+        }
+    } else if (wallType?.id === 'multiplier') {
+        const ratio = wallType.multiplierRatio || 0.2;
+        for (let r = 0; r < grid.length; r++) {
+            for (let c = 0; c < grid[r].length; c++) {
+                const cell = grid[r][c];
+                if (cell && Math.random() < ratio) cell.multiplier = 2;
+            }
+        }
+    }
+
+    if (wallType?.id === 'center_rotate') {
+        const size = MATRIX_CONFIG.gridSize;
+        const r0 = Math.floor(size / 2) - 1;
+        const c0 = Math.floor(size / 2) - 1;
+        const centerPositions = [
+            [r0, c0], [r0, c0 + 1],
+            [r0 + 1, c0], [r0 + 1, c0 + 1],
+        ];
+        const hasAnchor = centerPositions.some(([r, c]) => {
+            const t = grid[r]?.[c]?.type;
+            return t === 'bomb' || t === 'buff_field';
+        });
+        if (!hasAnchor) {
+            const [pr, pc] = centerPositions[Math.floor(Math.random() * centerPositions.length)];
+            const pickBuff = Math.random() < 0.5;
+            const cfg = pickBuff ? MATRIX_CONFIG.specialCells.buffField : MATRIX_CONFIG.specialCells.bomb;
+            const uidGen = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+            grid[pr][pc] = {
+                type: pickBuff ? 'buff_field' : 'bomb',
+                icon: cfg.icon,
+                name: cfg.name,
+                uid: uidGen(),
+            };
+        }
+    }
+
+    return { wallType, grid };
+}
+
 function generateOrder() {
     const template = pickWeightedTemplate();
     // Pick a random ingredient for each reward rarity tier
@@ -258,12 +328,15 @@ export const useGameLogic = (config) => {
                     level: template,
                 });
             } else {
-                const wallType = pickWallType();
-                const key = 'wall:' + wallType.id;
+                const rawWallType = pickWallType();
+                const key = 'wall:' + rawWallType.id;
                 if (usedIds.has(key)) continue;
                 usedIds.add(key);
                 const stickers = pickWallStickers(STICKER_TYPES, WALL_STICKER_COUNT.min, WALL_STICKER_COUNT.max);
-                const { grid, doomCellCount } = generateWall(stickers);
+                const { grid: baseGrid, doomCellCount } = generateWall(stickers);
+                // Bake modifier mutations into the grid now so the picker
+                // preview reflects exactly what the player will draw from.
+                const { wallType, grid } = finalizeProceduralCandidate(rawWallType, baseGrid);
                 candidates.push({ stickers, grid, doomCellCount, wallType, level: null });
             }
         }
@@ -352,110 +425,22 @@ export const useGameLogic = (config) => {
         startNewTurn();
     };
 
-    /** Apply a generated wall candidate: randomize per-instance modifier
-     *  params, mutate the grid for modifier effects, set state, and advance
-     *  to the drawing phase. Called from startNewTurn with a single auto-
-     *  generated candidate (3-choose-1 was removed). */
+    /** Apply a chosen wall candidate. Modifier-specific grid mutations and
+     *  wallType randomization are baked in at candidate-generation time
+     *  (finalizeProceduralCandidate), so this is now just a state setter
+     *  plus gold override and phase transition. */
     const applyWallCandidate = (chosen) => {
-        let wallType = chosen.wallType;
-        // Conveyor modifier: roll random axis/index/direction per instance
-        if (wallType?.id === 'conveyor') {
-            const size = MATRIX_CONFIG.gridSize;
-            wallType = {
-                ...wallType,
-                conveyorAxis: Math.random() < 0.5 ? 'row' : 'col',
-                conveyorIndex: Math.floor(Math.random() * size),
-                conveyorDirection: Math.random() < 0.5 ? 1 : -1, // +1 = right/down, -1 = left/up
-            };
-        }
-        setCurrentWallType(wallType);
+        setCurrentWallType(chosen.wallType || null);
         setCurrentLevel(chosen.level || null);
 
-        // Apply wall-type mutations to the grid before setting it
-        const grid = chosen.grid.map(r => r.map(c => c ? { ...c } : null));
-
-        // Modifier-specific gold override (e.g., mirror only gives 3 coins)
-        if (wallType?.goldOverride !== undefined) {
-            setGold(wallType.goldOverride);
+        if (chosen.wallType?.goldOverride !== undefined) {
+            setGold(chosen.wallType.goldOverride);
         }
-
-        // Level-specific gold override
         if (chosen.level?.settings?.gold !== undefined) {
             setGold(chosen.level.settings.gold);
         }
 
-        // Level candidates have no wallType — skip modifier mutations
-        if (!wallType) {
-            setMatrix(grid);
-            setPhase('drawing');
-            return;
-        }
-
-        if (wallType.id === 'hidden') {
-            // Mark ~30% of sticker cells as hidden (independent per cell).
-            const ratio = wallType.hiddenRatio || 0.3;
-            for (let r = 0; r < grid.length; r++) {
-                for (let c = 0; c < grid[r].length; c++) {
-                    const cell = grid[r][c];
-                    if (!cell || (cell.type !== 'sticker' && cell.type !== 'item')) continue;
-                    if (Math.random() < ratio) {
-                        cell.hidden = true;
-                    }
-                }
-            }
-        } else if (wallType.id === 'multiplier') {
-            // Mark ~20% of cells with multiplier = 2
-            const ratio = wallType.multiplierRatio || 0.2;
-            for (let r = 0; r < grid.length; r++) {
-                for (let c = 0; c < grid[r].length; c++) {
-                    const cell = grid[r][c];
-                    if (cell && Math.random() < ratio) {
-                        cell.multiplier = 2;
-                    }
-                }
-            }
-        }
-
-        // Center rotate modifier: guarantee the center 2×2 contains at least
-        // one bomb or one buff_field so the rotating zone always has a
-        // decision-changing anchor (the original rotate-only version had no
-        // real effect on line evaluation).
-        if (wallType.id === 'center_rotate') {
-            const size = MATRIX_CONFIG.gridSize;
-            const r0 = Math.floor(size / 2) - 1;
-            const c0 = Math.floor(size / 2) - 1;
-            const centerPositions = [
-                [r0, c0], [r0, c0 + 1],
-                [r0 + 1, c0], [r0 + 1, c0 + 1],
-            ];
-            const hasAnchor = centerPositions.some(([r, c]) => {
-                const t = grid[r]?.[c]?.type;
-                return t === 'bomb' || t === 'buff_field';
-            });
-            if (!hasAnchor) {
-                const [pr, pc] = centerPositions[Math.floor(Math.random() * centerPositions.length)];
-                const pickBuff = Math.random() < 0.5;
-                if (pickBuff) {
-                    const bfCfg = MATRIX_CONFIG.specialCells.buffField;
-                    grid[pr][pc] = {
-                        type: 'buff_field',
-                        icon: bfCfg.icon,
-                        name: bfCfg.name,
-                        uid: generateUID(),
-                    };
-                } else {
-                    const bombCfg = MATRIX_CONFIG.specialCells.bomb;
-                    grid[pr][pc] = {
-                        type: 'bomb',
-                        icon: bombCfg.icon,
-                        name: bombCfg.name,
-                        uid: generateUID(),
-                    };
-                }
-            }
-        }
-
-        setMatrix(grid);
+        setMatrix(chosen.grid);
         setPhase('drawing');
     };
 
