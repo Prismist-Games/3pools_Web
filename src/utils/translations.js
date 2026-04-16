@@ -554,11 +554,53 @@ export const EN_TRANSLATIONS = {
     "关闭": "Close",
     "覆盖率": "Coverage",
 
-    // --- Fate Wall Doom Modal ---
+    // --- Fate Wall System ---
+    "命运网格": "Fate Wall",
+    "幸运抽取": "Luck Draw",
+    "选择一行或一列进行幸运抽取": "Choose a row or column for the Luck draw",
+    "此行/列为空，请重选": "This row/col is empty — please re-select",
     "厄运抽取": "Doom Draw",
     "选择一行或一列承受厄运": "Select a row or column to bear the doom",
     "此行/列被完全保护，请重选": "This line is fully protected, please choose another",
     "幸运符吸收了厄运！": "Lucky charm absorbed the doom!",
-    "列": "Col",
     "行": "Row",
+    "列": "Col",
+
+    // Fate Wall Placement Modal
+    "放置幸运符": "Place Charm",
+    "选择一个位置放置": "Choose a position to place",
+    "必须放置才能继续": "Placement required to continue",
+    "获得幸运符": "Charm obtained",
+
+    // Charm names
+    "空白": "Blank",
+    "抽取次数": "Draw Count",
+    "催化石": "Catalyst",
+    "守护碑": "Guard Stone",
+    "复利": "Compound",
+    "延缓厄运": "Delay Doom",
+    "诱饵": "Bait",
+    "炼金锅": "Alchemy Pot",
+    "共鸣钟": "Resonance Bell",
+    "复制镜": "Copy Mirror",
+    "复利贴纸": "Compound Stickers",
+    "复利订单": "Compound Orders",
+    "强化延缓": "Enhanced Delay",
+
+    // Luck effect descriptions
+    "无效果": "No effect",
+    "效果待实现": "Effect TBD",
+    "抽取次数上限": "Draw cap reached",
+    "贴纸上限": "Sticker cap reached",
+    "订单上限": "Order cap reached",
+    "无可升级目标": "No upgradeable targets",
+    "无相邻目标": "No adjacent targets",
+    "共鸣": "Resonance",
+    "厄运次数": "Doom draws",
+    "复制镜：无有效目标或网格已满": "Copy Mirror: no valid target or grid full",
+    "复制镜：请选择复制源": "Copy Mirror: select a charm to copy",
+    "选择要复制的幸运符": "Select a charm to copy",
+    "选择放置位置": "Select placement position",
+    "复制": "Copy",
+    "等级": "Lv.",
 };
