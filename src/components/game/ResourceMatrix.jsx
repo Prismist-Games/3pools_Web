@@ -165,7 +165,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     } else if (cell.type === 'doom_resolution') {
         bgClass = 'bg-[#FFB8A8] border-[#D04020]';
     } else if (cell.type === 'doom_upgrade') {
-        // Stronger red background so the ⬆️ arrow reads clearly as danger.
+        // Stronger red background so the ⚠️ warning reads clearly as danger.
         bgClass = 'bg-[#FFB8A8] border-[#D04020]';
     } else if (cell.type === 'item' || cell.type === 'sticker') {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';

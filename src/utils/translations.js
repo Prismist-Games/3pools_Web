@@ -712,6 +712,7 @@ export const EN_TRANSLATIONS = {
     "珍稀食材": "Rare Ingredient",
     "撤离价值": "Evacuation Value",
     "持有 / 需要": "Have / Need",
+    "持有": "Have",
 
     // --- Prologue ---
     "自定义你的角色": "Customize Your Character",

@@ -5,7 +5,7 @@ const PALETTE_ITEMS = [
   { type: null, icon: '🚫', label: '橡皮擦（随机填充）', category: '工具' },
   { type: CELL_TYPES.EMPTY, icon: '⬜', label: '空白格（不填充）', category: '工具' },
   { type: CELL_TYPES.DOOM_RESOLVE, icon: '💀', label: '厄运结算', category: '厄运' },
-  { type: CELL_TYPES.DOOM_UPGRADE, icon: '⬆️', label: '厄运升级', category: '厄运' },
+  { type: CELL_TYPES.DOOM_UPGRADE, icon: '⚠️', label: '厄运升级', category: '厄运' },
   { type: CELL_TYPES.ANY_DOOM, icon: '💀?', label: '随机厄运', category: '厄运' },
   { type: CELL_TYPES.BOMB, icon: '💣', label: '炸弹', category: '特殊' },
   { type: CELL_TYPES.GOLD, icon: '💰', label: '金币', category: '特殊' },

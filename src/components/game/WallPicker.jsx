@@ -97,7 +97,7 @@ const WallPicker = ({ candidates, onSelect, onHoverStickerIds }) => {
                                     )}
                                     {(wall.doomCellCount?.upgrade || 0) > 0 && (
                                         <span className="text-[10px] px-1.5 py-0.5 bg-[#FFF0F0] rounded-full text-kitchen-danger-text border border-kitchen-danger" title={language === 'en' ? 'Doom Upgrade' : '厄运升级'}>
-                                            ⬆️ ×{wall.doomCellCount.upgrade}
+                                            ⚠️ ×{wall.doomCellCount.upgrade}
                                         </span>
                                     )}
                                     {specials.map((s, i) => (

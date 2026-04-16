@@ -81,7 +81,7 @@ export const GameGuide = ({ onClose }) => {
                                 <span><b>{t('厄运结算')}</b> — {t('触发厄运，可能扣血')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <span className="w-5 text-center">⬆️</span>
+                                <span className="w-5 text-center">⚠️</span>
                                 <span><b>{t('厄运升级')}</b> — {t('厄运更危险')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">

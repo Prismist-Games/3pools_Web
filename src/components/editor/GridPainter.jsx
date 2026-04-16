@@ -5,7 +5,7 @@ import { MATRIX_CONFIG } from '../../data/matrixConfig';
 const CELL_DISPLAY = {
   empty: { icon: '⬜', bg: 'bg-gray-900/80', label: '空白格' },
   doom_resolve: { icon: '💀', bg: 'bg-red-900/60', label: '厄运结算' },
-  doom_upgrade: { icon: '⬆️', bg: 'bg-red-700/60', label: '厄运升级' },
+  doom_upgrade: { icon: '⚠️', bg: 'bg-red-700/60', label: '厄运升级' },
   any_doom: { icon: '💀?', bg: 'bg-red-800/40', label: '随机厄运' },
   bomb: { icon: '💣', bg: 'bg-orange-900/60', label: '炸弹' },
   gold: { icon: '💰', bg: 'bg-yellow-700/60', label: '金币' },
