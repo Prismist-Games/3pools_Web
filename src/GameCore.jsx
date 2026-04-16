@@ -378,7 +378,7 @@ const GameCore = () => {
                                                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
                                                                 <div className="flex gap-0.5">
                                                                     {candidate.rewards.map((r, i) => (
-                                                                        <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                                                                        <RewardCard key={i} reward={r} size="sm" />
                                                                     ))}
                                                                 </div>
                                                             </div>
@@ -849,7 +849,7 @@ const GameCore = () => {
                                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
                                                 <div className="flex gap-0.5">
                                                     {candidate.rewards.map((r, i) => (
-                                                        <RewardCard key={i} reward={r} size="sm" bonusValue={bonusItemMap?.get(r.id)} />
+                                                        <RewardCard key={i} reward={r} size="sm" />
                                                     ))}
                                                 </div>
                                             </div>
