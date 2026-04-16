@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
-import { getRowIndices, getColIndices, getDoomTarget, isLineFullyProtected } from '../utils/fateWallHelpers';
+import { getRowIndices, getColIndices, getDoomTarget, isLineFullyProtected, getNeighbors } from '../utils/fateWallHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
 import { generateCharm, rollCharmType, CHARM_TYPES } from '../data/charms';
@@ -980,44 +980,57 @@ export const useGameLogic = (config) => {
         const STICKER_CAP = 3;
         let effectDescription = '';
 
+        // Catalyst check: +1 to numeric effects if at least 1 adjacent catalyst exists
+        const hasCatalyst = getNeighbors(charmIndex).some(
+            i => fateWall.cells[i]?.type === CHARM_TYPES.CATALYST
+        );
+        const catalystBonus = hasCatalyst ? 1 : 0;
+
         switch (charm.type) {
             case CHARM_TYPES.DRAW_COUNT: {
+                const base = 1 + catalystBonus;
                 const available = DRAW_CAP - turnBonuses.draws;
-                const actual = Math.min(1, available);
+                const actual = Math.min(base, available);
                 if (actual > 0) {
                     setGold(prev => prev + actual);
                     setTurnBonuses(prev => ({ ...prev, draws: prev.draws + actual }));
-                    effectDescription = `+${actual} ${t('抽取次数')}`;
+                    effectDescription = `+${actual} ${t('抽取次数')}${hasCatalyst ? ' ✦' : ''}`;
                 } else {
                     effectDescription = t('抽取次数上限');
                 }
                 break;
             }
             case CHARM_TYPES.STICKER: {
+                const base = 1 + catalystBonus;
                 const available = STICKER_CAP - turnBonuses.stickers;
-                const actual = Math.min(1, available);
+                const actual = Math.min(base, available);
                 if (actual > 0) {
-                    const stickerTypes = [...STICKER_TYPES];
-                    const picked = stickerTypes[Math.floor(Math.random() * stickerTypes.length)];
-                    addToInventory({
-                        type: 'sticker',
-                        item: picked,
-                        uid: Math.random().toString(36).substr(2, 9),
-                    });
+                    for (let i = 0; i < actual; i++) {
+                        const stickerTypes = [...STICKER_TYPES];
+                        const picked = stickerTypes[Math.floor(Math.random() * stickerTypes.length)];
+                        addToInventory({
+                            type: 'sticker',
+                            item: picked,
+                            uid: Math.random().toString(36).substr(2, 9),
+                        });
+                    }
                     setTurnBonuses(prev => ({ ...prev, stickers: prev.stickers + actual }));
-                    effectDescription = `+1 ${t('贴纸')}: ${picked.name}`;
+                    effectDescription = `+${actual} ${t('贴纸')}${hasCatalyst ? ' ✦' : ''}`;
                 } else {
                     effectDescription = t('贴纸上限');
                 }
                 break;
             }
             case CHARM_TYPES.ORDER: {
+                const base = 1 + catalystBonus;
                 const available = ORDER_CAP - turnBonuses.orders;
-                const actual = Math.min(1, available);
+                const actual = Math.min(base, available);
                 if (actual > 0) {
-                    setBulletinBoard(prev => [...prev, generateOrder()]);
+                    for (let i = 0; i < actual; i++) {
+                        setBulletinBoard(prev => [...prev, generateOrder()]);
+                    }
                     setTurnBonuses(prev => ({ ...prev, orders: prev.orders + actual }));
-                    effectDescription = `+1 ${t('订单')}`;
+                    effectDescription = `+${actual} ${t('订单')}${hasCatalyst ? ' ✦' : ''}`;
                 } else {
                     effectDescription = t('订单上限');
                 }
