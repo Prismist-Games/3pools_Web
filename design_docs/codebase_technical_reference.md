@@ -3,6 +3,20 @@
 本文档是项目代码的完整技术参考，涵盖架构、数据流、每个文件的职责与实现细节、状态管理、UI 渲染逻辑和外部集成。阅读本文档后，无需再阅读源代码即可对项目做出正确修改。
 
 > **最后更新**: 2026-04-07 · 基于 `core-draw/board-type-experiments-designed-levels` 分支
+>
+> ⚠️ **STALENESS WARNING（2026-04-16）**：本文档自 2026-04-07 起未同步，期间核心代码经历了多轮重构。**不要把本文档当作可信参考使用** —— 优先看源代码或 `game_rules.md` / `gameplay_progress.md`。已知主要失真：
+>
+> - **簇（Cluster）系统**：完全未提及。`src/utils/matrixHelpers.js` 新增 `getClusterMembers()`；`useGameLogic` 的抽取处理（`completeDrawAnim`）按整簇消除并按加性公式产出；`ResourceMatrix` 增加桥接矩形 + hover 高亮
+> - **开局组建（Setup）**：完全未提及。新 phase `setup`，`useGameLogic` 增 `dishIntroPending` / `currentDish` / `dismissDishIntro` + 一个驱动 setup → drawing 的 useEffect；`GameCore` 渲染 setup 中央菜品卡 + slot preview，`BulletinBoard` 加 `setupMode` prop
+> - **奖品墙 3 选 1 + 揭晓**：picker（`WallPicker.jsx`）回归且隐藏 modifier；新 phase `wall_choice` / `wall_reveal`；`useGameLogic` 增 `wallCandidates` / `pendingWallCandidate` / `selectWall` / `confirmWallReveal`；`finalizeProceduralCandidate` helper 把 modifier 改格逻辑前移到候选生成阶段
+> - **订单系统重构**：`incomingOrder` 单槽 → `incomingQueue` FIFO 数组；`addBulletinOrder` push、confirm/discard/replace shift；`triggerRefresh` 不再因存在 picker 而阻塞；REFRESH_CONFIG initial 0 / max 5；订单格 +1 刷新次数（不再直接生成订单）
+> - **食材与厨房**：`v2Config.js` 中 `OUT_OF_GAME_ITEMS` 已被 `INGREDIENTS` 替换（rarity 1-4 + tags）；新 `DISHES` 数组 + `Kitchen.jsx` 的 slot 匹配 / scoreDish / SlotPreview；GameCore 增厨房模态框、合成模式
+> - **贴纸**：STICKER_TYPES 8 → 20
+> - **modifier**：阴阳轮转移除，当前 9 种；新增 modifier shuffle bag（`pickWallType` 模块级 bag）
+> - **厄运格回归随机墙**：`matrixHelpers.fillDoomAndSpecials` 重新启用 doom_resolution / doom_upgrade 生成（5%/5% 每格）
+> - **其他视觉/UX**：RoundTransition 用作 dish intro + wall reveal；ResourceMatrix 厄运升级红底；簇桥接 + hover ring + 飞行 ×N 角标
+>
+> 计划在某次合适时机重写本文。在那之前，本文以下内容仅作为"老版本架构参考"。
 
 ---
 
