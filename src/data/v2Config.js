@@ -215,10 +215,10 @@ export const DISHES = [
 // --- 订单模板 ---
 // 每个订单奖励 1 个对应稀有度的食材
 export const ORDER_TEMPLATES = [
-    { id: 'a', difficulty: 'easy',    rewardTiers: [1], totalStickers: 2, stickerTypes: 1, weight: 40 },
+    { id: 'a', difficulty: 'easy',    rewardTiers: [1], totalStickers: 2, stickerTypes: 1, weight: 42.5 },
     { id: 'b', difficulty: 'medium',  rewardTiers: [2], totalStickers: 3, stickerTypes: 2, weight: 30 },
     { id: 'c', difficulty: 'hard',    rewardTiers: [3], totalStickers: 4, stickerTypes: 3, weight: 20 },
-    { id: 'd', difficulty: 'extreme', rewardTiers: [4], totalStickers: 6, stickerTypes: 4, weight: 10 },
+    { id: 'd', difficulty: 'extreme', rewardTiers: [4], totalStickers: 6, stickerTypes: 4, weight: 7.5 },
 ];
 
 // --- 墙类型定义 ---
