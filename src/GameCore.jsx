@@ -13,6 +13,8 @@ import Kitchen from './components/game/Kitchen';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
+import { FateWall } from './components/game/FateWall';
+import { FateWallPlacementModal } from './components/game/FateWallPlacementModal';
 
 const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
@@ -60,6 +62,7 @@ const GameCore = () => {
         submitOrder, canSubmitOrder,
         incomingOrder, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         debugAddStorageItems,
+        fateWall, pendingCharm, confirmCharmPlacement,
     } = state;
 
     // --- Doom animation interval ---
@@ -416,6 +419,19 @@ const GameCore = () => {
                                 </div>
                             </div>
 
+                            {/* Fate Wall */}
+                            <div className="bg-white rounded-lg shadow-sm border">
+                                <div className="px-3 py-2 border-b border-gray-100">
+                                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('命运网格')}</h3>
+                                </div>
+                                <div className="p-2">
+                                    <FateWall
+                                        cells={fateWall.cells}
+                                        label={null}
+                                    />
+                                </div>
+                            </div>
+
                             {/* Inventory */}
                             <div ref={inventoryRef} className="bg-white rounded-lg shadow-sm border">
                                 <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
@@ -735,6 +751,15 @@ const GameCore = () => {
 
                 {/* Kitchen Modal */}
                 {kitchenOpen && <Kitchen inventory={inventory} dish={DISHES[kitchenDishIdx]} onCook={(result) => { setKitchenOpen(false); }} onClose={() => setKitchenOpen(false)} />}
+
+                {/* Fate Wall Placement Modal */}
+                {pendingCharm && (
+                    <FateWallPlacementModal
+                        pendingCharm={pendingCharm}
+                        fateWallCells={fateWall.cells}
+                        onPlace={confirmCharmPlacement}
+                    />
+                )}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
