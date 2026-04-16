@@ -160,18 +160,12 @@ const GameCore = () => {
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <div className="mb-4 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
-                    {/* Row 1: Title + Progress */}
+                    {/* Row 1: Title + Day + Tools */}
                     <div className="flex items-center justify-between px-4 py-2 border-b border-kitchen-gold-border/30">
                         <h1 className="text-base font-black tracking-tight text-kitchen-text-title">🍳 {t('梦想厨房')}</h1>
                         <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded-full bg-[#FFF3E0] text-kitchen-gold-deep border border-kitchen-gold-border text-[11px] font-bold">
-                                {t('场次')} {expeditionNumber}/{expeditionConfig.expeditionCount}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full bg-[#FFF3E0] text-kitchen-gold-deep border border-kitchen-gold-border text-[11px] font-bold">
-                                {t('回合')} {turnNumber}
-                            </span>
                             <span className="px-2 py-0.5 rounded-full bg-[#FFF8E0] text-kitchen-gold-deep border border-kitchen-gold-border text-[11px] font-bold">
-                                ⭐ {totalScore}/{expeditionConfig.scoreToWin}
+                                {language === 'en' ? `Day ${dayNumber}` : `第 ${dayNumber} 天`}
                             </span>
                             <button onClick={() => setGuideOpen(true)} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">❓</button>
                             <button onClick={toggleLanguage} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
@@ -183,12 +177,11 @@ const GameCore = () => {
                             <Link to="/editor" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors no-underline">📐</Link>
                         </div>
                     </div>
-                    {/* Row 2: In-game Resources */}
-                    <div className="flex items-center gap-2 px-4 py-2">
-                        <span className="bg-[#FFF0F0] border border-[#E8A0A0] px-2.5 py-1 rounded-full text-xs font-medium text-kitchen-danger-text">❤️ {hp}</span>
-                        <span className="bg-[#FFF8E0] border border-[#E8C860] px-2.5 py-1 rounded-full text-xs font-medium text-[#A08020]">💰 {gold}</span>
-                        <span className="bg-[#F5F0E8] border border-[#C8B898] px-2.5 py-1 rounded-full text-xs font-medium text-[#706040]">💀 Lv.{doomLevel}</span>
-                        <span className="bg-[#F0FFF8] border border-kitchen-success-border px-2.5 py-1 rounded-full text-xs font-medium text-[#408060]">🎒 {inventory.length}/{maxInventorySize}</span>
+                    {/* Row 2: HP as hearts */}
+                    <div className="flex items-center gap-0.5 px-4 py-2">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <span key={i} className="text-base leading-none">{i < hp ? '❤️' : '🤍'}</span>
+                        ))}
                     </div>
                 </div>
 
@@ -196,15 +189,12 @@ const GameCore = () => {
                 {phase === 'pre_game' && (
                     <div className="text-center py-20">
                         <h2 className="text-2xl font-bold mb-4 text-kitchen-text-title">{t('梦想厨房')}</h2>
-                        <p className="text-kitchen-text-body mb-2">{t('回合制原型')} v2</p>
-                        {expeditionNumber > 0 && (
-                            <p className="text-sm text-kitchen-text-secondary mb-4">{t('累计')}: {totalScore} {t('分')}</p>
-                        )}
+                        <p className="text-kitchen-text-body mb-6">{t('回合制原型')} v2</p>
                         <button
                             onClick={startGame}
                             className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body text-lg font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
                         >
-                            {language === 'en' ? `Start Round ${expeditionNumber + 1}` : `开始第 ${expeditionNumber + 1} 场`}
+                            {language === 'en' ? `Start Day ${dayNumber + 1}` : `开始 第 ${dayNumber + 1} 天`}
                         </button>
                     </div>
                 )}
@@ -334,24 +324,28 @@ const GameCore = () => {
                                             </div>
                                         )}
 
-                                        {/* End turn button */}
-                                        <div className="mt-4 flex gap-2">
+                                        {/* Remaining draws + end button */}
+                                        <div className="mt-4">
+                                            {phase !== 'drawing_sub' && (
+                                                <div className="mb-2 text-center">
+                                                    <span className="text-sm font-bold text-kitchen-text-secondary">{t('剩余抽取')}: </span>
+                                                    <span className="text-lg font-black text-kitchen-gold-deep">{gold}</span>
+                                                    <span className="text-sm text-kitchen-text-muted"> / 5</span>
+                                                </div>
+                                            )}
                                             <button
                                                 onClick={phase === 'drawing_sub' ? exitSubLevel : endTurn}
                                                 disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0}
-                                                className={`px-6 py-2 rounded-lg font-bold transition-colors ${
+                                                className={`w-full px-6 py-2 rounded-lg font-bold transition-colors ${
                                                     isDoomResolving || isDrawAnimating || pendingItems.length > 0
-                                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                        ? 'bg-kitchen-card/60 border-2 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
                                                         : phase === 'drawing_sub'
-                                                            ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                                            : 'bg-gray-700 text-white hover:bg-gray-800'
+                                                            ? 'bg-kitchen-info border-2 border-kitchen-info-border text-white hover:brightness-95'
+                                                            : 'bg-gradient-to-b from-kitchen-wood-light to-kitchen-wood-dark border-2 border-kitchen-wood-border text-kitchen-card hover:brightness-105 shadow-[0_2px_0_#C8A880]'
                                                 }`}
                                             >
-                                                {phase === 'drawing_sub' ? t('结束事件') : t('结束回合')}
+                                                {phase === 'drawing_sub' ? t('结束事件') : t('结束抽奖')}
                                             </button>
-                                            {gold <= 0 && !isDoomResolving && (
-                                                <span className="text-sm text-gray-400 self-center">{t('金币已用完')}</span>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -360,26 +354,31 @@ const GameCore = () => {
                             {/* Between turns */}
                             {phase === 'between_turns' && (
                                 <div className="text-center py-8">
-                                    <h2 className="text-xl font-bold mb-2">{t('回合')} {turnNumber} {t('结束')}</h2>
-                                    <p className="text-gray-500 mb-2">
-                                        {t('菜篮')}: {inventory.length}/{maxInventorySize} | HP: {hp} | 💀 Lv.{doomLevel}
+                                    <h2 className="text-xl font-bold mb-3 text-kitchen-text-title">{t('抽奖结束')}</h2>
+                                    <div className="flex items-center justify-center gap-0.5 mb-2">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                            <span key={i} className="text-lg leading-none">{i < hp ? '❤️' : '🤍'}</span>
+                                        ))}
+                                    </div>
+                                    <p className="text-kitchen-text-secondary text-sm mb-1">
+                                        {t('厄运等级')}: 💀 Lv.{doomLevel}
                                     </p>
-                                    <p className="text-gray-400 text-sm mb-6">
-                                        {t('下回合将增加')} 1 {t('个危险格子')}
+                                    <p className="text-kitchen-text-muted text-sm mb-6">
+                                        {t('下次进入抽奖将添加一个厄运标记')}
                                     </p>
 
                                     <div className="flex gap-4 justify-center">
                                         <button
                                             onClick={continueToNextTurn}
-                                            className="px-8 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition-colors"
+                                            className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
                                         >
-                                            {t('继续下一回合')}
+                                            {t('继续')}
                                         </button>
                                         <button
                                             onClick={handleEvacuate}
-                                            className="px-8 py-3 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition-colors"
+                                            className="px-8 py-3 bg-kitchen-success border-2 border-kitchen-success-border text-white font-bold rounded-xl shadow-[0_3px_0_rgba(96,160,112,0.5)] hover:brightness-95 transition-colors"
                                         >
-                                            {t('撤离')}（{inventory.filter(i => i.isOutOfGame).reduce((s, i) => s + (i.rarity || i.score || 0), 0)} {t('分')}）
+                                            {t('回到餐厅')}
                                         </button>
                                     </div>
                                 </div>
