@@ -8,7 +8,7 @@ const TagBadge = ({ tag, highlight, className = '' }) => {
     const { t } = useLanguage();
     return (
         <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full
-            ${highlight ? 'bg-kitchen-gold text-kitchen-text-title' : 'bg-kitchen-wood-dark text-kitchen-card'} ${className}`}>
+            ${highlight ? 'bg-kitchen-gold text-kitchen-text-title' : 'bg-kitchen-wood-shadow text-kitchen-card'} ${className}`}>
             {t(tag)}
         </span>
     );
