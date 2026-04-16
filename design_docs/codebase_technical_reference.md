@@ -1,22 +1,17 @@
-# 幸运之墙 Wall of Fortune — 代码技术知识文档
+# 幸运之墙 Wall of Fortune — 代码技术参考
 
-本文档是项目代码的完整技术参考，涵盖架构、数据流、每个文件的职责与实现细节、状态管理、UI 渲染逻辑和外部集成。阅读本文档后，无需再阅读源代码即可对项目做出正确修改。
+本文档面向需要在此 repo 工作的开发者/AI agent，记录架构、数据组织、关键模块与扩展点。读完后能正确定位修改点。
 
-> **最后更新**: 2026-04-07 · 基于 `core-draw/board-type-experiments-designed-levels` 分支
+> **最后更新**: 2026-04-16 · v2 + 烹饪系统接入分支 + 簇 / setup / 3-选-1 合并
+> 玩法规则见 `game_rules.md`，进度状态见 `gameplay_progress.md`，设定见 `setting-current-state.md`。
 >
-> ⚠️ **STALENESS WARNING（2026-04-16）**：本文档自 2026-04-07 起未同步，期间核心代码经历了多轮重构。**不要把本文档当作可信参考使用** —— 优先看源代码或 `game_rules.md` / `gameplay_progress.md`。已知主要失真：
->
-> - **簇（Cluster）系统**：完全未提及。`src/utils/matrixHelpers.js` 新增 `getClusterMembers()`；`useGameLogic` 的抽取处理（`completeDrawAnim`）按整簇消除并按加性公式产出；`ResourceMatrix` 增加桥接矩形 + hover 高亮
-> - **开局组建（Setup）**：完全未提及。新 phase `setup`，`useGameLogic` 增 `dishIntroPending` / `currentDish` / `dismissDishIntro` + 一个驱动 setup → drawing 的 useEffect；`GameCore` 渲染 setup 中央菜品卡 + slot preview，`BulletinBoard` 加 `setupMode` prop
-> - **奖品墙 3 选 1 + 揭晓**：picker（`WallPicker.jsx`）回归且隐藏 modifier；新 phase `wall_choice` / `wall_reveal`；`useGameLogic` 增 `wallCandidates` / `pendingWallCandidate` / `selectWall` / `confirmWallReveal`；`finalizeProceduralCandidate` helper 把 modifier 改格逻辑前移到候选生成阶段
-> - **订单系统重构**：`incomingOrder` 单槽 → `incomingQueue` FIFO 数组；`addBulletinOrder` push、confirm/discard/replace shift；`triggerRefresh` 不再因存在 picker 而阻塞；REFRESH_CONFIG initial 0 / max 5；订单格 +1 刷新次数（不再直接生成订单）
-> - **食材与厨房**：`v2Config.js` 中 `OUT_OF_GAME_ITEMS` 已被 `INGREDIENTS` 替换（rarity 1-4 + tags）；新 `DISHES` 数组 + `Kitchen.jsx` 的 slot 匹配 / scoreDish / SlotPreview；GameCore 增厨房模态框、合成模式
-> - **贴纸**：STICKER_TYPES 8 → 20
-> - **modifier**：阴阳轮转移除，当前 9 种；新增 modifier shuffle bag（`pickWallType` 模块级 bag）
-> - **厄运格回归随机墙**：`matrixHelpers.fillDoomAndSpecials` 重新启用 doom_resolution / doom_upgrade 生成（5%/5% 每格）
-> - **其他视觉/UX**：RoundTransition 用作 dish intro + wall reveal；ResourceMatrix 厄运升级红底；簇桥接 + hover ring + 飞行 ×N 角标
->
-> 计划在某次合适时机重写本文。在那之前，本文以下内容仅作为"老版本架构参考"。
+> **合并队友 97c29f81 之后的新增**（本文以下小节尚未全部反映这些更新，详见 `game_rules.md` v2.5 小节）：
+> - **Cluster 系统**：`src/utils/matrixHelpers.js::getClusterMembers()`；`useGameLogic.completeDrawAnim` 按整簇消除，按 `1 + Σ(multiplier-1) + Σ buff_邻接` 公式产出；`ResourceMatrix.jsx` 加桥接矩形 + hover 高亮 + 飞行 ×N 角标
+> - **开局 Setup**：新 phase `setup`；`useGameLogic` 新增 `dishIntroPending` / `currentDish` / `dismissDishIntro` + 驱动 setup → drawing 的 useEffect；5 次二选一填充货架（`SETUP_CONFIG.pickCount`）
+> - **3-选-1 隐藏 modifier + 揭晓**：`WallPicker.jsx` 隐藏 modifier/level 信息；新 phase `wall_choice` / `wall_reveal`；`useGameLogic` 新增 `wallCandidates` / `pendingWallCandidate` / `selectWall` / `confirmWallReveal`；`finalizeProceduralCandidate` 把 modifier 改格前移到候选生成阶段
+> - **订单队列重建**：`incomingOrder` 单槽 → `incomingQueue` FIFO 数组；`REFRESH_CONFIG.initialCharges` 0（曾是 3），`maxCharges` 5；订单格 +1 刷新次数（不再直接生成订单）；货架顶 🔄 手动刷新按钮
+> - **Modifier 扩展**：WALL_TYPES 9 种（移除阴阳轮转）；shuffle bag 选取（`pickWallType` 模块级 `_modifierBag`）；`MATRIX_CONFIG.doomCells.resolution/upgrade.spawnChance` 启用到 5%/5% 每格（厄运格回归随机墙）
+> - **UI 组件**：`DishCard.jsx`（右侧边栏 + setup 中央展示，读 rules[]）；`SpritePreview.jsx` 动画预览；Kitchen 增 `isRestaurantPhase` prop；SlotPreview 删除
 
 ---
 
@@ -25,18 +20,15 @@
 1. [技术栈与构建](#1-技术栈与构建)
 2. [目录结构](#2-目录结构)
 3. [数据流总览](#3-数据流总览)
-4. [配置层：constants.js](#4-配置层constantsjs)
-5. [纯工具函数：helpers.js](#5-纯工具函数helpersjs)
-6. [核心状态：useGameLogic.js](#6-核心状态usegamelogicjs)
-7. [顶层组件：App.jsx](#7-顶层组件appjsx)
-8. [布局渲染层：GameCore.jsx](#8-布局渲染层gamecorejsx)
-9. [游戏组件详解](#9-游戏组件详解)
-10. [UI 基础组件](#10-ui-基础组件)
-11. [国际化系统](#11-国际化系统)
-12. [关键算法与流程](#12-关键算法与流程)
-13. [状态交互矩阵](#13-状态交互矩阵)
-14. [已知设计债务与休眠系统](#14-已知设计债务与休眠系统)
-15. [修改指南](#15-修改指南)
+4. [配置层：v2Config.js（活跃）](#4-配置层v2configjs活跃)
+5. [其它配置文件](#5-其它配置文件)
+6. [核心 Hook：useGameLogic.js](#6-核心-hookusegamelogicjs)
+7. [布局层：App.jsx & GameCore.jsx](#7-布局层appjsx--gamecorejsx)
+8. [游戏组件清单](#8-游戏组件清单)
+9. [关键算法](#9-关键算法)
+10. [国际化](#10-国际化)
+11. [冷冻系统（v1 遗留）](#11-冷冻系统v1-遗留)
+12. [修改指南](#12-修改指南)
 
 ---
 
@@ -45,94 +37,89 @@
 | 技术 | 版本 | 用途 |
 |------|------|------|
 | React | 18.3 | UI 框架 |
-| Vite | 6.x | 构建工具 + HMR 开发服务器 |
-| Tailwind CSS | 3.x | 原子化样式 |
-| Lucide React | 0.469 | 图标库 |
+| Vite | 6.x | 构建 + HMR |
+| Tailwind CSS | 3.x | 样式 |
+| Lucide React | 0.469 | 图标 |
 | ESLint | 9.x | 代码检查 |
 
-### 构建配置
-
-**`vite.config.js`**: 唯一自定义项是 `base: '/3pools_Web/'`，用于 GitHub Pages 部署路径。
-
-**`tailwind.config.js`**: 扫描 `index.html` 和 `src/**/*.{js,ts,jsx,tsx}`，无自定义 theme 扩展。
-
-**`postcss.config.js`**: 标准 Tailwind + Autoprefixer 管道。
-
-### 命令
+部署路径：`base: '/3pools_Web/'`（GitHub Pages）。
 
 ```bash
-npm run dev       # 启动 Vite 开发服务器 http://localhost:5173/3pools_Web/
-npm run build     # 生产构建到 dist/
-npm run preview   # 预览生产构建
-npm run lint      # ESLint 检查
+npm run dev       # http://localhost:5173/3pools_Web/
+npm run build     # → dist/
+npm run preview
+npm run lint
 ```
 
-**无测试套件。**
+无测试套件。
 
 ---
 
 ## 2. 目录结构
 
 ```
-3pools_Web/
-├── index.html                     ← SPA 入口，挂载 #root
-├── vite.config.js
-├── tailwind.config.js
-├── postcss.config.js
-├── package.json
-│
+1.2Antigravity_attempt/
+├── assets/                          ← 美术资源（sprite sheet 等）
+│   └── chef_backhome.png
 ├── src/
-│   ├── main.jsx                   ← ReactDOM 渲染入口（BrowserRouter）
-│   ├── App.jsx                    ← 路由配置（/ → 游戏, /editor → 编辑器, /levels → 关卡管理）
-│   ├── GameCore.jsx               ← 游戏布局 + 组件编排
-│   ├── index.css                  ← Tailwind 指令 + 动画（重力下落、子关卡入场/退场）
+│   ├── main.jsx                     ← React 渲染入口
+│   ├── App.jsx                      ← 顶层路由（Prologue ↔ GameCore）
+│   ├── GameCore.jsx                 ← 主游戏布局 + 模态调度
+│   ├── index.css                    ← Tailwind 指令 + 自定义动画
 │   │
 │   ├── data/
-│   │   ├── constants.js           ← 游戏配置数据 (~20KB)
-│   │   ├── v2Config.js            ← v2 贴纸/订单/墙类型/远征配置
-│   │   ├── matrixConfig.js        ← 4×4 网格生成参数（特殊格生成概率、膨化格定义）
-│   │   ├── levelTemplates.js      ← 关卡系统：CELL_TYPES、glob 导入关卡、pickTemplate()、role helpers
-│   │   ├── levelSchedule.json     ← 关卡调度配置（权重、启用、最低探险、proceduralWeight）
-│   │   └── levels/                ← 关卡 JSON 文件（自动导入，编辑器保存至此）
-│   │       ├── bomb_cross.json, gravity.json, the_city.json, ...
-│   │       └── （含 name_en/description_en 本地化字段）
+│   │   ├── v2Config.js              ★ 活跃数据：贴纸/食材/订单/墙/菜品
+│   │   ├── constants.js             ◯ 冷冻：v1 阶段/技能/词缀/工具/池/品质
+│   │   └── matrixConfig.js          ★ 4×4 网格生成参数
 │   │
 │   ├── hooks/
-│   │   └── useGameLogic.js        ← 游戏全部状态与逻辑
+│   │   └── useGameLogic.js          ★ 全局游戏状态 + 业务逻辑（~2000 行）
 │   │
 │   ├── utils/
-│   │   ├── helpers.js             ← 纯函数工具
-│   │   ├── matrixHelpers.js       ← 墙生成（fillDoomAndSpecials, fillEmptyCellsWithStickers）
-│   │   ├── templateGenerator.js   ← 关卡解析（generateWallFromTemplate、entrance/gravity/heal 等）
-│   │   ├── translations.js        ← 英文翻译映射
+│   │   ├── helpers.js               v1 遗留纯函数（部分活跃）
+│   │   ├── matrixHelpers.js         ★ 墙生成、贴纸选择、UID
+│   │   └── translations.js          中英映射
 │   │
 │   ├── contexts/
-│   │   └── LanguageContext.jsx     ← 语言切换 Context + t() 翻译函数
+│   │   └── LanguageContext.jsx      i18n Provider
 │   │
 │   └── components/
-│       ├── ErrorBoundary.jsx       ← 错误边界（类组件）
-│       ├── game/
-│       │   ├── ResourceMatrix.jsx  ← 4×4 奖品墙渲染（含 modifier 动画与膨化格光环）
-│       │   ├── WallPicker.jsx      ← 3 选 1 墙选择界面
-│       │   ├── InventorySlot.jsx   ← 背包格子
-│       │   ├── OrderCard.jsx       ← 订单卡片
-│       │   ├── BulletinBoard.jsx   ← 公告牌
-│       │   ├── ActiveOrders.jsx    ← 已接订单
-│       │   ├── ScoreBoard.jsx      ← 分数面板
-│       │   └── ...
-│       ├── editor/
-│       │   ├── LevelEditor.jsx     ← 关卡编辑器页面（画板 + 设置 + 保存）
-│       │   ├── LevelManager.jsx    ← 关卡管理页面（浏览 + 权重配置）
-│       │   ├── GridPainter.jsx     ← 可交互 4×4 编辑网格（画笔模式）
-│       │   ├── CellPalette.jsx     ← 格子类型画笔选择器
-│       │   └── TemplatePreview.jsx ← 关卡缩略图预览
-│       └── ui/
-│           ├── ConfirmDialog.jsx   ← 通用确认对话框
-│           └── Toast.jsx           ← 浮动提示
+│       ├── ErrorBoundary.jsx
+│       ├── ui/
+│       │   ├── Tooltip.jsx
+│       │   ├── Toast.jsx
+│       │   └── ConfirmDialog.jsx
+│       └── game/
+│           ├── Prologue.jsx              入场介绍
+│           ├── ResourceMatrix.jsx        奖品墙渲染 + 抽取交互
+│           ├── WallPicker.jsx            3 选 1 候选墙
+│           ├── BulletinBoard.jsx         订单货架
+│           ├── ActiveOrders.jsx          已废弃（v2 中 BulletinBoard 直接管理）
+│           ├── ScoreBoard.jsx            分数显示
+│           ├── InventorySlot.jsx         背包格子
+│           ├── OrderCard.jsx             订单卡片
+│           ├── DishCard.jsx              菜品卡片
+│           ├── Kitchen.jsx               局外烹饪结算
+│           ├── DispatchJudgment.jsx      五维派遣判定（独立工具）
+│           ├── AICooking.jsx             AI 辅助菜品测试
+│           ├── SpritePreview.jsx         sprite sheet 预览工具
+│           ├── ShapeSelector.jsx         形状选择器（v1 遗留）
+│           ├── ActiveShapeDisplay.jsx    形状显示（v1 遗留）
+│           ├── ActionCards.jsx           动作卡片
+│           ├── PoolCard.jsx              v1 奖池卡片（冷冻）
+│           └── SkillSelectionModal.jsx   v1 技能选择（冷冻）
 │
-└── design_docs/
-    ├── game_rules.md               ← 完整游戏规则文档
-    └── codebase_technical_reference.md ← 本文档
+├── design_docs/
+│   ├── game_rules.md
+│   ├── gameplay_progress.md
+│   ├── codebase_technical_reference.md  ← 本文档
+│   ├── setting-current-state.md
+│   ├── setting-evolution-log.md
+│   └── reference/                       会话与分析归档
+│
+└── .claude/
+    ├── CLAUDE.md                        协作指令
+    └── lessons/                         经验沉淀
 ```
 
 ---
@@ -140,993 +127,375 @@ npm run lint      # ESLint 检查
 ## 3. 数据流总览
 
 ```
-INITIAL_GAME_CONFIG (constants.js)
-        │
-        ▼
-   App.jsx ─── config state (可通过设置 UI 修改)
-        │
-        ├── gameId (重置用 key)
-        ├── initialSkills (调试预设)
-        ├── debugAddItem (脉冲触发)
-        │
-        ▼
-   GameCore.jsx ─── 接收 config，调用 useGameLogic(config, ...)
-        │
-        ▼
-   useGameLogic(config, initialSkills, onReset, initialScore)
-        │
-        ├── 内部使用 helpers.js 的纯函数
-        ├── 返回 { state, actions, helpers }
-        │
-        ▼
-   GameCore.jsx ─── 解构 state/actions/helpers，传给子组件
-        │
-        ├── PoolCard ← 奖池展示 + 抽卡入口
-        ├── OrderCard ← 订单展示 + 提交入口
-        ├── InventorySlot ← 背包格子交互
-        ├── SkillSelectionModal ← 技能选择
+v2Config.js (静态数据：STICKER_TYPES, INGREDIENTS, DISHES, ORDER_TEMPLATES, WALL_TYPES, ...)
+   │
+   ▼
+matrixHelpers.js (generateWall, pickWallStickers — 纯函数)
+   │
+   ▼
+useGameLogic.js (全部 React state + 业务逻辑 + actions)
+   │
+   ▼
+GameCore.jsx (布局 + state 解构传递 + 模态调度)
+   │
+   ▼
+组件层 (ResourceMatrix / BulletinBoard / Kitchen / DispatchJudgment / ...)
 ```
 
 ### 核心原则
 
-1. **单向数据流**：Config → App → GameCore → useGameLogic → 子组件。
-2. **单一状态源**：所有游戏状态集中在 `useGameLogic` 中，组件不持有游戏逻辑状态。
-3. **配置驱动**：数值、物品、词缀、技能等全部由 `INITIAL_GAME_CONFIG` 定义，修改平衡时编辑 `constants.js`。
+1. **单向数据流**：数据 → useGameLogic → GameCore → 子组件
+2. **单一状态源**：所有游戏状态集中在 `useGameLogic`，组件不持有游戏逻辑状态
+3. **配置驱动**：要改平衡数值，改 `v2Config.js` 或 `matrixConfig.js`
+4. **i18n**：中文是源语言，UI 文本用 `t()` 包裹，英文翻译加到 `translations.js`
 
 ---
 
-## 4. 配置层：constants.js
+## 4. 配置层：v2Config.js（活跃）
 
-此文件导出所有游戏数据。以下列出每个导出的结构和用途。
+文件位置：`src/data/v2Config.js`。所有 v2 静态数据集中在此。
 
-### 4.1 `INITIAL_STAGE_CONFIG`（4 个阶段）
+### 4.1 STICKER_TYPES — 贴纸（20 种）
+```js
+{ id, icon, name }
+```
+20 种主题贴纸（山/海/田/林/空/岛/沙/雪/火/电/星/月/花/风/雨/日/河/岩/虹/晶）。
 
+### 4.2 INGREDIENTS — 食材（60+ 种）
+```js
+{ id, icon, name, nameEn, rarity: 1-4, tags: [大类, 小类] }
+```
+按"大类·小类"分组（肉类·鸡/牛/猪/羊；海鲜·鱼/虾/贝/蟹；蔬菜·青菜/根茎/水果/菌菇；主食·米/面/豆/面包）。每个小类下 4 个不同稀有度。
+
+### 4.3 DISHES — 菜品定义
+```js
+{
+  id, name, nameEn, icon,
+  baseline: <基础分>,
+  slots: [
+    {
+      name: '主料',
+      required: true,
+      rules: [
+        { match: { tag: '肉类' }, multiplier: 1 },
+        { match: { tag: '牛' }, multiplier: 2 }
+      ],
+      defaultMultiplier: 0.5,
+      crossBonus?: { requireSlot, requireTag, multiplier }  // 可选跨槽加成
+    },
+    ...
+  ]
+}
+```
+
+### 4.4 ORDER_TEMPLATES — 订单模板（4 种）
 ```js
 [
-  { // Stage 0: 普通模式
-    inventorySize: 10, orderSlots: 3, poolSize: 4, allowedPoolCount: 5,
-    initialGold: 20,
-    mechanics: { refresh: true, affixes: true, synthesis: true, variablePrice: true },
-    rarityWeights: { common: 0.37, uncommon: 0.3, rare: 0.2, epic: 0.1, legendary: 0.03, mythic: 0 },
-    orderRarityWeights: { common: 0.4, uncommon: 0.35, rare: 0.2, epic: 0.05 },
-    orderCountWeights: { 2: 20, 3: 65, 4: 15 },
-    baseRewards: { 2: 15, 3: 15, 4: 15 }
-  },
-  { /* Stage 1: 波动模式 - mechanics 增加 volatility: true */ },
-  { /* Stage 2: 专业化 - inventorySize: 20, specialization: true */ },
-  { /* Stage 3: 熵增 - entropyDecayValue: 25, entropy: true */ }
+  { id: 'a', difficulty: 'easy',    rewardTiers: [1], totalStickers: 2, stickerTypes: 1, weight: 40 },
+  { id: 'b', difficulty: 'medium',  rewardTiers: [2], totalStickers: 3, stickerTypes: 2, weight: 30 },
+  { id: 'c', difficulty: 'hard',    rewardTiers: [3], totalStickers: 4, stickerTypes: 3, weight: 20 },
+  { id: 'd', difficulty: 'extreme', rewardTiers: [4], totalStickers: 6, stickerTypes: 4, weight: 10 },
 ]
 ```
 
-> **重要**：当前 `useGameLogic` 硬编码使用 `config.stages[0]`，阶段切换系统尚未启用。
-
-### 4.2 `SKILL_DEFINITIONS`（13 个技能）
-
-每个技能对象：`{ id, name, desc, Icon, type, color }`
-
-| id | 名称 | 简述 |
-|----|------|------|
-| `poverty_relief` | 贫困救济 | 金币<20 完成订单 +5 金币 |
-| `lucky_7` | 幸运7 | 金币尾数7或7倍数时传说概率×2 |
-| `alchemy` | 炼金术 | 回收 Rare+ 25% 概率 +5 金币 |
-| `vip_discount` | 贵宾折扣 | precise/targeted 费用 -1 |
-| `negotiator` | 谈判专家 | 抽到 Epic+ 时订单刷新次数 +1 |
-| `consolation_prize` | 安慰奖 | 连续5次 Common 后保底 Rare+ |
-| `cut_corners` | 偷工减料 | 20% 概率订单需求数 -1 |
-| `time_freeze` | 时间冻结 | 20% 概率刷新不消耗次数 |
-| `ocd` | 强迫症 | 同池物品提交乘数 ×2 |
-| `auto_restock` | 自动补货 | 完成订单后下次抽卡多1个物品 |
-| `turn_fortune` | 时来运转 | 完成订单后下次抽卡保底 Rare+ |
-| `big_order_expert` | 大订单专家 | 4需求订单完成 +5 金币 |
-| `hard_order_expert` | 困难订单专家 | 含 Epic+ 需求订单完成 +10 金币 |
-
-Icon 字段引用 `lucide-react` 组件。技能效果在 `useGameLogic` 中通过 `hasSkill(id)` 检查后以条件分支实现。
-
-### 4.3 `TOOL_ITEMS`（3 种工具物品）
-
-| id | 名称 | 图标 | effectType | 行为 |
-|----|------|------|------------|------|
-| `tool_reforge` | 命运熔炉 | 🔥 | `reforge_left` | 右键→选目标→随机重置品质 |
-| `tool_transmute` | 万象棱镜 | 🔮 | `transmute_left` | 右键→选目标→变同池其他物品 |
-| `tool_enhance` | 星辉祝福 | ✨ | `enhance_next` | 右键→直接激活→下次抽卡品质+1 |
-
-### 4.4 `TOOL_ITEM_CONFIG`
-
+### 4.5 WALL_TYPES — 墙类型（5 种）
 ```js
-{ dropChance: 0.2, weights: { each: 1 },
-  reforgeRarityWeights: { common:0.4, uncommon:0.3, rare:0.2, epic:0.08, legendary:0.02, mythic:0 } }
+{ id, name, icon, desc, weight, [extras: hiddenRatio | multiplierRatio] }
+```
+基础/神秘面纱/乾坤大挪移/双倍惊喜/交叉问答。⚠️ 当前仅类型选择生效，行为差异未实装。
+
+### 4.6 ORDER_CONFIG
+```js
+{ bulletinCapacity: 5, maxActive: 3, newPerTurn: 1, initialCount: 4 }
 ```
 
-### 4.5 `INITIAL_AFFIXES_CONFIG`（7 种词缀）
-
-| id | 名称 | 类型 | cost | 特殊权重 |
-|----|------|------|------|----------|
-| `trade_in` | 以旧换新的 | interaction | 1 | — |
-| `hardened` | 硬化的 | passive | 2 | uncommon:0.2, rare:0.7, epic:0.09, legendary:0.01 |
-| `purified` | 提纯的 | passive | 3 | rare:0.67, epic:0.3, legendary:0.03 |
-| `volatile` | 波动的 | passive | 1 | — (逻辑约束只出 common/legendary) |
-| `fragmented` | 稀碎的 | passive | 1 | — (逻辑约束全 common) |
-| `precise` | 精准的 | interaction | 2 | — |
-| `targeted` | 有的放矢的 | interaction | 4 | — |
-
-每个词缀对象还包含 `name`、`desc`、`weight`（用于随机选取）等字段。
-
-### 4.6 `INITIAL_RARITY_CONFIG`（6 级品质）
-
-| id | name | bonus | recycleValue | color (Tailwind) |
-|----|------|-------|-------------|-----------------|
-| `common` | 普通 | 0 | 0 | gray-400 |
-| `uncommon` | 优秀 | 0.1 | 0 | green-400 |
-| `rare` | 稀有 | 0.25 | 1 | blue-400 |
-| `epic` | 史诗 | 0.5 | 2 | purple-400 |
-| `legendary` | 传说 | 1.0 | 4 | orange-400 |
-| `mythic` | 神话 | 2.0 | 10 | red-400 |
-
-> 注意：`constants.js` 默认值可能被 JSON 配置覆盖（通过 App.jsx 的导入功能）。`game_rules.md` 中的数值以 JSON 配置为准。
-
-### 4.7 `INITIAL_POOLS_DATA`（5 个物品池）
-
-| poolId | 池名 | 图标 | 物品 (4个) |
-|--------|------|------|-----------|
-| `fruit` | 水果 | 🍎 | 西瓜🍉 柠檬🍋 芒果🥭 苹果🍎 |
-| `medicine` | 药物 | 💊 | 冲剂🍵 滴眼液💧 注射器💉 胶囊💊 |
-| `stationery` | 文具 | ✏️ | 铅笔✏️ 橡皮🧼 订书机📎 笔记本📒 |
-| `kitchenware` | 厨具 | 🍳 | 平底锅🍳 菜刀🔪 砧板🪵 汤勺🥄 |
-| `electronics` | 电器 | ⚡️ | 手机📱 耳机🎧 空调❄️ 电脑💻 |
-
-### 4.8 `EMERGENCY_ORDER_CONFIG`（撤离订单配置）
-
+### 4.7 EXPEDITION_CONFIG
 ```js
-{
-  difficulty: { initial: 1, increaseOnNewOrder: 1, decreaseOnScoreOrder: 0, min: 1, max: 4 },
-  reqCountMin: 1, reqCountMax: 4,
-  baseRarityWeights: { ... },
-  difficultyReqCountWeights: { 1-10: { 2-4: weight } },
-  difficultyRarityWeights: { 1-10: { rarities } },
-  difficultyRequirements: { 1: [{uncommon,1},{rare,1}], 2: [{rare,1},{rare,1}], 3: [{rare,1},{epic,1}], 4: [{epic,1},{epic,1}] }
-}
+{ expeditionCount: 3, scoreToWin: 30 }
 ```
 
-> 撤离订单没有时限和生命值系统。胜负由"金币耗尽前能否完成撤离订单"决定。
-
-### 4.9 `SCORE_PROGRESS_CONFIG`
-
+### 4.8 WALL_STICKER_COUNT
 ```js
-{ targetProgress: null, progressOffset: 0,
-  rarityWeights: { common:2, uncommon:2.5, rare:4, epic:8, legendary:16, mythic:32 } }
-```
-
-### 4.10 `INITIAL_GAME_CONFIG`（总配置对象）
-
-将以上所有配置聚合：
-
-```js
-{
-  affixes: INITIAL_AFFIXES_CONFIG,
-  rarity: INITIAL_RARITY_CONFIG,
-  pools: INITIAL_POOLS_DATA,
-  stages: INITIAL_STAGE_CONFIG,
-  progress: SCORE_PROGRESS_CONFIG,
-  emergency: EMERGENCY_ORDER_CONFIG,
-  toolItems: TOOL_ITEM_CONFIG,
-  enabledSkillIds: [/* 全部13个技能ID */],
-  global: { refreshCost: 5, initialGold: 30, initialRefreshCount: 3, maxRefreshCount: 3 }
-}
+{ min: 3, max: 3 }  // 每面墙固定 3 种贴纸
 ```
 
 ---
 
-## 5. 纯工具函数：helpers.js
+## 5. 其它配置文件
 
-所有函数为纯函数，不依赖 React，不持有状态。
+### `data/matrixConfig.js`
+4×4 网格生成参数：
+```js
+{
+  gridSize: 4,
+  doomCells: { resolution: {...}, upgrade: {...} },
+  specialCells: {
+    gold:      { spawnChance: 0.06, goldRange: [1, 2], ... },
+    order:     { spawnChance: 0.04, ... },
+    outOfGame: { spawnChance: 0.02, ... },
+    bomb:      { spawnChance: 0.04, ... }
+  },
+  itemShapes: { weights: {1:40, 2:30, 3:20, 4:10}, shapes: { 1:[...], 2:[...], ... } }
+}
+```
 
-### `getAllNormalItems(pools, currentStageConfig) → Item[]`
+### `data/constants.js`
+**冷冻**：v1 阶段/技能/词缀/工具/池/品质等定义，v2 主流程不调用。详见 §11。
 
-根据 `allowedPoolCount`（限制池子数量）和 `poolSize`（限制每池物品数）从 `pools` 中取出扁平物品列表。每个物品附加 `poolId` 和 `poolName`。
-
-### `getRandomAffix(affixes) → Affix`
-
-按 `weight` 字段加权随机选取一个词缀。
-
-### `getRandomItems(array, count) → Item[]`
-
-Fisher-Yates 洗牌后取前 `count` 个。
-
-### `rollRequirementRarity(config, stageConfig, isEmergency, difficulty) → RarityId`
-
-确定订单需求的品质：
-- 撤离订单：先查 `difficultyRarityWeights[difficulty]`，fallback 到 `baseRarityWeights`，再 fallback 到 `stageConfig.orderRarityWeights`
-- 普通订单：使用 `stageConfig.orderRarityWeights`
-- 累积概率法随机选取
-
-### `generateOrder(allItems, config, hasSkill, stageConfig, isEmergency, difficulty) → Order`
-
-完整订单生成流程：
-1. 检查 `difficultyRequirements[difficulty]` 是否存在精确模式（固定品质列表）
-2. 否则随机模式：按权重选需求数量 → 为每个需求选物品 + 品质
-3. 撤离订单强制不同池子（`getUniquePoolItems` 辅助函数）
-4. `cut_corners` 技能：20% 概率减少1个需求
-5. 计算 `baseScoreReward = max(1, floor(Σ rarityWeights + offset))`
-6. 返回 `{ id, requirements, baseScoreReward, isScoreOrder }`
-
-### `rollRarity(config, affixKey, gold, hasSkill, skillState, stageConfig) → Rarity`
-
-抽卡品质判定核心：
-1. 根据词缀确定 `allowedRarityIds`（volatile → [common, legendary]，fragmented → [common] 等）
-2. 优先使用词缀自定义权重，否则使用阶段权重
-3. `lucky_7` 技能：`gold % 10 === 7` 时传说权重 ×2
-4. `nextDrawGuaranteedRare`：从允许的 Rare+ 中随机选
-5. 累积概率随机选取
-6. Fallback → common
-
-### `getNextRarity(currentRarityId, config) → Rarity | null`
-
-返回比当前品质高一级的品质对象，mythic 返回 null。
+### `utils/matrixHelpers.js`
+- `generateUID()` — 不依赖 `crypto.randomUUID`，兼容 file:// 加载
+- `pickWallStickers(allStickers, min=3, max=3)` — 从 STICKER_TYPES 随机选种类
+- `generateWall(wallStickers)` — 三阶段填充：厄运 → 特殊格 → 贴纸（polyomino）
+  - Phase 1: Box-Muller 正态分布生成厄运格总数（均值 5，标准差 1.5）
+  - Phase 2: 累积概率法判定金币/订单/食材/炸弹
+  - Phase 3: 剩余空格按形状权重 (1:40, 2:30, 3:20, 4:10) 放贴纸
+  - 食材格按稀有度 40/30/20/10 加权
 
 ---
 
-## 6. 核心状态：useGameLogic.js
+## 6. 核心 Hook：useGameLogic.js
 
-**签名**: `useGameLogic(config, initialSkills, onReset, initialScore)`
+**位置**：`src/hooks/useGameLogic.js`，约 2000 行。
 
-**返回**: `{ state, actions, helpers }` — GameCore 解构后分发给子组件。
+**签名**：`useGameLogic(config)`，返回扁平状态对象（直接解构使用）。
 
-此 hook 约 2200 行，是整个游戏的"大脑"。以下逐一说明。
+### 6.1 主要 state 变量
 
-### 6.1 State 变量
-
-#### 核心游戏数值
+#### Day / 大局
 | 变量 | 类型 | 说明 |
 |------|------|------|
-| `score` | number | 当前积分 |
-| `gold` | number | 当前金币 |
-| `drawCount` | number | 累计抽卡次数 |
-| `emergencyDifficulty` | number | 当前撤离订单难度 |
-| `orderRefreshCount` | number | 剩余订单刷新次数 |
-| `REFRESH_MAX` | number | 最大刷新次数（来自 config） |
+| `dayNumber` | number | 当前天数 |
+| `expeditionNumber` | alias | = `dayNumber`（v1 字段保留兼容） |
+| `expeditionScores` | array | 各天得分记录 |
+| `totalScore` | number | 累计总分 |
+| `bonusItems` | array | 开局随机 3 个加分食材（+1/+2/+3） |
+| `popularity` | number | 人气值（设计中） |
+| `lastCookResult` | object \| null | 上次做菜结算结果，用于结算屏 |
 
-#### 配置衍生
+#### 回合
 | 变量 | 类型 | 说明 |
 |------|------|------|
-| `currentStageConfig` | object | 始终为 `config.stages[0]` |
-| `maxInventorySize` | number | `currentStageConfig.inventorySize` |
+| `turnNumber` | number | 当前天内回合数 |
+| `gold` | number | 当前金币（v2 中使用范围有限） |
+| `phase` | string | `pre_game` / `wall_choice` / `drawing` / `between_turns` / `restaurant` / `cook_result` / `game_over` |
 
-#### 集合状态
-| 变量 | 类型 | 说明 |
-|------|------|------|
-| `activePools` | Pool[3] | 当前3个活跃奖池（含词缀） |
-| `orders` | Order[3] | 普通订单数组 |
-| `emergencyOrders` | Order[2] | 撤离订单数组 |
-| `inventory` | (Item\|null)[] | 背包数组（null 为空格） |
-| `skills` | string[] | 已拥有技能 ID（最多3个） |
-
-#### 交互状态
-| 变量 | 类型 | 说明 |
-|------|------|------|
-| `pendingItem` | Item\|null | 等待放置的物品 |
-| `pendingQueue` | Item[] | 待处理物品队列 |
-| `selectedSlot` | number\|null | 选中的背包格子索引 |
-| `selectedIndices` | number[] | 多选模式选中的格子索引 |
-| `isSubmitMode` | boolean | 提交模式 |
-| `isRecycleMode` | boolean | 回收模式 |
-| `isEvacuationMode` | boolean | 撤离模式 |
-| `selectionMode` | object\|null | 交互词缀选择模式 `{ type, pool, items, cost }` |
-| `toolSelectionMode` | object\|null | 工具物品使用模式 `{ toolIndex, effectType }` |
-| `orderSlotAssignments` | object | 订单槽位分配映射 `{ "orderIdx-reqIdx": itemUid }` |
-| `orderCandidates` | object\|null | 当前候选订单 `{ slotIndex, candidates[] }` |
-| `orderCandidateQueue` | object[] | 候选订单队列 |
-| `modalContent` | object\|null | 模态框数据 |
-| `skillSelectionCandidates` | Skill[]\|null | 技能选择候选列表 |
-| `toast` | object\|null | 浮动提示数据 |
-
-#### 悬停状态（UI高亮用）
+#### 网格 & 抽取
 | 变量 | 说明 |
 |------|------|
-| `hoveredPoolId` | 鼠标悬停的池子 ID |
-| `hoveredItemName` | 鼠标悬停的物品名称 |
-| `hoveredSlotIndex` | 鼠标悬停的背包格子索引 |
-| `hoveredPoolItemNames` | 鼠标悬停池子的物品名称列表 |
+| `matrix` | 当前奖品墙 |
+| `wallCandidates` | 3 选 1 候选墙 |
+| `currentWallType` | 当前墙类型对象 |
+| `lastDrawDirection` / `lastDrawResult` | 抽取动画与反馈 |
+| `drawAnimState` | 扫描动画状态机 |
 
-#### 技能状态追踪
-```js
-skillState = {
-  consecutiveCommons: 0,     // 连续抽到 Common 计数（安慰奖技能）
-  nextDrawGuaranteedRare: false, // 下次抽卡保底 Rare+
-  nextDrawExtraItem: false,   // 下次抽卡额外获得1个物品
-  nextDrawEnhanced: false     // 下次抽卡品质提升1级
-}
-```
+#### 厄运
+| 变量 | 说明 |
+|------|------|
+| `hp` | 生命值 |
+| `doomGrid` | 10 格厄运网格状态 |
+| `doomLevel` | 当前厄运等级 |
+| `dangerCount` | 危险格数量 |
+| `doomAnimState` / `isDoomResolving` / `doomResolutionResult` | 结算动画与结果 |
 
-### 6.2 Memoized 衍生数据
+#### 背包
+| 变量 | 说明 |
+|------|------|
+| `inventory` | 背包数组 |
+| `maxInventorySize` | 容量（15） |
+| `pendingItem` / `pendingItems` | 待处理队列 |
+| `flyingItem` | 飞入动画临时态 |
 
-| 名称 | 依赖 | 说明 |
-|------|------|------|
-| `allNormalItems` | `config.pools`, `currentStageConfig` | 所有可用物品扁平列表 |
-| `maxRequirementRarityMap` | `orders`, `emergencyOrders`, `config.rarity` | 物品名→所有订单中该物品最高需求品质的 bonus |
-| `assignedItemUids` | `orderSlotAssignments` | 已分配物品 UID 集合 |
-| `phantomMarks` | `orders`, `emergencyOrders`, `orderSlotAssignments`, `inventory` | 交叉订单幻影标记：`{ "orderIdx-reqIdx": { orderIndex, reqIndex, itemUid }[] }` |
-| `satisfiableOrders` | `selectedIndices`, `inventory`, `orders`, `emergencyOrders` | 当前选中物品可满足的订单列表（仅在提交/撤离模式计算） |
-| `potentialSatisfiableOrders` | `inventory`, `orders`, `emergencyOrders` | 全背包物品可满足的订单（始终计算，用于预览） |
-| `totalRecycleValue` | `selectedIndices`, `inventory` | 回收模式下选中物品的总回收金币值 |
-| `selectedItemNames` | `selectedIndices`, `inventory` | 选中物品名称集合 |
+#### 订单（v2 货架）
+| 变量 | 说明 |
+|------|------|
+| `bulletinBoard` | 当前货架订单数组 |
+| `incomingOrder` | 当前 2 选 1 候选 |
+| `pendingAcceptOrder` | 货架满时的"替换哪一个"待定状态 |
 
-### 6.3 Effects（副作用）
+### 6.2 核心 actions
 
-1. **订单初始化**：组件挂载时填充 `orders` 至 `orderSlots` 个，初始化 2 个撤离订单。
-2. **奖池初始化**：`config` 变化时调用 `refreshPools(false)`。
-3. **待定队列处理**：`pendingItem` 为 null 且 `pendingQueue` 非空时，自动取出队首设为 `pendingItem`。
-4. **候选队列处理**：`orderCandidates` 为 null 且 `orderCandidateQueue` 非空时，自动取出队首设为当前候选。
+| 函数 | 用途 |
+|------|------|
+| `startGame()` | 开局，生成初始订单与 bonusItems |
+| `selectRow(idx)` / `selectColumn(idx)` | 行/列抽取 |
+| `endTurn()` / `continueToNextTurn()` | 回合结束 / 继续 |
+| `selectWall(idx)` | 3 选 1 选墙 |
+| `handleEvacuate()` | 撤离（进入 restaurant 阶段） |
+| `handleReset()` | 重置 |
+| `tickDoomResolution()` / `completeDoomResolution()` | 厄运结算动画驱动 |
+| `tickDrawAnim()` / `completeDrawAnim()` | 抽取扫描动画驱动 |
+| `acceptOrder(id)` / `submitOrder(id)` / `canSubmitOrder(id)` | 订单接取/提交/查询 |
+| `confirmIncomingOrder(order)` / `discardIncomingOrder()` | 处理候选订单 |
+| `replaceBulletinOrder(orderId)` | 货架满时替换 |
+| `replaceInventoryItem` / `discardInventoryItem` / `discardPendingItem` | 背包操作 |
+| `debugAddItem` / `debugAddStorageItems` | 调试工具 |
 
-### 6.4 核心函数详解
+### 6.3 内部辅助函数
 
-#### 奖池管理
-
-**`generateActivePools()`**
-1. 从 `config.pools` 中随机选 3 个不重复池子
-2. 为每个池子随机分配不重复词缀（`getRandomAffix`）
-3. 每个活跃池子对象 = `{ ...pool, affix, cost: affix.cost }`
-
-**`refreshPools(tick: boolean)`**
-- 调用 `generateActivePools()` 更新 `activePools`
-- `tick=true` 时应用熵增衰减（`applyEntropy`）
-
-**`applyEntropy(inv)`**
-- 遍历背包所有物品，`decay` 值 -1（仅在 entropy 机制启用时执行）
-
-#### 抽卡流程
-
-**`handleDraw(pool)`** — 抽卡入口：
-1. 守卫检查（非 submitMode、非 recycleMode、非 evacuationMode、非 selectionMode、非 toolSelectionMode、非 pendingItem）
-2. `vip_discount` 技能：precise/targeted 词缀费用 -1
-3. 金币不足 → toast 提示，return
-4. 交互词缀 → `setSelectionMode(...)` 进入交互流程，return
-5. 被动词缀 → 扣金币 → `handleNormalDraw(pool)`
-
-**`handleNormalDraw(pool)`** — 实际抽卡执行：
-1. `drawCount++`
-2. 根据词缀决定物品数和品质：
-   - `fragmented`：3 个 common 物品
-   - 其他：1 个随机品质物品
-3. `nextDrawExtraItem`（auto_restock 技能）→ 额外复制第一个物品
-4. `nextDrawEnhanced`（enhance 工具）→ 品质 +1（`getNextRarity`）
-5. 更新 `skillState`（连续 common 计数、安慰奖触发等）
-6. 对当前背包应用熵增衰减
-7. `tryDropToolItem(items)` → 20% 概率追加一个工具物品
-8. `handleIncomingItems(items, decayedInventory)`
-9. `refreshPools(true)`
-
-**`handleIncomingItems(newItems, overrideInventory)`**：
-1. 检查 `negotiator` 技能（Epic+ 物品 → 刷新次数 +1）
-2. 对每个新物品：
-   - 检查种类限制（specialization: 背包中唯一名称 ≥7 且新名称是新种类）
-   - 背包有空位 → 放入第一个 null 槽位
-   - 背包满 → 设为 `pendingItem`（或加入 `pendingQueue`）
-   - 超载 → 设为 `pendingItem`
-
-**`tryDropToolItem(items)`**：以 `dropChance`（0.2）概率调用 `rollToolItem` 并 push 到 items 数组。
-
-**`rollToolItem(config)`**：加权随机选择工具类型，创建工具物品实例（`isTool: true`, `sterile: true`）。
-
-#### 交互词缀处理
-
-**`handleSelectionSelect(selectedItem)`**：
-- `precise`/`targeted`：以选中物品创建 item，应用 enhancement，`handleIncomingItems`
-- 之后清除 `selectionMode`
-
-**`handleSelectionCancel()`**：
-- 退还金币（`targeted`/`precise`/`trade_in` 各自退还对应 cost）
-- 清除 `selectionMode`
-
-#### 背包交互
-
-**`handleSlotClick(index)`** — 最复杂的函数，约 200 行，根据当前模式分派：
-
-| 当前模式 | 点击目标 | 行为 |
-|----------|----------|------|
-| `toolSelectionMode` | 任意物品 | `reforge`: 重新 roll 品质；`transmute`: 变同池其他物品 |
-| `trade_in` selectionMode | 任意物品 | 消耗该物品，从对应池子生成新物品（同品质，5% 升级，不同名称） |
-| submit/recycle/evacuation | 任意物品 | 切换 `selectedIndices` 中该索引 |
-| `pendingItem` + 空格 | null | 放入 pendingItem |
-| `pendingItem` + 物品 | item | 可合成→合成；不可合成→替换（回收旧物品） |
-| `selectedSlot` + 空格 | null | 移动物品到空格 |
-| `selectedSlot` + 物品 | item | 可合成→合成；不可合成→交换位置 |
-| 无模式 + 物品 | item | 选中该格子 (`selectedSlot = index`) |
-| 无模式 + 空格 | null | 无操作 |
-
-**合成逻辑**：
-- 条件：同名、同品质、非 mythic、双方非 sterile、衰变非 0
-- 结果：消耗两个物品，生成一个品质 +1 的新物品
-
-**被分配物品的保护**：已分配到订单槽位的物品（`assignedItemUids` 包含其 uid）在大部分模式下不可交互（显示灰色+不透明），例外情况：trade_in、recycle mode、pendingItem 替换、selectedSlot 合成。
-
-#### 订单交互
-
-**`handleOrderClick(orderIndex)`**：
-- 若 `selectedSlot` 有值：自动分配物品到该订单匹配的需求槽位
-- 撤离订单（index ≥ 998）：自动从背包选择物品
-- 普通订单：自动进入 submit 模式，用算法填充 `selectedIndices` 为最佳候选
-
-**`handleAssignToOrder(orderIdx, reqIdx)` / `handleUnassignFromOrder(orderIdx, reqIdx)`**：
-管理 `orderSlotAssignments` 字典。
-
-**`handleOrderSlotClick(orderIdx, reqIdx)`**：
-- 根据当前模式分派（toolSelectionMode、trade_in、recycle/submit/evacuation、pendingItem、selectedSlot、默认=取消分配）
-
-**`handleRefreshAllOrders()`**：
-为每个订单槽位生成 2 个候选，排入 `orderCandidateQueue` 供顺序选择。
-
-**`handleRefreshSingleOrder(index)`**：
-单个订单刷新，生成 2 候选，`time_freeze` 技能 20% 概率不消耗刷新次数。
-
-**`handleSelectOrderCandidate(candidateIndex)`**：
-将选中的候选订单放入目标槽位。
-
-#### 提交与回收
-
-**`handleConfirmSubmission()`**：
-1. 验证 `satisfiableOrders.length > 0`
-2. 对每个可满足的订单计算奖励：
-   - `baseScoreReward` × `multiplier`（1 + Σ 物品品质 bonus）
-   - `ocd` 技能：同池物品时 multiplier ×2
-   - `big_order_expert`：4 需求 +5 金币
-   - `hard_order_expert`：含 Epic+ 需求 +10 金币
-   - `poverty_relief`：金币 <20 时 +5 金币
-   - `auto_restock` / `turn_fortune`：激活 skillState 标记
-3. 更新 score、gold
-4. 每完成一个订单 → `orderRefreshCount` +1
-5. 完成积分订单 → `emergencyDifficulty` 递减（不低于 min）
-6. 为完成的普通订单生成候选队列
-7. 从背包移除已提交物品
-8. 清除相关 `orderSlotAssignments`
-9. 退出 submit 模式
-
-**`handleConfirmRecycle()`**：
-- 移除选中物品，金币 += Σ recycleValue
-- `alchemy` 技能：Rare+ 物品 25% 概率 +5 金币
-- 清除相关 `orderSlotAssignments`
-
-#### 撤离流程
-
-**`handleEvacuate()`** → `toggleEvacuationMode()` — 进入撤离模式
-
-**`handleConfirmEvacuation()`**：
-- 验证至少1个撤离订单可满足
-- 设 `modalContent = { type: 'evacuation_success' }`
-
-**`handleEvacuationContinue()`**：
-- 难度 +1
-- 生成新撤离订单（新难度）
-- 重置金币为 `currentStageConfig.initialGold`
-- 移除已提交物品
-
-**`handleEvacuationExtract()`**：
-- 设 `modalContent = { type: 'victory' }`（触发胜利结算显示）
-
-#### 工具物品使用
-
-**`handleToolItemUse(index)`** — 右键点击工具触发：
-- `enhance_next`：直接激活 `skillState.nextDrawEnhanced = true`，从背包移除工具
-- `reforge_left` / `transmute_left`：设 `toolSelectionMode = { toolIndex, effectType }`，等待玩家点击目标
-
-工具效果在 `handleSlotClick` 的 `toolSelectionMode` 分支中实现。
-
-#### 技能选择
-
-**`triggerSkillSelection()`**：
-- 过滤可用技能（未拥有、满足积分门槛）
-- 随机取 3 个设为 `skillSelectionCandidates`
-
-**`handleSkillSelect(skill)` / `handleSkillReplace(oldId, newSkill)`**：
-- 添加/替换 skills 数组中的技能
-
-#### 杂项
-
-**`handleSortInventory()`**：按名称（zh-CN locale）→ poolName → 品质降序排列。
-
-**`addInventoryItem(itemName, rarityId)`**：调试函数，直接添加物品到背包。
-
-**`debugGetOrderItems(orderIndex)`**：调试函数，直接将订单所需物品全部加入背包。
-
-### 6.5 返回值结构
-
-```js
-{
-  state: {
-    // 核心数值
-    gold, score, emergencyDifficulty, drawCount, orderRefreshCount, REFRESH_MAX,
-    currentStageConfig, maxInventorySize,
-    // 集合
-    activePools, orders, emergencyOrders, inventory, skills,
-    // 交互状态
-    pendingItem, pendingQueue, selectedSlot,
-    isSubmitMode, isRecycleMode, isEvacuationMode, selectedIndices,
-    selectionMode, toolSelectionMode,
-    orderSlotAssignments, assignedItemUids, phantomMarks,
-    orderCandidates, orderCandidateQueue,
-    modalContent, skillSelectionCandidates, toast,
-    skillState,
-    // 悬停状态（含 setter）
-    hoveredPoolId, hoveredItemName, hoveredSlotIndex, hoveredPoolItemNames,
-    setHoveredPoolId, setHoveredItemName, setHoveredSlotIndex, setHoveredPoolItemNames,
-    // 衍生数据
-    satisfiableOrders, potentialSatisfiableOrders, totalRecycleValue, selectedItemNames,
-  },
-  actions: {
-    showToast, hideToast,
-    // 抽卡
-    handleDraw, handleSelectionSelect, handleSelectionCancel,
-    // 背包
-    handleSlotClick, handleDiscardNew, handleSortInventory,
-    // 订单
-    handleOrderClick, handleRefreshAllOrders, handleRefreshSingleOrder,
-    handleSelectOrderCandidate, handleUnassignFromOrder, handleOrderSlotClick,
-    // 模式切换
-    toggleSubmitMode, toggleRecycleMode, toggleEvacuationMode,
-    // 确认操作
-    handleConfirmSubmission, handleConfirmRecycle, handleConfirmEvacuation,
-    // 撤离
-    handleEvacuate, handleEvacuationContinue, handleEvacuationExtract,
-    // 工具
-    handleToolItemUse, handleCancelToolSelection,
-    // 奖池
-    refreshPools, handlePoolHover, handlePoolLeave,
-    // 技能
-    triggerSkillSelection, handleSkillSelect, handleSkillReplace,
-    // 模态
-    handleCloseModal,
-    // 调试
-    addInventoryItem, debugGetOrderItems,
-  },
-  helpers: {
-    hasSkill  // (skillId) => boolean
-  }
-}
-```
+- `pickWeightedTemplate()` — 按 weight 选订单模板
+- `pickWallType()` — 按 weight 选墙类型
+- `generateOrder()` — 完整订单生成（模板 → 食材 → 贴纸种类与数量分配）
 
 ---
 
-## 7. 顶层组件：App.jsx
+## 7. 布局层：App.jsx & GameCore.jsx
 
-**职责**：管理游戏配置、设置 UI、调试工具、游戏重置。
-
-### State
-
-| 变量 | 类型 | 说明 |
-|------|------|------|
-| `config` | object | 当前游戏配置（初始为 `INITIAL_GAME_CONFIG`） |
-| `gameId` | number | 递增 key，变化时强制 GameCore 重新挂载 |
-| `showSettings` | boolean | 设置面板开关 |
-| `debugMode` | boolean | 调试模式开关 |
-| `resetConfirmOpen` | boolean | 重置确认对话框 |
-| `defaultResetConfirmOpen` | boolean | 恢复默认确认对话框 |
-| `initialSkills` | string[] | 调试用预设技能 |
-| `initialStage` | number | 未使用 |
-| `selectedSpawnPoolId/ItemName/RarityId` | string | 调试物品生成选择器 |
-| `debugAddItemPulse` | number | 脉冲信号触发 GameCore 添加物品 |
-
-### 关键函数
-
-**`handleHardReset()`**：`gameId++` 强制完全重置。
-
-**`handleResetDefaults()`**：将 `config` 重置为 `INITIAL_GAME_CONFIG`。
-
-**`handleExportConfig()`**：将 config 序列化为 JSON 并触发浏览器下载。
-
-**`handleImportConfig(e)`**：解析上传的 JSON，**保护性合并**：
-- `stages`：仅合并 `rarityWeights`、`orderRarityWeights`、`orderCountWeights`、`baseRewards`、`entropyDecayValue`
-- `affixes`：按 key 匹配，仅合并 `cost` 和 `rarityWeights`
-- `progress`、`emergency`、`global`、`toolItems`：浅层 spread 合并
-- `rarity`：按 id 匹配，仅合并 `bonus` 和 `recycleValue`
-- **不覆盖**：`pools`、`enabledSkillIds`
-
-### 设置 UI 结构
-
-一个 85vh 可滚动模态框，包含以下配置区：
-1. 调试物品生成（选择池/物品/品质，点击添加）
-2. 撤离订单配置（难度系统）
-3. 撤离订单难度精确需求配置（1-10级折叠面板）
-4. 品质概率表（`rarityWeights` + `orderRarityWeights`）
-5. 订单数量权重与奖励
-6. 杂项参数（刷新费用、初始金币等）
-7. 词缀配置（每个词缀的费用和自定义品质权重）
-8. 工具物品配置（掉落率、各工具权重、重铸品质分布）
-9. 技能启用/禁用
-10. 调试技能选择
-11. 品质详情（bonus 和 recycleValue）
-
-### 渲染结构
+### App.jsx
+极简——根据 `playerInfo` 状态在 `Prologue` 与 `GameCore` 之间切换。包 `ErrorBoundary` 和 `LanguageProvider`（在 `main.jsx`）。
 
 ```jsx
-<ErrorBoundary>
-  {showSettings && <SettingsModal />}
-  {resetConfirmOpen && <ConfirmDialog />}
-  {defaultResetConfirmOpen && <ConfirmDialog />}
-  <GameCore key={gameId} config={config} ... />
-</ErrorBoundary>
+{playerInfo ? <GameCore playerInfo={...} /> : <Prologue onComplete={setPlayerInfo} />}
 ```
 
-`key={gameId}` 确保重置时完全重建组件树。
+### GameCore.jsx
+- 调用 `useGameLogic`，解构所有 state 和 actions
+- 头部按钮：语言切换、重置、🛠 调试、派遣、🍳 AI 炼菜、🍳 厨房、🎬 动画
+- 根据 `phase` 切换中央内容（`pre_game` / `wall_choice` / `drawing` / `between_turns` / ...）
+- 左侧边栏：BulletinBoard
+- 模态调度：Debug / Dispatch / AICooking / Kitchen / SpritePreview / Toast
+
+新增模态的标准模式：
+1. 在 GameCore.jsx 头部加 `useState(false)` 控制开关
+2. 加按钮触发开关
+3. 在 modal 区域条件渲染组件，传 `onClose`
 
 ---
 
-## 8. 布局渲染层：GameCore.jsx
+## 8. 游戏组件清单
 
-**职责**：连接 `useGameLogic` 返回的 state/actions 到 UI 组件。不包含游戏逻辑。
+| 组件 | 用途 | 状态 |
+|------|------|------|
+| `Prologue.jsx` | 入场介绍 | ✅ 活跃 |
+| `ResourceMatrix.jsx` | 奖品墙渲染 + 行/列抽取交互 | ✅ 核心 |
+| `WallPicker.jsx` | 3 选 1 候选墙展示 | ✅ 活跃 |
+| `BulletinBoard.jsx` | 订单货架 + 提交按钮（含 `RewardCard` / `IngredientTip`） | ✅ 核心 |
+| `ScoreBoard.jsx` | 分数与进度显示 | ✅ 活跃 |
+| `InventorySlot.jsx` | 背包格子（多状态视觉） | ✅ 核心 |
+| `OrderCard.jsx` | 订单卡片（v1 遗留较多，v2 部分使用） | ⚠️ 半活跃 |
+| `DishCard.jsx` | 菜品卡片（局外） | ✅ 活跃 |
+| `Kitchen.jsx` | 局外烹饪结算（槽位匹配 + 评分） | ✅ 核心 |
+| `DispatchJudgment.jsx` | 派遣五维评分（独立工具） | ✅ 工具 |
+| `AICooking.jsx` | AI 辅助菜品测试 | 🔧 调试用 |
+| `SpritePreview.jsx` | sprite sheet 帧动画预览 | 🔧 调试用 |
+| `ActiveOrders.jsx` | v1 已激活订单列表 | ❌ 已废弃 |
+| `ShapeSelector.jsx` / `ActiveShapeDisplay.jsx` | v1 形状选择 | ❌ 冷冻 |
+| `PoolCard.jsx` | v1 奖池卡片 | ❌ 冷冻 |
+| `SkillSelectionModal.jsx` | v1 技能选择 | ❌ 冷冻 |
+| `ActionCards.jsx` | 动作卡片 | ⚠️ 用途待核实 |
 
-### Props
-
-```
-config, onOpenSettings, showSettings, debugMode, setDebugMode,
-onReset, initialSkills, initialScore, debugAddItem, onDebugAddItemHandled
-```
-
-### 主要布局
-
-```
-┌─────────────────────────────────────────────────────┐
-│ HEADER: 标题 | 积分 | 金币 | 撤离难度 | 语言/调试/设置/重置 │
-├────────────────────┬────────────────────────────────┤
-│  LEFT (45%)        │  RIGHT (flex-1)                │
-│                    │                                │
-│  ┌──────────────┐  │  ┌─────────────────────────┐   │
-│  │ 撤离订单区域 │  │  │ 奖池区域 (3× PoolCard)  │   │
-│  │ (2× OrderCard│  │  └─────────────────────────┘   │
-│  │  idx 998,999)│  │                                │
-│  └──────────────┘  │  ┌─────────────────────────┐   │
-│                    │  │ 选择覆盖层               │   │
-│  ┌──────────────┐  │  │ (precise/targeted)       │   │
-│  │ 普通订单     │  │  └─────────────────────────┘   │
-│  │ (3× OrderCard│  │                                │
-│  │  idx 0,1,2)  │  │  ┌─────────────────────────┐   │
-│  └──────────────┘  │  │ 底部固定区域             │   │
-│                    │  │ ├ 技能面板 (可折叠)       │   │
-│  ┌──────────────┐  │  │ ├ 品质加成行             │   │
-│  │ 候选面板     │  │  │ ├ 背包状态栏             │   │
-│  │ (2个选项)    │  │  │ ├ 模式状态标签           │   │
-│  └──────────────┘  │  │ ├ 背包网格               │   │
-│                    │  │ │  (maxSize× InventorySlot│   │
-│                    │  │ ├ 操作按钮 (提交/回收)    │   │
-│                    │  │ └ 待定物品面板            │   │
-│                    │  └─────────────────────────┘   │
-└────────────────────┴────────────────────────────────┘
-```
-
-### 组件向子组件传递的计算属性
-
-在渲染 `InventorySlot` 时，GameCore 会为每个格子计算：
-
-| 属性 | 说明 |
-|------|------|
-| `canSynthesize` | 与当前 selectedSlot/pendingItem 可否合成 |
-| `isNeededForOrder` | 是否被某个订单需要（名称匹配） |
-| `isMaxSatisfied` | 品质是否已达到/超过最高订单需求 |
-| `hasUpgradePair` | 背包中是否存在同名同品质的配对物品 |
-| `isOverloadTarget` | specialization 模式下是否为超载替换目标 |
-| `isToolTarget` | 工具选择模式下是否为有效目标 |
-| `isAssigned` | 是否已分配到某个订单槽位 |
-
-在渲染 `OrderCard` 时，传递 `orderSlotAssignments`、`phantomMarks`、`potentialSatisfy` 等。
-
-### 模态框渲染（`renderModal`）
-
-优先级顺序：
-1. `skillSelectionCandidates` 非空 → `SkillSelectionModal`
-2. `modalContent.type === 'victory'` → 奖杯 + 最终积分 + 重开按钮
-3. `modalContent.type === 'stage_up'` → 阶段提升提示
-4. `modalContent.type === 'game_over'` → 游戏结束
-5. `modalContent.type === 'evacuation_success'` → 撤离成功（继续/提取按钮）
-6. 其他 → 标准物品模态
-
-### Trade-in 覆盖层
-
-当 `selectionMode.type === 'trade_in'` 时，渲染全屏半透明覆盖层 + 浮动取消按钮。
+UI 基础组件（`components/ui/`）：
+- `Tooltip.jsx`：portal-based 跟随鼠标
+- `Toast.jsx`：顶部居中浮入，2s 自动关闭
+- `ConfirmDialog.jsx`：通用确认对话框
 
 ---
 
-## 9. 游戏组件详解
+## 9. 关键算法
 
-### 9.1 PoolCard.jsx
+### 9.1 奖品墙生成（`generateWall`）
+三阶段填充：
+1. **厄运 Phase 1**：Box-Muller 正态分布得出总数（μ=5, σ=1.5, clamp 1-9），按各自概率随机分布到格子
+2. **特殊格 Phase 2**：对剩余空格逐个 roll，累积概率：金币 6% → 订单 4% → 食材 2% → 炸弹 4%
+   - 食材格触发时：按 ★/★★/★★★/★★★★ = 40/30/20/10 选稀有度，再均匀随机选具体食材
+3. **贴纸 Phase 3**：剩余空格按 polyomino 形状（权重 1:40, 2:30, 3:20, 4:10）填充，多格共享 `groupId`，从 `wallStickers`（3 种）中均匀随机选种
 
-**Props**: `pool, gold, hasSkill, config, inventory, onDraw, onMouseEnter, onMouseLeave, isHovered, relevantRequirements, disabled`
+### 9.2 订单生成（`generateOrder`）
+1. 按 weight 选模板（a/b/c/d）
+2. 每个 `rewardTier` 从对应稀有度的食材中均匀随机选 1
+3. 从 20 种贴纸里洗牌取前 N 种（N = `template.stickerTypes`）
+4. 数量分配：前 N-1 种用 `1 + random(0, remaining-(N-i-1)-1)`，最后一种拿剩余
 
-**逻辑**：
-- 计算 `finalCost`：`vip_discount` 技能对 precise/targeted 减 1
-- `canAfford = gold >= finalCost`
-- `isEffectiveDisabled = disabled || !canAfford`
+### 9.3 菜品评分（`scoreDish` in `Kitchen.jsx`）
+1. 预扫描 `crossBonus` 哪些激活
+2. 每槽位：
+   - `getSlotMatch(食材, 槽位)`：评估所有 rules，取最高 multiplier
+   - `slot.exclude` 命中 → 0
+   - 没规则的槽 → `defaultMultiplier`
+3. 各槽得分 × cross bonus → 汇总 + `dish.baseline`
 
-**布局（3行）**：
-1. 池子图标(4xl) + 名称(bold xl) + 价格胶囊（黄色硬币图标，折扣时划线原价）
-2. 词缀名称（大号加粗 + ✨ 前缀）
-3. 词缀描述
+### 9.4 派遣判定动画（`DispatchJudgment.jsx`）
+- 5 维度：健康/香气/口感/味道/外观
+- 球在**菜品数值多边形**内弹跳，最终判定是否落在与**任务要求多边形**的重叠区
+- 物理：比例摩擦（×0.994/帧），碰壁恢复系数 0.94，停止阈值 0.12 px/帧
 
-**视觉状态**：
-- 悬停：`scale-[1.02]`、`ring-4 ring-white/50`
-- 禁用：`opacity-60 grayscale-[0.8]`
-- 点击：`active:scale-95`
-
-### 9.2 OrderCard.jsx
-
-**Props**（约 25 个）：完整的订单数据 + 所有交互回调 + UI 状态。
-
-**核心特性**：
-
-**奖励预览 memo（`rewardInfo`）**：
-- `minReward`：基础积分（无品质加成）
-- `expectedReward`：基于已分配/幻影物品品质计算的预期积分
-- 两者不同时显示范围
-
-**需求项双模式渲染**：
-- **胶囊模式**（未分配）：小药丸形状，显示品质色点 + 图标 + 名称
-- **槽位模式**（已分配）：64×64 卡片，显示物品图标 + 名称，CSS 动画过渡
-
-**槽位视觉状态**：
-
-| 状态             | 样式                     |
-| -------------- | ---------------------- |
-| 可合成            | 黄色 ring-4              |
-| 工具目标           | 青色 ring-4              |
-| 回收/trade-in 目标 | 琥珀色 ring-4             |
-| 被选中            | 红色 ring-4              |
-| 绝育             | "绝育" 暗色 badge          |
-| 衰变             | 左上角数字；≤0 时 "损坏" + 红色覆盖 |
-| 幻影链接           | 链接图标                   |
-| 品质升级           | 升级 badge               |
-
-**刷新按钮**：右侧橙色圆按钮 + 剩余次数 badge。在 submit/evacuation/candidate 模式隐藏。
-
-**可提交指示器**：`isSatisfied` 时绿色 "可提交" badge 带动画。
-
-**被替换动画**：黄色脉冲环 + 弹跳角点。
-
-### 9.3 InventorySlot.jsx
-
-**Props**（约 23 个）：物品数据 + 所有视觉状态标志 + 交互回调。
-
-**内嵌组件 `ToolItemTooltip`**：
-- 使用 `createPortal(…, document.body)` 渲染到 body
-- `useLayoutEffect` 中基于 anchor `ref.getBoundingClientRect()` 计算绝对定位
-- 显示工具名称、描述、"右键点击使用"提示
-- 避免溢出/z-index 裁剪
-
-**物品槽视觉状态**：
-
-| 状态 | 样式 |
-|------|------|
-| 空格 | 虚线灰色边框 |
-| 有物品 | 品质色 + 阴影 + 图标(2xl/3xl) + 名称(10px 截断) |
-| 工具物品 | 琥珀渐变边框 + 脉冲图标 + "TOOL" badge |
-| 被选中（常规） | translate-y-4 上移 + scale |
-| 被选中（submit） | 蓝色边框 |
-| 被选中（recycle） | 琥珀色边框 |
-| 合成目标 | 黄色 ring-4 + scale-105 |
-| 超载目标 | 红色覆盖 + 垃圾桶图标 |
-| 交换目标 | 蓝色覆盖 + 箭头图标 |
-| 已分配到订单 | 30% 不透明 + 灰度 + pointer-events-none |
-| 升级配对 | 右上角黄色弹跳 ChevronsUp badge |
-| 订单需求提示 | 右下角绿色/灰色对勾 |
-| 绝育标记 | 左下角 "绝育" 暗色 badge |
-| 衰变计数 | 左上角等宽数字；≤0 时 "损坏" + 红覆盖 |
-| 工具悬停 | 底部 "R-Click" 指示器 + portal tooltip |
-
-### 9.4 SkillSelectionModal.jsx
-
-**Props**: `candidates, onSelect, currentSkills, onReplace`
-
-**两种模式**：
-- **普通模式**（技能 <3 个）：显示 3 候选，点击直接选中
-- **替换模式**（技能 =3 个）：两步操作 — 点击新技能暂存 → 点击旧技能为目标 → 确认
-
-**特殊功能**：
-- "按住查看"按钮：`isPeeking` 状态使弹窗背景透明、隐藏内容，方便查看游戏状态
-- "放弃新技能"按钮始终可用
+### 9.5 sprite 动画（`SpritePreview.jsx`）
+逐帧 `setInterval` 推进 `frame % frameCount`，用 `background-position` 偏移呈现。`image-rendering: pixelated` 保持像素锐利。
 
 ---
 
-## 10. UI 基础组件
+## 10. 国际化
 
-### 10.1 ConfirmDialog.jsx
-
-简单模态：标题 + 消息 + 取消（灰色）/ 确认（红色）按钮。
-
-**Props**: `title, message, onCancel, onConfirm`
-
-### 10.2 Toast.jsx
-
-顶部居中浮入的通知条，2000ms 后通过 `useEffect` 自动关闭。
-
-**Props**: `message, type, onClose`
-
-- `type === 'error'` → 红色背景
-- 其他 → slate-800 背景
-
-### 10.3 ErrorBoundary.jsx
-
-React 类组件错误边界。捕获 `componentDidCatch` 错误，显示错误消息 + 堆栈 + "Reload Game" 按钮（`window.location.reload()`）。
+- **Provider**：`LanguageContext.jsx`，`language` 持久化到 `localStorage('game_language')`
+- **`t(text)`**：中文返回原文，英文查 `EN_TRANSLATIONS[text]`，未找到 fallback 中文
+- **写法**：JSX 里直接 `{t('中文')}`；新文本必须在 `translations.js` 加英文映射
+- **测试**：修改 UI 后用语言切换按钮在两种语言下都看一遍
 
 ---
 
-## 11. 国际化系统
+## 11. 冷冻系统（v1 遗留）
 
-### LanguageContext.jsx
+`src/data/constants.js` 中保留以下完整定义但 v2 主流程不调用：
 
-**Provider state**：`language`（`'zh'` | `'en'`），持久化到 `localStorage('game_language')`。
+| 系统 | 含义 | 处置建议 |
+|------|------|----------|
+| `INITIAL_STAGE_CONFIG` | 4 阶段难度递进 | 保留，未来重启 |
+| `SKILL_DEFINITIONS` | 13 个技能 | 保留，未来重启 |
+| `INITIAL_AFFIXES_CONFIG` | 7 种词缀 | 保留，未来可能复用 |
+| `TOOL_ITEMS` / `TOOL_ITEM_CONFIG` | 命运熔炉等工具 | 保留 |
+| `INITIAL_POOLS_DATA` | 5 个奖池 | 已被 INGREDIENTS 替代 |
+| `INITIAL_RARITY_CONFIG` | 6 级品质 | 已被食材 4 级稀有度替代 |
+| `EMERGENCY_ORDER_CONFIG` | 撤离订单系统 | 已被新撤离流程替代 |
 
-**`t(text)` 函数**：
-1. `language === 'zh'` → 原样返回
-2. `language === 'en'` → 查找 `EN_TRANSLATIONS[text]`，找到返回翻译，否则返回原文
-
-**`toggleLanguage()`**：zh ↔ en 切换。
-
-**`useLanguage()` hook**：从 context 获取 `{ language, t, toggleLanguage }`。在 Provider 外使用会 throw。
-
-### translations.js
-
-`EN_TRANSLATIONS` 扁平对象，约 120+ 条目。覆盖：
-- UI 通用术语、品质名称、池子/物品名称（全部 20 种）
-- 词缀名称和描述
-- 13 个技能名称和描述
-- Toast/错误消息
-- 模态框标题和按钮
-- 工具物品、候选订单、撤离流程相关文案
-
-**惯例**：中文是源语言。所有新增 UI 文本必须先用中文硬编码，然后在 `translations.js` 中添加英文翻译，组件中使用 `t()` 包裹。
+**修改时不要触碰这些**，除非明确要重启对应系统。
 
 ---
 
-## 12. 关键算法与流程
+## 12. 修改指南
 
-### 12.1 抽卡完整流程
+### 改平衡数值
+- 贴纸/食材/订单：`v2Config.js`
+- 网格生成（厄运密度、特殊格概率、形状权重）：`matrixConfig.js`
+- 派遣判定物理参数：`DispatchJudgment.jsx` 顶部常量
 
-```
-用户点击 PoolCard
-  → PoolCard.onDraw(pool)
-    → actions.handleDraw(pool)
-      ├── 守卫检查（模式冲突）
-      ├── 计算 finalCost（VIP折扣）
-      ├── 金币不足 → toast + return
-      ├── 交互词缀 → setSelectionMode + return
-      └── 被动词缀 → 扣金币 → handleNormalDraw(pool)
-            ├── drawCount++
-            ├── 按词缀生成物品
-            │   ├── fragmented → 3× common
-            │   └── 其他 → 1× rollRarity(...)
-            ├── auto_restock → 额外复制1个
-            ├── enhance → 品质+1
-            ├── 更新 skillState
-            ├── applyEntropy(inventory)
-            ├── tryDropToolItem(20%)
-            ├── handleIncomingItems(items, decayed)
-            │   ├── negotiator check (Epic+ → refresh+1)
-            │   ├── specialization check
-            │   ├── 有空位 → 放入
-            │   └── 无空位 → pendingItem/pendingQueue
-            └── refreshPools(true) → generateActivePools()
-```
+### 加新菜品
+1. 在 `v2Config.js` 的 `DISHES` 数组追加菜品对象
+2. 槽位 `rules` 用 `{ match: { tag: '...' } }` 或 `{ match: { id: '...' } }`
+3. 跨槽加成用 `crossBonus: { requireSlot, requireTag, multiplier }`
+4. 加 i18n 翻译
 
-### 12.2 订单满足算法
+### 加新组件
+1. 放 `src/components/game/` 或 `src/components/ui/`
+2. **不要**在组件里持有游戏逻辑状态——通过 props 从 GameCore 传
+3. 文本用 `t()` 包裹
+4. 模态：在 GameCore.jsx 加 useState + 头部按钮 + 条件渲染
 
-`satisfiableOrders` 计算（在 `useMemo` 中）：
+### 加新工具/调试面板
+模板见 `DispatchJudgment.jsx` 或 `SpritePreview.jsx`：
+- 全屏 fixed 覆盖层（`fixed inset-0 z-[100] bg-black/70`）
+- 点击背景关闭
+- 接收 `onClose` prop
 
-```
-输入: selectedIndices（选中的背包格子）, inventory, orders+emergencyOrders
-输出: { orderIndex, matchedItems[], isScoreOrder }[]
+### 添加 sprite 动画
+1. 把 PNG 放到 `assets/`
+2. 在 `SpritePreview.jsx` 的 `SPRITE_ASSETS` 数组追加：`{ name, label, src, frames, frameWidth, frameHeight }`
+3. 用 import 语法引入：`import myAsset from '../../../assets/my.png'`
 
-对每个订单:
-  1. 收集该订单所有需求: [{ name, minRarityBonus }]
-  2. 收集可用物品: selectedIndices 中名称匹配 + 品质 >= 需求的物品
-  3. 使用贪心匹配（每个物品只能用一次）
-  4. 若所有需求满足 → 加入结果
-```
+### 启用奖品墙类型差异化
+当前 `generateWall(wallStickers)` 不接 wallType 参数。要让 5 种墙生效：
+1. 改签名为 `generateWall(wallStickers, wallType)`
+2. 根据 `wallType.id` 在 Phase 2/3 分支：
+   - `hidden`：用 `hiddenRatio` 标记部分格子为隐藏
+   - `multiplier`：用 `multiplierRatio` 标记部分格子效果翻倍
+   - `drift` / `alternating`：在 useGameLogic 抽取逻辑里另加分支
+3. 调用处（`useGameLogic.js` 里 `generateWall(stickers)`）传入 wallType
 
-### 12.3 幻影标记算法
-
-`phantomMarks` 计算：
-
-```
-对每个订单的每个已分配需求:
-  找到对应的背包物品
-  检查该物品是否也能满足其他订单的某个需求
-  如果能 → 标记为幻影（显示链接图标）
-```
-
-### 12.4 积分计算公式
-
-```
-baseScoreReward = max(1, floor(Σ req.rarityScoreWeight + progressOffset))
-multiplier = 1 + Σ submittedItem.rarity.bonus
-if (ocd && 全部同池) multiplier *= 2
-finalScore = ceil(baseScoreReward × multiplier)
-```
+### 启用 v1 子系统
+冷冻系统的接线流程见 §11 列表与历史版本。技术上需要：
+1. 在 `useGameLogic` 加对应 state 与触发点
+2. 把 v1 helpers.js 中的纯函数重新接入
+3. UI 已有的 v1 组件（PoolCard / SkillSelectionModal）可复用
 
 ---
 
-## 13. 状态交互矩阵
-
-此矩阵显示不同模式下各种交互的行为：
-
-| 操作\模式 | 默认       | submit | recycle | evacuation | pendingItem | selectedSlot | selectionMode | toolSelection |
-| ----- | -------- | ------ | ------- | ---------- | ----------- | ------------ | ------------- | ------------- |
-| 点击空格  | 无        | 无      | 无       | 无          | 放入物品        | 移动到空格        | 无             | 无             |
-| 点击物品  | 选中       | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成/交换        | trade_in消耗    | 应用工具效果        |
-| 点击奖池  | 抽卡       | 阻止     | 阻止      | 阻止         | 阻止          | 抽卡           | 阻止            | 阻止            |
-| 点击订单  | 自动选物     | 无      | 无       | 无          | 无           | 分配到槽位        | 无             | 无             |
-| 点击订单槽 | 取消分配     | 切换选择   | 切换选择    | 切换选择       | 合成/替换       | 合成           | trade_in      | 应用工具          |
-| 右键物品  | 无（工具→使用） | 无      | 无       | 无          | 无           | 无            | 无             | 无             |
-| 确认按钮  | —        | 提交     | 回收      | 撤离确认       | —           | —            | —             | —             |
-
-**互斥规则**：进入任何模式会清除其他模式。`pendingItem` 阻止抽卡和模式切换。
-
----
-
-## 14. 已知设计债务与休眠系统
-
-### 休眠系统
-
-1. **阶段系统**：4 个阶段完整定义在 `INITIAL_STAGE_CONFIG`，但 `useGameLogic` 硬编码 `config.stages[0]`，无阶段切换触发器。
-2. **技能获取流程**：`triggerSkillSelection()` 存在但无自动触发点。技能只能通过调试工具或未来代码手动触发。
-3. **积分进度**：`targetProgress: null`，进度系统框架存在但无具体目标。
-
-### 代码规模
-
-- `useGameLogic.js` 约 2200 行，是单一巨型 hook，无子 hook 拆分。
-- `App.jsx` 和 `GameCore.jsx` 各自约 1000+ 行，设置 UI 内联在 App 中。
-
----
-
-## 15. 修改指南
-
-### 修改游戏数值
-
-编辑 `src/data/constants.js` 中的对应配置。所有数值集中在此文件。
-
-### 添加新词缀
-
-1. 在 `constants.js` 的 `INITIAL_AFFIXES_CONFIG` 数组中添加新词缀对象
-2. 在 `helpers.js` 的 `rollRarity` 中添加品质约束逻辑（如果需要）
-3. 在 `useGameLogic.js` 的 `handleDraw`/`handleNormalDraw` 中添加行为分支
-4. 在 `translations.js` 中添加英文翻译
-
-### 添加新技能
-
-1. 在 `constants.js` 的 `SKILL_DEFINITIONS` 添加技能定义
-2. 在 `useGameLogic.js` 中使用 `hasSkill('skill_id')` 在对应事件点添加条件逻辑
-3. 如需状态追踪，在 `skillState` 中添加字段
-4. 在 `translations.js` 中添加翻译
-
-### 添加新工具物品
-
-1. 在 `constants.js` 的 `TOOL_ITEMS` 添加定义
-2. 在 `useGameLogic.js` 的 `handleToolItemUse` 添加激活逻辑
-3. 如果是选择型（非直接激活），在 `handleSlotClick` 的 `toolSelectionMode` 分支添加效果
-4. 在 `InventorySlot.jsx` 中确保工具外观正确
-
-### 添加新 UI 组件
-
-1. 在 `src/components/game/` 或 `src/components/ui/` 下创建
-2. 不要在组件中持有游戏逻辑状态，所有状态通过 props 从 GameCore 传入
-3. 所有文本用 `t()` 包裹，先写中文，再在 `translations.js` 中添加英文
-
-### 启用阶段系统
-
-需要：
-1. 在 `useGameLogic` 中添加 `currentStageIndex` state
-2. 添加阶段切换触发条件（如积分阈值）
-3. 将 `config.stages[0]` 改为 `config.stages[currentStageIndex]`
-4. 为每个阶段的特殊机制确保逻辑正确（volatility/specialization/entropy 的代码已存在但部分未激活）
-
-### 启用技能获取流程
-
-需要：
-1. 在合适时机（如完成订单后、积分达标时）调用 `actions.triggerSkillSelection()`
-2. `SkillSelectionModal` 的 UI 已完整实现，无需额外 UI 工作
-
-### i18n 注意事项
-
-- 中文是源语言，直接硬编码在 JSX 中
-- 英文翻译在 `translations.js` 的扁平映射中
-- 修改任何 UI 文本后须在 zh 和 en 下测试，确保无溢出和换行问题
-
----
-
-*文档版本：基于 `code_simplify` 分支 commit `4c22ee4` 全量源码分析生成*
-*最后更新：2026-03-05*
+*文档版本：v2 + 烹饪系统接入分支*
+*最后更新：2026-04-16*
