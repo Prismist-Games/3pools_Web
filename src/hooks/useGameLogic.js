@@ -3,7 +3,7 @@ import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { getRowIndices, getColIndices, getDoomTarget, isLineFullyProtected, getNeighbors } from '../utils/fateWallHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
-import { generateCharm, rollCharmType, CHARM_TYPES } from '../data/charms';
+import { generateCharm, rollCharmType, CHARM_TYPES, UPGRADEABLE_CHARMS, CHARM_UPGRADE_MAP, CHARM_CONFIGS, NON_COPYABLE_CHARMS } from '../data/charms';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -111,6 +111,9 @@ export const useGameLogic = (config) => {
     const [luckPhase, setLuckPhase] = useState('idle'); // 'idle' | 'selecting' | 'result'
     const [luckResult, setLuckResult] = useState(null);
     // luckResult: { charm, charmIndex, effectDescription }
+    const [copyMirrorState, setCopyMirrorState] = useState(null);
+    // null | { step: 'select_source', charmIndex, sourceOptions: number[] }
+    //       | { step: 'select_target', charmIndex, sourceIndex, emptySlots: number[], newCharm }
 
     // Doom draw state
     const [doomDrawQueue, setDoomDrawQueue] = useState(0);
@@ -1117,6 +1120,71 @@ export const useGameLogic = (config) => {
                 effectDescription = `${t('厄运次数')} -${reduction}`;
                 break;
             }
+            case CHARM_TYPES.ALCHEMY_POT: {
+                const neighbors = getNeighbors(charmIndex);
+                const upgradeTargets = neighbors.filter(
+                    i => fateWall.cells[i] && UPGRADEABLE_CHARMS.includes(fateWall.cells[i].type)
+                );
+                if (upgradeTargets.length === 0) {
+                    // No valid targets — no effect, no use consumed
+                    effectDescription = t('无可升级目标');
+                    break;
+                }
+                const targetIndex = upgradeTargets[Math.floor(Math.random() * upgradeTargets.length)];
+                const targetCharm = fateWall.cells[targetIndex];
+                const upgradedType = CHARM_UPGRADE_MAP[targetCharm.type];
+                const upgradedCharm = generateCharm(upgradedType);
+                setFateWall(prev => {
+                    const newCells = [...prev.cells];
+                    newCells[targetIndex] = upgradedCharm;
+                    const potCharm = newCells[charmIndex];
+                    if (potCharm) {
+                        const newUsesLeft = (potCharm.usesLeft ?? 1) - 1;
+                        if (newUsesLeft <= 0) {
+                            newCells[charmIndex] = null;
+                        } else {
+                            newCells[charmIndex] = { ...potCharm, usesLeft: newUsesLeft };
+                        }
+                    }
+                    return { cells: newCells };
+                });
+                effectDescription = `${t('升级')}: ${CHARM_CONFIGS[targetCharm.type]?.name} → ${CHARM_CONFIGS[upgradedType]?.name}`;
+                return effectDescription; // early return: skip isPersistent check
+            }
+            case CHARM_TYPES.RESONANCE_BELL: {
+                const ONE_SHOT_SKIP = [CHARM_TYPES.RESONANCE_BELL, CHARM_TYPES.ALCHEMY_POT, CHARM_TYPES.COPY_MIRROR];
+                const neighbors = getNeighbors(charmIndex).sort((a, b) => a - b);
+                const effects = [];
+                for (const nIdx of neighbors) {
+                    const neighbor = fateWall.cells[nIdx];
+                    if (!neighbor) continue;
+                    if (ONE_SHOT_SKIP.includes(neighbor.type)) continue;
+                    const desc = applyLuckEffect(neighbor, nIdx);
+                    if (desc) effects.push(desc);
+                }
+                effectDescription = effects.length > 0
+                    ? `${t('共鸣')}: ${effects.join(' | ')}`
+                    : t('无相邻目标');
+                break;
+            }
+            case CHARM_TYPES.COPY_MIRROR: {
+                const neighbors = getNeighbors(charmIndex);
+                const sourceOptions = neighbors.filter(
+                    i => fateWall.cells[i] && !NON_COPYABLE_CHARMS.includes(fateWall.cells[i].type)
+                );
+                const emptySlots = fateWall.cells
+                    .map((c, i) => (c === null ? i : -1))
+                    .filter(i => i !== -1);
+                // Mirror always disappears regardless of outcome
+                removeCharm(charmIndex);
+                if (sourceOptions.length === 0 || emptySlots.length === 0) {
+                    effectDescription = t('复制镜：无有效目标或网格已满');
+                    return effectDescription;
+                }
+                setCopyMirrorState({ step: 'select_source', charmIndex, sourceOptions });
+                effectDescription = t('复制镜：请选择复制源');
+                return effectDescription;
+            }
             case CHARM_TYPES.BLANK:
             case CHARM_TYPES.CATALYST:
             case CHARM_TYPES.GUARD_STONE:
@@ -1147,9 +1215,38 @@ export const useGameLogic = (config) => {
     };
 
     const confirmLuck = () => {
+        if (copyMirrorState) return; // wait for copy mirror sub-interaction to complete
         setLuckResult(null);
         setLuckPhase('idle');
         setPhase('drawing');
+    };
+
+    const handleCopyMirrorSelectSource = (sourceIndex) => {
+        if (!copyMirrorState || copyMirrorState.step !== 'select_source') return;
+        const emptySlots = fateWall.cells
+            .map((c, i) => (c === null ? i : -1))
+            .filter(i => i !== -1);
+        if (emptySlots.length === 0) {
+            setCopyMirrorState(null);
+            return;
+        }
+        const sourceCharm = fateWall.cells[sourceIndex];
+        const newCharm = generateCharm(sourceCharm.type);
+        setCopyMirrorState({
+            step: 'select_target',
+            charmIndex: copyMirrorState.charmIndex,
+            sourceIndex,
+            emptySlots,
+            newCharm,
+        });
+    };
+
+    const handleCopyMirrorSelectTarget = (targetIndex) => {
+        if (!copyMirrorState || copyMirrorState.step !== 'select_target') return;
+        placeCharm(targetIndex, copyMirrorState.newCharm);
+        const copiedName = CHARM_CONFIGS[copyMirrorState.newCharm.type]?.name || copyMirrorState.newCharm.type;
+        setCopyMirrorState(null);
+        setLuckResult(prev => prev ? { ...prev, effectDescription: `${t('复制')}: ${copiedName}` } : prev);
     };
 
     // =============================================
@@ -1272,6 +1369,9 @@ export const useGameLogic = (config) => {
         luckResult,
         handleLuckSelect,
         confirmLuck,
+        copyMirrorState,
+        handleCopyMirrorSelectSource,
+        handleCopyMirrorSelectTarget,
 
         debugAddStorageItems: (items) => {
             setExpeditionScores(prev => [...prev, { score: 0, baseScore: 0, bonusScore: 0, items }]);

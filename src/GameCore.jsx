@@ -64,6 +64,7 @@ const GameCore = () => {
         debugAddStorageItems,
         fateWall, pendingCharm, confirmCharmPlacement,
         luckPhase, luckResult, handleLuckSelect, confirmLuck,
+        copyMirrorState, handleCopyMirrorSelectSource, handleCopyMirrorSelectTarget,
         doomDrawPhase, doomDrawQueue, doomDrawTotal, doomDrawResult,
         handleDoomSelect, confirmDoomDraw,
     } = state;
@@ -674,6 +675,9 @@ const GameCore = () => {
                         onSelect={handleLuckSelect}
                         result={luckResult}
                         onConfirm={confirmLuck}
+                        copyMirrorState={copyMirrorState}
+                        onCopyMirrorSelectSource={handleCopyMirrorSelectSource}
+                        onCopyMirrorSelectTarget={handleCopyMirrorSelectTarget}
                     />
                 )}
 

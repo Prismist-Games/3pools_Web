@@ -5,7 +5,7 @@ import { FateWall } from './FateWall';
 import { CHARM_CONFIGS } from '../../data/charms';
 import { getRowIndices, getColIndices, lineHasCharm } from '../../utils/fateWallHelpers';
 
-export function FateWallLuckModal({ fateWallCells, onSelect, result, onConfirm }) {
+export function FateWallLuckModal({ fateWallCells, onSelect, result, onConfirm, copyMirrorState, onCopyMirrorSelectSource, onCopyMirrorSelectTarget }) {
   const { t } = useLanguage();
   const [hoveredLine, setHoveredLine] = useState(null);
   const [error, setError] = useState(null);
@@ -88,9 +88,49 @@ export function FateWallLuckModal({ fateWallCells, onSelect, result, onConfirm }
               </span>
             </div>
             <p className="text-green-400 text-sm">{result.effectDescription}</p>
+
+            {copyMirrorState?.step === 'select_source' && (
+              <div className="mt-3 p-2 bg-gray-700 rounded">
+                <p className="text-yellow-400 text-xs mb-2">{t('选择要复制的幸运符')}</p>
+                <div className="grid grid-cols-4 gap-1">
+                  {fateWallCells.map((cell, i) => {
+                    const isOption = copyMirrorState.sourceOptions.includes(i);
+                    const cfg = cell ? CHARM_CONFIGS[cell.type] : null;
+                    return (
+                      <button key={i} onClick={() => isOption && onCopyMirrorSelectSource(i)}
+                        disabled={!isOption}
+                        className={`h-10 rounded text-sm ${isOption ? 'bg-yellow-800 hover:bg-yellow-700 border border-yellow-500' : 'bg-gray-800 opacity-30 cursor-not-allowed'}`}>
+                        {cell ? cfg?.icon : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {copyMirrorState?.step === 'select_target' && (
+              <div className="mt-3 p-2 bg-gray-700 rounded">
+                <p className="text-yellow-400 text-xs mb-2">{t('选择放置位置')}</p>
+                <div className="grid grid-cols-4 gap-1">
+                  {fateWallCells.map((cell, i) => {
+                    const isSlot = copyMirrorState.emptySlots.includes(i);
+                    const cfg = cell ? CHARM_CONFIGS[cell.type] : null;
+                    return (
+                      <button key={i} onClick={() => isSlot && onCopyMirrorSelectTarget(i)}
+                        disabled={!isSlot}
+                        className={`h-10 rounded text-sm ${isSlot ? 'bg-green-900 hover:bg-green-700 border border-green-500' : 'bg-gray-800 opacity-30 cursor-not-allowed'}`}>
+                        {isSlot ? '+' : (cell ? cfg?.icon : '')}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <button
               onClick={onConfirm}
-              className="mt-3 w-full py-2 bg-purple-600 hover:bg-purple-500 text-white rounded text-sm font-semibold"
+              disabled={!!copyMirrorState}
+              className="mt-3 w-full py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded text-sm font-semibold"
             >
               {t('确认')}
             </button>
