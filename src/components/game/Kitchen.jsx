@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { X, ChefHat, Trash2, Plus } from 'lucide-react';
-import { DISHES } from '../../data/v2Config';
+import { DISHES, INGREDIENTS } from '../../data/v2Config';
 import { RARITY_STYLE, IngredientTip } from './BulletinBoard';
+
+const INGREDIENT_MAP = Object.fromEntries(INGREDIENTS.map(i => [i.id, i]));
 import Tooltip from '../ui/Tooltip';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -169,28 +171,33 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                 </div>
             )}
 
-            {/* Rules */}
+            {/* Rules — rendered from slot.rules[] */}
             <div className="px-3 py-2 border-t border-kitchen-gold-border-muted/50 space-y-1">
-                {slot.accept ? (
+                {(slot.rules && slot.rules.length > 0) ? (
                     <>
+                        {/* Default (non-matching) line */}
                         <div className="flex items-center gap-1.5 text-[10px]">
-                            <span className="text-kitchen-text-muted w-8 text-right font-mono">×0.5</span>
+                            <span className="text-kitchen-text-muted w-8 text-right font-mono">×{slot.defaultMultiplier ?? 0.5}</span>
                             <span className="text-kitchen-text-muted">{t('其他')}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[10px]">
-                            <span className="text-green-700 w-8 text-right font-mono font-bold">×1</span>
-                            <TagBadge tag={slot.accept} />
-                        </div>
-                        {slot.prefer && (
-                            <div className="flex items-center gap-1.5 text-[10px]">
-                                <span className="text-kitchen-gold-deep w-8 text-right font-mono font-bold">×2</span>
-                                <span className="flex gap-1 flex-wrap">
-                                    {(Array.isArray(slot.prefer) ? slot.prefer : [slot.prefer]).map(p => (
-                                        <TagBadge key={p} tag={p} className="bg-kitchen-gold text-kitchen-text-title" />
-                                    ))}
-                                </span>
-                            </div>
-                        )}
+                        {/* Each rule, sorted by multiplier ascending */}
+                        {[...slot.rules].sort((a, b) => a.multiplier - b.multiplier).map((rule, ri) => {
+                            const isTop = rule.multiplier >= 2;
+                            const color = isTop ? 'text-kitchen-gold-deep' : 'text-kitchen-success-border';
+                            let label;
+                            if (rule.match?.tag) {
+                                label = <TagBadge tag={rule.match.tag} className={isTop ? 'bg-kitchen-gold text-kitchen-text-title' : ''} />;
+                            } else if (rule.match?.id) {
+                                const item = INGREDIENT_MAP[rule.match.id];
+                                label = <span className={`font-bold ${color}`}>{item ? `${item.icon} ${t(item.name)}` : rule.match.id}</span>;
+                            }
+                            return (
+                                <div key={ri} className="flex items-center gap-1.5 text-[10px]">
+                                    <span className={`${color} w-8 text-right font-mono font-bold`}>×{rule.multiplier}</span>
+                                    {label}
+                                </div>
+                            );
+                        })}
                         {slot.exclude && (
                             <div className="flex items-center gap-1.5 text-[10px]">
                                 <span className="text-kitchen-danger-text w-8 text-right font-mono font-bold">✗</span>
@@ -202,14 +209,16 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                             <div className="flex items-center gap-1.5 text-[10px] pt-1 border-t border-kitchen-gold-border-muted/50 mt-1">
                                 <span className="text-pink-500 w-8 text-right">🔗</span>
                                 <span className="text-pink-600">
-                                    {t(slot.crossBonus.requireSlot)}{t('为')} <TagBadge tag={slot.crossBonus.requireTag} className="bg-pink-600 text-pink-100" /> {t('时')} +{slot.crossBonus.points}
+                                    {t(slot.crossBonus.requireSlot)}{t('为')} <TagBadge tag={slot.crossBonus.requireTag} className="bg-pink-600 text-pink-100" /> {t('时')}
+                                    {slot.crossBonus.multiplier ? ` ×${slot.crossBonus.multiplier}` : ` +${slot.crossBonus.points}`}
                                 </span>
                             </div>
                         )}
                     </>
                 ) : (
+                    /* No rules = open slot */
                     <div className="flex items-center gap-1.5 text-[10px]">
-                        <span className="text-kitchen-info-border w-8 text-right font-mono font-bold">×1</span>
+                        <span className="text-kitchen-info-border w-8 text-right font-mono font-bold">×{slot.defaultMultiplier ?? 1}</span>
                         <span className="text-kitchen-info-border">{t('任意食材')}</span>
                     </div>
                 )}
@@ -227,9 +236,92 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
     );
 };
 
+// ── Top-down kitchen scene (tile map, restaurant phase only) ──
+
+const T = 26;
+const _t = (bg, bd, em, sz) => ({ bg, bd, em, sz });
+
+// Tiles re-tinted toward the kitchen palette (wood/warm tones match page bg)
+const TL = {
+    // Walls — deep wood
+    W:  _t('#6a4a2f','#523824'),
+    wn: _t('#6a4a2f','#523824','🪟',14),
+    wp: _t('#6a4a2f','#523824','🖼️',12),
+    dr: _t('#8a6e50','#6a4a2f'),
+    // Floor — warm cream (matches kitchen-card / F5E6D0 vibes)
+    F:  _t('#F5E6D0','#EDD8BC'),
+    // Kitchen counter
+    ct: _t('#A08060','#907050'),
+    st: _t('#A08060','#907050','🔥',13),
+    pt: _t('#A08060','#907050','🫕',13),
+    kn: _t('#A08060','#907050','🔪',11),
+    sk: _t('#A08060','#907050','💧',11),
+    fr: _t('#D0D8E0','#B8C0C8','🧊',13),
+    sh: _t('#6a4a2f','#523824','📚',12),
+    // Dining table — kitchen gold
+    tb: _t('#C89058','#B07838'),
+    td: _t('#C89058','#B07838','🍽️',14),
+    DS: _t('#C89058','#B07838'),
+    // Chair — light gold
+    cr: _t('#E8C878','#D4B060'),
+    // Deco
+    pl: _t('#F5E6D0','#EDD8BC','🌿',14),
+    lm: _t('#F5E6D0','#EDD8BC','🕯️',12),
+    rg: _t('#D4B088','#C8A478'),
+    // Characters
+    CH: _t('#F5E6D0','#EDD8BC','👨‍🍳',17),
+    CU: _t('#F5E6D0','#EDD8BC','🧑',17),
+};
+
+const SC = [
+    'W  W  W  wn W  W  W  W  wn W  W  wp W  W',
+    'W  fr ct st pt kn sk ct F  F  F  sh F  W',
+    'W  F  F  F  F  F  F  F  F  F  F  F  F  W',
+    'W  F  CH F  F  F  cr tb td tb cr F  lm W',
+    'W  F  F  F  rg rg F  tb DS tb F  CU F  W',
+    'W  F  F  F  rg rg cr tb tb tb cr F  pl W',
+    'W  F  F  F  F  F  F  F  F  F  F  F  F  W',
+    'W  W  W  W  dr dr W  W  W  W  W  W  W  W',
+].map(row => row.split(/\s+/));
+
+const KitchenScene = ({ dish }) => (
+    <div className="mb-4 flex justify-center">
+        <div className="inline-block rounded-xl overflow-hidden shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)]"
+            style={{ border: '3px solid #523824', background: '#523824' }}>
+            {SC.map((row, ri) => (
+                <div key={ri} className="flex">
+                    {row.map((cell, ci) => {
+                        const tile = TL[cell] || TL.F;
+                        const isDish = cell === 'DS';
+                        const isChair = cell === 'cr';
+                        return (
+                            <div
+                                key={ci}
+                                style={{
+                                    width: T, height: T,
+                                    backgroundColor: tile.bg,
+                                    borderRight: `1px solid ${tile.bd}`,
+                                    borderBottom: `1px solid ${tile.bd}`,
+                                    borderRadius: isChair ? 6 : 0,
+                                }}
+                                className="flex items-center justify-center"
+                            >
+                                {isDish && dish?.icon
+                                    ? <span style={{ fontSize: 15 }}>{dish.icon}</span>
+                                    : tile.em && <span style={{ fontSize: tile.sz || 13 }}>{tile.em}</span>
+                                }
+                            </div>
+                        );
+                    })}
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
 // ── Kitchen Component ──
 
-const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
+const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantPhase = false }) => {
     const { t } = useLanguage();
     const dish = dishOverride || DISHES[0];
 
@@ -338,34 +430,50 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
     };
 
     const handleCook = () => {
-        if (onCook) onCook(result);
+        const usedUids = mergedPlacements.filter(Boolean).map(p => p.uid);
+        if (onCook) onCook(result, usedUids);
     };
+
+    // Validation: restaurant phase requires all `required` slots to be filled
+    // before the cook button enables. In modal mode any non-empty placement
+    // is enough, preserving the earlier preview-only ergonomics.
+    const missingRequired = effectiveSlots.filter((slot, i) => slot.required && !mergedPlacements[i]);
+    const canCook = isRestaurantPhase
+        ? missingRequired.length === 0
+        : mergedPlacements.some(p => p);
 
     const clearAll = () => {
         setPlacements(dish.slots.map(() => null));
         setSpawnedPlacements({});
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div className="bg-[#F5F0E8] rounded-2xl shadow-2xl border-2 border-kitchen-gold-border w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-                {/* Header */}
-                <div className="bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-b-2 border-kitchen-wood-border px-6 py-4 flex items-center justify-between rounded-t-2xl"
-                    style={{ backgroundImage: 'radial-gradient(circle, rgba(180,140,80,0.1) 1px, transparent 1px)', backgroundSize: '14px 14px' }}>
-                    <div className="flex items-center gap-3 text-kitchen-text-title">
-                        <ChefHat size={24} />
-                        <h1 className="font-bold text-xl">{t('厨房')}</h1>
-                    </div>
-                    <button onClick={onClose} className="text-kitchen-text-body hover:text-kitchen-danger-text"><X size={22} /></button>
+    const content = (
+        <div className={isRestaurantPhase
+            ? 'w-full max-w-3xl mx-auto'
+            : 'bg-[#F5F0E8] rounded-2xl shadow-2xl border-2 border-kitchen-gold-border w-full max-w-3xl max-h-[90vh] overflow-y-auto'
+        }>
+            {/* Header */}
+            <div className={`bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-b-2 border-kitchen-wood-border px-6 py-4 flex items-center justify-between ${isRestaurantPhase ? 'rounded-xl mb-4' : 'rounded-t-2xl'}`}
+                style={{ backgroundImage: 'radial-gradient(circle, rgba(180,140,80,0.1) 1px, transparent 1px)', backgroundSize: '14px 14px' }}>
+                <div className="flex items-center gap-3 text-kitchen-text-title">
+                    <ChefHat size={24} />
+                    <h1 className="font-bold text-xl">{t('厨房')}</h1>
                 </div>
+                {!isRestaurantPhase && <button onClick={onClose} className="text-kitchen-text-body hover:text-kitchen-danger-text"><X size={22} /></button>}
+            </div>
 
-                <div className="p-6">
-                    {/* Dish info */}
-                    <div className="text-center mb-6">
-                        <span className="text-4xl">{dish.icon}</span>
-                        <h2 className="text-xl font-bold mt-2 text-kitchen-text-title">{t('今日菜品')}：{t(dish.name)}</h2>
-                        {dish.nameEn && <p className="text-sm text-kitchen-text-muted italic">{dish.nameEn}</p>}
-                    </div>
+            <div className={isRestaurantPhase ? '' : 'p-6'}>
+                    {/* Kitchen scene — tile map, restaurant phase only */}
+                    {isRestaurantPhase && <KitchenScene dish={dish} />}
+
+                    {/* Dish info — only in modal; restaurant phase shows via sidebar DishCard */}
+                    {!isRestaurantPhase && (
+                        <div className="text-center mb-6">
+                            <span className="text-4xl">{dish.icon}</span>
+                            <h2 className="text-xl font-bold mt-2 text-kitchen-text-title">{t('今日菜品')}：{t(dish.name)}</h2>
+                            {dish.nameEn && <p className="text-sm text-kitchen-text-muted italic">{dish.nameEn}</p>}
+                        </div>
+                    )}
 
                     {/* Slots */}
                     <div className="flex gap-3 justify-center flex-wrap mb-6">
@@ -454,19 +562,34 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose }) => {
                         )}
                     </div>
 
+                    {/* Required-slots hint (restaurant phase only) */}
+                    {isRestaurantPhase && !canCook && (
+                        <div className="text-center text-xs text-kitchen-danger-text mt-4">
+                            {t('必填槽位未填')}：{missingRequired.map(s => t(s.name)).join('、')}
+                        </div>
+                    )}
+
                     {/* Actions */}
                     <div className="flex gap-3 mt-6">
                         <button onClick={clearAll}
                             className="flex-1 py-2.5 rounded-xl border-2 border-kitchen-gold-border-muted bg-kitchen-card text-sm font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors flex items-center justify-center gap-1.5 shadow-[0_2px_0_#D4B896]">
                             <Trash2 size={15} /> {t('清空')}
                         </button>
-                        <button onClick={handleCook} disabled={mergedPlacements.every(p => !p)}
+                        <button onClick={handleCook} disabled={!canCook}
                             className="flex-1 py-2.5 rounded-xl bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-sm font-bold text-kitchen-text-body hover:from-[#FFF3E0] hover:to-[#FFE8CC] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-[0_3px_0_#D4952A]">
                             <ChefHat size={15} /> {t('开始烹饪')}
                         </button>
                     </div>
                 </div>
             </div>
+    );
+
+    // Restaurant phase: render inline (GameCore wraps in a full-screen phase).
+    // Modal mode: fixed overlay over the rest of the page.
+    if (isRestaurantPhase) return content;
+    return (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            {content}
         </div>
     );
 };
