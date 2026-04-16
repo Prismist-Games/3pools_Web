@@ -31,7 +31,6 @@ const GameCore = () => {
     const [guideOpen, setGuideOpen] = useState(false);
     const [dispatchOpen, setDispatchOpen] = useState(false);
     const [kitchenOpen, setKitchenOpen] = useState(false);
-    const [kitchenDishIdx, setKitchenDishIdx] = useState(0);
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -790,8 +789,8 @@ const GameCore = () => {
                 {/* Dispatch Judgment Modal */}
                 {dispatchOpen && <DispatchJudgment onClose={() => setDispatchOpen(false)} />}
 
-                {/* Kitchen Modal */}
-                {kitchenOpen && <Kitchen inventory={inventory} dish={DISHES[kitchenDishIdx]} onCook={(result) => { setKitchenOpen(false); }} onClose={() => setKitchenOpen(false)} />}
+                {/* Kitchen Modal — uses today's dish (set during opening setup) */}
+                {kitchenOpen && currentDish && <Kitchen inventory={inventory} dish={currentDish} onCook={() => { setKitchenOpen(false); }} onClose={() => setKitchenOpen(false)} />}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
