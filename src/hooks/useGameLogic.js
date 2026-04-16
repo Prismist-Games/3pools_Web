@@ -382,9 +382,10 @@ export const useGameLogic = (config) => {
         }
         setExpeditionNumber(prev => prev + 1);
 
-        // Pick today's dish (random for now — DISHES drive kitchen scoring,
-        // not order generation, so this is pure flavor/preview).
-        const dish = DISHES[Math.floor(Math.random() * DISHES.length)];
+        // Pick today's dish — fixed order by day. Day 1 → DISHES[0],
+        // Day 2 → DISHES[1], cycles afterwards.
+        const nextDay = expeditionNumber + 1;
+        const dish = DISHES[(nextDay - 1) % DISHES.length];
         setCurrentDish(dish);
         setDishIntroPending(true);
 
