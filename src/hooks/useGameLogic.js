@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { generateWall, pickWallStickers } from '../utils/matrixHelpers';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES } from '../data/v2Config';
+import { generateCharm, CHARM_TYPES } from '../data/charms';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -110,6 +111,10 @@ export const useGameLogic = (config) => {
     const [doomResolutionResult, setDoomResolutionResult] = useState(null);
     const [afterDoomAction, setAfterDoomAction] = useState(null); // null | 'end_turn'
 
+    // --- Fate Wall State ---
+    const [fateWall, setFateWall] = useState({ cells: Array(16).fill(null) });
+    const [turnBonuses, setTurnBonuses] = useState({ draws: 0, orders: 0, stickers: 0 });
+
     // --- Inventory State ---
     const [inventory, setInventory] = useState([]);
 
@@ -131,6 +136,15 @@ export const useGameLogic = (config) => {
     const [drawAnimState, setDrawAnimState] = useState(null);
     // { direction: 'row'|'column', rowIndex, colIndex, activeCols, finalColIndex, finalRowIndex, finalHighlight, drawnCell, tick, totalTicks, currentHighlight, phase: 'scanning'|'settled' }
 
+    // Helper used in multiple places
+    const createInitialFateWallCells = () => {
+        const cells = Array(16).fill(null);
+        for (const idx of [5, 6, 9, 10]) {
+            cells[idx] = generateCharm(CHARM_TYPES.BLANK);
+        }
+        return cells;
+    };
+
     // --- Derived State ---
     const dangerCount = useMemo(() =>
         doomGrid.filter(cell => cell.type === 'danger').length,
@@ -143,6 +157,7 @@ export const useGameLogic = (config) => {
 
     /** Start a new turn: generate grid, give gold */
     const startNewTurn = () => {
+        setTurnBonuses({ draws: 0, orders: 0, stickers: 0 });
         const newTurnNumber = turnNumber + 1;
         setTurnNumber(newTurnNumber);
         setGold(turnConfig.goldPerTurn);
@@ -206,6 +221,8 @@ export const useGameLogic = (config) => {
             attempts++;
         }
         setBulletinBoard(initial);
+        setFateWall({ cells: createInitialFateWallCells() });
+        setTurnBonuses({ draws: 0, orders: 0, stickers: 0 });
         startNewTurn();
     };
 
@@ -931,6 +948,8 @@ export const useGameLogic = (config) => {
         setExpeditionScores([]);
         setTotalScore(0);
         setBonusItems([]);
+        setFateWall({ cells: createInitialFateWallCells() });
+        setTurnBonuses({ draws: 0, orders: 0, stickers: 0 });
     };
 
     /** Reset per-expedition state but keep meta state, return to pre_game */
@@ -963,6 +982,8 @@ export const useGameLogic = (config) => {
         setPendingItems([]);
         setBulletinBoard([]);
         setPendingChosenOrder(null);
+        setFateWall({ cells: createInitialFateWallCells() });
+        setTurnBonuses({ draws: 0, orders: 0, stickers: 0 });
         setPhase('pre_game');
     };
 
@@ -976,6 +997,26 @@ export const useGameLogic = (config) => {
 
     const clearToast = () => {
         setToast(null);
+    };
+
+    // =============================================
+    // FATE WALL ACTIONS
+    // =============================================
+
+    const placeCharm = (index, charm) => {
+        setFateWall(prev => {
+            const newCells = [...prev.cells];
+            newCells[index] = charm;
+            return { cells: newCells };
+        });
+    };
+
+    const removeCharm = (index) => {
+        setFateWall(prev => {
+            const newCells = [...prev.cells];
+            newCells[index] = null;
+            return { cells: newCells };
+        });
     };
 
     // =============================================
@@ -1055,6 +1096,13 @@ export const useGameLogic = (config) => {
         confirmIncomingOrder,
         discardIncomingOrder,
         replaceBulletinOrder,
+
+        // Fate Wall
+        fateWall,
+        turnBonuses,
+        placeCharm,
+        removeCharm,
+
         debugAddStorageItems: (items) => {
             setExpeditionScores(prev => [...prev, { score: 0, baseScore: 0, bonusScore: 0, items }]);
         },
