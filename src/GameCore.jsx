@@ -5,7 +5,6 @@ import ResourceMatrix from './components/game/ResourceMatrix';
 import BulletinBoard, { SCORE_STYLE, RewardCard, IngredientTip, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
 import Tooltip from './components/ui/Tooltip';
 // ActiveOrders removed — order submit is now on BulletinBoard directly
-import ScoreBoard from './components/game/ScoreBoard';
 import DispatchJudgment from './components/game/DispatchJudgment';
 import Kitchen from './components/game/Kitchen';
 import DishCard from './components/game/DishCard';
@@ -386,13 +385,18 @@ const GameCore = () => {
 
                         {/* RIGHT SIDEBAR */}
                         <div className="w-64 flex-shrink-0 flex flex-col gap-4 self-start">
-                            <ScoreBoard
-                                expeditionNumber={expeditionNumber}
-                                expeditionScores={expeditionScores}
-                                totalScore={totalScore}
-                                victoryScore={expeditionConfig.scoreToWin}
-                                bonusItems={bonusItems}
-                            />
+                            {/* Day + popularity header */}
+                            <div className="bg-gradient-to-b from-kitchen-card to-[#FFF3E0] rounded-xl border-2 border-kitchen-gold-border-muted shadow-[0_2px_0_#D4B896] px-3 py-2 flex items-center justify-between">
+                                <span className="text-xs font-bold text-kitchen-text-body">
+                                    {language === 'en' ? `Day ${dayNumber}` : `第 ${dayNumber} 天`}
+                                </span>
+                                <span className="text-[11px] font-bold text-kitchen-gold-deep">
+                                    ⭐ {t('人气值')} {popularity}
+                                </span>
+                            </div>
+
+                            {/* Today's dish (replaces ScoreBoard) */}
+                            {currentDish && <DishCard dish={currentDish} />}
 
                             {/* Doom Grid */}
                             <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
