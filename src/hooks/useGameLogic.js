@@ -1,1656 +1,548 @@
-import { useState, useMemo, useEffect } from 'react';
-import { generateWall, pickWallStickers, getClusterMembers } from '../utils/matrixHelpers';
-import { generateWallFromTemplate } from '../utils/templateGenerator';
-import { pickTemplate, LEVEL_TEMPLATES } from '../data/levelTemplates';
-import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
-import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES, REFRESH_CONFIG, SETUP_CONFIG, DISHES, WALL_STICKER_COUNT } from '../data/v2Config';
-
-import { useLanguage } from '../contexts/LanguageContext';
-
-// =============================================
-// HELPER FUNCTIONS
-// =============================================
-
-/** Count buff_field cells in the 4-neighbor (orthogonal) range of (r, c). The
- *  cell at (r, c) itself is not counted (even if it is a buff_field). */
-function countBuffFieldCoverage(matrix, r, c) {
-    if (!matrix) return 0;
-    const rows = matrix.length;
-    const cols = matrix[0]?.length || 0;
-    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-    let count = 0;
-    for (const [dr, dc] of dirs) {
-        const nr = r + dr;
-        const nc = c + dc;
-        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-        if (matrix[nr][nc]?.type === 'buff_field') count++;
-    }
-    return count;
-}
-
-function generateUID() {
-    return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-}
-
-function weightedRandom(weights) {
-    const entries = Object.entries(weights);
-    const total = entries.reduce((sum, [, w]) => sum + w, 0);
-    let roll = Math.random() * total;
-    for (const [key, weight] of entries) {
-        roll -= weight;
-        if (roll <= 0) return key;
-    }
-    return entries[entries.length - 1][0];
-}
-
-function pickWeightedTemplate() {
-    const total = ORDER_TEMPLATES.reduce((sum, t) => sum + t.weight, 0);
-    let roll = Math.random() * total;
-    for (const t of ORDER_TEMPLATES) {
-        roll -= t.weight;
-        if (roll <= 0) return t;
-    }
-    return ORDER_TEMPLATES[0];
-}
-
-// Modifier shuffle bag — guarantees every modifier appears once before any
-// repeats, so back-to-back walls (and walls within ~9 turns of each other)
-// always feel fresh. Persists across turns and expeditions; refills with a
-// new shuffle when drained. Equal odds; weights in WALL_TYPES no longer
-// drive frequency (most are 15 anyway, and the bag's anti-repeat guarantee
-// matters more than fine-grained weighting at this point).
-let _modifierBag = [];
-function _refillModifierBag() {
-    const ids = WALL_TYPES.map(t => t.id);
-    for (let i = ids.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [ids[i], ids[j]] = [ids[j], ids[i]];
-    }
-    _modifierBag = ids;
-}
-function pickWallType() {
-    if (_modifierBag.length === 0) _refillModifierBag();
-    const id = _modifierBag.shift();
-    return WALL_TYPES.find(t => t.id === id) || WALL_TYPES[0];
-}
-
 /**
- * Finalize a procedural wall candidate at generation time so the picker
- * preview matches what the player will see in-game. Conveyor's per-instance
- * params are rolled here, and modifier-specific grid mutations (hidden mask,
- * multiplier overlays, center_rotate anchor injection) are baked into the
- * grid before it ever reaches the picker. Returns { wallType, grid } —
- * applyWallCandidate then just sets state from these.
+ * useGameLogicV3.js — Day 1 重构的全局游戏状态 hook
+ *
+ * 状态机与规则详见 design_docs/game_rules_day1_draft.md。
+ *
+ * 本 hook 独立于旧的 useGameLogic.js 存在，M3 会把 GameCore 切换过来，
+ * M4 删除旧 hook。
  */
-function finalizeProceduralCandidate(rawWallType, baseGrid) {
-    let wallType = rawWallType;
-    if (wallType?.id === 'conveyor') {
-        const size = MATRIX_CONFIG.gridSize;
-        wallType = {
-            ...wallType,
-            conveyorAxis: Math.random() < 0.5 ? 'row' : 'col',
-            conveyorIndex: Math.floor(Math.random() * size),
-            conveyorDirection: Math.random() < 0.5 ? 1 : -1,
-        };
-    }
 
-    const grid = baseGrid.map(r => r.map(c => c ? { ...c } : null));
+import { useState, useCallback, useMemo } from 'react';
+import {
+    SHOPS,
+    DAY_CONFIG,
+    BASKET_CONFIG,
+    SATISFACTION_CONFIG,
+    DISH_SCORING,
+} from '../data/v2Config';
+import {
+    generateShopWall,
+    refreshShopRegion,
+    rollAffix,
+    rollQuality,
+    resolveIngredient,
+    generateDailyDishes,
+    pickShopCandidates,
+} from '../utils/shopHelpers';
 
-    if (wallType?.id === 'hidden') {
-        const ratio = wallType.hiddenRatio || 0.3;
-        for (let r = 0; r < grid.length; r++) {
-            for (let c = 0; c < grid[r].length; c++) {
-                const cell = grid[r][c];
-                if (!cell || (cell.type !== 'sticker' && cell.type !== 'item')) continue;
-                if (Math.random() < ratio) cell.hidden = true;
-            }
-        }
-    } else if (wallType?.id === 'multiplier') {
-        const ratio = wallType.multiplierRatio || 0.2;
-        for (let r = 0; r < grid.length; r++) {
-            for (let c = 0; c < grid[r].length; c++) {
-                const cell = grid[r][c];
-                if (cell && Math.random() < ratio) cell.multiplier = 2;
-            }
-        }
-    }
+// ─── 工具 ───────────────────────────────────────────────────────────
 
-    if (wallType?.id === 'center_rotate') {
-        const size = MATRIX_CONFIG.gridSize;
-        const r0 = Math.floor(size / 2) - 1;
-        const c0 = Math.floor(size / 2) - 1;
-        const centerPositions = [
-            [r0, c0], [r0, c0 + 1],
-            [r0 + 1, c0], [r0 + 1, c0 + 1],
-        ];
-        const hasAnchor = centerPositions.some(([r, c]) => {
-            const t = grid[r]?.[c]?.type;
-            return t === 'bomb' || t === 'buff_field';
-        });
-        if (!hasAnchor) {
-            const [pr, pc] = centerPositions[Math.floor(Math.random() * centerPositions.length)];
-            const pickBuff = Math.random() < 0.5;
-            const cfg = pickBuff ? MATRIX_CONFIG.specialCells.buffField : MATRIX_CONFIG.specialCells.bomb;
-            const uidGen = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-            grid[pr][pc] = {
-                type: pickBuff ? 'buff_field' : 'bomb',
-                icon: cfg.icon,
-                name: cfg.name,
-                uid: uidGen(),
-            };
-        }
-    }
-
-    return { wallType, grid };
+function clamp(v, lo, hi) {
+    return Math.max(lo, Math.min(hi, v));
 }
 
-function generateOrder() {
-    const template = pickWeightedTemplate();
-    // Pick a random ingredient for each reward rarity tier
-    const rewards = template.rewardTiers.map(tier => {
-        const matching = INGREDIENTS.filter(i => i.rarity === tier);
-        const picked = matching[Math.floor(Math.random() * matching.length)];
-        return { ...picked, score: picked.rarity }; // score alias for backward compat
-    });
-    const totalScore = rewards.reduce((s, r) => s + r.rarity, 0);
-    // Generate sticker requirements
-    const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
-    const selectedTypes = shuffledStickers.slice(0, template.stickerTypes);
-    const requirements = [];
-    let remaining = template.totalStickers;
-    for (let i = 0; i < selectedTypes.length; i++) {
-        const count = i === selectedTypes.length - 1
-            ? remaining
-            : 1 + Math.floor(Math.random() * (remaining - (selectedTypes.length - i - 1)));
-        requirements.push({ stickerId: selectedTypes[i].id, icon: selectedTypes[i].icon, name: selectedTypes[i].name, count });
-        remaining -= count;
+// 与 Kitchen.jsx:getSlotMatch 等效（不含 crossBonus / exclude，当前规则不需要）
+function getSlotMultiplier(ingredient, slot) {
+    const tags = ingredient.tags || [];
+    const rules = slot.rules || [];
+    let best = null;
+    for (const rule of rules) {
+        const ok = rule.match?.tag
+            ? tags.includes(rule.match.tag)
+            : rule.match?.id === ingredient.id;
+        if (ok && (!best || rule.multiplier > best.multiplier)) best = rule;
     }
-    return { id: generateUID(), difficulty: template.difficulty, rewards, totalScore, requirements };
+    return best ? best.multiplier : (slot.defaultMultiplier ?? 0.5);
 }
 
-export const useGameLogic = (config) => {
-    const { t, language } = useLanguage();
+function get2x2Cells(topRow, leftCol, matrix) {
+    return [
+        { r: topRow,     c: leftCol,     cell: matrix[topRow][leftCol] },
+        { r: topRow,     c: leftCol + 1, cell: matrix[topRow][leftCol + 1] },
+        { r: topRow + 1, c: leftCol,     cell: matrix[topRow + 1][leftCol] },
+        { r: topRow + 1, c: leftCol + 1, cell: matrix[topRow + 1][leftCol + 1] },
+    ];
+}
 
-    // --- Configuration ---
-    const doomConfig = config.doom || DOOM_CONFIG;
-    const turnConfig = config.turn || TURN_CONFIG;
-    const orderConfig = config.order || { bulletinCapacity: 5, initialCount: 5 };
-    const expeditionConfig = config.expedition || { expeditionCount: 3, scoreToWin: 30 };
-    const baseInventorySize = config.inventorySize || config.stages[0].inventorySize;
-    const [inventoryBonus, setInventoryBonus] = useState(0);
-    const maxInventorySize = baseInventorySize + inventoryBonus;
+// ─── Hook ────────────────────────────────────────────────────────────
 
-    // --- Day / Meta State ---
-    // Switched from expedition (3-run cap, totalScore goal) to day (unbounded,
-    // popularity-driven). expeditionNumber/setExpeditionNumber aliased to
-    // day state so legacy reads don't break.
-    const [dayNumber, setDayNumber] = useState(0);
-    const [popularity, setPopularity] = useState(10);
-    const [lastCookResult, setLastCookResult] = useState(null);
-    const expeditionNumber = dayNumber;
-    const setExpeditionNumber = setDayNumber;
-    // Legacy state retained for backward compat; not driven by the cook loop.
-    const [expeditionScores, setExpeditionScores] = useState([]);
-    const [totalScore, setTotalScore] = useState(0);
+export function useGameLogicV3() {
+    // Meta
+    const [phase, setPhase] = useState('idle');          // 'idle' | 'shop_picking' | 'in_shop' | 'day_end' | 'game_over'
+    const [dayNumber, setDayNumber] = useState(1);
+    const [satisfaction, setSatisfaction] = useState(SATISFACTION_CONFIG.initial);
 
-    // --- Turn State ---
-    const [turnNumber, setTurnNumber] = useState(0);
-    const [gold, setGold] = useState(0);
-    const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'drawing' | 'between_turns' | 'game_over'
+    // Day budget & dishes
+    const [hoursRemaining, setHoursRemaining] = useState(DAY_CONFIG.hoursPerDay);
+    const [dailyDishes, setDailyDishes] = useState([]);
+    const [dishPlacements, setDishPlacements] = useState({}); // { [dishId]: (Ing|null)[] }
+    const [dishResolved, setDishResolved] = useState({});     // { [dishId]: ResolvedState | null }
 
-    // --- Grid State ---
-    const [matrix, setMatrix] = useState(null);
-    const [currentWallType, setCurrentWallType] = useState(null);
-    const [currentLevel, setCurrentLevel] = useState(null); // hand-crafted level for reveal overlay
-    const [lastDrawDirection, setLastDrawDirection] = useState(null);
-    // 3-choose-1 candidates surfaced during 'wall_choice' phase. Each is
-    // { stickers, grid, doomCellCount, wallType, level } — wallType XOR level.
-    const [wallCandidates, setWallCandidates] = useState(null);
-    // Set when the player clicks a candidate on the picker — holds the
-    // chosen candidate while the reveal overlay shows the modifier/level
-    // for a confirm-click. Commit-on-click: no back-out once peeked.
-    const [pendingWallCandidate, setPendingWallCandidate] = useState(null);
+    // Shop picking
+    const [shopCandidates, setShopCandidates] = useState([]);
 
-    // --- Board Effect State ---
-    const [gravityActive, setGravityActive] = useState(false);
-    const [gravityDrops, setGravityDrops] = useState(null); // { "row-col": dropDistance } for animation
-    const [rotationMoves, setRotationMoves] = useState(null); // { "row-col": {fromRow, fromCol} } for center-rotate animation
-    const [growthFlashes, setGrowthFlashes] = useState(null); // Set of "row-col" keys for savage-growth flash feedback
+    // In shop
+    const [currentShop, setCurrentShop] = useState(null);
+    const [shopMatrix, setShopMatrix] = useState(null);
+    const [shopBasket, setShopBasket] = useState([]);
+    const [currentAffix, setCurrentAffix] = useState(null);
+    const [shopDrawState, setShopDrawState] = useState({ mode: 'idle' });
+    // shopDrawState shapes:
+    //   { mode: 'idle' }
+    //   { mode: 'precise',  topRow, leftCol, candidates: [{ r, c, cell, isBanana, ingredient, rarity }, ...] }
+    //   { mode: 'targeted', topRow, leftCol }
+    const [hoveredRegion, setHoveredRegion] = useState(null);  // { topRow, leftCol } | null
 
-    // --- Sub-Level State ---
-    const [wallStack, setWallStack] = useState([]); // stack of { matrix, gold, wallType }
-    const isInSubLevel = wallStack.length > 0;
-
-    // --- Doom State ---
-    const [hp, setHp] = useState(doomConfig.initialHP);
-    const [doomGrid, setDoomGrid] = useState(() => {
-        const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
-        for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-            grid[i] = { type: 'danger' };
-        }
-        return grid;
-    });
-    const [doomLevel, setDoomLevel] = useState(doomConfig.initialDoomLevel);
-    const [isDoomResolving, setIsDoomResolving] = useState(false);
-    const [doomAnimState, setDoomAnimState] = useState(null);
-    const [doomResolutionResult, setDoomResolutionResult] = useState(null);
-    const [afterDoomAction, setAfterDoomAction] = useState(null); // null | 'end_turn'
-
-    // --- Inventory State ---
-    // inventory = show-only basket (菜篮)
-    // fridge    = home-side persistent storage (冰箱). On return-to-restaurant
-    //   all out-of-game items move from inventory to fridge; cooking consumes
-    //   from fridge. Leftovers persist across days.
-    const [inventory, setInventory] = useState([]);
+    // Global
     const [fridge, setFridge] = useState([]);
 
-    // --- Inventory Pending Queue ---
-    const [pendingItems, setPendingItems] = useState([]); // queue of items awaiting placement when inventory full
+    // Pending queues
+    const [pendingBasketItems, setPendingBasketItems] = useState([]);
+    const [pendingFridgeItems, setPendingFridgeItems] = useState([]);
 
-    // --- Order State ---
-    const [bulletinBoard, setBulletinBoard] = useState([]);
-    const [refreshCharges, setRefreshCharges] = useState(REFRESH_CONFIG.initialCharges);
+    // Transient feedback
+    const [lastKick, setLastKick] = useState(null);            // { shop, at } | null
+    const [lastDishResult, setLastDishResult] = useState(null);// { dishId, total, ... } | null
 
-    // --- Incoming Order Queue ---
-    // Each element is { id, candidates: [orderA, orderB] }. UI reads the
-    // front (`incomingQueue[0]`) and it gets consumed via
-    // confirm/discard/replace. Keeping this as a queue (not a single slot)
-    // lets simultaneous sources stack: completion auto-refill + manual
-    // refresh + setup-time 5-pack all coexist without overwriting.
-    const [incomingQueue, setIncomingQueue] = useState([]);
-    // Set when the player picks a candidate while shelf is full — UI enters
-    // "choose which shelf order to replace" mode. Declared up here (instead
-    // of next to replaceBulletinOrder) so the setup useEffect below can
-    // reference it without hitting the temporal dead zone.
-    const [pendingChosenOrder, setPendingChosenOrder] = useState(null);
+    // ═════════════════════════════════════════════════════════════════
+    // Day lifecycle
+    // ═════════════════════════════════════════════════════════════════
 
-    // --- Opening Setup ---
-    // `dishIntroPending`: true while the "today's dish" overlay is still
-    // waiting for the player to dismiss it. During setup, the player also
-    // picks 5 orders via the incoming queue before the first wall generates.
-    const [dishIntroPending, setDishIntroPending] = useState(false);
-    const [currentDish, setCurrentDish] = useState(null);
+    const startDay = useCallback(() => {
+        const dishes = generateDailyDishes();
+        const placements = {};
+        const resolved = {};
+        dishes.forEach(d => {
+            placements[d.id] = d.slots.map(() => null);
+            resolved[d.id] = null;
+        });
+        setDayNumber(1);
+        setSatisfaction(SATISFACTION_CONFIG.initial);
+        setHoursRemaining(DAY_CONFIG.hoursPerDay);
+        setDailyDishes(dishes);
+        setDishPlacements(placements);
+        setDishResolved(resolved);
+        setShopCandidates(pickShopCandidates());
+        setCurrentShop(null);
+        setShopMatrix(null);
+        setShopBasket([]);
+        setCurrentAffix(null);
+        setShopDrawState({ mode: 'idle' });
+        setHoveredRegion(null);
+        setFridge([]);
+        setPendingBasketItems([]);
+        setPendingFridgeItems([]);
+        setLastKick(null);
+        setLastDishResult(null);
+        setPhase('shop_picking');
+    }, []);
 
-    // --- UI State ---
-    const [toast, setToast] = useState(null);
-    const [lastDrawResult, setLastDrawResult] = useState(null);
-    const [modalContent, setModalContent] = useState(null);
-    const [flyingItem, setFlyingItem] = useState(null);
-    const [drawAnimState, setDrawAnimState] = useState(null);
-    // { direction: 'row'|'column', rowIndex, colIndex, activeCols, finalColIndex, finalRowIndex, finalHighlight, drawnCell, tick, totalTicks, currentHighlight, phase: 'scanning'|'settled' }
+    const resetGame = startDay;
 
-    // --- Derived State ---
-    const dangerCount = useMemo(() =>
-        doomGrid.filter(cell => cell.type === 'danger').length,
-        [doomGrid]
+    // ═════════════════════════════════════════════════════════════════
+    // Shop entry / exit
+    // ═════════════════════════════════════════════════════════════════
+
+    const enterShop = useCallback((shopId) => {
+        if (phase !== 'shop_picking') return;
+        if (hoursRemaining <= 0) return;
+        const shop = SHOPS.find(s => s.id === shopId);
+        if (!shop) return;
+        setCurrentShop(shop);
+        setShopMatrix(generateShopWall(shop.category));
+        setShopBasket([]);
+        setCurrentAffix(rollAffix());
+        setShopDrawState({ mode: 'idle' });
+        setHoveredRegion(null);
+        setHoursRemaining(h => h - DAY_CONFIG.hoursPerShop);
+        setPhase('in_shop');
+    }, [phase, hoursRemaining]);
+
+    const leaveShop = useCallback(() => {
+        if (phase !== 'in_shop') return;
+        const maxFridge = BASKET_CONFIG.fridgeSize;
+        // Drain basket → fridge; overflow queues as pending fridge items
+        setFridge(curr => {
+            const next = [...curr];
+            const overflow = [];
+            for (const item of shopBasket) {
+                if (next.length < maxFridge) next.push(item);
+                else overflow.push(item);
+            }
+            if (overflow.length) {
+                setPendingFridgeItems(q => [...q, ...overflow]);
+            }
+            return next;
+        });
+        setCurrentShop(null);
+        setShopMatrix(null);
+        setShopBasket([]);
+        setCurrentAffix(null);
+        setShopDrawState({ mode: 'idle' });
+        setHoveredRegion(null);
+        setShopCandidates(pickShopCandidates());
+        setPhase('shop_picking');
+    }, [phase, shopBasket]);
+
+    // 香蕉皮踢出：清空临时篮、返回店选择
+    const _handleKick = useCallback(() => {
+        setLastKick({ shop: currentShop, at: Date.now() });
+        setShopBasket([]);
+        setCurrentShop(null);
+        setShopMatrix(null);
+        setCurrentAffix(null);
+        setShopDrawState({ mode: 'idle' });
+        setHoveredRegion(null);
+        setShopCandidates(pickShopCandidates());
+        setPhase('shop_picking');
+    }, [currentShop]);
+
+    // ═════════════════════════════════════════════════════════════════
+    // Drawing
+    // ═════════════════════════════════════════════════════════════════
+
+    const _addToBasket = useCallback((items) => {
+        const max = BASKET_CONFIG.shopBasketSize;
+        setShopBasket(curr => {
+            const next = [...curr];
+            const overflow = [];
+            for (const item of items) {
+                if (!item) continue;
+                if (next.length < max) next.push(item);
+                else overflow.push(item);
+            }
+            if (overflow.length) {
+                setPendingBasketItems(q => [...q, ...overflow]);
+            }
+            return next;
+        });
+    }, []);
+
+    const _finishDraw = useCallback((topRow, leftCol, shopCategory) => {
+        setShopMatrix(m => refreshShopRegion(m, topRow, leftCol, shopCategory));
+        setCurrentAffix(rollAffix());
+        setShopDrawState({ mode: 'idle' });
+        setHoveredRegion(null);
+    }, []);
+
+    const hoverRegion = useCallback((topRow, leftCol) => {
+        if (phase !== 'in_shop') return;
+        setHoveredRegion({ topRow, leftCol });
+    }, [phase]);
+
+    const clearHover = useCallback(() => {
+        setHoveredRegion(null);
+    }, []);
+
+    const selectRegion = useCallback((topRow, leftCol) => {
+        if (phase !== 'in_shop' || !shopMatrix || !currentAffix || !currentShop) return;
+        if (shopDrawState.mode !== 'idle') return;
+        if (topRow < 0 || topRow > 2 || leftCol < 0 || leftCol > 2) return;
+
+        const affixId = currentAffix.id;
+        const cells = get2x2Cells(topRow, leftCol, shopMatrix);
+        const category = currentShop.category;
+
+        if (affixId === 'precise') {
+            // 随机抽 2 格作候选，先摇好品质展示
+            const shuffled = cells.slice().sort(() => Math.random() - 0.5);
+            const two = shuffled.slice(0, 2);
+            const candidates = two.map(({ r, c, cell }) => {
+                if (cell.type === 'banana_peel') {
+                    return { r, c, cell, isBanana: true, ingredient: null, rarity: null };
+                }
+                const rarity = rollQuality(); // 默认品质权重
+                const ingredient = resolveIngredient(cell.baseId, rarity);
+                return { r, c, cell, isBanana: false, ingredient, rarity };
+            });
+            setShopDrawState({ mode: 'precise', topRow, leftCol, candidates });
+            setHoveredRegion(null);
+            return;
+        }
+
+        if (affixId === 'targeted') {
+            // 玩家自选 1 格
+            setShopDrawState({ mode: 'targeted', topRow, leftCol });
+            setHoveredRegion(null);
+            return;
+        }
+
+        if (affixId === 'fragmented') {
+            // 3 次独立随机落点，全 ★；任一落到香蕉皮 → 踢出
+            const picks = [];
+            for (let i = 0; i < 3; i++) {
+                const idx = Math.floor(Math.random() * 4);
+                picks.push(cells[idx]);
+            }
+            for (const { cell } of picks) {
+                if (cell.type === 'banana_peel') {
+                    _handleKick();
+                    return;
+                }
+            }
+            const results = picks
+                .map(({ cell }) => resolveIngredient(cell.baseId, 1))
+                .filter(Boolean);
+            _addToBasket(results);
+            _finishDraw(topRow, leftCol, category);
+            return;
+        }
+
+        // hardened / purified — 默认 1/4 随机落点，品质覆盖
+        const idx = Math.floor(Math.random() * 4);
+        const { cell } = cells[idx];
+        if (cell.type === 'banana_peel') {
+            _handleKick();
+            return;
+        }
+        const rarity = rollQuality(affixId);
+        const ingredient = resolveIngredient(cell.baseId, rarity);
+        _addToBasket([ingredient]);
+        _finishDraw(topRow, leftCol, category);
+    }, [phase, shopMatrix, currentAffix, currentShop, shopDrawState, _addToBasket, _handleKick, _finishDraw]);
+
+    const pickPreciseCandidate = useCallback((candidateIdx) => {
+        if (shopDrawState.mode !== 'precise' || !currentShop) return;
+        const { candidates, topRow, leftCol } = shopDrawState;
+        const chosen = candidates[candidateIdx];
+        if (!chosen) return;
+        if (chosen.isBanana) {
+            _handleKick();
+            return;
+        }
+        _addToBasket([chosen.ingredient]);
+        _finishDraw(topRow, leftCol, currentShop.category);
+    }, [shopDrawState, currentShop, _addToBasket, _handleKick, _finishDraw]);
+
+    const pickTargetedCell = useCallback((r, c) => {
+        if (shopDrawState.mode !== 'targeted' || !shopMatrix || !currentShop) return;
+        const { topRow, leftCol } = shopDrawState;
+        if (r < topRow || r > topRow + 1 || c < leftCol || c > leftCol + 1) return;
+        const cell = shopMatrix[r][c];
+        if (cell.type === 'banana_peel') {
+            _handleKick();
+            return;
+        }
+        const rarity = rollQuality();
+        const ingredient = resolveIngredient(cell.baseId, rarity);
+        _addToBasket([ingredient]);
+        _finishDraw(topRow, leftCol, currentShop.category);
+    }, [shopDrawState, shopMatrix, currentShop, _addToBasket, _handleKick, _finishDraw]);
+
+    const cancelSubSelection = useCallback(() => {
+        // 允许玩家取消 precise / targeted 中间态，回到 idle 重新选 2×2
+        if (shopDrawState.mode === 'precise' || shopDrawState.mode === 'targeted') {
+            setShopDrawState({ mode: 'idle' });
+        }
+    }, [shopDrawState]);
+
+    // ═════════════════════════════════════════════════════════════════
+    // Pending queue resolutions
+    // ═════════════════════════════════════════════════════════════════
+
+    const replaceBasketItem = useCallback((basketIdx) => {
+        if (!pendingBasketItems.length) return;
+        const incoming = pendingBasketItems[0];
+        setShopBasket(curr => {
+            if (basketIdx < 0 || basketIdx >= curr.length) return curr;
+            const next = [...curr];
+            next[basketIdx] = incoming;
+            return next;
+        });
+        setPendingBasketItems(q => q.slice(1));
+    }, [pendingBasketItems]);
+
+    const discardPendingBasketItem = useCallback(() => {
+        setPendingBasketItems(q => q.slice(1));
+    }, []);
+
+    const replaceFridgeItem = useCallback((fridgeIdx) => {
+        if (!pendingFridgeItems.length) return;
+        const incoming = pendingFridgeItems[0];
+        setFridge(curr => {
+            if (fridgeIdx < 0 || fridgeIdx >= curr.length) return curr;
+            const next = [...curr];
+            next[fridgeIdx] = incoming;
+            return next;
+        });
+        setPendingFridgeItems(q => q.slice(1));
+    }, [pendingFridgeItems]);
+
+    const discardPendingFridgeItem = useCallback(() => {
+        setPendingFridgeItems(q => q.slice(1));
+    }, []);
+
+    // ═════════════════════════════════════════════════════════════════
+    // Dish slot management
+    // ═════════════════════════════════════════════════════════════════
+
+    const placeIngredient = useCallback((dishId, slotIdx, fridgeIdx) => {
+        if (dishResolved[dishId]) return;
+        if (fridgeIdx < 0 || fridgeIdx >= fridge.length) return;
+        const ingredient = fridge[fridgeIdx];
+        const currentPlacement = dishPlacements[dishId]?.[slotIdx] || null;
+
+        setFridge(curr => {
+            const next = curr.filter((_, i) => i !== fridgeIdx);
+            if (currentPlacement) next.push(currentPlacement);
+            return next;
+        });
+        setDishPlacements(curr => {
+            const dishArr = [...(curr[dishId] || [])];
+            dishArr[slotIdx] = ingredient;
+            return { ...curr, [dishId]: dishArr };
+        });
+    }, [dishResolved, fridge, dishPlacements]);
+
+    const removeFromSlot = useCallback((dishId, slotIdx) => {
+        if (dishResolved[dishId]) return;
+        const ingredient = dishPlacements[dishId]?.[slotIdx];
+        if (!ingredient) return;
+        setFridge(curr => [...curr, ingredient]);
+        setDishPlacements(curr => {
+            const dishArr = [...(curr[dishId] || [])];
+            dishArr[slotIdx] = null;
+            return { ...curr, [dishId]: dishArr };
+        });
+    }, [dishResolved, dishPlacements]);
+
+    const confirmDish = useCallback((dishId) => {
+        if (dishResolved[dishId]) return;
+        const dish = dailyDishes.find(d => d.id === dishId);
+        if (!dish) return;
+        const placements = dishPlacements[dishId];
+        if (!placements || placements.some(p => !p)) return; // 必须填满
+
+        const slotScores = dish.slots.map((slot, i) => {
+            const ing = placements[i];
+            const multiplier = getSlotMultiplier(ing, slot);
+            return { ingredient: ing, multiplier, score: (ing.rarity || 1) * multiplier };
+        });
+        const total = slotScores.reduce((s, x) => s + x.score, 0);
+
+        const ratio = dish.baseline === 0 ? total : total / dish.baseline;
+        let matched = DISH_SCORING.thresholds[DISH_SCORING.thresholds.length - 1];
+        for (const t of DISH_SCORING.thresholds) {
+            if (ratio >= t.minRatio) { matched = t; break; }
+        }
+
+        const resolvedState = {
+            total,
+            baseline: dish.baseline,
+            rating: matched.rating,
+            ratingEn: matched.ratingEn,
+            delta: matched.delta,
+            slotScores,
+        };
+
+        setSatisfaction(s => clamp(s + matched.delta, 0, SATISFACTION_CONFIG.max));
+        setDishResolved(curr => ({ ...curr, [dishId]: resolvedState }));
+        setLastDishResult({ dishId, ...resolvedState });
+    }, [dishResolved, dailyDishes, dishPlacements]);
+
+    // ═════════════════════════════════════════════════════════════════
+    // Day end
+    // ═════════════════════════════════════════════════════════════════
+
+    const endDay = useCallback(() => {
+        if (phase === 'game_over' || phase === 'day_end') return;
+        let satAcc = satisfaction;
+        const updated = { ...dishResolved };
+        for (const dish of dailyDishes) {
+            if (!updated[dish.id]) {
+                satAcc += DISH_SCORING.unfinishedDelta;
+                updated[dish.id] = {
+                    total: 0, baseline: dish.baseline,
+                    rating: '未完成', ratingEn: 'Unfinished',
+                    delta: DISH_SCORING.unfinishedDelta,
+                    slotScores: [],
+                    unfinished: true,
+                };
+            }
+        }
+        satAcc = clamp(satAcc, 0, SATISFACTION_CONFIG.max);
+        setSatisfaction(satAcc);
+        setDishResolved(updated);
+        if (satAcc <= SATISFACTION_CONFIG.loseThreshold) {
+            setPhase('game_over');
+        } else {
+            setPhase('day_end');
+        }
+    }, [phase, satisfaction, dishResolved, dailyDishes]);
+
+    // ═════════════════════════════════════════════════════════════════
+    // Debug helpers (M2 冒烟测试用；M3 可接到调试面板)
+    // ═════════════════════════════════════════════════════════════════
+
+    const debugAddToFridge = useCallback((ingredient) => {
+        setFridge(curr => {
+            if (curr.length >= BASKET_CONFIG.fridgeSize) return curr;
+            return [...curr, ingredient];
+        });
+    }, []);
+
+    const debugForceAffix = useCallback((affixId) => {
+        // 仅开发用：强制下一个词缀
+        const forced = { id: affixId, name: affixId, nameEn: affixId, icon: '', desc: '(debug)' };
+        setCurrentAffix(forced);
+    }, []);
+
+    // ═════════════════════════════════════════════════════════════════
+    // Derived
+    // ═════════════════════════════════════════════════════════════════
+
+    const canEnterShop = useMemo(
+        () => phase === 'shop_picking' && hoursRemaining > 0,
+        [phase, hoursRemaining]
+    );
+    const canEndDay = useMemo(
+        () => phase === 'shop_picking' || phase === 'in_shop',
+        [phase]
+    );
+    const canLeaveShop = useMemo(
+        () => phase === 'in_shop' && shopDrawState.mode === 'idle',
+        [phase, shopDrawState]
+    );
+    const canSelectRegion = useMemo(
+        () => phase === 'in_shop' && shopDrawState.mode === 'idle',
+        [phase, shopDrawState]
     );
 
-    // =============================================
-    // TURN FLOW
-    // =============================================
-
-    /** Start a new turn: generate grid, give gold */
-    const startNewTurn = () => {
-        const newTurnNumber = turnNumber + 1;
-        setTurnNumber(newTurnNumber);
-        setGold(turnConfig.goldPerTurn);
-        setLastDrawResult(null);
-        setDoomResolutionResult(null);
-        setGravityActive(false);
-
-        // Doom accumulation (not on first turn)
-        if (newTurnNumber > 1) {
-            setDoomGrid(prev => {
-                const newGrid = [...prev];
-                let added = 0;
-                for (let i = 0; i < newGrid.length && added < doomConfig.dangerPerTurn; i++) {
-                    if (newGrid[i].type === 'empty') {
-                        newGrid[i] = { type: 'danger' };
-                        added++;
-                    }
-                }
-                return newGrid;
-            });
-        }
-
-        // Reset draw direction for alternating wall
-        setLastDrawDirection(null);
-
-        // Generate 3 wall candidates and enter the wall_choice phase. Each
-        // candidate is EITHER a hand-crafted level OR a procedural wall —
-        // mutually exclusive. No duplicates within the 3.
-        const candidates = [];
-        const usedIds = new Set();
-        const currentExpedition = Math.max(1, expeditionNumber);
-        let safety = 0;
-        while (candidates.length < 3 && safety < 30) {
-            safety++;
-            const template = pickTemplate(currentExpedition);
-            if (template) {
-                const key = 'level:' + template.id;
-                if (usedIds.has(key)) continue;
-                usedIds.add(key);
-                const result = generateWallFromTemplate(template);
-                candidates.push({
-                    stickers: result.stickers,
-                    grid: result.grid,
-                    doomCellCount: result.doomCellCount,
-                    wallType: null,
-                    level: template,
-                });
-            } else {
-                const rawWallType = pickWallType();
-                const key = 'wall:' + rawWallType.id;
-                if (usedIds.has(key)) continue;
-                usedIds.add(key);
-                const stickers = pickWallStickers(STICKER_TYPES, WALL_STICKER_COUNT.min, WALL_STICKER_COUNT.max);
-                const { grid: baseGrid, doomCellCount } = generateWall(stickers);
-                // Bake modifier mutations into the grid now so the picker
-                // preview reflects exactly what the player will draw from.
-                const { wallType, grid } = finalizeProceduralCandidate(rawWallType, baseGrid);
-                candidates.push({ stickers, grid, doomCellCount, wallType, level: null });
-            }
-        }
-        setWallCandidates(candidates);
-        setPhase('wall_choice');
-    };
-
-    /** Player picks one of the 3 wall candidates — commit to it, then
-     *  reveal the modifier/level in the wall_reveal phase. */
-    const selectWall = (index) => {
-        if (!wallCandidates || !wallCandidates[index]) return;
-        setPendingWallCandidate(wallCandidates[index]);
-        setPhase('wall_reveal');
-    };
-
-    /** Player clicks past the reveal — apply the chosen candidate. */
-    const confirmWallReveal = () => {
-        if (!pendingWallCandidate) return;
-        const chosen = pendingWallCandidate;
-        setPendingWallCandidate(null);
-        setWallCandidates(null);
-        applyWallCandidate(chosen);
-    };
-
-    /** Start the game: show today's dish, then let the player assemble the
-     *  initial bulletin via SETUP_CONFIG.pickCount × pick-1-of-2 events. The
-     *  first wall does NOT generate until setup finishes — that way the
-     *  wall's per-cell sticker roll can draw from the orders the player
-     *  just chose, instead of falling back to the full sticker roster. */
-    const startGame = () => {
-        setExpeditionNumber(prev => prev + 1);
-
-        // Pick today's dish — fixed order by day. Day 1 → DISHES[0],
-        // Day 2 → DISHES[1], cycles afterwards.
-        const nextDay = expeditionNumber + 1;
-        const dish = DISHES[(nextDay - 1) % DISHES.length];
-        setCurrentDish(dish);
-        setDishIntroPending(true);
-
-        setBulletinBoard([]);
-        setPendingChosenOrder(null);
-        setPhase('setup');
-        // Queue will be filled once the player dismisses the dish intro
-        // (see dismissDishIntro below).
-    };
-
-    /** Player dismisses the "today's dish" overlay — auto-fill the shelf
-     *  with 4 initial orders. No more setup picking. */
-    const dismissDishIntro = () => {
-        if (!dishIntroPending) return;
-        setDishIntroPending(false);
-        const initial = [];
-        for (let i = 0; i < 4; i++) {
-            initial.push(generateOrder());
-        }
-        setBulletinBoard(initial);
-    };
-
-    // When the setup queue drains (after the 5 initial picks), auto-start
-    // the first wall. Gated on dishIntro being dismissed so we don't fire
-    // while the queue is still empty waiting for the intro.
-    useEffect(() => {
-        if (phase !== 'setup') return;
-        if (dishIntroPending) return;
-        if (incomingQueue.length > 0) return;
-        if (pendingChosenOrder) return;
-        startNewTurn();
-    }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
-
-    /** End current turn: resolve doom once, then go to between-turns decision */
-    const endTurn = () => {
-        resolveDoom('end_turn');
-    };
-
-    /** Continue to next turn. Per-turn auto refill removed — shelf stays
-     *  full via completion-triggered auto refill and the manual refresh
-     *  button. */
-    const continueToNextTurn = () => {
-        startNewTurn();
-    };
-
-    /** Apply a chosen wall candidate. Modifier-specific grid mutations and
-     *  wallType randomization are baked in at candidate-generation time
-     *  (finalizeProceduralCandidate), so this is now just a state setter
-     *  plus gold override and phase transition. */
-    const applyWallCandidate = (chosen) => {
-        setCurrentWallType(chosen.wallType || null);
-        setCurrentLevel(chosen.level || null);
-
-        if (chosen.wallType?.goldOverride !== undefined) {
-            setGold(chosen.wallType.goldOverride);
-        }
-        if (chosen.level?.settings?.gold !== undefined) {
-            setGold(chosen.level.settings.gold);
-        }
-
-        setMatrix(chosen.grid);
-        setPhase('drawing');
-    };
-
-    /** Enter a sub-level: push current wall state, load sub-level grid.
-     *  entranceRow/Col: position of the entrance cell to remove from saved matrix */
-    const enterSubLevel = (subLevelId, entranceRow, entranceCol) => {
-        const subLevel = LEVEL_TEMPLATES.find(t => t.id === subLevelId && t.role === 'sub');
-        if (!subLevel) return;
-
-        // Save current matrix with entrance cell removed
-        const savedMatrix = matrix.map(r => r.map(c => c ? { ...c } : null));
-        if (entranceRow !== undefined && entranceCol !== undefined) {
-            savedMatrix[entranceRow][entranceCol] = null;
-        }
-
-        setWallStack(prev => [...prev, {
-            matrix: savedMatrix,
-            gold,
-            wallType: currentWallType,
-            level: currentLevel,
-        }]);
-
-        // Generate and load sub-level
-        const result = generateWallFromTemplate(subLevel);
-        const subGold = subLevel.settings?.gold ?? turnConfig.goldPerTurn;
-        setMatrix(result.grid);
-        setGold(subGold);
-        setCurrentWallType(null);
-        setCurrentLevel(null);
-        setLastDrawResult(null);
-        setDrawAnimState(null);
-        setPhase('drawing_sub');
-    };
-
-    /** Exit sub-level: play exit animation, then pop wall stack and restore. No doom resolution. */
-    const exitSubLevel = () => {
-        if (wallStack.length === 0) return;
-
-        // Set a transitional phase to trigger exit animation
-        setPhase('exiting_sub');
-
-        // After animation completes, restore parent state
-        setTimeout(() => {
-            const parent = wallStack[wallStack.length - 1];
-            setWallStack(prev => prev.slice(0, -1));
-            setMatrix(parent.matrix);
-            setGold(parent.gold);
-            setCurrentWallType(parent.wallType);
-            setCurrentLevel(parent.level || null);
-            setLastDrawResult(null);
-            setPhase('drawing');
-        }, 280);
-    };
-
-    // =============================================
-    // DRAW MECHANIC
-    // =============================================
-
-    const isDrawAnimating = drawAnimState !== null;
-
-    /** Select a row — starts scanning animation, then resolves */
-    const selectRow = (rowIndex) => {
-        if (phase !== 'drawing' && phase !== 'drawing_sub') return;
-        if (isDoomResolving || isDrawAnimating) return;
-        if (gold < turnConfig.drawCost) return;
-        if (!matrix || !matrix[rowIndex]) return;
-        // Alternating wall: block consecutive row draws
-        if (currentWallType?.id === 'alternating' && lastDrawDirection === 'row') return;
-
-        setDoomResolutionResult(null);
-        setFlyingItem(null);
-        setLastDrawResult(null);
-
-        const row = matrix[rowIndex];
-        const activeCols = [];
-        row.forEach((cell, colIndex) => {
-            if (cell !== null && cell.type !== 'empty') activeCols.push(colIndex);
-        });
-        if (activeCols.length === 0) return;
-
-        setGold(prev => prev - turnConfig.drawCost);
-
-        // Pre-determine result
-        const finalColIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
-        const drawnCell = row[finalColIndex];
-
-        // Calculate total ticks: cycle through active cells multiple times, end on finalColIndex
-        const finalIdx = activeCols.indexOf(finalColIndex);
-        // At least 2 full passes + land on final
-        const fullPasses = 1;
-        const totalTicks = fullPasses * activeCols.length + finalIdx + 1;
-
-        setDrawAnimState({
-            direction: 'row',
-            rowIndex,
-            colIndex: null,
-            activeCols,
-            finalColIndex,
-            finalRowIndex: rowIndex,
-            finalHighlight: finalColIndex,
-            drawnCell,
-            tick: 0,
-            totalTicks,
-            currentHighlight: activeCols[0],
-            phase: 'scanning',
-        });
-    };
-
-    /** Select a column — starts scanning animation top-to-bottom, then resolves */
-    const selectColumn = (colIndex) => {
-        if (phase !== 'drawing' && phase !== 'drawing_sub') return;
-        if (isDoomResolving || isDrawAnimating) return;
-        if (gold < turnConfig.drawCost) return;
-        if (!matrix) return;
-        // Alternating wall: block consecutive column draws
-        if (currentWallType?.id === 'alternating' && lastDrawDirection === 'column') return;
-
-        setDoomResolutionResult(null);
-        setFlyingItem(null);
-        setLastDrawResult(null);
-
-        // activeCols here are actually active row indices for this column
-        const activeCols = [];
-        matrix.forEach((row, rowIndex) => {
-            if (row[colIndex] !== null && row[colIndex].type !== 'empty') activeCols.push(rowIndex);
-        });
-        if (activeCols.length === 0) return;
-
-        setGold(prev => prev - turnConfig.drawCost);
-
-        // Pre-determine result: pick a random row from active rows
-        const finalRowIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
-        const drawnCell = matrix[finalRowIndex][colIndex];
-
-        // Calculate total ticks: 1 full pass + landing on finalRowIndex
-        const finalIdx = activeCols.indexOf(finalRowIndex);
-        const fullPasses = 1;
-        const totalTicks = fullPasses * activeCols.length + finalIdx + 1;
-
-        setDrawAnimState({
-            direction: 'column',
-            rowIndex: null,
-            colIndex,
-            activeCols,
-            finalColIndex: colIndex,
-            finalRowIndex,
-            finalHighlight: finalRowIndex,
-            drawnCell,
-            tick: 0,
-            totalTicks,
-            currentHighlight: activeCols[0],
-            phase: 'scanning',
-        });
-    };
-
-    /** Advance draw scanning animation — sequential through active cells */
-    const tickDrawAnim = () => {
-        setDrawAnimState(prev => {
-            if (!prev || prev.phase !== 'scanning') return prev;
-            const newTick = prev.tick + 1;
-            if (newTick >= prev.totalTicks) {
-                return { ...prev, tick: newTick, currentHighlight: prev.finalHighlight, phase: 'settled' };
-            }
-            // Cycle through activeCols
-            const next = prev.activeCols[newTick % prev.activeCols.length];
-            return { ...prev, tick: newTick, currentHighlight: next };
-        });
-    };
-
-    /** Apply draw result after animation settles */
-    const completeDrawAnim = () => {
-        if (!drawAnimState) return;
-        const { direction, finalRowIndex, finalColIndex, drawnCell } = drawAnimState;
-
-        // Track draw direction for alternating wall
-        setLastDrawDirection(direction);
-
-        // Buff field coverage at the drawn cell — bomb is explicitly unaffected.
-        const buffCov = drawnCell.type === 'bomb'
-            ? 0
-            : countBuffFieldCoverage(matrix, finalRowIndex, finalColIndex);
-        const buffMult = buffCov + 1;
-        const mult = (drawnCell.multiplier || 1) * buffMult;
-        let obtainedItem = null;
-        const doomEffects = { resolutions: 0, upgrades: 0 };
-
-        // Cluster yield (sticker only). Whole cluster is destroyed; total
-        // sticker payout = 1 + Σ(multiplier-1) per member + Σ buff_field
-        // 4-neighbors per member. Each member-buff adjacency is counted
-        // separately, so a buff_field touching 2 members of the same
-        // cluster contributes 2.
-        let clusterMembers = null;
-        let clusterYield = 0;
-        if (drawnCell.type === 'sticker') {
-            clusterMembers = getClusterMembers(matrix, finalRowIndex, finalColIndex);
-            clusterYield = 1;
-            for (const [cr, cc] of clusterMembers) {
-                const cell = matrix[cr][cc];
-                clusterYield += (cell?.multiplier || 1) - 1;
-                clusterYield += countBuffFieldCoverage(matrix, cr, cc);
-            }
-            obtainedItem = drawnCell;
-        } else if (drawnCell.type === 'item' || drawnCell.type === 'out_of_game') {
-            obtainedItem = drawnCell;
-        } else if (drawnCell.type === 'doom_resolution') {
-            doomEffects.resolutions = 1 * mult;
-        } else if (drawnCell.type === 'doom_upgrade') {
-            doomEffects.upgrades = 1 * mult;
-        } else if (drawnCell.type === 'gold') {
-            const goldGain = drawnCell.goldAmount * mult;
-            setGold(prev => prev + goldGain);
-            showToast(`${t('抽数')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
-        } else if (drawnCell.type === 'order_cell') {
-            // Order cells queue an additional pick-1-of-2 for the end of
-            // this wall (resolved in between_turns along with the default
-            // one from endTurn).
-            addBulletinOrder();
-            showToast(`📋 ${t('新订单')} +1`, 'info');
-        } else if (drawnCell.type === 'heal') {
-            const amount = (drawnCell.healAmount || 1) * mult;
-            setHp(prev => Math.min(prev + amount, doomConfig.initialHP));
-            showToast(`❤️‍🩹 HP +${amount}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
-        } else if (drawnCell.type === 'backpack_expand') {
-            const amount = (drawnCell.expandAmount || 1) * mult;
-            setInventoryBonus(prev => prev + amount);
-            showToast(`🎒 ${t('菜篮')} +${amount}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
-        } else if (drawnCell.type === 'gravity') {
-            setGravityActive(true);
-            showToast('⬇️ ' + t('重力开关！'), 'info');
-        } else if (drawnCell.type === 'bomb') {
-            // Bomb: mark for adjacent destruction (handled in matrix update below)
-        } else if (drawnCell.type === 'entrance') {
-            // Enter sub-level directly — no setTimeout, no stale closure issues
-            const entryName = (language === 'en' && drawnCell.name_en) ? drawnCell.name_en : drawnCell.name;
-            showToast(`${drawnCell.icon || '🚪'} ${t('进入子关卡')}: ${entryName}`, 'info');
-            enterSubLevel(drawnCell.subLevelId, finalRowIndex, finalColIndex);
-            return; // Skip the normal post-draw flow
-        }
-
-        // Mirror modifier: also resolve the cell on the opposite side of the
-        // wall (same row, mirrored column). Cached from the live matrix so we
-        // see the cell as the player saw it before any mutations.
-        let mirrorRow = null;
-        let mirrorCol = null;
-        let mirrorCell = null;
-        if (currentWallType?.id === 'mirror' && drawnCell.type !== 'entrance' && matrix) {
-            mirrorRow = finalRowIndex;
-            mirrorCol = matrix[0].length - 1 - finalColIndex;
-            if (mirrorCol !== finalColIndex) {
-                mirrorCell = matrix[mirrorRow]?.[mirrorCol] || null;
-            }
-        }
-
-        // Mirror cluster: if mirror cell is a sticker, it has its own cluster.
-        // If that cluster is the SAME as the drawn cluster (mirror falls inside),
-        // dedupe: the cluster destruction below already takes both, so the
-        // mirror yields nothing extra.
-        let mirrorClusterMembers = null;
-        let mirrorClusterYield = 0;
-        let mirrorSameCluster = false;
-        if (mirrorCell?.type === 'sticker' && matrix) {
-            mirrorClusterMembers = getClusterMembers(matrix, mirrorRow, mirrorCol);
-            if (clusterMembers && clusterMembers.some(([r, c]) => r === mirrorRow && c === mirrorCol)) {
-                mirrorSameCluster = true;
-                mirrorClusterMembers = null;
-            } else {
-                mirrorClusterYield = 1;
-                for (const [cr, cc] of mirrorClusterMembers) {
-                    const cell = matrix[cr][cc];
-                    mirrorClusterYield += (cell?.multiplier || 1) - 1;
-                    mirrorClusterYield += countBuffFieldCoverage(matrix, cr, cc);
-                }
-            }
-        }
-
-        if (mirrorCell && !mirrorSameCluster) {
-            const mMult = mirrorCell.multiplier || 1;
-            if (mirrorCell.type === 'sticker' && mirrorClusterMembers) {
-                for (let i = 0; i < mirrorClusterYield; i++) {
-                    addToInventory({ ...mirrorCell, uid: generateUID() });
-                }
-                const itemName = mirrorCell.item?.name || mirrorCell.name;
-                const tag = mirrorClusterYield > 1 ? ` ×${mirrorClusterYield}` : '';
-                showToast(`🪞 ${t('镜像')}: ${mirrorCell.item?.icon || ''} ${t(itemName)}${tag}`, 'success');
-            } else if (mirrorCell.type === 'item' || mirrorCell.type === 'out_of_game') {
-                if (mMult > 1 && mirrorCell.type === 'item') {
-                    for (let i = 0; i < mMult; i++) {
-                        addToInventory({ ...mirrorCell, uid: generateUID() });
-                    }
-                } else {
-                    addToInventory({ ...mirrorCell, uid: generateUID() });
-                }
-                const itemName = mirrorCell.item?.name || mirrorCell.name;
-                showToast(`🪞 ${t('镜像')}: ${mirrorCell.item?.icon || mirrorCell.icon || ''} ${t(itemName)}`, 'success');
-            } else if (mirrorCell.type === 'doom_resolution') {
-                doomEffects.resolutions += 1 * mMult;
-            } else if (mirrorCell.type === 'doom_upgrade') {
-                doomEffects.upgrades += 1 * mMult;
-            } else if (mirrorCell.type === 'gold') {
-                const g = mirrorCell.goldAmount * mMult;
-                setGold(prev => prev + g);
-                showToast(`🪞 ${t('镜像')} ${t('抽数')} +${g}`, 'success');
-            } else if (mirrorCell.type === 'order_cell') {
-                addBulletinOrder();
-                showToast(`🪞 ${t('镜像')}: 📋 ${t('新订单')} +1`, 'info');
-            } else if (mirrorCell.type === 'heal') {
-                const a = (mirrorCell.healAmount || 1) * mMult;
-                setHp(prev => Math.min(prev + a, doomConfig.initialHP));
-                showToast(`🪞 ${t('镜像')} ❤️‍🩹 HP +${a}`, 'success');
-            } else if (mirrorCell.type === 'backpack_expand') {
-                const a = (mirrorCell.expandAmount || 1) * mMult;
-                setInventoryBonus(prev => prev + a);
-                showToast(`🪞 ${t('镜像')} 🎒 ${t('菜篮')} +${a}`, 'success');
-            } else if (mirrorCell.type === 'gravity') {
-                setGravityActive(true);
-                showToast(`🪞 ${t('镜像')} ⬇️ ${t('重力开关！')}`, 'info');
-            }
-            // bomb mirror handled in setMatrix below
-            // entrance mirror skipped (entrance only on hand-crafted levels, not mirror walls)
-        }
-
-        // Remove drawn cell(s) + hidden reveal + drift shuffle
-        setMatrix(prev => {
-            const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
-
-            // Sticker cluster: clear every cluster member, not just the
-            // drawn cell. Same for the mirror cluster (if mirror modifier
-            // hit a separate sticker cluster).
-            if (clusterMembers && clusterMembers.length > 0) {
-                for (const [cr, cc] of clusterMembers) {
-                    newMatrix[cr][cc] = null;
-                }
-            } else {
-                newMatrix[finalRowIndex][finalColIndex] = null;
-            }
-            if (mirrorClusterMembers && mirrorClusterMembers.length > 0) {
-                for (const [cr, cc] of mirrorClusterMembers) {
-                    newMatrix[cr][cc] = null;
-                }
-            } else if (mirrorCell && mirrorRow !== null && mirrorCol !== null) {
-                newMatrix[mirrorRow][mirrorCol] = null;
-            }
-
-            // Bomb: destroy all adjacent cells (8 directions). Runs for the
-            // drawn cell and (if mirror modifier) for the mirror cell too.
-            const bombDirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-            const explodeAt = (br, bc) => {
-                for (const [dr, dc] of bombDirs) {
-                    const nr = br + dr;
-                    const nc = bc + dc;
-                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length && newMatrix[nr][nc]) {
-                        newMatrix[nr][nc] = null;
-                    }
-                }
-            };
-            let bombFired = false;
-            if (drawnCell.type === 'bomb') {
-                explodeAt(finalRowIndex, finalColIndex);
-                bombFired = true;
-            }
-            if (mirrorCell?.type === 'bomb') {
-                explodeAt(mirrorRow, mirrorCol);
-                bombFired = true;
-            }
-            if (bombFired) {
-                showToast('💣 ' + t('炸弹爆炸！'), 'warning');
-            }
-
-            // Blast heal wall: any non-bomb draw leaves a fresh bomb at the
-            // drawn position. Drawing a bomb itself does NOT regenerate the
-            // bomb — the explosion already cleared 8 neighbors and re-seeding
-            // would make bombs immortal.
-            if (currentWallType?.id === 'blast_heal' && drawnCell.type !== 'bomb') {
-                const bombCfg = MATRIX_CONFIG.specialCells.bomb;
-                newMatrix[finalRowIndex][finalColIndex] = {
-                    type: 'bomb',
-                    icon: bombCfg.icon,
-                    name: bombCfg.name,
-                    uid: generateUID(),
-                };
-            }
-
-            // Blessing heal wall: any non-buff_field draw leaves a fresh
-            // buff_field at the drawn position. Drawing a buff_field itself
-            // just removes it — spawning a new one would make the aura
-            // indestructible.
-            if (currentWallType?.id === 'blessing_heal' && drawnCell.type !== 'buff_field') {
-                const bfCfg = MATRIX_CONFIG.specialCells.buffField;
-                newMatrix[finalRowIndex][finalColIndex] = {
-                    type: 'buff_field',
-                    icon: bfCfg.icon,
-                    name: bfCfg.name,
-                    uid: generateUID(),
-                };
-            }
-
-            // Savage growth wall: overwrite the 4 orthogonal neighbors of the
-            // drawn cell with a fresh copy of the drawn cell. Empty neighbors
-            // are skipped (rule: nothing grows into empty). If the draw was a
-            // bomb, the explosion above already cleared all 8 neighbors, so
-            // this block naturally does nothing.
-            if (currentWallType?.id === 'savage_growth' && drawnCell) {
-                const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-                const flashes = [];
-                for (const [dr, dc] of dirs) {
-                    const nr = finalRowIndex + dr;
-                    const nc = finalColIndex + dc;
-                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length) {
-                        if (newMatrix[nr][nc] !== null) {
-                            newMatrix[nr][nc] = { ...drawnCell, uid: generateUID() };
-                            flashes.push(`${nr}-${nc}`);
-                        }
-                    }
-                }
-                if (flashes.length > 0) {
-                    setGrowthFlashes(new Set(flashes));
-                    setTimeout(() => setGrowthFlashes(null), 400);
-                }
-            }
-
-            // Hidden wall: reveal adjacent hidden cells (independent per cell)
-            if (currentWallType?.id === 'hidden') {
-                const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-                for (const [dr, dc] of dirs) {
-                    const nr = finalRowIndex + dr;
-                    const nc = finalColIndex + dc;
-                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length) {
-                        const neighbor = newMatrix[nr][nc];
-                        if (neighbor?.hidden) {
-                            neighbor.hidden = false;
-                        }
-                    }
-                }
-            }
-
-            // Conveyor wall: cycle the chosen row/column by one step in its fixed direction
-            if (currentWallType?.id === 'conveyor') {
-                const { conveyorAxis, conveyorIndex, conveyorDirection } = currentWallType;
-                const rows = newMatrix.length;
-                const cols = newMatrix[0].length;
-                const len = conveyorAxis === 'row' ? cols : rows;
-
-                // Extract the current line
-                const line = [];
-                for (let i = 0; i < len; i++) {
-                    const r = conveyorAxis === 'row' ? conveyorIndex : i;
-                    const c = conveyorAxis === 'row' ? i : conveyorIndex;
-                    line.push(newMatrix[r][c]);
-                }
-
-                // Cyclic shift: new[i] = old[(i - direction + len) % len]
-                const moves = {};
-                for (let i = 0; i < len; i++) {
-                    const fromI = ((i - conveyorDirection) % len + len) % len;
-                    const r = conveyorAxis === 'row' ? conveyorIndex : i;
-                    const c = conveyorAxis === 'row' ? i : conveyorIndex;
-                    const fromR = conveyorAxis === 'row' ? conveyorIndex : fromI;
-                    const fromC = conveyorAxis === 'row' ? fromI : conveyorIndex;
-                    newMatrix[r][c] = line[fromI];
-                    if (line[fromI]) moves[`${r}-${c}`] = { fromRow: fromR, fromCol: fromC };
-                }
-
-                if (Object.keys(moves).length > 0) {
-                    setRotationMoves(moves);
-                    setTimeout(() => setRotationMoves(null), 350);
-                }
-            }
-
-            // Center rotate wall: rotate the center 2×2 clockwise by one step
-            if (currentWallType?.id === 'center_rotate') {
-                const rows = newMatrix.length;
-                const cols = newMatrix[0].length;
-                // Center 2×2 for 4×4: rows [1,2] × cols [1,2]
-                const r0 = Math.floor(rows / 2) - 1;
-                const c0 = Math.floor(cols / 2) - 1;
-                if (r0 >= 0 && c0 >= 0 && r0 + 1 < rows && c0 + 1 < cols) {
-                    // Clockwise: TL→TR, TR→BR, BR→BL, BL→TL
-                    const tl = newMatrix[r0][c0];
-                    const tr = newMatrix[r0][c0 + 1];
-                    const br = newMatrix[r0 + 1][c0 + 1];
-                    const bl = newMatrix[r0 + 1][c0];
-                    newMatrix[r0][c0 + 1] = tl;       // TL → TR
-                    newMatrix[r0 + 1][c0 + 1] = tr;   // TR → BR
-                    newMatrix[r0 + 1][c0] = br;       // BR → BL
-                    newMatrix[r0][c0] = bl;           // BL → TL
-
-                    // Build moves map for animation — only non-null cells
-                    const moves = {};
-                    if (tl) moves[`${r0}-${c0 + 1}`]     = { fromRow: r0,     fromCol: c0     };
-                    if (tr) moves[`${r0 + 1}-${c0 + 1}`] = { fromRow: r0,     fromCol: c0 + 1 };
-                    if (br) moves[`${r0 + 1}-${c0}`]     = { fromRow: r0 + 1, fromCol: c0 + 1 };
-                    if (bl) moves[`${r0}-${c0}`]         = { fromRow: r0 + 1, fromCol: c0     };
-                    if (Object.keys(moves).length > 0) {
-                        setRotationMoves(moves);
-                        setTimeout(() => setRotationMoves(null), 350);
-                    }
-                }
-            }
-
-            // Gravity: all cells fall down independently, one step per iteration
-            // Iterative bottom-up: process from bottom row upward so lower things settle first
-            if (gravityActive || drawnCell.type === 'gravity') {
-                const rows = newMatrix.length;
-                const cols = newMatrix[0].length;
-                const isFree = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols
-                    && (newMatrix[r][c] === null || newMatrix[r][c]?.type === 'empty');
-
-                // Record original positions by uid for animation
-                const originalPos = new Map();
-                for (let r = 0; r < rows; r++) {
-                    for (let c = 0; c < cols; c++) {
-                        if (newMatrix[r][c]?.uid) originalPos.set(newMatrix[r][c].uid, r);
-                    }
-                }
-
-                // Repeat until no movement (handles cascading)
-                let moved = true;
-                while (moved) {
-                    moved = false;
-
-                    for (let r = rows - 2; r >= 0; r--) {
-                        for (let c = 0; c < cols; c++) {
-                            const cell = newMatrix[r][c];
-                            if (!cell || cell.type === 'empty') continue;
-
-                            if (isFree(r + 1, c)) {
-                                newMatrix[r + 1][c] = cell;
-                                newMatrix[r][c] = null;
-                                moved = true;
-                            }
-                        }
-                    }
-                }
-
-                // Compute drop distances: new row - original row (in grid units)
-                const drops = {};
-                for (let r = 0; r < rows; r++) {
-                    for (let c = 0; c < cols; c++) {
-                        const cell = newMatrix[r][c];
-                        if (cell?.uid && originalPos.has(cell.uid)) {
-                            const origRow = originalPos.get(cell.uid);
-                            if (r !== origRow) {
-                                drops[`${r}-${c}`] = r - origRow; // positive = fell down
-                            }
-                        }
-                    }
-                }
-                if (Object.keys(drops).length > 0) {
-                    setGravityDrops(drops);
-                    // Clear after animation
-                    setTimeout(() => setGravityDrops(null), 350);
-                }
-            }
-
-            return newMatrix;
-        });
-
-        if (obtainedItem) {
-            // Sticker yield uses cluster math (cluster destroyed → yield
-            // computed up front). Non-stickers use the legacy per-cell
-            // multiplier × buffMult chain.
-            const yieldCount = drawnCell.type === 'sticker' ? clusterYield : mult;
-            const flyId = Date.now();
-            console.log('[FLY-DIAG] setFlyingItem called, id =', flyId, 'clusterMembers =', clusterMembers?.length ?? 'none', 'yieldCount =', yieldCount);
-            setFlyingItem({
-                icon: obtainedItem.item.icon,
-                name: obtainedItem.item.name,
-                rowIndex: finalRowIndex,
-                colIndex: finalColIndex,
-                count: yieldCount,
-                id: flyId,
-            });
-            // Cluster windfall: surface the multi-payout when modifiers
-            // boosted a sticker cluster above its base 1.
-            if (drawnCell.type === 'sticker' && clusterMembers && (yieldCount > 1 || clusterMembers.length > 1)) {
-                const stickerName = obtainedItem.item?.name || obtainedItem.name;
-                const tag = yieldCount > 1 ? ` ×${yieldCount}` : '';
-                showToast(`${obtainedItem.item.icon} ${t(stickerName)}${tag} (${t('簇')} ${clusterMembers.length})`, 'success');
-            }
-            if (yieldCount > 1) {
-                for (let i = 0; i < yieldCount; i++) {
-                    addToInventory({ ...obtainedItem, uid: generateUID() });
-                }
-            } else {
-                addToInventory(obtainedItem);
-            }
-        }
-
-        if (doomEffects.upgrades > 0) {
-            setDoomLevel(prev => prev + doomEffects.upgrades);
-            showToast(t('厄运升级') + ` +${doomEffects.upgrades}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'warning');
-        }
-
-        if (doomEffects.resolutions > 0) {
-            resolveDoom(null, doomEffects.resolutions);
-        }
-
-        setLastDrawResult({
-            rowIndex: finalRowIndex,
-            colIndex: finalColIndex,
-            obtained: obtainedItem,
-            doomEffects,
-        });
-        setDrawAnimState(null);
-    };
-
-    // =============================================
-    // INVENTORY
-    // =============================================
-
-    const addToInventory = (itemCell) => {
-        let newItem;
-        if (itemCell.type === 'sticker') {
-            newItem = {
-                name: itemCell.item.name,
-                icon: itemCell.item.icon,
-                stickerId: itemCell.item.id,
-                isSticker: true,
-                uid: itemCell.uid,
-            };
-        } else if (itemCell.type === 'out_of_game') {
-            newItem = {
-                ...itemCell.item,
-                score: itemCell.item.rarity, // backward compat alias
-                isOutOfGame: true,
-                uid: itemCell.uid,
-            };
-        } else {
-            // Legacy 'item' type
-            newItem = {
-                name: itemCell.item.name,
-                icon: itemCell.item.icon,
-                poolId: itemCell.item.poolId,
-                uid: itemCell.uid,
-            };
-        }
-        if (inventory.length >= maxInventorySize) {
-            setPendingItems(prev => [...prev, newItem]);
-            return;
-        }
-        setInventory(prev => [...prev, newItem]);
-    };
-
-    // Current pending item is the first in queue
-    const pendingItem = pendingItems.length > 0 ? pendingItems[0] : null;
-
-    const replaceInventoryItem = (index) => {
-        if (!pendingItem) return;
-        setInventory(prev => {
-            const next = [...prev];
-            next[index] = pendingItem;
-            return next;
-        });
-        setPendingItems(prev => prev.slice(1));
-    };
-
-    const discardPendingItem = () => {
-        setPendingItems(prev => prev.slice(1));
-    };
-
-    const discardInventoryItem = (indices) => {
-        const idxSet = new Set(Array.isArray(indices) ? indices : [indices]);
-        setInventory(prev => prev.filter((_, i) => !idxSet.has(i)));
-    };
-
-    /** Synthesize: merge 2 identical items into the next rarity tier */
-    const synthesizeItems = (index1, index2) => {
-        const item1 = inventory[index1];
-        const item2 = inventory[index2];
-        if (!item1 || !item2 || item1.id !== item2.id) return false;
-
-        // Find current item definition in INGREDIENTS
-        const currentDef = INGREDIENTS.find(ing => ing.id === item1.id);
-        if (!currentDef || currentDef.rarity >= 4) return false;
-
-        // Find next rarity in same sub-category (match both tags)
-        const subTag = currentDef.tags[1]; // e.g., '鸡'
-        const mainTag = currentDef.tags[0]; // e.g., '肉类'
-        const nextDef = INGREDIENTS.find(ing =>
-            ing.tags[0] === mainTag && ing.tags[1] === subTag && ing.rarity === currentDef.rarity + 1
-        );
-        if (!nextDef) return false;
-
-        // Remove 2 items, add 1 new item
-        setInventory(prev => {
-            const next = [...prev];
-            // Remove higher index first to avoid shifting
-            const [lo, hi] = index1 < index2 ? [index1, index2] : [index2, index1];
-            next.splice(hi, 1);
-            next.splice(lo, 1);
-            // Add new item
-            next.push({ ...nextDef, isOutOfGame: true, uid: generateUID() });
-            return next;
-        });
-
-        showToast(`${t('合成成功')}: ${nextDef.icon} ${nextDef.name}`, 'success');
-        return true;
-    };
-
-    /** Debug: add items directly to inventory */
-    const debugAddItem = (itemDef, count) => {
-        const makeItem = () => itemDef.isSticker
-            ? { name: itemDef.name, icon: itemDef.icon, stickerId: itemDef.id, isSticker: true, uid: generateUID() }
-            : { ...itemDef, score: itemDef.rarity || itemDef.score, isOutOfGame: true, uid: generateUID() };
-
-        const toInventory = [];
-        const toPending = [];
-        for (let i = 0; i < count; i++) {
-            if (inventory.length + toInventory.length < maxInventorySize) {
-                toInventory.push(makeItem());
-            } else {
-                toPending.push(makeItem());
-            }
-        }
-        if (toInventory.length > 0) setInventory(prev => [...prev, ...toInventory]);
-        if (toPending.length > 0) setPendingItems(prev => [...prev, ...toPending]);
-    };
-
-    // =============================================
-    // ORDER SYSTEM
-    // =============================================
-
-    /** Push a new 2-candidate incoming event to the back of the queue. */
-    const addBulletinOrder = () => {
-        setIncomingQueue(prev => [...prev, {
-            id: generateUID(),
-            candidates: [generateOrder(), generateOrder()],
-        }]);
-    };
-
-    /** Player picks one of the two candidates at the front of the queue.
-     *  If shelf is full, hold the chosen order as pendingChosenOrder and
-     *  enter replacement mode. Either way the queue head is consumed. */
-    const confirmIncomingOrder = (chosenOrder) => {
-        const head = incomingQueue[0];
-        if (!head) return;
-        if (bulletinBoard.length >= orderConfig.bulletinCapacity) {
-            setPendingChosenOrder(chosenOrder);
-            setIncomingQueue(prev => prev.slice(1));
-            return;
-        }
-        setBulletinBoard(prev => [...prev, chosenOrder]);
-        setIncomingQueue(prev => prev.slice(1));
-    };
-
-    /** Replace a shelf order with the pending chosen order (when shelf is full) */
-    const replaceBulletinOrder = (orderId) => {
-        if (!pendingChosenOrder) return;
-        setBulletinBoard(prev => prev.map(o => o.id === orderId ? pendingChosenOrder : o));
-        setPendingChosenOrder(null);
-    };
-
-    /** Discard current incoming event. During opening setup this is gated by
-     *  UI (player cannot skip — see GameCore), so discard only happens during
-     *  normal play when the player actively declines both candidates or
-     *  cancels a replacement. */
-    const discardIncomingOrder = () => {
-        if (pendingChosenOrder) {
-            setPendingChosenOrder(null);
-            return;
-        }
-        setIncomingQueue(prev => prev.slice(1));
-    };
-
-    /** Check if player has required stickers to submit an order (checks bulletinBoard) */
-    const canSubmitOrder = (orderId) => {
-        const order = bulletinBoard.find(o => o.id === orderId);
-        if (!order) return false;
-        const stickerCounts = {};
-        for (const item of inventory) {
-            if (item.isSticker && item.stickerId) {
-                stickerCounts[item.stickerId] = (stickerCounts[item.stickerId] || 0) + 1;
-            }
-        }
-        return order.requirements.every(req => (stickerCounts[req.stickerId] || 0) >= req.count);
-    };
-
-    /** Submit a completed order: consume stickers, add reward to inventory (from bulletinBoard) */
-    const submitOrder = (orderId) => {
-        const order = bulletinBoard.find(o => o.id === orderId);
-        if (!order) return;
-        if (!canSubmitOrder(orderId)) {
-            showToast(t('贴纸不足'), 'warning');
-            return;
-        }
-
-        // Remove required stickers from inventory
-        const toRemove = {};
-        for (const req of order.requirements) {
-            toRemove[req.stickerId] = (toRemove[req.stickerId] || 0) + req.count;
-        }
-        setInventory(prev => {
-            const remaining = [...prev];
-            for (const [stickerId, count] of Object.entries(toRemove)) {
-                let removed = 0;
-                for (let i = remaining.length - 1; i >= 0 && removed < count; i--) {
-                    if (remaining[i].isSticker && remaining[i].stickerId === stickerId) {
-                        remaining.splice(i, 1);
-                        removed++;
-                    }
-                }
-            }
-            // Add all reward items
-            for (const reward of order.rewards) {
-                remaining.push({
-                    ...reward,
-                    score: reward.rarity || reward.score,
-                    isOutOfGame: true,
-                    uid: generateUID(),
-                });
-            }
-            return remaining;
-        });
-
-        // Remove order from shelf. New orders arrive on wall exit (not on
-        // order completion) — see endTurn.
-        setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
-        showToast(t('订单完成'), 'success');
-    };
-
-    /** Manual refresh: consume 1 charge to push a new 2-candidate event to
-     *  the queue. Multiple refreshes can stack — the player will resolve
-     *  them one at a time. Blocked only during an active replacement step. */
-    const triggerRefresh = () => {
-        if (refreshCharges <= 0) return;
-        if (pendingChosenOrder) return;
-        setRefreshCharges(c => c - 1);
-        addBulletinOrder();
-    };
-
-    // =============================================
-    // DOOM RESOLUTION
-    // =============================================
-
-    /** Start animated doom resolution */
-    const resolveDoom = (action = null, times = 1) => {
-        if (action) setAfterDoomAction(action);
-
-        // Pre-calculate final selections (times rounds of doomLevel hits each)
-        const finalSelections = [];
-        let hpLoss = 0;
-        for (let t = 0; t < times; t++) {
-            for (let i = 0; i < doomLevel; i++) {
-                const cellIndex = Math.floor(Math.random() * doomConfig.gridSize);
-                const isHit = doomGrid[cellIndex].type === 'danger';
-                if (isHit) hpLoss++;
-                finalSelections.push({ index: cellIndex, isHit });
-            }
-        }
-
-        // Start with random spinning positions
-        const spinningPositions = finalSelections.map(() =>
-            Math.floor(Math.random() * doomConfig.gridSize)
-        );
-
-        setIsDoomResolving(true);
-        setDoomAnimState({
-            phase: 'spinning',
-            tick: 0,
-            totalTicks: 12,
-            spinningPositions,
-            finalSelections,
-            hpLoss,
-        });
-    };
-
-    /** Advance doom animation by one tick (called by GameCore interval) */
-    const tickDoomResolution = () => {
-        setDoomAnimState(prev => {
-            if (!prev || prev.phase !== 'spinning') return prev;
-            const newTick = prev.tick + 1;
-
-            const newPositions = prev.spinningPositions.map((pos, i) => {
-                const settleAt = prev.totalTicks - prev.finalSelections.length + i;
-                if (newTick >= settleAt) return prev.finalSelections[i].index;
-                return Math.floor(Math.random() * doomConfig.gridSize);
-            });
-
-            if (newTick >= prev.totalTicks) {
-                return { ...prev, phase: 'settled', spinningPositions: newPositions, tick: newTick };
-            }
-            return { ...prev, spinningPositions: newPositions, tick: newTick };
-        });
-    };
-
-    /** Apply doom results after animation completes */
-    const completeDoomResolution = () => {
-        if (!doomAnimState) return;
-        const { hpLoss, finalSelections } = doomAnimState;
-
-        if (hpLoss > 0) {
-            const newHp = Math.max(0, hp - hpLoss);
-            setHp(newHp);
-            showToast(t('厄运命中') + ` -${hpLoss} HP`, 'error');
-            if (newHp <= 0) {
-                setDoomAnimState(null);
-                setIsDoomResolving(false);
-                setAfterDoomAction(null);
-                handleGameOver();
-                return;
-            }
-        }
-
-        setDoomResolutionResult({
-            hits: finalSelections.map(s => ({ index: s.index, result: s.isHit ? 'danger' : 'empty' })),
-            hpLoss,
-        });
-        setDoomAnimState(null);
-        setIsDoomResolving(false);
-
-        if (afterDoomAction === 'end_turn') {
-            setAfterDoomAction(null);
-            setPhase('between_turns');
-            // Leaving a wall always offers a pick-1-of-2 order.
-            addBulletinOrder();
-        }
-    };
-
-    // =============================================
-    // EVACUATION → RESTAURANT → COOK RESULT → NEXT DAY
-    // =============================================
-
-    /** Player evacuates — leave the show, take the basket back to the
-     *  kitchen. Transfers out-of-game items from the basket (inventory)
-     *  into the home fridge (persistent across days), then clears them
-     *  out of the basket. Stickers stay in the inventory until startNextDay
-     *  resets it (they don't belong in the fridge). */
-    const returnToRestaurant = () => {
-        const outOfGame = inventory.filter(i => i.isOutOfGame);
-        if (outOfGame.length > 0) {
-            setFridge(prev => [...prev, ...outOfGame]);
-            setInventory(prev => prev.filter(i => !i.isOutOfGame));
-        }
-        setPhase('restaurant');
-    };
-
-    /** Legacy alias: handleEvacuate now routes to the restaurant phase
-     *  instead of ending the run. The full-screen Kitchen component
-     *  renders while phase === 'restaurant'. */
-    const handleEvacuate = returnToRestaurant;
-
-    /** Invoked by Kitchen's cook button. Consumes the placed ingredient
-     *  uids from the fridge (persistent home storage), bumps popularity,
-     *  stores the result for the cook_result phase to display. */
-    const handleCookResult = (result, usedUids) => {
-        if (usedUids && usedUids.length > 0) {
-            const uidSet = new Set(usedUids);
-            setFridge(prev => prev.filter(item => !uidSet.has(item.uid)));
-        }
-        setPopularity(prev => Math.max(0, prev + (result?.popularityDelta || 0)));
-        setLastCookResult(result);
-        setPhase('cook_result');
-    };
-
-    /** Player clicks past the cook result screen to start the next day.
-     *  Resets per-day state (HP, doom, inventory, orders, matrix, etc.)
-     *  but keeps dayNumber, popularity. Returns to pre_game
-     *  so the normal startGame → setup → day loop takes over. */
-    const startNextDay = () => {
-        setTurnNumber(0);
-        setGold(0);
-        setMatrix(null);
-        setWallCandidates(null);
-        setPendingWallCandidate(null);
-        setCurrentWallType(null);
-        setCurrentLevel(null);
-        setLastDrawDirection(null);
-        setHp(doomConfig.initialHP);
-        setDoomGrid(() => {
-            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
-            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger' };
-            }
-            return grid;
-        });
-        setDoomLevel(doomConfig.initialDoomLevel);
-        setIsDoomResolving(false);
-        setDoomAnimState(null);
-        setDoomResolutionResult(null);
-        setAfterDoomAction(null);
-        setInventory([]);
-        setToast(null);
-        setLastDrawResult(null);
-        setModalContent(null);
-        setFlyingItem(null);
-        setDrawAnimState(null);
-        setPendingItems([]);
-        setBulletinBoard([]);
-        setPendingChosenOrder(null);
-        setRefreshCharges(REFRESH_CONFIG.initialCharges);
-        setIncomingQueue([]);
-        setDishIntroPending(false);
-        setCurrentDish(null);
-        setLastCookResult(null);
-        setPhase('pre_game');
-    };
-
-    /** HP-zero path: no restaurant, no cook. Basket is lost entirely and
-     *  the run ends. Player has to reset to start over. */
-    const handleGameOver = () => {
-        setInventory([]);
-        setModalContent('game_over');
-        setPhase('game_over');
-    };
-
-    const handleReset = () => {
-        setTurnNumber(0);
-        setGold(0);
-        setPhase('pre_game');
-        setMatrix(null);
-
-        setCurrentWallType(null);
-        setCurrentLevel(null);
-        setLastDrawDirection(null);
-        setHp(doomConfig.initialHP);
-        setDoomGrid(() => {
-            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
-            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger' };
-            }
-            return grid;
-        });
-        setDoomLevel(doomConfig.initialDoomLevel);
-        setIsDoomResolving(false);
-        setDoomAnimState(null);
-        setDoomResolutionResult(null);
-        setAfterDoomAction(null);
-        setInventory([]);
-        setFridge([]);
-        setBulletinBoard([]);
-        setPendingChosenOrder(null);
-        setRefreshCharges(REFRESH_CONFIG.initialCharges);
-        setIncomingQueue([]);
-        setDishIntroPending(false);
-        setCurrentDish(null);
-        setWallCandidates(null);
-        setPendingWallCandidate(null);
-        setToast(null);
-        setLastDrawResult(null);
-        setModalContent(null);
-        setFlyingItem(null);
-        setDrawAnimState(null);
-        setPendingItems([]);
-        setDayNumber(0);
-        setPopularity(10);
-        setLastCookResult(null);
-        setExpeditionScores([]);
-        setTotalScore(0);
-    };
-
-    /** Reset per-expedition state but keep meta state, return to pre_game */
-    const startNextExpedition = () => {
-        setTurnNumber(0);
-        setGold(0);
-        setMatrix(null);
-
-        setCurrentWallType(null);
-        setCurrentLevel(null);
-        setLastDrawDirection(null);
-        setHp(doomConfig.initialHP);
-        setDoomGrid(() => {
-            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
-            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger' };
-            }
-            return grid;
-        });
-        setDoomLevel(doomConfig.initialDoomLevel);
-        setIsDoomResolving(false);
-        setDoomAnimState(null);
-        setDoomResolutionResult(null);
-        setAfterDoomAction(null);
-        setInventory([]);
-        setToast(null);
-        setLastDrawResult(null);
-        setModalContent(null);
-        setFlyingItem(null);
-        setDrawAnimState(null);
-        setPendingItems([]);
-        setBulletinBoard([]);
-        setPendingChosenOrder(null);
-        setRefreshCharges(REFRESH_CONFIG.initialCharges);
-        setIncomingQueue([]);
-        setDishIntroPending(false);
-        setCurrentDish(null);
-        setWallCandidates(null);
-        setPendingWallCandidate(null);
-        setPhase('pre_game');
-    };
-
-    // =============================================
-    // UTILITY
-    // =============================================
-
-    const showToast = (message, type = 'info') => {
-        setToast({ message, type, id: Date.now() });
-    };
-
-    const clearToast = () => {
-        setToast(null);
-    };
-
-    // =============================================
-    // RETURN
-    // =============================================
+    // ═════════════════════════════════════════════════════════════════
+    // Return
+    // ═════════════════════════════════════════════════════════════════
 
     return {
-        // Day / Meta state
-        dayNumber,
-        popularity,
-        lastCookResult,
-        // Legacy aliases (expeditionNumber === dayNumber)
-        expeditionNumber,
-        expeditionScores,
-        totalScore,
-        expeditionConfig,
+        // Meta
+        phase, dayNumber, satisfaction,
+        maxSatisfaction: SATISFACTION_CONFIG.max,
 
-        // Turn state
-        turnNumber,
-        gold,
-        phase,
+        // Day
+        hoursRemaining,
+        hoursPerDay: DAY_CONFIG.hoursPerDay,
+        dailyDishes, dishPlacements, dishResolved,
+        lastDishResult,
 
-        // Grid
-        matrix,
-        lastDrawResult,
-        currentWallType,
-        currentLevel,
-        lastDrawDirection,
-        wallCandidates,
+        // Shop picking
+        shopCandidates,
 
-        // Board Effects
-        gravityDrops,
-        rotationMoves,
-        growthFlashes,
+        // In shop
+        currentShop, shopMatrix, shopBasket, currentAffix,
+        shopDrawState, hoveredRegion,
+        shopBasketSize: BASKET_CONFIG.shopBasketSize,
+        lastKick,
 
-        // Sub-Level
-        isInSubLevel, wallStack,
-        enterSubLevel, exitSubLevel,
-
-        // Doom
-        hp,
-        doomGrid,
-        doomLevel,
-        dangerCount,
-        isDoomResolving,
-        doomAnimState,
-        doomResolutionResult,
-
-        // Inventory
-        inventory,
+        // Global
         fridge,
-        maxInventorySize,
-        pendingItem,
-        pendingItems,
+        fridgeSize: BASKET_CONFIG.fridgeSize,
 
-        // Orders
-        bulletinBoard,
-        pendingChosenOrder,
-        refreshCharges,
+        // Pending
+        pendingBasketItems, pendingFridgeItems,
 
-        // UI
-        toast,
-        clearToast,
-        modalContent,
-        flyingItem,
-        setFlyingItem,
-        drawAnimState,
-        isDrawAnimating,
+        // Derived
+        canEnterShop, canEndDay, canLeaveShop, canSelectRegion,
 
         // Actions
-        startGame,
-        selectWall,
-        confirmWallReveal,
-        pendingWallCandidate,
-        selectRow,
-        selectColumn,
-        endTurn,
-        continueToNextTurn,
-        handleEvacuate,
-        returnToRestaurant,
-        handleCookResult,
-        startNextDay,
-        handleReset,
-        startNextExpedition,
-        tickDoomResolution,
-        completeDoomResolution,
-        tickDrawAnim,
-        completeDrawAnim,
-        replaceInventoryItem,
-        discardInventoryItem,
-        synthesizeItems,
-        debugAddItem,
-        discardPendingItem,
-        submitOrder,
-        canSubmitOrder,
-        triggerRefresh,
-        incomingOrder: incomingQueue[0] || null,
-        incomingQueueLength: incomingQueue.length,
-        confirmIncomingOrder,
-        discardIncomingOrder,
-        replaceBulletinOrder,
+        startDay, resetGame,
+        enterShop, leaveShop,
+        hoverRegion, clearHover,
+        selectRegion, pickPreciseCandidate, pickTargetedCell, cancelSubSelection,
+        placeIngredient, removeFromSlot, confirmDish,
+        endDay,
+        replaceBasketItem, discardPendingBasketItem,
+        replaceFridgeItem, discardPendingFridgeItem,
 
-        // Opening setup
-        dishIntroPending,
-        currentDish,
-        dismissDishIntro,
+        // Debug
+        debugAddToFridge, debugForceAffix,
     };
-};
+}
