@@ -88,35 +88,61 @@ function pickMarketType() {
     return MARKET_TYPES[0];
 }
 
+// Index ingredients by 二级 tag (tags[1]). Each entry collects the tag's shared
+// icon, its 大类, and the list of concrete ingredient ids that belong to it —
+// used by order generation (pick tag) and reward resolution (pick concrete).
+const TAG2_INDEX = (() => {
+    const map = new Map();
+    for (const ing of INGREDIENTS) {
+        const [categoryTag, tag2] = ing.tags;
+        if (!map.has(tag2)) {
+            map.set(tag2, { tag2, categoryTag, icon: ing.icon, ingredientIds: [] });
+        }
+        map.get(tag2).ingredientIds.push(ing.id);
+    }
+    return map;
+})();
+const TAG2_ENTRIES = [...TAG2_INDEX.values()];
+
 function generateOrder() {
     const template = pickWeightedTemplate();
 
     const rewardQualityDef = QUALITY_CONFIG.find(q => q.id === template.rewardQuality) || QUALITY_CONFIG[0];
 
-    // Pick N ingredients from distinct categories for requirements
-    const shuffledIngredients = [...INGREDIENTS].sort(() => Math.random() - 0.5);
-    const selectedIngredients = [];
+    // Pick N 二级 tag entries for requirements — one per 大类 to preserve 跨大类
+    const shuffledTag2 = [...TAG2_ENTRIES].sort(() => Math.random() - 0.5);
+    const selectedTag2 = [];
     const usedCategories = new Set();
-    for (const ing of shuffledIngredients) {
-        if (usedCategories.has(ing.tags[0])) continue;
-        selectedIngredients.push(ing);
-        usedCategories.add(ing.tags[0]);
-        if (selectedIngredients.length === template.ingredientTypes) break;
+    for (const entry of shuffledTag2) {
+        if (usedCategories.has(entry.categoryTag)) continue;
+        selectedTag2.push(entry);
+        usedCategories.add(entry.categoryTag);
+        if (selectedTag2.length === template.ingredientTypes) break;
     }
 
-    // Reward must be from a different category than all requirements
-    const rewardPool = INGREDIENTS.filter(i => !usedCategories.has(i.tags[0]));
-    const rewardIngFinal = rewardPool[Math.floor(Math.random() * rewardPool.length)] || INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
-    const finalReward = { ...rewardIngFinal, quality: template.rewardQuality, score: rewardQualityDef.scoreValue, isOutOfGame: true };
+    // Reward tag2 from a different category than all requirements
+    const rewardPool = TAG2_ENTRIES.filter(e => !usedCategories.has(e.categoryTag));
+    const rewardEntry = rewardPool[Math.floor(Math.random() * rewardPool.length)]
+        || TAG2_ENTRIES[Math.floor(Math.random() * TAG2_ENTRIES.length)];
+    const finalReward = {
+        tag2: rewardEntry.tag2,
+        categoryTag: rewardEntry.categoryTag,
+        icon: rewardEntry.icon,
+        name: rewardEntry.tag2,
+        tags: [rewardEntry.categoryTag, rewardEntry.tag2],
+        quality: template.rewardQuality,
+        score: rewardQualityDef.scoreValue,
+        isOutOfGame: true,
+    };
 
     // Assign quality to each slot from reqBudget; each slot needs exactly 1 ingredient.
-    const qualityIds = assignQualitiesFromBudget(template.reqBudget, selectedIngredients.length);
-    const requirements = selectedIngredients.map((ing, i) => ({
-        ingredientId: ing.id,
-        icon: ing.icon,
-        name: ing.name,
-        nameEn: ing.nameEn,
-        tags: ing.tags,
+    const qualityIds = assignQualitiesFromBudget(template.reqBudget, selectedTag2.length);
+    const requirements = selectedTag2.map((entry, i) => ({
+        tag2: entry.tag2,
+        categoryTag: entry.categoryTag,
+        icon: entry.icon,
+        name: entry.tag2,
+        tags: [entry.categoryTag, entry.tag2],
         quality: qualityIds[i],
         count: 1,
     }));
@@ -1029,24 +1055,32 @@ export const useGameLogic = (config) => {
         setIncomingQueue(prev => prev.slice(1));
     };
 
-    /** Check if player has required ingredients to submit an order (checks bulletinBoard) */
+    /** Check if player has required ingredients to submit an order (checks bulletinBoard).
+     *  Matches by 二级 tag (`tags[1] === req.tag2`) with quality ≥ req.quality.
+     *  Allocates inventory items greedily per req to avoid double-counting. */
     const canSubmitOrder = (orderId) => {
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return false;
-        const ingCounts = {};
-        for (const item of inventory) {
-            if (item.id && item.quality != null) {
-                const key = `${item.id}:${item.quality}`;
-                ingCounts[key] = (ingCounts[key] || 0) + 1;
+        const used = new Set();
+        for (const req of order.requirements) {
+            let allocated = 0;
+            for (let i = 0; i < inventory.length && allocated < req.count; i++) {
+                if (used.has(i)) continue;
+                const item = inventory[i];
+                if (item?.tags?.[1] === req.tag2 && item.quality >= req.quality) {
+                    used.add(i);
+                    allocated++;
+                }
             }
+            if (allocated < req.count) return false;
         }
-        return order.requirements.every(req => {
-            const key = `${req.ingredientId}:${req.quality}`;
-            return (ingCounts[key] || 0) >= req.count;
-        });
+        return true;
     };
 
-    /** Submit a completed order: consume ingredients, add reward to inventory (from bulletinBoard) */
+    /** Submit a completed order: consume ingredients, add reward to inventory (from bulletinBoard).
+     *  PLACEHOLDER: auto-picks lowest-quality valid items per req, and a random
+     *  concrete ingredient from each reward tag2's pool. A follow-up commit
+     *  replaces this with a player-driven submit modal. */
     const submitOrder = (orderId) => {
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return;
@@ -1055,28 +1089,35 @@ export const useGameLogic = (config) => {
             return;
         }
 
-        const toRemove = {};
+        // Auto-pick: for each req, consume `count` lowest-quality valid items
+        const toRemoveUids = new Set();
         for (const req of order.requirements) {
-            const key = `${req.ingredientId}:${req.quality}`;
-            toRemove[key] = (toRemove[key] || 0) + req.count;
+            const candidates = inventory
+                .filter(item => item && !toRemoveUids.has(item.uid) &&
+                    item.tags?.[1] === req.tag2 && item.quality >= req.quality)
+                .sort((a, b) => a.quality - b.quality);
+            for (let i = 0; i < req.count && i < candidates.length; i++) {
+                toRemoveUids.add(candidates[i].uid);
+            }
         }
+
+        // Build concrete rewards: random concrete ingredient from tag2 pool at reward quality
+        const concreteRewards = order.rewards.map(r => {
+            const pool = INGREDIENTS.filter(ing => ing.tags?.[1] === r.tag2);
+            const chosen = pool[Math.floor(Math.random() * pool.length)] || INGREDIENTS[0];
+            const qualityDef = QUALITY_CONFIG.find(q => q.id === r.quality) || QUALITY_CONFIG[0];
+            return {
+                ...chosen,
+                quality: r.quality,
+                score: qualityDef.scoreValue,
+                isOutOfGame: true,
+                uid: generateUID(),
+            };
+        });
+
         setInventory(prev => {
-            const remaining = [...prev];
-            for (const [key, count] of Object.entries(toRemove)) {
-                const [ingId, qStr] = key.split(':');
-                const quality = Number(qStr);
-                let removed = 0;
-                for (let i = remaining.length - 1; i >= 0 && removed < count; i--) {
-                    if (remaining[i].id === ingId && remaining[i].quality === quality) {
-                        remaining.splice(i, 1);
-                        removed++;
-                    }
-                }
-            }
-            for (const reward of order.rewards) {
-                remaining.push({ ...reward, uid: generateUID() });
-            }
-            return remaining;
+            const remaining = prev.filter(item => item && !toRemoveUids.has(item.uid));
+            return [...remaining, ...concreteRewards];
         });
 
         setBulletinBoard(prev => prev.filter(o => o.id !== orderId));

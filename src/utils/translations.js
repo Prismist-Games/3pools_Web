@@ -711,6 +711,7 @@ export const EN_TRANSLATIONS = {
     "撤离价值": "Evacuation Value",
     "持有 / 需要": "Have / Need",
     "持有": "Have",
+    "品质大于等于即可": "Quality ≥ required is OK",
     "浏览": "view only",
 
     // --- Prologue ---

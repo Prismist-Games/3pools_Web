@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import Tooltip from '../ui/Tooltip';
+import { INGREDIENTS } from '../../data/v2Config';
+
+// ingredientId → 二级 tag; used to translate hover highlights (which come
+// in as concrete ids from the wall) into tag2-level matches against order reqs.
+const INGREDIENT_TAG2 = new Map(INGREDIENTS.map(ing => [ing.id, ing.tags[1]]));
 
 const DIFFICULTY_STYLE = {
     easy:    { bg: 'bg-[#F0FFF8]', text: 'text-[#408060]' },
@@ -124,6 +129,17 @@ const BulletinBoard = ({
 }) => {
     const { t, language } = useLanguage();
     const isReplacing = !!pendingChosenOrder;
+    // Convert wall-hovered ingredient ids into the set of 二级 tag they cover,
+    // so order requirements (which now live at tag2 level) can highlight.
+    const hoveredTag2Set = useMemo(() => {
+        if (!hoveredIngredientIds) return null;
+        const out = new Set();
+        hoveredIngredientIds.forEach(id => {
+            const tag2 = INGREDIENT_TAG2.get(id);
+            if (tag2) out.add(tag2);
+        });
+        return out;
+    }, [hoveredIngredientIds]);
     const hasInlinePicker = !!incomingOrder && incomingOrder.candidates;
     // Refresh may be queued while a picker is shown — it just pushes another
     // pick-1-of-2 to the back of the queue. Only block during an active
@@ -222,20 +238,21 @@ const BulletinBoard = ({
                                         <span className="text-[9px] text-kitchen-text-muted uppercase tracking-wide">{t('需要')}</span>
                                         {order.requirements.map((req, i) => {
                                             const owned = inventory ? inventory.filter(item =>
-                                                item.id === req.ingredientId && item.quality === req.quality
+                                                item?.tags?.[1] === req.tag2 && item.quality >= req.quality
                                             ).length : 0;
                                             const enough = owned >= req.count;
-                                            const isHovered = hoveredIngredientIds?.has(req.ingredientId);
+                                            const isHovered = hoveredTag2Set?.has(req.tag2);
                                             const qs = QUALITY_STYLE[req.quality] || QUALITY_STYLE[1];
                                             return (
                                                 <Tooltip key={i} content={
                                                     <>
-                                                        <IngredientTip item={{ id: req.ingredientId, icon: req.icon, name: req.name, tags: req.tags, quality: req.quality }} />
+                                                        <IngredientTip item={{ icon: req.icon, name: req.name, tags: req.tags, quality: req.quality }} />
                                                         <div className="border-t border-gray-700/50 pt-1.5 mt-1">
                                                             <div className="flex justify-between text-[11px]">
                                                                 <span className="text-gray-400">{t('持有')} / {t('需要')}</span>
                                                                 <span className={`font-bold ${enough ? 'text-green-400' : 'text-red-400'}`}>{owned} / {req.count}</span>
                                                             </div>
+                                                            <div className="text-[10px] text-gray-500 mt-1">{t('品质大于等于即可')}</div>
                                                         </div>
                                                     </>
                                                 }>
@@ -247,7 +264,7 @@ const BulletinBoard = ({
                                                         } flex flex-col items-center justify-center shadow-sm px-0.5`}>
                                                             <span className="text-lg leading-none">{req.icon}</span>
                                                             <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
-                                                                {language === 'en' && req.nameEn ? req.nameEn : t(req.name)}
+                                                                {t(req.name)}
                                                             </span>
                                                             <span className={`absolute -bottom-1 -right-1 ${qs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>
                                                                 {req.quality}
