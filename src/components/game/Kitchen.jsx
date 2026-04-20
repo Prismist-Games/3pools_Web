@@ -535,11 +535,14 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                                         <Tooltip key={item.uid} content={<IngredientTip item={item} />}>
                                             <div
                                                 onClick={interactive ? () => setSelectedFridgeIdx(isSelected ? null : idx) : undefined}
-                                                className={`relative w-12 h-12 rounded-lg border-2 flex items-center justify-center text-xl transition-all
+                                                className={`relative w-14 h-14 rounded-lg border-2 flex flex-col items-center justify-center transition-all px-0.5
                                                     ${interactive ? 'cursor-pointer' : 'cursor-default'}
                                                     ${isSelected ? 'border-kitchen-gold bg-[#FFF8E0] ring-2 ring-kitchen-gold/50 scale-110' : `${rs.border} bg-gradient-to-b ${rs.bg} ${interactive ? 'hover:scale-105' : ''}`}`}
                                             >
-                                                {item.icon}
+                                                <span className="text-xl leading-none">{item.icon}</span>
+                                                <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                    {language === 'en' && item.nameEn ? item.nameEn : t(item.name)}
+                                                </span>
                                                 <span className={`absolute -bottom-1 -right-1 ${rs.badge} text-white text-[7px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow`}>
                                                     {'★'.repeat(rarity)}
                                                 </span>

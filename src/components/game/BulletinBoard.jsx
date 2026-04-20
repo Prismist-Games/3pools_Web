@@ -89,18 +89,23 @@ const IngredientTip = ({ item }) => {
 };
 
 const RewardCard = ({ reward, size = 'md', bonusValue }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const quality = reward.quality || reward.score || 1;
     const s = QUALITY_STYLE[quality] || QUALITY_STYLE[1];
-    const dim = size === 'sm' ? 'w-8 h-8 text-base' : 'w-9 h-9 text-lg';
+    const dim = size === 'sm' ? 'w-12 h-12' : 'w-14 h-14';
+    const iconSize = size === 'sm' ? 'text-lg' : 'text-xl';
     const badgeDim = size === 'sm' ? 'w-3 h-3 text-[7px]' : 'w-3.5 h-3.5 text-[8px]';
+    const displayName = (language === 'en' && reward.nameEn) ? reward.nameEn : t(reward.name);
 
     const tipContent = <IngredientTip item={reward} />;
 
     return (
         <Tooltip content={tipContent}>
-            <div className={`relative ${dim} rounded border-2 ${s.border} bg-gradient-to-b ${s.bg} flex items-center justify-center shadow-sm`}>
-                {reward.icon}
+            <div className={`relative ${dim} rounded border-2 ${s.border} bg-gradient-to-b ${s.bg} flex flex-col items-center justify-center shadow-sm px-0.5`}>
+                <span className={`${iconSize} leading-none`}>{reward.icon}</span>
+                <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                    {displayName}
+                </span>
                 <span className={`absolute -bottom-1 -right-1 ${s.badge} text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow`}>
                     {quality}
                 </span>
@@ -117,7 +122,7 @@ const BulletinBoard = ({
     hoveredIngredientIds,
     setupMode = false,
 }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const isReplacing = !!pendingChosenOrder;
     const hasInlinePicker = !!incomingOrder && incomingOrder.candidates;
     // Refresh may be queued while a picker is shown — it just pushes another
@@ -152,8 +157,11 @@ const BulletinBoard = ({
                                 <span className="text-[9px] text-kitchen-text-muted uppercase tracking-wide">{t('需要')}</span>
                                 {pendingChosenOrder.requirements.map((req, i) => (
                                     <div key={i} className="flex items-center gap-0.5">
-                                        <div className="w-6 h-6 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex items-center justify-center text-xs shadow-sm">
-                                            {req.icon}
+                                        <div className="relative w-12 h-12 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex flex-col items-center justify-center shadow-sm px-0.5">
+                                            <span className="text-base leading-none">{req.icon}</span>
+                                            <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                {language === 'en' && req.nameEn ? req.nameEn : t(req.name)}
+                                            </span>
                                         </div>
                                         <span className="text-[10px] font-bold text-kitchen-gold-deep">x{req.count}</span>
                                     </div>
@@ -232,12 +240,15 @@ const BulletinBoard = ({
                                                     </>
                                                 }>
                                                     <div className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
-                                                        <div className={`relative w-7 h-7 rounded border-2 ${
+                                                        <div className={`relative w-12 h-12 rounded border-2 ${
                                                             isHovered ? 'border-kitchen-info-border bg-[#F0F8FF] ring-2 ring-kitchen-info/40'
                                                             : enough ? 'border-kitchen-success-border bg-[#F0FFF8]'
                                                             : qs.border + ' bg-kitchen-card'
-                                                        } flex items-center justify-center text-sm shadow-sm`}>
-                                                            {req.icon}
+                                                        } flex flex-col items-center justify-center shadow-sm px-0.5`}>
+                                                            <span className="text-lg leading-none">{req.icon}</span>
+                                                            <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                                {language === 'en' && req.nameEn ? req.nameEn : t(req.name)}
+                                                            </span>
                                                             <span className={`absolute -bottom-1 -right-1 ${qs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>
                                                                 {req.quality}
                                                             </span>
