@@ -313,7 +313,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 /**
  * Wall grid display for turn-based prototype (size from MATRIX_CONFIG.gridSize).
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, gravityDrops, rotationMoves, growthFlashes }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverIngredientIds, gravityDrops, rotationMoves, growthFlashes }) => {
     const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -410,7 +410,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
 
     // Report hovered ingredient IDs to parent
     const reportHover = (row, col) => {
-        if (!onHoverStickerIds) return;
+        if (!onHoverIngredientIds) return;
         const ids = new Set();
         if (row !== null) {
             matrix[row]?.forEach(cell => {
@@ -423,7 +423,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 if ((cell?.type === 'ingredient' || cell?.type === 'item') && cell.item?.id) ids.add(cell.item.id);
             });
         }
-        onHoverStickerIds(ids.size > 0 ? ids : null);
+        onHoverIngredientIds(ids.size > 0 ? ids : null);
     };
 
     if (!matrix) return null;

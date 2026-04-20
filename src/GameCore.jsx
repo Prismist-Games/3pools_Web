@@ -295,7 +295,7 @@ const GameCore = () => {
                                             drawAnimState={drawAnimState}
                                             wallType={currentWallType}
                                             lastDrawDirection={lastDrawDirection}
-                                            onHoverStickerIds={setHoveredIngredientIds}
+                                            onHoverIngredientIds={setHoveredIngredientIds}
                                             gravityDrops={gravityDrops}
                                             rotationMoves={rotationMoves}
                                             growthFlashes={growthFlashes}
@@ -883,16 +883,6 @@ const GameCore = () => {
                                 <button onClick={() => setDebugOpen(false)} className="text-gray-500 hover:text-gray-200 text-lg leading-none">×</button>
                             </div>
                             <div className="p-4">
-                                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Stickers</div>
-                                <div className="flex flex-wrap gap-1.5 mb-3">
-                                    {STICKER_TYPES.map(s => (
-                                        <button key={s.id} onClick={() => setDebugSelectedItem({ ...s, isSticker: true })}
-                                            className={`w-8 h-8 rounded-lg border text-base flex items-center justify-center transition-colors
-                                                ${debugSelectedItem?.id === s.id && debugSelectedItem?.isSticker ? 'border-blue-400 bg-blue-900 ring-2 ring-blue-500' : 'border-gray-600 bg-gray-800 hover:border-gray-400'}`}>
-                                            {s.icon}
-                                        </button>
-                                    ))}
-                                </div>
                                 <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Ingredients</div>
                                 <div className="flex flex-wrap gap-1.5 mb-4">
                                     {INGREDIENTS.map(item => (

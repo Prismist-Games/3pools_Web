@@ -221,7 +221,15 @@ const BulletinBoard = ({
                                             const qs = QUALITY_STYLE[req.quality] || QUALITY_STYLE[1];
                                             return (
                                                 <Tooltip key={i} content={
-                                                    <StickerTip sticker={req} inventory={inventory} requiredCount={req.count} />
+                                                    <>
+                                                        <IngredientTip item={{ id: req.ingredientId, icon: req.icon, name: req.name, quality: req.quality }} />
+                                                        <div className="border-t border-gray-700/50 pt-1.5 mt-1">
+                                                            <div className="flex justify-between text-[11px]">
+                                                                <span className="text-gray-400">{t('持有')} / {t('需要')}</span>
+                                                                <span className={`font-bold ${enough ? 'text-green-400' : 'text-red-400'}`}>{owned} / {req.count}</span>
+                                                            </div>
+                                                        </div>
+                                                    </>
                                                 }>
                                                     <div className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
                                                         <div className={`w-7 h-7 rounded border-2 ${
