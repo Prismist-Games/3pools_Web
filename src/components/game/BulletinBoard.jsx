@@ -222,7 +222,7 @@ const BulletinBoard = ({
                                             return (
                                                 <Tooltip key={i} content={
                                                     <>
-                                                        <IngredientTip item={{ id: req.ingredientId, icon: req.icon, name: req.name, quality: req.quality }} />
+                                                        <IngredientTip item={{ id: req.ingredientId, icon: req.icon, name: req.name, tags: req.tags, quality: req.quality }} />
                                                         <div className="border-t border-gray-700/50 pt-1.5 mt-1">
                                                             <div className="flex justify-between text-[11px]">
                                                                 <span className="text-gray-400">{t('持有')} / {t('需要')}</span>

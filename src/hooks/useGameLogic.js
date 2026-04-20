@@ -107,6 +107,7 @@ function generateOrder() {
             ingredientId: selectedIngredients[i].id,
             icon: selectedIngredients[i].icon,
             name: selectedIngredients[i].name,
+            tags: selectedIngredients[i].tags,
             quality: template.reqQuality,
             count,
         });
