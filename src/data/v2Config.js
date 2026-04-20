@@ -144,15 +144,46 @@ export const DISHES = [
         baseline: 10,
         slots: [
             {
-                name: '主料', required: true, accept: '海鲜', prefer: ['虾'],
+                name: '主料', required: true,
+                rules: [
+                    { match: { tag: '海鲜' }, multiplier: 1 },
+                    { match: { tag: '虾' }, multiplier: 2 },
+                ],
+                defaultMultiplier: 0.5,
                 trigger: {
                     whenTag: '贝',
-                    spawnSlot: { name: '主料', required: false, accept: '海鲜', prefer: ['虾'], exclude: '贝' },
+                    spawnSlot: {
+                        name: '主料', required: false,
+                        rules: [
+                            { match: { tag: '海鲜' }, multiplier: 1 },
+                            { match: { tag: '虾' }, multiplier: 2 },
+                        ],
+                        defaultMultiplier: 0.5,
+                        exclude: '贝',
+                    },
                 },
             },
-            { name: '基底', required: true,  accept: '主食', prefer: ['面'] },
-            { name: '汤汁', required: false, accept: '蔬菜', prefer: ['菌菇'] },
-            { name: '配料', required: false, accept: '', prefer: [] },
+            {
+                name: '基底', required: true,
+                rules: [
+                    { match: { tag: '主食' }, multiplier: 1 },
+                    { match: { tag: '面' }, multiplier: 2 },
+                ],
+                defaultMultiplier: 0.5,
+            },
+            {
+                name: '汤汁', required: true,
+                rules: [
+                    { match: { tag: '蔬菜' }, multiplier: 1 },
+                    { match: { id: 'shiitake' }, multiplier: 2 },
+                ],
+                defaultMultiplier: 0.5,
+            },
+            {
+                name: '配料', required: false,
+                rules: [],
+                defaultMultiplier: 1,
+            },
         ],
     },
     {
@@ -162,13 +193,36 @@ export const DISHES = [
         icon: '🍛',
         baseline: 10,
         slots: [
-            { name: '主料', required: true, accept: '肉类', prefer: ['牛'] },
-            { name: '底',   required: true, accept: '主食', prefer: ['米', '面包'] },
             {
-                name: '炖料', required: false, accept: '蔬菜', prefer: ['根茎'],
-                crossBonus: { requireSlot: '主料', requireTag: '牛', points: 3 },
+                name: '主料', required: true,
+                rules: [
+                    { match: { tag: '肉类' }, multiplier: 1 },
+                    { match: { tag: '牛' }, multiplier: 2 },
+                ],
+                defaultMultiplier: 0.5,
             },
-            { name: '配料', required: false, accept: '', prefer: [] },
+            {
+                name: '底', required: true,
+                rules: [
+                    { match: { tag: '主食' }, multiplier: 1 },
+                    { match: { tag: '米' }, multiplier: 2 },
+                ],
+                defaultMultiplier: 0.5,
+            },
+            {
+                name: '炖料', required: false,
+                rules: [
+                    { match: { tag: '蔬菜' }, multiplier: 1 },
+                    { match: { tag: '根茎' }, multiplier: 2 },
+                ],
+                defaultMultiplier: 0.5,
+                crossBonus: { requireSlot: '底', requireTag: '面包', multiplier: 2 },
+            },
+            {
+                name: '配料', required: false,
+                rules: [],
+                defaultMultiplier: 1,
+            },
         ],
     },
 ];
