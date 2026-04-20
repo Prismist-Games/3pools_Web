@@ -11,7 +11,7 @@ import DishCard from './components/game/DishCard';
 import SpritePreview from './components/game/SpritePreview';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
-import { STICKER_TYPES, INGREDIENTS, DISHES } from './data/v2Config';
+import { INGREDIENTS, DISHES } from './data/v2Config';
 import { Link } from 'react-router-dom';
 import { GameGuide } from './components/ui/GameGuide';
 import RoundTransition from './components/ui/RoundTransition';

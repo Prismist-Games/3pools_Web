@@ -1,6 +1,6 @@
 // src/utils/templateGenerator.js
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { STICKER_TYPES, INGREDIENTS } from '../data/v2Config';
+import { INGREDIENTS } from '../data/v2Config';
 import { CELL_TYPES, LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { pickWallStickers, fillDoomAndSpecials, fillEmptyCellsWithStickers } from './matrixHelpers';
 

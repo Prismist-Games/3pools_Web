@@ -4,7 +4,7 @@ import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { pickTemplate, LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { STICKER_TYPES, INGREDIENTS, ORDER_TEMPLATES, WALL_TYPES, REFRESH_CONFIG, SETUP_CONFIG, DISHES, WALL_STICKER_COUNT } from '../data/v2Config';
+import { INGREDIENTS, ORDER_TEMPLATES, DISHES } from '../data/v2Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
