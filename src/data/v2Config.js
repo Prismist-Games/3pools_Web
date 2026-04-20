@@ -100,11 +100,11 @@ export const INGREDIENTS = [
     { id: 'goat_milk',         icon: '🥛', name: '羊奶',     nameEn: 'Goat Milk',           tags: ['蛋奶制品', '奶'] },
     { id: 'buffalo_milk',      icon: '🥛', name: '水牛奶',   nameEn: 'Buffalo Milk',        tags: ['蛋奶制品', '奶'] },
     { id: 'camel_milk',        icon: '🥛', name: '驼奶',     nameEn: 'Camel Milk',          tags: ['蛋奶制品', '奶'] },
-    // ── 蛋奶制品 · 豆腐 ──
-    { id: 'soft_tofu',         icon: '🫘', name: '嫩豆腐',   nameEn: 'Soft Tofu',           tags: ['蛋奶制品', '豆腐'] },
-    { id: 'firm_tofu',         icon: '🫘', name: '老豆腐',   nameEn: 'Firm Tofu',           tags: ['蛋奶制品', '豆腐'] },
-    { id: 'frozen_tofu',       icon: '🫘', name: '冻豆腐',   nameEn: 'Frozen Tofu',         tags: ['蛋奶制品', '豆腐'] },
-    { id: 'tofu_skin',         icon: '🫘', name: '腐竹',     nameEn: 'Tofu Skin',           tags: ['蛋奶制品', '豆腐'] },
+    // ── 蛋奶制品 · 豆腐 ── (🥣 used to distinguish from 主食·豆 which uses 🫘)
+    { id: 'soft_tofu',         icon: '🥣', name: '嫩豆腐',   nameEn: 'Soft Tofu',           tags: ['蛋奶制品', '豆腐'] },
+    { id: 'firm_tofu',         icon: '🥣', name: '老豆腐',   nameEn: 'Firm Tofu',           tags: ['蛋奶制品', '豆腐'] },
+    { id: 'frozen_tofu',       icon: '🥣', name: '冻豆腐',   nameEn: 'Frozen Tofu',         tags: ['蛋奶制品', '豆腐'] },
+    { id: 'tofu_skin',         icon: '🥣', name: '腐竹',     nameEn: 'Tofu Skin',           tags: ['蛋奶制品', '豆腐'] },
     // ── 蛋奶制品 · 奶酪 ──
     { id: 'mozzarella',        icon: '🧀', name: '马苏里拉', nameEn: 'Mozzarella',          tags: ['蛋奶制品', '奶酪'] },
     { id: 'cheddar',           icon: '🧀', name: '切达',     nameEn: 'Cheddar',             tags: ['蛋奶制品', '奶酪'] },
@@ -121,7 +121,7 @@ export const QUALITY_CONFIG = [
     { id: 4, name: '顶级', stars: '★★★★', scoreValue: 5 },
 ];
 
-// Probability weights for random quality roll on draw
+// Probability weights for random quality roll on draw — must sum to 1.0
 export const QUALITY_WEIGHTS = { 1: 0.5, 2: 0.3, 3: 0.15, 4: 0.05 };
 
 // --- 市场类型（替换原墙类型）---
@@ -130,7 +130,7 @@ export const MARKET_TYPES = [
     { id: 'seafood_market',  name: '海鲜市场', icon: '🦐', desc: '只出现海鲜类食材', category: '海鲜',    weight: 20 },
     { id: 'butcher',         name: '肉铺',     icon: '🍖', desc: '只出现肉类食材',   category: '肉类',    weight: 20 },
     { id: 'grain_store',     name: '粮食店',   icon: '🍚', desc: '只出现主食类食材', category: '主食',    weight: 20 },
-    { id: 'vegetable_shop',  name: '蔬菜店',   icon: '🥬', desc: '只出现蔬菜类食材', category: '蔬菜',    weight: 20 },
+    { id: 'vegetable_shop',  name: '蔬菜店',   icon: '🥬', desc: '蔬菜·水果·菌菇类食材', category: '蔬菜',    weight: 20 },
     { id: 'dairy_store',     name: '乳品店',   icon: '🧀', desc: '只出现蛋奶制品',   category: '蛋奶制品', weight: 20 },
 ];
 
@@ -144,15 +144,15 @@ export const DISHES = [
         baseline: 10,
         slots: [
             {
-                name: '主料', required: true, accept: '海鲜', prefer: '虾',
+                name: '主料', required: true, accept: '海鲜', prefer: ['虾'],
                 trigger: {
                     whenTag: '贝',
-                    spawnSlot: { name: '主料', required: false, accept: '海鲜', prefer: '虾', exclude: '贝' },
+                    spawnSlot: { name: '主料', required: false, accept: '海鲜', prefer: ['虾'], exclude: '贝' },
                 },
             },
-            { name: '基底', required: true,  accept: '主食', prefer: '面' },
-            { name: '汤汁', required: false, accept: '蔬菜', prefer: '菌菇' },
-            { name: '配料', required: false, accept: '', prefer: '' },
+            { name: '基底', required: true,  accept: '主食', prefer: ['面'] },
+            { name: '汤汁', required: false, accept: '蔬菜', prefer: ['菌菇'] },
+            { name: '配料', required: false, accept: '', prefer: [] },
         ],
     },
     {
@@ -162,23 +162,23 @@ export const DISHES = [
         icon: '🍛',
         baseline: 10,
         slots: [
-            { name: '主料', required: true, accept: '肉类', prefer: '牛' },
+            { name: '主料', required: true, accept: '肉类', prefer: ['牛'] },
             { name: '底',   required: true, accept: '主食', prefer: ['米', '面包'] },
             {
-                name: '炖料', required: false, accept: '蔬菜', prefer: '根茎',
+                name: '炖料', required: false, accept: '蔬菜', prefer: ['根茎'],
                 crossBonus: { requireSlot: '主料', requireTag: '牛', points: 3 },
             },
-            { name: '配料', required: false, accept: '', prefer: '' },
+            { name: '配料', required: false, accept: '', prefer: [] },
         ],
     },
 ];
 
 // --- 订单模板 ---
 export const ORDER_TEMPLATES = [
-    { id: 'a', difficulty: 'easy',    reqQuality: 1, rewardQuality: 2, totalIngredients: 2, ingredientTypes: 1, weight: 40 },
-    { id: 'b', difficulty: 'medium',  reqQuality: 2, rewardQuality: 3, totalIngredients: 3, ingredientTypes: 2, weight: 30 },
-    { id: 'c', difficulty: 'hard',    reqQuality: 3, rewardQuality: 4, totalIngredients: 4, ingredientTypes: 3, weight: 20 },
-    { id: 'd', difficulty: 'extreme', reqQuality: 2, rewardQuality: 4, totalIngredients: 6, ingredientTypes: 4, weight: 10 },
+    { id: 'easy',    difficulty: 'easy',    reqQuality: 1, rewardQuality: 2, totalIngredients: 2, ingredientTypes: 1, weight: 40 },
+    { id: 'medium',  difficulty: 'medium',  reqQuality: 2, rewardQuality: 3, totalIngredients: 3, ingredientTypes: 2, weight: 30 },
+    { id: 'hard',    difficulty: 'hard',    reqQuality: 3, rewardQuality: 4, totalIngredients: 4, ingredientTypes: 3, weight: 20 },
+    { id: 'extreme', difficulty: 'extreme', reqQuality: 2, rewardQuality: 4, totalIngredients: 6, ingredientTypes: 4, weight: 10 },
 ];
 
 // --- 远征配置 ---
