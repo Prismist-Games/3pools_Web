@@ -233,6 +233,8 @@ export const useGameLogic = (config) => {
     const [bulletinBoard, setBulletinBoard] = useState([]);
     const REFRESH_INITIAL_CHARGES = 3;
     const [refreshCharges, setRefreshCharges] = useState(REFRESH_INITIAL_CHARGES);
+    // ID of the order whose submit modal is open. Null when no modal is shown.
+    const [submittingOrderId, setSubmittingOrderId] = useState(null);
 
     // --- Incoming Order Queue ---
     // Each element is { id, candidates: [orderA, orderB] }. UI reads the
@@ -1077,10 +1079,9 @@ export const useGameLogic = (config) => {
         return true;
     };
 
-    /** Submit a completed order: consume ingredients, add reward to inventory (from bulletinBoard).
-     *  PLACEHOLDER: auto-picks lowest-quality valid items per req, and a random
-     *  concrete ingredient from each reward tag2's pool. A follow-up commit
-     *  replaces this with a player-driven submit modal. */
+    /** Open the submit modal for an order. The modal lets the player pick
+     *  which specific inventory items to consume (for each tag2 requirement)
+     *  and which concrete ingredient to receive as the reward. */
     const submitOrder = (orderId) => {
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return;
@@ -1088,23 +1089,28 @@ export const useGameLogic = (config) => {
             showToast(t('食材不足'), 'warning');
             return;
         }
+        setSubmittingOrderId(orderId);
+    };
 
-        // Auto-pick: for each req, consume `count` lowest-quality valid items
-        const toRemoveUids = new Set();
-        for (const req of order.requirements) {
-            const candidates = inventory
-                .filter(item => item && !toRemoveUids.has(item.uid) &&
-                    item.tags?.[1] === req.tag2 && item.quality >= req.quality)
-                .sort((a, b) => a.quality - b.quality);
-            for (let i = 0; i < req.count && i < candidates.length; i++) {
-                toRemoveUids.add(candidates[i].uid);
-            }
-        }
+    const cancelSubmitOrder = () => setSubmittingOrderId(null);
 
-        // Build concrete rewards: random concrete ingredient from tag2 pool at reward quality
-        const concreteRewards = order.rewards.map(r => {
-            const pool = INGREDIENTS.filter(ing => ing.tags?.[1] === r.tag2);
-            const chosen = pool[Math.floor(Math.random() * pool.length)] || INGREDIENTS[0];
+    /** Commit the submit-modal choices: consume selected uids, grant the
+     *  chosen concrete rewards. If inventory is full, excess rewards queue
+     *  to pendingItems for replace/discard resolution.
+     *  @param orderId        the order being submitted
+     *  @param consumeUids    array of inventory uids the player chose to consume
+     *  @param rewardChoices  array of ingredient ids (one per reward slot) */
+    const confirmSubmitOrder = (orderId, consumeUids, rewardChoices) => {
+        const order = bulletinBoard.find(o => o.id === orderId);
+        if (!order) return;
+
+        const toRemoveUids = new Set(consumeUids);
+
+        const concreteRewards = order.rewards.map((r, i) => {
+            const chosenId = rewardChoices[i];
+            const chosen = INGREDIENTS.find(ing => ing.id === chosenId)
+                || INGREDIENTS.find(ing => ing.tags?.[1] === r.tag2)
+                || INGREDIENTS[0];
             const qualityDef = QUALITY_CONFIG.find(q => q.id === r.quality) || QUALITY_CONFIG[0];
             return {
                 ...chosen,
@@ -1115,12 +1121,17 @@ export const useGameLogic = (config) => {
             };
         });
 
-        setInventory(prev => {
-            const remaining = prev.filter(item => item && !toRemoveUids.has(item.uid));
-            return [...remaining, ...concreteRewards];
-        });
+        // Route rewards through pendingItems if inventory would overflow
+        const remaining = inventory.filter(item => item && !toRemoveUids.has(item.uid));
+        const capacity = maxInventorySize - remaining.length;
+        const toInventory = concreteRewards.slice(0, Math.max(0, capacity));
+        const toPending = concreteRewards.slice(Math.max(0, capacity));
+
+        setInventory([...remaining, ...toInventory]);
+        if (toPending.length > 0) setPendingItems(prev => [...prev, ...toPending]);
 
         setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
+        setSubmittingOrderId(null);
         showToast(t('订单完成'), 'success');
     };
 
@@ -1499,6 +1510,9 @@ export const useGameLogic = (config) => {
         discardPendingItem,
         submitOrder,
         canSubmitOrder,
+        submittingOrder: submittingOrderId ? bulletinBoard.find(o => o.id === submittingOrderId) : null,
+        confirmSubmitOrder,
+        cancelSubmitOrder,
         triggerRefresh,
         incomingOrder: incomingQueue[0] || null,
         incomingQueueLength: incomingQueue.length,

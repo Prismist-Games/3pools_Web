@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom';
 import { GameGuide } from './components/ui/GameGuide';
 import RoundTransition from './components/ui/RoundTransition';
 import WallPicker from './components/game/WallPicker';
+import OrderSubmitModal from './components/game/OrderSubmitModal';
 
 // DIAG: temporary wrapper to log mount/unmount of the fly element
 const FlyElementDiag = ({ flyId, icon, count, style }) => {
@@ -76,7 +77,7 @@ const GameCore = () => {
         tickDrawAnim, completeDrawAnim,
         replaceInventoryItem, discardInventoryItem, synthesizeItems, discardPendingItem, debugAddItem,
         bulletinBoard, pendingChosenOrder, refreshCharges,
-        submitOrder, canSubmitOrder, triggerRefresh,
+        submitOrder, canSubmitOrder, submittingOrder, confirmSubmitOrder, cancelSubmitOrder, triggerRefresh,
         incomingOrder, incomingQueueLength, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         dishIntroPending, currentDish, dismissDishIntro,
         isInSubLevel, wallStack,
@@ -889,6 +890,16 @@ const GameCore = () => {
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* Order submit modal — unified consume + reward picker */}
+                {submittingOrder && (
+                    <OrderSubmitModal
+                        order={submittingOrder}
+                        inventory={inventory}
+                        onConfirm={(consumeUids, rewardChoices) => confirmSubmitOrder(submittingOrder.id, consumeUids, rewardChoices)}
+                        onCancel={cancelSubmitOrder}
+                    />
                 )}
 
                 {/* Debug Modal */}

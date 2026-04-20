@@ -712,6 +712,12 @@ export const EN_TRANSLATIONS = {
     "持有 / 需要": "Have / Need",
     "持有": "Have",
     "品质大于等于即可": "Quality ≥ required is OK",
+    "提交订单": "Submit Order",
+    "选择要交付的食材": "Pick ingredients to deliver",
+    "选择奖励食材": "Pick reward ingredient",
+    "从以下选择一种": "Choose one of the following",
+    "没有合格的食材": "No eligible ingredients",
+    "确认提交": "Confirm",
     "浏览": "view only",
 
     // --- Prologue ---
