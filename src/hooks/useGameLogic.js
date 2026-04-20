@@ -78,19 +78,22 @@ function pickMarketType() {
 function generateOrder() {
     const template = pickWeightedTemplate();
 
-    const rewardIng = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
     const rewardQualityDef = QUALITY_CONFIG.find(q => q.id === template.rewardQuality) || QUALITY_CONFIG[0];
-    const reward = {
-        ...rewardIng,
-        quality: template.rewardQuality,
-        score: rewardQualityDef.scoreValue,
-        isOutOfGame: true,
-    };
+    const rewardIng = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
 
+    // Pick N ingredients from distinct categories for requirements
     const shuffledIngredients = [...INGREDIENTS].sort(() => Math.random() - 0.5);
-    const selectedIngredients = shuffledIngredients.slice(0, template.ingredientTypes);
-    const selectedIds = new Set(selectedIngredients.map(i => i.id));
-    const rewardPool = INGREDIENTS.filter(i => !selectedIds.has(i.id));
+    const selectedIngredients = [];
+    const usedCategories = new Set();
+    for (const ing of shuffledIngredients) {
+        if (usedCategories.has(ing.tags[0])) continue;
+        selectedIngredients.push(ing);
+        usedCategories.add(ing.tags[0]);
+        if (selectedIngredients.length === template.ingredientTypes) break;
+    }
+
+    // Reward must be from a different category than all requirements
+    const rewardPool = INGREDIENTS.filter(i => !usedCategories.has(i.tags[0]));
     const rewardIngFinal = rewardPool[Math.floor(Math.random() * rewardPool.length)] || rewardIng;
     const finalReward = { ...reward, ...rewardIngFinal, quality: template.rewardQuality, score: rewardQualityDef.scoreValue, isOutOfGame: true };
 
