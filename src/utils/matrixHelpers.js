@@ -25,6 +25,8 @@ const ITEM_SHAPES = {
 };
 
 function rollItemSize(weights) {
+  // Object.entries on integer-keyed objects iterates in ascending numeric order (ES2015+),
+  // so the fallback `return 1` covers float-drift on the last (largest) entry, not an arbitrary size.
   const entries = Object.entries(weights).map(([k, v]) => [Number(k), v]);
   const total = entries.reduce((sum, [, w]) => sum + w, 0);
   let roll = Math.random() * total;
@@ -67,6 +69,9 @@ export function pickMarketIngredients(marketType) {
  * @param {Array} marketIngredients — ingredient objects filtered by market category
  */
 export function generateWall(marketIngredients) {
+  if (!marketIngredients?.length) {
+    throw new Error('generateWall: marketIngredients is empty or undefined');
+  }
   const { gridSize, doomCells, specialCells } = MATRIX_CONFIG;
   const itemShapes = ITEM_SHAPES;
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
@@ -143,6 +148,7 @@ export function generateWall(marketIngredients) {
 
   while (empty.length > 0) {
     const [startR, startC] = empty[0];
+    // Cell was already filled by a multi-cell shape in the previous iteration — skip without re-query.
     if (grid[startR][startC] !== null) { empty.shift(); continue; }
 
     let size = rollItemSize(itemShapes.weights);
