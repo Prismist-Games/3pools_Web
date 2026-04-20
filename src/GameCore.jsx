@@ -500,7 +500,7 @@ const GameCore = () => {
                                                     </span>
                                                 ))}
                                                 {doomAnimState.hpLoss > 0 && (
-                                                    <span className="text-red-500 font-bold text-xs ml-1">-{doomAnimState.hpLoss} HP</span>
+                                                    <span className="text-red-500 font-bold text-xs ml-1">{t('菜篮')} -{doomAnimState.hpLoss} {t('耐久')}</span>
                                                 )}
                                             </div>
                                             <button
