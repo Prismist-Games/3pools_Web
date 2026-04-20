@@ -121,7 +121,7 @@ export const GameGuide = ({ onClose }) => {
                             📋 {t('订单与贴纸')}
                         </h3>
                         <ol className="list-decimal list-inside space-y-0.5">
-                            <li>{t('从左侧货架接取订单（只显示奖励和难度，接取后才揭示所需贴纸）')}</li>
+                            <li>{t('从左侧交换区接取订单（只显示奖励和难度，接取后才揭示所需贴纸）')}</li>
                             <li>{t('在面板上抽取贴纸，收集订单所需的种类和数量')}</li>
                             <li>{t('随时提交已完成的订单，获得食材放入菜篮')}</li>
                         </ol>

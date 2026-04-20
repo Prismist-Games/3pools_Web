@@ -573,8 +573,8 @@ export const DOOM_CONFIG = {
 
 // --- 回合制配置 ---
 export const TURN_CONFIG = {
-    goldPerTurn: 5,            // 每回合获得金币
-    drawCost: 1,               // 每次抽取花费金币
+    goldPerTurn: 3,            // 每次进市场的抽取次数
+    drawCost: 1,               // 每次抽取消耗
 };
 
 export const INITIAL_GAME_CONFIG = {
@@ -584,6 +584,6 @@ export const INITIAL_GAME_CONFIG = {
     turn: TURN_CONFIG,
     expedition: EXPEDITION_CONFIG,
     order: ORDER_CONFIG,
-    inventorySize: 15,
+    inventorySize: 10,
 };
 

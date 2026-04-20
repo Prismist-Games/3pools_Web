@@ -330,7 +330,7 @@ const GameCore = () => {
                                                 <div className="mb-2 text-center">
                                                     <span className="text-sm font-bold text-kitchen-text-secondary">{t('剩余抽取')}: </span>
                                                     <span className="text-lg font-black text-kitchen-gold-deep">{gold}</span>
-                                                    <span className="text-sm text-kitchen-text-muted"> / 5</span>
+                                                    <span className="text-sm text-kitchen-text-muted"> / {INITIAL_GAME_CONFIG.turn.goldPerTurn}</span>
                                                 </div>
                                             )}
                                             <button
@@ -371,7 +371,7 @@ const GameCore = () => {
                                     {incomingOrder && incomingOrder.candidates && !pendingChosenOrder && (
                                         <div className="max-w-md mx-auto mb-6 p-4 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-2xl shadow-[0_3px_0_#D4952A]">
                                             <div className="text-sm font-bold text-kitchen-gold-deep mb-3">
-                                                📋 {t('新订单')} — {t('选择一个加入货架')}
+                                                📋 {t('新订单')} — {t('选择一个加入交换区')}
                                                 {incomingQueueLength > 1 && (
                                                     <span className="ml-2 text-[11px] text-kitchen-text-muted">(还有 {incomingQueueLength - 1})</span>
                                                 )}
@@ -424,10 +424,10 @@ const GameCore = () => {
                                     {pendingChosenOrder && (
                                         <div className="max-w-md mx-auto mb-6 p-4 bg-[#FFF0EE] border-2 border-kitchen-danger rounded-2xl shadow-[0_3px_0_rgba(208,64,32,0.4)]">
                                             <div className="text-sm font-bold text-kitchen-danger-text mb-2">
-                                                ⚠️ {t('货架已满，选择下方订单替换')}
+                                                ⚠️ {t('交换区已满，选择下方订单替换')}
                                             </div>
                                             <div className="text-xs text-kitchen-text-muted">
-                                                {t('在左侧货架点击要替换掉的订单')}
+                                                {t('在左侧交换区点击要替换掉的订单')}
                                             </div>
                                         </div>
                                     )}
@@ -470,8 +470,8 @@ const GameCore = () => {
                             {/* Doom Grid */}
                             <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
                                 <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between">
-                                    <h3 className="text-sm font-bold text-kitchen-text-body">🧑 {t('厄运')}</h3>
-                                    <span className="text-[11px] font-bold text-kitchen-danger-text">Lv.{doomLevel}</span>
+                                    <h3 className="text-sm font-bold text-kitchen-text-body">🧑 {t('人群')}</h3>
+                                    <span className="text-[11px] font-bold text-kitchen-danger-text">{dangerCount}LV{doomLevel}</span>
                                 </div>
                                 <div className="p-2">
                                     <div className="grid grid-cols-5 gap-1">
@@ -493,11 +493,6 @@ const GameCore = () => {
                                             );
                                         })}
                                     </div>
-                                    <div className="flex justify-between mt-1.5 text-[10px] text-kitchen-text-muted">
-                                        <span>{t('危险')} {dangerCount}/{doomGrid.length}</span>
-                                        <span>{t('结算')} ×{doomLevel}</span>
-                                    </div>
-
                                     {/* Doom animation result + confirm */}
                                     {doomAnimState?.phase === 'settled' && (
                                         <div className="mt-2 pt-2 border-t border-dashed border-kitchen-gold-border/30">
@@ -893,7 +888,7 @@ const GameCore = () => {
                     <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
                         <div className="max-w-md w-full p-5 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-2xl shadow-2xl">
                             <div className="text-sm font-bold text-kitchen-gold-deep mb-3">
-                                📋 {t('新订单')} — {t('选择一个加入货架')}
+                                📋 {t('新订单')} — {t('选择一个加入交换区')}
                                 {incomingQueueLength > 1 && (
                                     <span className="ml-2 text-[11px] text-kitchen-text-muted">({language === 'en' ? `${incomingQueueLength - 1} more` : `还有 ${incomingQueueLength - 1}`})</span>
                                 )}

@@ -156,7 +156,7 @@ const BulletinBoard = ({
             style={{ backgroundImage: 'radial-gradient(circle, rgba(180,140,80,0.08) 1px, transparent 1px)', backgroundSize: '12px 12px' }}>
             {/* Panel header */}
             <div className="px-3 py-2 border-b border-dashed border-kitchen-wood-border flex items-center justify-between gap-2">
-                <h3 className="text-sm font-bold text-kitchen-text-body">📌 {t('货架')}</h3>
+                <h3 className="text-sm font-bold text-kitchen-text-body">📌 {t('交换区')}</h3>
                 <span className="text-[10px] text-kitchen-text-muted font-medium">{orders.length}/{ORDER_CONFIG.bulletinCapacity}</span>
             </div>
 
@@ -167,7 +167,7 @@ const BulletinBoard = ({
                 {/* Replace mode hint (shelf full, player chose an incoming candidate) */}
                 {isReplacing && (
                     <div className="mb-2 p-2.5 bg-[#FFF3E0] border-2 border-kitchen-gold rounded-lg">
-                        <div className="text-[11px] font-bold text-kitchen-gold-deep mb-1.5">{t('货架已满，选择下方订单替换')}</div>
+                        <div className="text-[11px] font-bold text-kitchen-gold-deep mb-1.5">{t('交换区已满，选择下方订单替换')}</div>
                         <div className="flex items-center gap-1 mb-1.5">
                             {pendingChosenOrder.rewards.map((r, i) => (
                                 <RewardCard key={i} reward={r} size="sm" />

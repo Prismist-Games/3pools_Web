@@ -27,7 +27,7 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
     if (cell.type === 'doom_resolution') {
         icon = cell.icon;
         name = t(cell.name);
-        desc = t('抽中时触发抢菜人，不获得物品');
+        desc = t('抽中时触发人挤人');
     } else if (cell.type === 'gold') {
         icon = cell.icon;
         name = t(cell.name);
