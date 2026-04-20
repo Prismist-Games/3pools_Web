@@ -344,7 +344,7 @@ const GameCore = () => {
                                                             : 'bg-gradient-to-b from-kitchen-wood-light to-kitchen-wood-dark border-2 border-kitchen-wood-border text-kitchen-text-title hover:brightness-105 shadow-[0_2px_0_#C8A880]'
                                                 }`}
                                             >
-                                                {phase === 'drawing_sub' ? t('结束事件') : t('结束抽奖')}
+                                                {phase === 'drawing_sub' ? t('结束事件') : t('挤出店铺')}
                                             </button>
                                         </div>
                                     </div>
@@ -354,17 +354,14 @@ const GameCore = () => {
                             {/* Between turns */}
                             {phase === 'between_turns' && (
                                 <div className="text-center py-8">
-                                    <h2 className="text-xl font-bold mb-3 text-kitchen-text-title">{t('抽奖结束')}</h2>
+                                    <h2 className="text-xl font-bold mb-3 text-kitchen-text-title">{t('成功挤出人群')}</h2>
                                     <div className="flex items-center justify-center gap-0.5 mb-2">
                                         {Array.from({ length: 5 }).map((_, i) => (
                                             <span key={i} className="text-lg leading-none">{i < hp ? '❤️' : '🤍'}</span>
                                         ))}
                                     </div>
-                                    <p className="text-kitchen-text-secondary text-sm mb-1">
-                                        {t('厄运等级')}: 🧑 Lv.{doomLevel}
-                                    </p>
                                     <p className="text-kitchen-text-muted text-sm mb-6">
-                                        {t('下次进入抽奖将添加一个厄运标记')}
+                                        {t('下次进店人群将会更多')}
                                     </p>
 
                                     {/* Centered incoming order picker — shown after leaving a wall */}
@@ -784,7 +781,7 @@ const GameCore = () => {
                             <h2 className="text-xl font-bold text-kitchen-text-title mb-4">{t('安全撤离')}</h2>
                         ) : (
                             <>
-                                <h2 className="text-xl font-bold mb-2 text-kitchen-danger-text">{t('游戏结束')}</h2>
+                                <h2 className="text-xl font-bold mb-2 text-kitchen-danger-text">{t('菜篮只剩个把儿')}</h2>
                                 <p className="text-kitchen-danger-text mb-4">{t('失去了全部物品，本场得 0 分')}</p>
                             </>
                         )}
@@ -863,7 +860,7 @@ const GameCore = () => {
                                 </span>
                             ))}
                             {doomResolutionResult.hpLoss > 0 && (
-                                <span className="text-red-400 ml-2">-{doomResolutionResult.hpLoss} HP</span>
+                                <span className="text-red-400 ml-2">{t('菜篮')} -{doomResolutionResult.hpLoss} {t('耐久')}</span>
                             )}
                         </div>
                     </div>
