@@ -55,7 +55,7 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                 className="max-w-2xl w-full max-h-[90vh] overflow-y-auto bg-kitchen-card rounded-2xl border-2 border-kitchen-gold shadow-2xl">
 
                 {/* Header */}
-                <div className="px-4 py-3 border-b-2 border-kitchen-gold-border-muted bg-gradient-to-r from-[#FFF8E0] to-[#FFF3E0] sticky top-0 z-10">
+                <div className="px-4 py-3 border-b-2 border-kitchen-gold-border-muted bg-gradient-to-r from-[#FFF8E0] to-[#FFF3E0] sticky top-0 z-10 rounded-t-2xl">
                     <div className="flex items-center gap-2">
                         <h2 className="text-base font-black text-kitchen-gold-deep flex items-center gap-2">
                             📋 {t('提交订单')}
@@ -197,7 +197,7 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-3 flex items-center justify-between gap-2 sticky bottom-0 bg-kitchen-card border-t border-kitchen-gold-border-muted/50">
+                <div className="px-4 py-3 flex items-center justify-between gap-2 sticky bottom-0 bg-kitchen-card border-t border-kitchen-gold-border-muted/50 rounded-b-2xl">
                     <button onClick={onCancel}
                         className="text-xs px-3 py-1.5 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">
                         {t('取消')}
