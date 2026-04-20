@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { generateWall, pickWallStickers, getClusterMembers } from '../utils/matrixHelpers';
+import { generateWall, pickMarketIngredients } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
-import { pickTemplate, LEVEL_TEMPLATES } from '../data/levelTemplates';
+import { LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { INGREDIENTS, ORDER_TEMPLATES, DISHES } from '../data/v2Config';
+import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES } from '../data/v2Config';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -54,119 +54,62 @@ function pickWeightedTemplate() {
     return ORDER_TEMPLATES[0];
 }
 
-// Modifier shuffle bag — guarantees every modifier appears once before any
-// repeats, so back-to-back walls (and walls within ~9 turns of each other)
-// always feel fresh. Persists across turns and expeditions; refills with a
-// new shuffle when drained. Equal odds; weights in WALL_TYPES no longer
-// drive frequency (most are 15 anyway, and the bag's anti-repeat guarantee
-// matters more than fine-grained weighting at this point).
-let _modifierBag = [];
-function _refillModifierBag() {
-    const ids = WALL_TYPES.map(t => t.id);
-    for (let i = ids.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [ids[i], ids[j]] = [ids[j], ids[i]];
+function rollQuality() {
+    const entries = Object.entries(QUALITY_WEIGHTS);
+    const total = entries.reduce((sum, [, w]) => sum + w, 0);
+    let roll = Math.random() * total;
+    for (const [qId, weight] of entries) {
+        roll -= weight;
+        if (roll <= 0) return Number(qId);
     }
-    _modifierBag = ids;
-}
-function pickWallType() {
-    if (_modifierBag.length === 0) _refillModifierBag();
-    const id = _modifierBag.shift();
-    return WALL_TYPES.find(t => t.id === id) || WALL_TYPES[0];
+    return 1;
 }
 
-/**
- * Finalize a procedural wall candidate at generation time so the picker
- * preview matches what the player will see in-game. Conveyor's per-instance
- * params are rolled here, and modifier-specific grid mutations (hidden mask,
- * multiplier overlays, center_rotate anchor injection) are baked into the
- * grid before it ever reaches the picker. Returns { wallType, grid } —
- * applyWallCandidate then just sets state from these.
- */
-function finalizeProceduralCandidate(rawWallType, baseGrid) {
-    let wallType = rawWallType;
-    if (wallType?.id === 'conveyor') {
-        const size = MATRIX_CONFIG.gridSize;
-        wallType = {
-            ...wallType,
-            conveyorAxis: Math.random() < 0.5 ? 'row' : 'col',
-            conveyorIndex: Math.floor(Math.random() * size),
-            conveyorDirection: Math.random() < 0.5 ? 1 : -1,
-        };
+function pickMarketType() {
+    const total = MARKET_TYPES.reduce((s, t) => s + t.weight, 0);
+    let roll = Math.random() * total;
+    for (const t of MARKET_TYPES) {
+        roll -= t.weight;
+        if (roll <= 0) return t;
     }
-
-    const grid = baseGrid.map(r => r.map(c => c ? { ...c } : null));
-
-    if (wallType?.id === 'hidden') {
-        const ratio = wallType.hiddenRatio || 0.3;
-        for (let r = 0; r < grid.length; r++) {
-            for (let c = 0; c < grid[r].length; c++) {
-                const cell = grid[r][c];
-                if (!cell || (cell.type !== 'sticker' && cell.type !== 'item')) continue;
-                if (Math.random() < ratio) cell.hidden = true;
-            }
-        }
-    } else if (wallType?.id === 'multiplier') {
-        const ratio = wallType.multiplierRatio || 0.2;
-        for (let r = 0; r < grid.length; r++) {
-            for (let c = 0; c < grid[r].length; c++) {
-                const cell = grid[r][c];
-                if (cell && Math.random() < ratio) cell.multiplier = 2;
-            }
-        }
-    }
-
-    if (wallType?.id === 'center_rotate') {
-        const size = MATRIX_CONFIG.gridSize;
-        const r0 = Math.floor(size / 2) - 1;
-        const c0 = Math.floor(size / 2) - 1;
-        const centerPositions = [
-            [r0, c0], [r0, c0 + 1],
-            [r0 + 1, c0], [r0 + 1, c0 + 1],
-        ];
-        const hasAnchor = centerPositions.some(([r, c]) => {
-            const t = grid[r]?.[c]?.type;
-            return t === 'bomb' || t === 'buff_field';
-        });
-        if (!hasAnchor) {
-            const [pr, pc] = centerPositions[Math.floor(Math.random() * centerPositions.length)];
-            const pickBuff = Math.random() < 0.5;
-            const cfg = pickBuff ? MATRIX_CONFIG.specialCells.buffField : MATRIX_CONFIG.specialCells.bomb;
-            const uidGen = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-            grid[pr][pc] = {
-                type: pickBuff ? 'buff_field' : 'bomb',
-                icon: cfg.icon,
-                name: cfg.name,
-                uid: uidGen(),
-            };
-        }
-    }
-
-    return { wallType, grid };
+    return MARKET_TYPES[0];
 }
 
 function generateOrder() {
     const template = pickWeightedTemplate();
-    // Pick a random ingredient for each reward rarity tier
-    const rewards = template.rewardTiers.map(tier => {
-        const matching = INGREDIENTS.filter(i => i.rarity === tier);
-        const picked = matching[Math.floor(Math.random() * matching.length)];
-        return { ...picked, score: picked.rarity }; // score alias for backward compat
-    });
-    const totalScore = rewards.reduce((s, r) => s + r.rarity, 0);
-    // Generate sticker requirements
-    const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
-    const selectedTypes = shuffledStickers.slice(0, template.stickerTypes);
+
+    const rewardIng = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
+    const rewardQualityDef = QUALITY_CONFIG.find(q => q.id === template.rewardQuality) || QUALITY_CONFIG[0];
+    const reward = {
+        ...rewardIng,
+        quality: template.rewardQuality,
+        score: rewardQualityDef.scoreValue,
+        isOutOfGame: true,
+    };
+
+    const shuffledIngredients = [...INGREDIENTS].sort(() => Math.random() - 0.5);
+    const selectedIngredients = shuffledIngredients.slice(0, template.ingredientTypes);
+    const rewardPool = INGREDIENTS.filter(i => !selectedIngredients.includes(i));
+    const rewardIngFinal = rewardPool[Math.floor(Math.random() * rewardPool.length)] || rewardIng;
+    const finalReward = { ...reward, ...rewardIngFinal, quality: template.rewardQuality, score: rewardQualityDef.scoreValue, isOutOfGame: true };
+
     const requirements = [];
-    let remaining = template.totalStickers;
-    for (let i = 0; i < selectedTypes.length; i++) {
-        const count = i === selectedTypes.length - 1
+    let remaining = template.totalIngredients;
+    for (let i = 0; i < selectedIngredients.length; i++) {
+        const count = i === selectedIngredients.length - 1
             ? remaining
-            : 1 + Math.floor(Math.random() * (remaining - (selectedTypes.length - i - 1)));
-        requirements.push({ stickerId: selectedTypes[i].id, icon: selectedTypes[i].icon, name: selectedTypes[i].name, count });
+            : 1 + Math.floor(Math.random() * (remaining - (selectedIngredients.length - i - 1)));
+        requirements.push({
+            ingredientId: selectedIngredients[i].id,
+            icon: selectedIngredients[i].icon,
+            name: selectedIngredients[i].name,
+            quality: template.reqQuality,
+            count,
+        });
         remaining -= count;
     }
-    return { id: generateUID(), difficulty: template.difficulty, rewards, totalScore, requirements };
+
+    return { id: generateUID(), difficulty: template.difficulty, rewards: [finalReward], totalScore: finalReward.score, requirements };
 }
 
 export const useGameLogic = (config) => {
@@ -205,7 +148,7 @@ export const useGameLogic = (config) => {
     const [currentLevel, setCurrentLevel] = useState(null); // hand-crafted level for reveal overlay
     const [lastDrawDirection, setLastDrawDirection] = useState(null);
     // 3-choose-1 candidates surfaced during 'wall_choice' phase. Each is
-    // { stickers, grid, doomCellCount, wallType, level } — wallType XOR level.
+    // { marketIngredients, grid, doomCellCount, wallType }
     const [wallCandidates, setWallCandidates] = useState(null);
     // Set when the player clicks a candidate on the picker — holds the
     // chosen candidate while the reveal overlay shows the modifier/level
@@ -250,7 +193,8 @@ export const useGameLogic = (config) => {
 
     // --- Order State ---
     const [bulletinBoard, setBulletinBoard] = useState([]);
-    const [refreshCharges, setRefreshCharges] = useState(REFRESH_CONFIG.initialCharges);
+    const REFRESH_INITIAL_CHARGES = 3;
+    const [refreshCharges, setRefreshCharges] = useState(REFRESH_INITIAL_CHARGES);
 
     // --- Incoming Order Queue ---
     // Each element is { id, candidates: [orderA, orderB] }. UI reads the
@@ -317,51 +261,29 @@ export const useGameLogic = (config) => {
         // Reset draw direction for alternating wall
         setLastDrawDirection(null);
 
-        // Generate 3 wall candidates and enter the wall_choice phase. Each
-        // candidate is EITHER a hand-crafted level OR a procedural wall —
-        // mutually exclusive. No duplicates within the 3.
+        // Generate 3 market candidates (no duplicate market types within the 3).
         const candidates = [];
-        const usedIds = new Set();
-        const currentExpedition = Math.max(1, expeditionNumber);
-        let safety = 0;
-        while (candidates.length < 3 && safety < 30) {
-            safety++;
-            const template = pickTemplate(currentExpedition);
-            if (template) {
-                const key = 'level:' + template.id;
-                if (usedIds.has(key)) continue;
-                usedIds.add(key);
-                const result = generateWallFromTemplate(template);
-                candidates.push({
-                    stickers: result.stickers,
-                    grid: result.grid,
-                    doomCellCount: result.doomCellCount,
-                    wallType: null,
-                    level: template,
-                });
-            } else {
-                const rawWallType = pickWallType();
-                const key = 'wall:' + rawWallType.id;
-                if (usedIds.has(key)) continue;
-                usedIds.add(key);
-                const stickers = pickWallStickers(STICKER_TYPES, WALL_STICKER_COUNT.min, WALL_STICKER_COUNT.max);
-                const { grid: baseGrid, doomCellCount } = generateWall(stickers);
-                // Bake modifier mutations into the grid now so the picker
-                // preview reflects exactly what the player will draw from.
-                const { wallType, grid } = finalizeProceduralCandidate(rawWallType, baseGrid);
-                candidates.push({ stickers, grid, doomCellCount, wallType, level: null });
-            }
+        const usedTypeIds = new Set();
+        while (candidates.length < 3) {
+            const marketType = pickMarketType();
+            if (usedTypeIds.has(marketType.id)) continue;
+            usedTypeIds.add(marketType.id);
+            const marketIngredients = pickMarketIngredients(marketType);
+            const { grid, doomCellCount } = generateWall(marketIngredients);
+            candidates.push({ marketIngredients, grid, doomCellCount, wallType: marketType });
         }
         setWallCandidates(candidates);
         setPhase('wall_choice');
     };
 
-    /** Player picks one of the 3 wall candidates — commit to it, then
-     *  reveal the modifier/level in the wall_reveal phase. */
+    /** Player picks one of the 3 market candidates — apply it immediately. */
     const selectWall = (index) => {
         if (!wallCandidates || !wallCandidates[index]) return;
-        setPendingWallCandidate(wallCandidates[index]);
-        setPhase('wall_reveal');
+        const chosen = wallCandidates[index];
+        setCurrentWallType(chosen.wallType);
+        setMatrix(chosen.grid.map(r => r.map(c => c ? { ...c } : null)));
+        setWallCandidates(null);
+        setPhase('drawing');
     };
 
     /** Player clicks past the reveal — apply the chosen candidate. */
@@ -376,8 +298,7 @@ export const useGameLogic = (config) => {
     /** Start the game: show today's dish, then let the player assemble the
      *  initial bulletin via SETUP_CONFIG.pickCount × pick-1-of-2 events. The
      *  first wall does NOT generate until setup finishes — that way the
-     *  wall's per-cell sticker roll can draw from the orders the player
-     *  just chose, instead of falling back to the full sticker roster. */
+     *  The first wall does NOT generate until setup finishes. */
     const startGame = () => {
         setExpeditionNumber(prev => prev + 1);
 
@@ -512,8 +433,6 @@ export const useGameLogic = (config) => {
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
-        // Alternating wall: block consecutive row draws
-        if (currentWallType?.id === 'alternating' && lastDrawDirection === 'row') return;
 
         setDoomResolutionResult(null);
         setFlyingItem(null);
@@ -560,8 +479,6 @@ export const useGameLogic = (config) => {
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix) return;
-        // Alternating wall: block consecutive column draws
-        if (currentWallType?.id === 'alternating' && lastDrawDirection === 'column') return;
 
         setDoomResolutionResult(null);
         setFlyingItem(null);
@@ -632,23 +549,7 @@ export const useGameLogic = (config) => {
         let obtainedItem = null;
         const doomEffects = { resolutions: 0, upgrades: 0 };
 
-        // Cluster yield (sticker only). Whole cluster is destroyed; total
-        // sticker payout = 1 + Σ(multiplier-1) per member + Σ buff_field
-        // 4-neighbors per member. Each member-buff adjacency is counted
-        // separately, so a buff_field touching 2 members of the same
-        // cluster contributes 2.
-        let clusterMembers = null;
-        let clusterYield = 0;
-        if (drawnCell.type === 'sticker') {
-            clusterMembers = getClusterMembers(matrix, finalRowIndex, finalColIndex);
-            clusterYield = 1;
-            for (const [cr, cc] of clusterMembers) {
-                const cell = matrix[cr][cc];
-                clusterYield += (cell?.multiplier || 1) - 1;
-                clusterYield += countBuffFieldCoverage(matrix, cr, cc);
-            }
-            obtainedItem = drawnCell;
-        } else if (drawnCell.type === 'item' || drawnCell.type === 'out_of_game') {
+        if (drawnCell.type === 'ingredient' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
         } else if (drawnCell.type === 'doom_resolution') {
             doomEffects.resolutions = 1 * mult;
@@ -699,39 +600,10 @@ export const useGameLogic = (config) => {
             }
         }
 
-        // Mirror cluster: if mirror cell is a sticker, it has its own cluster.
-        // If that cluster is the SAME as the drawn cluster (mirror falls inside),
-        // dedupe: the cluster destruction below already takes both, so the
-        // mirror yields nothing extra.
-        let mirrorClusterMembers = null;
-        let mirrorClusterYield = 0;
-        let mirrorSameCluster = false;
-        if (mirrorCell?.type === 'sticker' && matrix) {
-            mirrorClusterMembers = getClusterMembers(matrix, mirrorRow, mirrorCol);
-            if (clusterMembers && clusterMembers.some(([r, c]) => r === mirrorRow && c === mirrorCol)) {
-                mirrorSameCluster = true;
-                mirrorClusterMembers = null;
-            } else {
-                mirrorClusterYield = 1;
-                for (const [cr, cc] of mirrorClusterMembers) {
-                    const cell = matrix[cr][cc];
-                    mirrorClusterYield += (cell?.multiplier || 1) - 1;
-                    mirrorClusterYield += countBuffFieldCoverage(matrix, cr, cc);
-                }
-            }
-        }
-
-        if (mirrorCell && !mirrorSameCluster) {
+        if (mirrorCell) {
             const mMult = mirrorCell.multiplier || 1;
-            if (mirrorCell.type === 'sticker' && mirrorClusterMembers) {
-                for (let i = 0; i < mirrorClusterYield; i++) {
-                    addToInventory({ ...mirrorCell, uid: generateUID() });
-                }
-                const itemName = mirrorCell.item?.name || mirrorCell.name;
-                const tag = mirrorClusterYield > 1 ? ` ×${mirrorClusterYield}` : '';
-                showToast(`🪞 ${t('镜像')}: ${mirrorCell.item?.icon || ''} ${t(itemName)}${tag}`, 'success');
-            } else if (mirrorCell.type === 'item' || mirrorCell.type === 'out_of_game') {
-                if (mMult > 1 && mirrorCell.type === 'item') {
+            if (mirrorCell.type === 'ingredient' || mirrorCell.type === 'out_of_game') {
+                if (mMult > 1 && mirrorCell.type === 'ingredient') {
                     for (let i = 0; i < mMult; i++) {
                         addToInventory({ ...mirrorCell, uid: generateUID() });
                     }
@@ -767,25 +639,13 @@ export const useGameLogic = (config) => {
             // entrance mirror skipped (entrance only on hand-crafted levels, not mirror walls)
         }
 
-        // Remove drawn cell(s) + hidden reveal + drift shuffle
+        // Remove drawn cell(s) and apply wall modifiers
         setMatrix(prev => {
             const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
 
-            // Sticker cluster: clear every cluster member, not just the
-            // drawn cell. Same for the mirror cluster (if mirror modifier
-            // hit a separate sticker cluster).
-            if (clusterMembers && clusterMembers.length > 0) {
-                for (const [cr, cc] of clusterMembers) {
-                    newMatrix[cr][cc] = null;
-                }
-            } else {
-                newMatrix[finalRowIndex][finalColIndex] = null;
-            }
-            if (mirrorClusterMembers && mirrorClusterMembers.length > 0) {
-                for (const [cr, cc] of mirrorClusterMembers) {
-                    newMatrix[cr][cc] = null;
-                }
-            } else if (mirrorCell && mirrorRow !== null && mirrorCol !== null) {
+            // Clear the drawn cell and mirror cell (if mirror modifier active).
+            newMatrix[finalRowIndex][finalColIndex] = null;
+            if (mirrorCell && mirrorRow !== null && mirrorCol !== null) {
                 newMatrix[mirrorRow][mirrorCol] = null;
             }
 
@@ -863,21 +723,6 @@ export const useGameLogic = (config) => {
                 if (flashes.length > 0) {
                     setGrowthFlashes(new Set(flashes));
                     setTimeout(() => setGrowthFlashes(null), 400);
-                }
-            }
-
-            // Hidden wall: reveal adjacent hidden cells (independent per cell)
-            if (currentWallType?.id === 'hidden') {
-                const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-                for (const [dr, dc] of dirs) {
-                    const nr = finalRowIndex + dr;
-                    const nc = finalColIndex + dc;
-                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length) {
-                        const neighbor = newMatrix[nr][nc];
-                        if (neighbor?.hidden) {
-                            neighbor.hidden = false;
-                        }
-                    }
                 }
             }
 
@@ -1004,12 +849,9 @@ export const useGameLogic = (config) => {
         });
 
         if (obtainedItem) {
-            // Sticker yield uses cluster math (cluster destroyed → yield
-            // computed up front). Non-stickers use the legacy per-cell
-            // multiplier × buffMult chain.
-            const yieldCount = drawnCell.type === 'sticker' ? clusterYield : mult;
+            const yieldCount = mult;
             const flyId = Date.now();
-            console.log('[FLY-DIAG] setFlyingItem called, id =', flyId, 'clusterMembers =', clusterMembers?.length ?? 'none', 'yieldCount =', yieldCount);
+            console.log('[FLY-DIAG] setFlyingItem called, id =', flyId, 'yieldCount =', yieldCount);
             setFlyingItem({
                 icon: obtainedItem.item.icon,
                 name: obtainedItem.item.name,
@@ -1018,13 +860,6 @@ export const useGameLogic = (config) => {
                 count: yieldCount,
                 id: flyId,
             });
-            // Cluster windfall: surface the multi-payout when modifiers
-            // boosted a sticker cluster above its base 1.
-            if (drawnCell.type === 'sticker' && clusterMembers && (yieldCount > 1 || clusterMembers.length > 1)) {
-                const stickerName = obtainedItem.item?.name || obtainedItem.name;
-                const tag = yieldCount > 1 ? ` ×${yieldCount}` : '';
-                showToast(`${obtainedItem.item.icon} ${t(stickerName)}${tag} (${t('簇')} ${clusterMembers.length})`, 'success');
-            }
             if (yieldCount > 1) {
                 for (let i = 0; i < yieldCount; i++) {
                     addToInventory({ ...obtainedItem, uid: generateUID() });
@@ -1057,31 +892,15 @@ export const useGameLogic = (config) => {
     // =============================================
 
     const addToInventory = (itemCell) => {
-        let newItem;
-        if (itemCell.type === 'sticker') {
-            newItem = {
-                name: itemCell.item.name,
-                icon: itemCell.item.icon,
-                stickerId: itemCell.item.id,
-                isSticker: true,
-                uid: itemCell.uid,
-            };
-        } else if (itemCell.type === 'out_of_game') {
-            newItem = {
-                ...itemCell.item,
-                score: itemCell.item.rarity, // backward compat alias
-                isOutOfGame: true,
-                uid: itemCell.uid,
-            };
-        } else {
-            // Legacy 'item' type
-            newItem = {
-                name: itemCell.item.name,
-                icon: itemCell.item.icon,
-                poolId: itemCell.item.poolId,
-                uid: itemCell.uid,
-            };
-        }
+        const quality = rollQuality();
+        const qualityDef = QUALITY_CONFIG.find(q => q.id === quality) || QUALITY_CONFIG[0];
+        const newItem = {
+            ...itemCell.item,
+            quality,
+            score: qualityDef.scoreValue,
+            isOutOfGame: true,
+            uid: itemCell.uid,
+        };
         if (inventory.length >= maxInventorySize) {
             setPendingItems(prev => [...prev, newItem]);
             return;
@@ -1111,45 +930,41 @@ export const useGameLogic = (config) => {
         setInventory(prev => prev.filter((_, i) => !idxSet.has(i)));
     };
 
-    /** Synthesize: merge 2 identical items into the next rarity tier */
+    /** Synthesize: merge 2 identical items at the same quality into the next quality tier */
     const synthesizeItems = (index1, index2) => {
         const item1 = inventory[index1];
         const item2 = inventory[index2];
-        if (!item1 || !item2 || item1.id !== item2.id) return false;
+        if (!item1 || !item2) return false;
+        if (item1.id !== item2.id || item1.quality !== item2.quality) return false;
+        if (item1.quality >= 4) return false;
 
-        // Find current item definition in INGREDIENTS
-        const currentDef = INGREDIENTS.find(ing => ing.id === item1.id);
-        if (!currentDef || currentDef.rarity >= 4) return false;
+        const newQuality = item1.quality + 1;
+        const newQualityDef = QUALITY_CONFIG.find(q => q.id === newQuality) || QUALITY_CONFIG[QUALITY_CONFIG.length - 1];
 
-        // Find next rarity in same sub-category (match both tags)
-        const subTag = currentDef.tags[1]; // e.g., '鸡'
-        const mainTag = currentDef.tags[0]; // e.g., '肉类'
-        const nextDef = INGREDIENTS.find(ing =>
-            ing.tags[0] === mainTag && ing.tags[1] === subTag && ing.rarity === currentDef.rarity + 1
-        );
-        if (!nextDef) return false;
-
-        // Remove 2 items, add 1 new item
         setInventory(prev => {
             const next = [...prev];
-            // Remove higher index first to avoid shifting
             const [lo, hi] = index1 < index2 ? [index1, index2] : [index2, index1];
             next.splice(hi, 1);
             next.splice(lo, 1);
-            // Add new item
-            next.push({ ...nextDef, isOutOfGame: true, uid: generateUID() });
+            next.push({ ...item1, quality: newQuality, score: newQualityDef.scoreValue, uid: generateUID() });
             return next;
         });
 
-        showToast(`${t('合成成功')}: ${nextDef.icon} ${nextDef.name}`, 'success');
+        showToast(`${t('合成成功')}: ${item1.icon} ${item1.name} (${newQualityDef.name})`, 'success');
         return true;
     };
 
     /** Debug: add items directly to inventory */
     const debugAddItem = (itemDef, count) => {
-        const makeItem = () => itemDef.isSticker
-            ? { name: itemDef.name, icon: itemDef.icon, stickerId: itemDef.id, isSticker: true, uid: generateUID() }
-            : { ...itemDef, score: itemDef.rarity || itemDef.score, isOutOfGame: true, uid: generateUID() };
+        const quality = itemDef.quality || 1;
+        const qualityDef = QUALITY_CONFIG.find(q => q.id === quality) || QUALITY_CONFIG[0];
+        const makeItem = () => ({
+            ...itemDef,
+            quality,
+            score: qualityDef.scoreValue,
+            isOutOfGame: true,
+            uid: generateUID(),
+        });
 
         const toInventory = [];
         const toPending = [];
@@ -1210,58 +1025,56 @@ export const useGameLogic = (config) => {
         setIncomingQueue(prev => prev.slice(1));
     };
 
-    /** Check if player has required stickers to submit an order (checks bulletinBoard) */
+    /** Check if player has required ingredients to submit an order (checks bulletinBoard) */
     const canSubmitOrder = (orderId) => {
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return false;
-        const stickerCounts = {};
+        const ingCounts = {};
         for (const item of inventory) {
-            if (item.isSticker && item.stickerId) {
-                stickerCounts[item.stickerId] = (stickerCounts[item.stickerId] || 0) + 1;
+            if (item.id && item.quality != null) {
+                const key = `${item.id}:${item.quality}`;
+                ingCounts[key] = (ingCounts[key] || 0) + 1;
             }
         }
-        return order.requirements.every(req => (stickerCounts[req.stickerId] || 0) >= req.count);
+        return order.requirements.every(req => {
+            const key = `${req.ingredientId}:${req.quality}`;
+            return (ingCounts[key] || 0) >= req.count;
+        });
     };
 
-    /** Submit a completed order: consume stickers, add reward to inventory (from bulletinBoard) */
+    /** Submit a completed order: consume ingredients, add reward to inventory (from bulletinBoard) */
     const submitOrder = (orderId) => {
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return;
         if (!canSubmitOrder(orderId)) {
-            showToast(t('贴纸不足'), 'warning');
+            showToast(t('食材不足'), 'warning');
             return;
         }
 
-        // Remove required stickers from inventory
         const toRemove = {};
         for (const req of order.requirements) {
-            toRemove[req.stickerId] = (toRemove[req.stickerId] || 0) + req.count;
+            const key = `${req.ingredientId}:${req.quality}`;
+            toRemove[key] = (toRemove[key] || 0) + req.count;
         }
         setInventory(prev => {
             const remaining = [...prev];
-            for (const [stickerId, count] of Object.entries(toRemove)) {
+            for (const [key, count] of Object.entries(toRemove)) {
+                const [ingId, qStr] = key.split(':');
+                const quality = Number(qStr);
                 let removed = 0;
                 for (let i = remaining.length - 1; i >= 0 && removed < count; i--) {
-                    if (remaining[i].isSticker && remaining[i].stickerId === stickerId) {
+                    if (remaining[i].id === ingId && remaining[i].quality === quality) {
                         remaining.splice(i, 1);
                         removed++;
                     }
                 }
             }
-            // Add all reward items
             for (const reward of order.rewards) {
-                remaining.push({
-                    ...reward,
-                    score: reward.rarity || reward.score,
-                    isOutOfGame: true,
-                    uid: generateUID(),
-                });
+                remaining.push({ ...reward, uid: generateUID() });
             }
             return remaining;
         });
 
-        // Remove order from shelf. New orders arrive on wall exit (not on
-        // order completion) — see endTurn.
         setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
         showToast(t('订单完成'), 'success');
     };
@@ -1435,7 +1248,7 @@ export const useGameLogic = (config) => {
         setPendingItems([]);
         setBulletinBoard([]);
         setPendingChosenOrder(null);
-        setRefreshCharges(REFRESH_CONFIG.initialCharges);
+        setRefreshCharges(REFRESH_INITIAL_CHARGES);
         setIncomingQueue([]);
         setDishIntroPending(false);
         setCurrentDish(null);
@@ -1477,7 +1290,7 @@ export const useGameLogic = (config) => {
         setFridge([]);
         setBulletinBoard([]);
         setPendingChosenOrder(null);
-        setRefreshCharges(REFRESH_CONFIG.initialCharges);
+        setRefreshCharges(REFRESH_INITIAL_CHARGES);
         setIncomingQueue([]);
         setDishIntroPending(false);
         setCurrentDish(null);
@@ -1527,7 +1340,7 @@ export const useGameLogic = (config) => {
         setPendingItems([]);
         setBulletinBoard([]);
         setPendingChosenOrder(null);
-        setRefreshCharges(REFRESH_CONFIG.initialCharges);
+        setRefreshCharges(REFRESH_INITIAL_CHARGES);
         setIncomingQueue([]);
         setDishIntroPending(false);
         setCurrentDish(null);
