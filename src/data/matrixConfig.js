@@ -1,6 +1,6 @@
 /**
  * Matrix Configuration - Turn-Based Prototype
- * 4×4 grid. Each cell is an independent item or a doom/special cell.
+ * 3×3 grid. Each cell is an independent item or a doom/special cell.
  */
 
 // 抢菜人符号池——非特定职业、有色的人像 Emoji（剔除 👤/👥 黑色剪影）。
@@ -15,13 +15,13 @@ export function pickDoomEmoji() {
 }
 
 export const MATRIX_CONFIG = {
-  gridSize: 4,
+  gridSize: 3,
 
   // Doom cells: independent cells on the grid (not items). Rolled in the
   // same per-cell pass as other special cells (gold/order/bomb/etc.).
   doomCells: {
     resolution: {
-      spawnChance: 0.15,  // 15% per cell position — ~2.4 per 16-cell wall
+      spawnChance: 0.15,  // 15% per cell position — ~1.35 per 9-cell wall
       icon: '💀',
       name: '抢菜人',
     },
