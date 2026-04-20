@@ -114,16 +114,18 @@ export const INGREDIENTS = [
 ];
 
 // --- 品质系统 ---
-// quality 1=普通 2=精选 3=优质 4=顶级
+// quality 1=普通(白) 2=精选(绿) 3=优质(蓝) 4=顶级(紫) 5=传说(橙)
+// stars=颜色=scoreValue 一一对应
 export const QUALITY_CONFIG = [
-    { id: 1, name: '普通', stars: '★',    scoreValue: 1 },
-    { id: 2, name: '精选', stars: '★★',   scoreValue: 2 },
-    { id: 3, name: '优质', stars: '★★★',  scoreValue: 3 },
-    { id: 4, name: '顶级', stars: '★★★★', scoreValue: 5 },
+    { id: 1, name: '普通', stars: '★',     scoreValue: 1 },
+    { id: 2, name: '精选', stars: '★★',    scoreValue: 2 },
+    { id: 3, name: '优质', stars: '★★★',   scoreValue: 3 },
+    { id: 4, name: '顶级', stars: '★★★★',  scoreValue: 5 },
+    { id: 5, name: '传说', stars: '★★★★★', scoreValue: 8 },
 ];
 
 // Probability weights for random quality roll on draw — must sum to 1.0
-export const QUALITY_WEIGHTS = { 1: 0.45, 2: 0.35, 3: 0.15, 4: 0.05 };
+export const QUALITY_WEIGHTS = { 1: 0.40, 2: 0.30, 3: 0.18, 4: 0.08, 5: 0.04 };
 
 // --- 市场类型（替换原墙类型）---
 // 每种市场只出现对应大类的食材
@@ -147,19 +149,21 @@ export const DISHES = [
             {
                 name: '主料', required: true,
                 rules: [
-                    { match: { tag: '海鲜' }, multiplier: 1 },
-                    { match: { tag: '虾' }, multiplier: 2 },
+                    { match: { tag: '海鲜' }, multiplier: 0.5 },
+                    { match: { tag: '虾' }, multiplier: 1 },
+                    { match: { id: 'tiger_prawn' }, multiplier: 2 },
                 ],
-                defaultMultiplier: 0.5,
+                defaultMultiplier: 0,
                 trigger: {
                     whenTag: '贝',
                     spawnSlot: {
                         name: '主料', required: false,
                         rules: [
-                            { match: { tag: '海鲜' }, multiplier: 1 },
-                            { match: { tag: '虾' }, multiplier: 2 },
+                            { match: { tag: '海鲜' }, multiplier: 0.5 },
+                            { match: { tag: '虾' }, multiplier: 1 },
+                            { match: { id: 'tiger_prawn' }, multiplier: 2 },
                         ],
-                        defaultMultiplier: 0.5,
+                        defaultMultiplier: 0,
                         exclude: '贝',
                     },
                 },
@@ -167,18 +171,20 @@ export const DISHES = [
             {
                 name: '基底', required: true,
                 rules: [
-                    { match: { tag: '主食' }, multiplier: 1 },
-                    { match: { tag: '面' }, multiplier: 2 },
+                    { match: { tag: '主食' }, multiplier: 0.5 },
+                    { match: { tag: '面' }, multiplier: 1 },
+                    { match: { id: 'egg_noodles' }, multiplier: 2 },
                 ],
-                defaultMultiplier: 0.5,
+                defaultMultiplier: 0,
             },
             {
                 name: '汤汁', required: true,
                 rules: [
-                    { match: { tag: '蔬菜' }, multiplier: 1 },
+                    { match: { tag: '蔬菜' }, multiplier: 0.5 },
+                    { match: { tag: '菌菇' }, multiplier: 1 },
                     { match: { id: 'shiitake' }, multiplier: 2 },
                 ],
-                defaultMultiplier: 0.5,
+                defaultMultiplier: 0,
             },
             {
                 name: '配料', required: false,
@@ -197,26 +203,29 @@ export const DISHES = [
             {
                 name: '主料', required: true,
                 rules: [
-                    { match: { tag: '肉类' }, multiplier: 1 },
-                    { match: { tag: '牛' }, multiplier: 2 },
+                    { match: { tag: '肉类' }, multiplier: 0.5 },
+                    { match: { tag: '牛' }, multiplier: 1 },
+                    { match: { id: 'beef_brisket' }, multiplier: 2 },
                 ],
-                defaultMultiplier: 0.5,
+                defaultMultiplier: 0,
             },
             {
                 name: '底', required: true,
                 rules: [
-                    { match: { tag: '主食' }, multiplier: 1 },
-                    { match: { tag: '米' }, multiplier: 2 },
+                    { match: { tag: '主食' }, multiplier: 0.5 },
+                    { match: { tag: '米' }, multiplier: 1 },
+                    { match: { id: 'white_rice' }, multiplier: 2 },
                 ],
-                defaultMultiplier: 0.5,
+                defaultMultiplier: 0,
             },
             {
                 name: '炖料', required: false,
                 rules: [
-                    { match: { tag: '蔬菜' }, multiplier: 1 },
-                    { match: { tag: '根茎' }, multiplier: 2 },
+                    { match: { tag: '蔬菜' }, multiplier: 0.5 },
+                    { match: { tag: '根茎' }, multiplier: 1 },
+                    { match: { id: 'potato' }, multiplier: 2 },
                 ],
-                defaultMultiplier: 0.5,
+                defaultMultiplier: 0,
                 crossBonus: { requireSlot: '底', requireTag: '面包', multiplier: 2 },
             },
             {
@@ -232,10 +241,10 @@ export const DISHES = [
 // reqBudget: total quality score-value units distributed across all requirement slots.
 // Each slot count=1; quality per slot is derived so sum(scores) ≈ reqBudget ≈ reward score.
 export const ORDER_TEMPLATES = [
-    { id: 'easy',    difficulty: 'easy',    reqBudget: 2, rewardQuality: 2, ingredientTypes: 2, weight: 40 },
-    { id: 'medium',  difficulty: 'medium',  reqBudget: 3, rewardQuality: 3, ingredientTypes: 2, weight: 30 },
+    { id: 'easy',    difficulty: 'easy',    reqBudget: 2, rewardQuality: 2, ingredientTypes: 2, weight: 30 },
+    { id: 'medium',  difficulty: 'medium',  reqBudget: 3, rewardQuality: 3, ingredientTypes: 2, weight: 40 },
     { id: 'hard',    difficulty: 'hard',    reqBudget: 5, rewardQuality: 4, ingredientTypes: 3, weight: 20 },
-    { id: 'extreme', difficulty: 'extreme', reqBudget: 5, rewardQuality: 4, ingredientTypes: 4, weight: 10 },
+    { id: 'extreme', difficulty: 'extreme', reqBudget: 5, rewardQuality: 5, ingredientTypes: 4, weight: 10 },
 ];
 
 // --- 远征配置 ---

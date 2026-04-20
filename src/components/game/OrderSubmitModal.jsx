@@ -3,7 +3,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { INGREDIENTS } from '../../data/v2Config';
 import { QUALITY_STYLE, DIFFICULTY_STYLE } from './BulletinBoard';
 
-const QUALITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
+const QUALITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★', 5: '★★★★★' };
 
 /** Unified submit modal: player picks which inventory items to consume per
  *  tag2 requirement, and which concrete ingredient to receive per reward. */

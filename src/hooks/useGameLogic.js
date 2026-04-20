@@ -968,7 +968,7 @@ export const useGameLogic = (config) => {
         const item2 = inventory[index2];
         if (!item1 || !item2) return false;
         if (item1.id !== item2.id || item1.quality !== item2.quality) return false;
-        if (item1.quality >= 4) return false;
+        if (item1.quality >= 5) return false;
 
         const newQuality = item1.quality + 1;
         const newQualityDef = QUALITY_CONFIG.find(q => q.id === newQuality) || QUALITY_CONFIG[QUALITY_CONFIG.length - 1];

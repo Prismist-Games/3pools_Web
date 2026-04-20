@@ -15,15 +15,16 @@ const DIFFICULTY_STYLE = {
 };
 
 const QUALITY_STYLE = {
-    1: { border: 'border-gray-400',   bg: 'from-gray-50 to-white',   badge: 'bg-gray-500',   label: '★',    labelColor: 'text-gray-400',   tagBg: 'bg-gray-100 text-gray-600'   },
-    2: { border: 'border-green-400',  bg: 'from-green-50 to-white',  badge: 'bg-green-500',  label: '★★',   labelColor: 'text-green-400',  tagBg: 'bg-green-100 text-green-700'  },
-    3: { border: 'border-blue-400',   bg: 'from-blue-50 to-white',   badge: 'bg-blue-500',   label: '★★★',  labelColor: 'text-blue-400',   tagBg: 'bg-blue-100 text-blue-700'    },
-    4: { border: 'border-orange-400', bg: 'from-orange-50 to-white', badge: 'bg-orange-500', label: '★★★★', labelColor: 'text-orange-400', tagBg: 'bg-orange-100 text-orange-700' },
+    1: { border: 'border-gray-400',   bg: 'from-gray-50 to-white',   badge: 'bg-gray-500',   label: '★',     labelColor: 'text-gray-400',   tagBg: 'bg-gray-100 text-gray-600'     },
+    2: { border: 'border-green-400',  bg: 'from-green-50 to-white',  badge: 'bg-green-500',  label: '★★',    labelColor: 'text-green-400',  tagBg: 'bg-green-100 text-green-700'   },
+    3: { border: 'border-blue-400',   bg: 'from-blue-50 to-white',   badge: 'bg-blue-500',   label: '★★★',   labelColor: 'text-blue-400',   tagBg: 'bg-blue-100 text-blue-700'     },
+    4: { border: 'border-purple-400', bg: 'from-purple-50 to-white', badge: 'bg-purple-500', label: '★★★★',  labelColor: 'text-purple-400', tagBg: 'bg-purple-100 text-purple-700' },
+    5: { border: 'border-orange-400', bg: 'from-orange-50 to-white', badge: 'bg-orange-500', label: '★★★★★', labelColor: 'text-orange-400', tagBg: 'bg-orange-100 text-orange-700' },
 };
 // Backward compat aliases
 const RARITY_STYLE = QUALITY_STYLE;
 const SCORE_STYLE = QUALITY_STYLE;
-const QUALITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
+const QUALITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★', 5: '★★★★★' };
 const RARITY_STARS = QUALITY_STARS;
 
 /** Shared tooltip content for a sticker. Pass inventory + stickerId to

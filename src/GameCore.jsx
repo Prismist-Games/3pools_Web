@@ -403,6 +403,12 @@ const GameCore = () => {
                                                     );
                                                 })}
                                             </div>
+                                            <div className="mt-3 flex justify-center">
+                                                <button onClick={discardIncomingOrder}
+                                                    className="text-xs px-3 py-1.5 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">
+                                                    {t('跳过')}
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
 
@@ -887,6 +893,12 @@ const GameCore = () => {
                                         </button>
                                     );
                                 })}
+                            </div>
+                            <div className="mt-3 flex justify-center">
+                                <button onClick={discardIncomingOrder}
+                                    className="text-xs px-3 py-1.5 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">
+                                    {t('跳过')}
+                                </button>
                             </div>
                         </div>
                     </div>

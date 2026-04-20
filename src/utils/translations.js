@@ -104,6 +104,7 @@ export const EN_TRANSLATIONS = {
     "有的放矢：请选择你想要的": "Targeted: Choose Your Desire",
     "再来一局": "Play Again",
     "跳过并重开": "Skip & Restart",
+    "跳过": "Skip",
     "输入名字上榜": "Enter Name",
     "你的成绩": "Score",
     "次": "Draws",
@@ -156,6 +157,9 @@ export const EN_TRANSLATIONS = {
 
     // --- Rarity ---
     "普通": "Common",
+    "精选": "Choice",
+    "优质": "Premium",
+    "顶级": "Top",
     "优秀": "Uncommon",
     "稀有": "Rare",
     "史诗": "Epic",
