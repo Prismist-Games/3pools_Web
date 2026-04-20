@@ -232,12 +232,15 @@ const BulletinBoard = ({
                                                     </>
                                                 }>
                                                     <div className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
-                                                        <div className={`w-7 h-7 rounded border-2 ${
+                                                        <div className={`relative w-7 h-7 rounded border-2 ${
                                                             isHovered ? 'border-kitchen-info-border bg-[#F0F8FF] ring-2 ring-kitchen-info/40'
                                                             : enough ? 'border-kitchen-success-border bg-[#F0FFF8]'
                                                             : qs.border + ' bg-kitchen-card'
                                                         } flex items-center justify-center text-sm shadow-sm`}>
                                                             {req.icon}
+                                                            <span className={`absolute -bottom-1 -right-1 ${qs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>
+                                                                {req.quality}
+                                                            </span>
                                                         </div>
                                                         <span className={`text-[10px] font-bold ${
                                                             isHovered ? 'text-kitchen-info-border'

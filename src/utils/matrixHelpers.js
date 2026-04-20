@@ -61,7 +61,7 @@ export function pickMarketIngredients(marketType) {
  * Generate a wall matrix using ingredient types from the given pool.
  *
  * Phase 1: Place doom cells (normal distribution, median ~5)
- * Phase 2: Roll special cells (gold / order_cell / out_of_game / bomb)
+ * Phase 2: Roll special cells (gold / order_cell / bomb)
  * Phase 3: Fill remaining cells with ingredient shapes
  *
  * Grid cells do NOT store quality — quality is assigned at draw time.
@@ -109,8 +109,7 @@ export function generateWall(marketIngredients) {
       const roll = Math.random();
       const goldChance = specialCells.gold.spawnChance;
       const orderChance = goldChance + specialCells.order.spawnChance;
-      const outOfGameChance = orderChance + specialCells.outOfGame.spawnChance;
-      const bombChance = outOfGameChance + (specialCells.bomb?.spawnChance || 0);
+      const bombChance = orderChance + (specialCells.bomb?.spawnChance || 0);
 
       if (roll < goldChance) {
         const [min, max] = specialCells.gold.goldRange;
@@ -118,16 +117,6 @@ export function generateWall(marketIngredients) {
         grid[row][col] = { type: 'gold', icon: specialCells.gold.icon, name: specialCells.gold.name, goldAmount, uid: generateUID() };
       } else if (roll < orderChance) {
         grid[row][col] = { type: 'order_cell', icon: specialCells.order.icon, name: specialCells.order.name, uid: generateUID() };
-      } else if (roll < outOfGameChance) {
-        // Pick random ingredient — no quality pre-assigned, revealed on draw
-        const item = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
-        grid[row][col] = {
-          type: 'out_of_game',
-          icon: item.icon,
-          name: item.name,
-          item: { ...item },
-          uid: generateUID(),
-        };
       } else if (roll < bombChance) {
         grid[row][col] = { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
       }
@@ -220,8 +209,7 @@ export function fillDoomAndSpecials(grid, gridSize) {
       const roll = Math.random();
       const goldChance = specialCells.gold.spawnChance;
       const orderChance = goldChance + specialCells.order.spawnChance;
-      const outOfGameChance = orderChance + specialCells.outOfGame.spawnChance;
-      const bombChance = outOfGameChance + (specialCells.bomb?.spawnChance || 0);
+      const bombChance = orderChance + (specialCells.bomb?.spawnChance || 0);
       const doomResChance = bombChance + (doomCells?.resolution?.spawnChance || 0);
       const doomUpChance = doomResChance + (doomCells?.upgrade?.spawnChance || 0);
       if (roll < goldChance) {
@@ -230,9 +218,6 @@ export function fillDoomAndSpecials(grid, gridSize) {
         grid[row][col] = { type: 'gold', icon: specialCells.gold.icon, name: specialCells.gold.name, goldAmount, uid: generateUID() };
       } else if (roll < orderChance) {
         grid[row][col] = { type: 'order_cell', icon: specialCells.order.icon, name: specialCells.order.name, uid: generateUID() };
-      } else if (roll < outOfGameChance) {
-        const item = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
-        grid[row][col] = { type: 'out_of_game', icon: item.icon, name: item.name, item: { ...item }, uid: generateUID() };
       } else if (roll < bombChance) {
         grid[row][col] = { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
       } else if (roll < doomResChance) {
