@@ -106,8 +106,9 @@ function generateOrder() {
             ingredientId: selectedIngredients[i].id,
             icon: selectedIngredients[i].icon,
             name: selectedIngredients[i].name,
+            nameEn: selectedIngredients[i].nameEn,
             tags: selectedIngredients[i].tags,
-            quality: template.reqQuality,
+            quality: Math.ceil(Math.random() * 4),
             count,
         });
         remaining -= count;
