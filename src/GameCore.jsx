@@ -42,7 +42,7 @@ const GameCore = () => {
     const { t, language, toggleLanguage } = useLanguage();
     const inventoryRef = useRef(null);
     const bulletinRef = useRef(null);
-    const [hoveredStickerIds, setHoveredStickerIds] = useState(null);
+    const [hoveredIngredientIds, setHoveredIngredientIds] = useState(null);
     const [recycleMode, setRecycleMode] = useState(false);
     const [recycleSelected, setRecycleSelected] = useState(new Set());
     const [synthesizeMode, setSynthesizeMode] = useState(false);
@@ -250,7 +250,7 @@ const GameCore = () => {
                                     onReplaceIncoming={replaceBulletinOrder}
                                     refreshCharges={refreshCharges}
                                     onRefresh={triggerRefresh}
-                                    hoveredStickerIds={hoveredStickerIds}
+                                    hoveredIngredientIds={hoveredIngredientIds}
                                 />
                             )}
                         </div>
@@ -259,7 +259,7 @@ const GameCore = () => {
                         <div className="flex-1 min-w-0">
                             {/* Wall choice phase — 3-choose-1 */}
                             {phase === 'wall_choice' && wallCandidates && (
-                                <WallPicker candidates={wallCandidates} onSelect={selectWall} onHoverStickerIds={setHoveredStickerIds} />
+                                <WallPicker candidates={wallCandidates} onSelect={selectWall} />
                             )}
 
                             {/* Drawing phase */}
@@ -295,7 +295,7 @@ const GameCore = () => {
                                             drawAnimState={drawAnimState}
                                             wallType={currentWallType}
                                             lastDrawDirection={lastDrawDirection}
-                                            onHoverStickerIds={setHoveredStickerIds}
+                                            onHoverStickerIds={setHoveredIngredientIds}
                                             gravityDrops={gravityDrops}
                                             rotationMoves={rotationMoves}
                                             growthFlashes={growthFlashes}
@@ -576,14 +576,14 @@ const GameCore = () => {
                                             </div>
                                             <div className="flex flex-wrap gap-1.5 mb-2">
                                                 {pendingItems.map((pItem, idx) => {
-                                                    const pSc = pItem.isOutOfGame ? (SCORE_STYLE[pItem.rarity || pItem.score] || SCORE_STYLE[1]) : null;
+                                                    const pSc = pItem.isOutOfGame ? (SCORE_STYLE[pItem.quality || pItem.rarity || pItem.score] || SCORE_STYLE[1]) : null;
                                                     const inner = (
                                                         <div className={`relative w-9 h-9 rounded border-2 flex items-center justify-center text-lg shadow-sm
                                                             ${idx === 0 ? 'ring-2 ring-kitchen-gold' : 'opacity-60'}
                                                             ${pSc ? `${pSc.border} bg-gradient-to-b ${pSc.bg}` : 'border-kitchen-gold-border-muted bg-kitchen-card'}`}>
 
                                                             {pItem.icon}
-                                                            {pSc && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center shadow`}>{pItem.rarity || pItem.score}</span>}
+                                                            {pSc && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[7px] font-black w-3 h-3 rounded-full flex items-center justify-center shadow`}>{pItem.quality || pItem.rarity || pItem.score}</span>}
                                                         </div>
                                                     );
                                                     return pItem.isOutOfGame
@@ -601,7 +601,7 @@ const GameCore = () => {
                                             const canReplace = pendingItem && item && !recycleMode && !synthesizeMode;
                                             const isRecycleSelected = recycleMode && recycleSelected.has(i);
                                             const isSynthesizeSelected = synthesizeMode && synthesizeSelected.has(i);
-                                            const sc = item?.isOutOfGame ? (SCORE_STYLE[item.rarity || item.score] || SCORE_STYLE[1]) : null;
+                                            const sc = item?.isOutOfGame ? (SCORE_STYLE[item.quality || item.rarity || item.score] || SCORE_STYLE[1]) : null;
                                             const cell = (
                                                 <div
                                                     onClick={() => {
@@ -644,7 +644,7 @@ const GameCore = () => {
                                                     {item ? item.icon : ''}
                                                     {sc && (
                                                         <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow`}>
-                                                            {item.rarity || item.score}
+                                                            {item.quality || item.rarity || item.score}
                                                         </span>
                                                     )}
                                                 </div>
@@ -746,14 +746,14 @@ const GameCore = () => {
                                     {exp.items.length > 0 ? (
                                         <div className="flex flex-wrap gap-3">
                                             {exp.items.map((item, j) => {
-                                                const sc = SCORE_STYLE[item.rarity || item.score] || SCORE_STYLE[1];
+                                                const sc = SCORE_STYLE[item.quality || item.rarity || item.score] || SCORE_STYLE[1];
                                                 return (
                                                     <div key={j} className="relative flex flex-col items-center">
                                                         <div className={`w-14 h-14 rounded-lg border-2 ${sc.border} bg-gradient-to-b ${sc.bg} shadow-sm flex items-center justify-center text-2xl`}>
                                                             {item.icon}
                                                         </div>
                                                         <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow`}>
-                                                            +{item.rarity || item.score}
+                                                            +{item.quality || item.rarity || item.score}
                                                         </span>
                                                         <span className="text-[10px] text-kitchen-text-secondary mt-1 truncate max-w-[56px] text-center">{t(item.name)}</span>
                                                     </div>
@@ -907,7 +907,7 @@ const GameCore = () => {
                                     <div>
                                         <div className="text-xs text-gray-300 mb-2 text-center">
                                             {debugSelectedItem.icon} {t(debugSelectedItem.name)}
-                                            {(debugSelectedItem.rarity || debugSelectedItem.score) && <span className="text-gray-500 ml-1">({'★'.repeat(debugSelectedItem.rarity || debugSelectedItem.score)})</span>}
+                                            {(debugSelectedItem.quality || debugSelectedItem.rarity || debugSelectedItem.score) && <span className="text-gray-500 ml-1">({'★'.repeat(debugSelectedItem.quality || debugSelectedItem.rarity || debugSelectedItem.score)})</span>}
                                         </div>
                                         <div className="flex gap-2">
                                             <button onClick={() => debugAddItem(debugSelectedItem, 1)}

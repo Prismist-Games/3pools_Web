@@ -43,12 +43,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
     } else if (cell.type === 'out_of_game') {
         icon = cell.icon;
         name = cell.item ? (language === 'en' && cell.item.nameEn ? cell.item.nameEn : t(cell.item.name)) : t(cell.name);
-        const rarityStars = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
-        const r = cell.item?.rarity || cell.item?.score || 1;
         const tags = cell.item?.tags || [];
         desc = (
             <>
-                <span>{rarityStars[r]}</span>
+                <span className="text-[10px] text-gray-400 italic">{t('品质未知，抽到后揭示')}</span>
                 {tags.length > 0 && (
                     <span className="ml-2">
                         {tags.map(tag => (
@@ -88,10 +86,22 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.icon || '🌽';
         name = t(cell.name || '膨化格');
         desc = t('抽中时无效果，周围的增益消失');
-    } else if (cell.type === 'sticker' || cell.type === 'item') {
+    } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
-        desc = t('抽中时获得此贴纸');
+        const ingTags = cell.item?.tags || [];
+        desc = (
+            <>
+                <span className="text-[10px] text-gray-400 italic">{t('品质未知，抽到后揭示')}</span>
+                {ingTags.length > 0 && (
+                    <span className="ml-2">
+                        {ingTags.map(tag => (
+                            <span key={tag} className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 mr-1">{t(tag)}</span>
+                        ))}
+                    </span>
+                )}
+            </>
+        );
     } else {
         return null;
     }
@@ -154,7 +164,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
-        || cell.type === 'buff_field' || cell.type === 'sticker' || cell.type === 'item');
+        || cell.type === 'buff_field' || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item');
 
     // Cell background
     let bgClass;
@@ -167,7 +177,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     } else if (cell.type === 'doom_upgrade') {
         // Stronger red background so the ⚠️ warning reads clearly as danger.
         bgClass = 'bg-[#FFB8A8] border-[#D04020]';
-    } else if (cell.type === 'item' || cell.type === 'sticker') {
+    } else if (cell.type === 'ingredient' || cell.type === 'item' || cell.type === 'sticker') {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     } else if (cell.type === 'gold') {
         bgClass = 'bg-[#FFFCE8] border-[#E8C860]';
@@ -263,7 +273,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         ? (mergedBoxShadow ? `${clusterRing}, ${mergedBoxShadow}` : clusterRing)
         : mergedBoxShadow;
 
-    const isStickerCell = cell?.type === 'sticker';
+    const isStickerCell = cell?.type === 'sticker' || cell?.type === 'ingredient';
 
     return (
         <div
@@ -320,9 +330,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
                 const cell = matrix[r][c];
-                if (cell?.type !== 'sticker' || !cell.item?.id) continue;
+                if ((cell?.type !== 'sticker' && cell?.type !== 'ingredient') || !cell.item?.id) continue;
                 const id = cell.item.id;
-                const same = (rr, cc) => matrix[rr]?.[cc]?.type === 'sticker' && matrix[rr][cc].item?.id === id;
+                const same = (rr, cc) => (matrix[rr]?.[cc]?.type === 'sticker' || matrix[rr]?.[cc]?.type === 'ingredient') && matrix[rr][cc].item?.id === id;
                 map.set(`${r}-${c}`, {
                     top: same(r - 1, c),
                     right: same(r, c + 1),
@@ -348,7 +358,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             const a = matrix[r1]?.[c1];
             const b = matrix[r2]?.[c2];
             if (!a || !b) return false;
-            if (a.type !== 'sticker' || b.type !== 'sticker') return false;
+            const aIsIngredient = a.type === 'sticker' || a.type === 'ingredient';
+            const bIsIngredient = b.type === 'sticker' || b.type === 'ingredient';
+            if (!aIsIngredient || !bIsIngredient) return false;
             if (a.hidden || b.hidden) return false;
             return !!a.item?.id && a.item.id === b.item?.id;
         };
@@ -396,19 +408,19 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         }
     }, [drawAnimState]);
 
-    // Report hovered sticker IDs to parent
+    // Report hovered ingredient IDs to parent
     const reportHover = (row, col) => {
         if (!onHoverStickerIds) return;
         const ids = new Set();
         if (row !== null) {
             matrix[row]?.forEach(cell => {
-                if (cell?.type === 'sticker' && cell.item?.id) ids.add(cell.item.id);
+                if ((cell?.type === 'ingredient' || cell?.type === 'item') && cell.item?.id) ids.add(cell.item.id);
             });
         }
         if (col !== null) {
             matrix.forEach(r => {
                 const cell = r[col];
-                if (cell?.type === 'sticker' && cell.item?.id) ids.add(cell.item.id);
+                if ((cell?.type === 'ingredient' || cell?.type === 'item') && cell.item?.id) ids.add(cell.item.id);
             });
         }
         onHoverStickerIds(ids.size > 0 ? ids : null);
@@ -424,7 +436,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         if (cell.hidden) {
             return <span className="text-xl">❓</span>;
         }
-        if (cell.type === 'item' || cell.type === 'sticker') {
+        if (cell.type === 'ingredient' || cell.type === 'item' || cell.type === 'sticker') {
             return (
                 <>
                     <span className="text-xl">{cell.item?.icon || cell.icon}</span>

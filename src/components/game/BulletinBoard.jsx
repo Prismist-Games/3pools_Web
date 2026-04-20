@@ -9,16 +9,17 @@ const DIFFICULTY_STYLE = {
     extreme: { bg: 'bg-[#FFF0F0]', text: 'text-kitchen-danger-text' },
 };
 
-const RARITY_STYLE = {
-    1: { border: 'border-green-600',              bg: 'from-green-100 to-kitchen-card', badge: 'bg-green-600',       label: '★',    labelColor: 'text-green-700',              tagBg: 'bg-green-100 text-green-800' },
-    2: { border: 'border-blue-600',               bg: 'from-blue-100 to-kitchen-card',  badge: 'bg-blue-600',        label: '★★',   labelColor: 'text-blue-700',               tagBg: 'bg-blue-100 text-blue-800' },
-    3: { border: 'border-purple-400',             bg: 'from-purple-50 to-kitchen-card', badge: 'bg-purple-500',      label: '★★★',  labelColor: 'text-purple-400',             tagBg: 'bg-purple-50 text-purple-700' },
-    4: { border: 'border-kitchen-gold',           bg: 'from-[#FFF8E0] to-kitchen-card', badge: 'bg-kitchen-gold',    label: '★★★★', labelColor: 'text-kitchen-gold',           tagBg: 'bg-[#FFF8E0] text-kitchen-gold-deep' },
+const QUALITY_STYLE = {
+    1: { border: 'border-gray-400',   bg: 'from-gray-50 to-white',   badge: 'bg-gray-500',   label: '★',    labelColor: 'text-gray-400',   tagBg: 'bg-gray-100 text-gray-600'   },
+    2: { border: 'border-green-400',  bg: 'from-green-50 to-white',  badge: 'bg-green-500',  label: '★★',   labelColor: 'text-green-400',  tagBg: 'bg-green-100 text-green-700'  },
+    3: { border: 'border-blue-400',   bg: 'from-blue-50 to-white',   badge: 'bg-blue-500',   label: '★★★',  labelColor: 'text-blue-400',   tagBg: 'bg-blue-100 text-blue-700'    },
+    4: { border: 'border-orange-400', bg: 'from-orange-50 to-white', badge: 'bg-orange-500', label: '★★★★', labelColor: 'text-orange-400', tagBg: 'bg-orange-100 text-orange-700' },
 };
-// Backward compat alias
-const SCORE_STYLE = RARITY_STYLE;
-
-const RARITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
+// Backward compat aliases
+const RARITY_STYLE = QUALITY_STYLE;
+const SCORE_STYLE = QUALITY_STYLE;
+const QUALITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
+const RARITY_STARS = QUALITY_STARS;
 
 /** Shared tooltip content for a sticker. Pass inventory + stickerId to
  *  show Have/Need if used in an order-requirement context; pass only the
@@ -61,8 +62,8 @@ const StickerTip = ({ sticker, inventory, requiredCount }) => {
 /** Shared tooltip content for any ingredient/food item */
 const IngredientTip = ({ item }) => {
     const { t, language } = useLanguage();
-    const rarity = item.rarity || item.score || 1;
-    const s = RARITY_STYLE[rarity] || RARITY_STYLE[1];
+    const quality = item.quality || item.score || 1;
+    const s = QUALITY_STYLE[quality] || QUALITY_STYLE[1];
     const displayName = (language === 'en' && item.nameEn) ? item.nameEn : t(item.name);
     return (
         <>
@@ -70,7 +71,7 @@ const IngredientTip = ({ item }) => {
                 <span className="text-2xl leading-none">{item.icon}</span>
                 <div>
                     <div className="font-bold text-sm leading-tight">{displayName}</div>
-                    <div className={`text-[10px] ${s.labelColor}`}>{RARITY_STARS[rarity]}</div>
+                    <div className={`text-[10px] ${s.labelColor}`}>{QUALITY_STARS[quality]}</div>
                 </div>
             </div>
             {item.tags && item.tags.length > 0 && (
@@ -87,10 +88,10 @@ const IngredientTip = ({ item }) => {
     );
 };
 
-const RewardCard = ({ reward, size = 'md' }) => {
+const RewardCard = ({ reward, size = 'md', bonusValue }) => {
     const { t } = useLanguage();
-    const rarity = reward.rarity || reward.score || 1;
-    const s = RARITY_STYLE[rarity] || RARITY_STYLE[1];
+    const quality = reward.quality || reward.score || 1;
+    const s = QUALITY_STYLE[quality] || QUALITY_STYLE[1];
     const dim = size === 'sm' ? 'w-8 h-8 text-base' : 'w-9 h-9 text-lg';
     const badgeDim = size === 'sm' ? 'w-3 h-3 text-[7px]' : 'w-3.5 h-3.5 text-[8px]';
 
@@ -101,7 +102,7 @@ const RewardCard = ({ reward, size = 'md' }) => {
             <div className={`relative ${dim} rounded border-2 ${s.border} bg-gradient-to-b ${s.bg} flex items-center justify-center shadow-sm`}>
                 {reward.icon}
                 <span className={`absolute -bottom-1 -right-1 ${s.badge} text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow`}>
-                    {rarity}
+                    {quality}
                 </span>
             </div>
         </Tooltip>
@@ -113,7 +114,7 @@ const BulletinBoard = ({
     incomingOrder, onConfirmIncoming, onDiscardIncoming,
     pendingChosenOrder, onReplaceIncoming,
     refreshCharges, onRefresh,
-    hoveredStickerIds,
+    hoveredIngredientIds,
     setupMode = false,
 }) => {
     const { t } = useLanguage();
@@ -208,22 +209,25 @@ const BulletinBoard = ({
                                             </button>
                                         )}
                                     </div>
-                                    {/* Row 2: sticker requirements */}
+                                    {/* Row 2: ingredient requirements */}
                                     <div className="flex gap-1.5 flex-wrap items-center">
                                         <span className="text-[9px] text-kitchen-text-muted uppercase tracking-wide">{t('需要')}</span>
                                         {order.requirements.map((req, i) => {
-                                            const owned = inventory ? inventory.filter(item => item.stickerId === req.stickerId).length : 0;
+                                            const owned = inventory ? inventory.filter(item =>
+                                                item.id === req.ingredientId && item.quality === req.quality
+                                            ).length : 0;
                                             const enough = owned >= req.count;
-                                            const isHovered = hoveredStickerIds?.has(req.stickerId);
+                                            const isHovered = hoveredIngredientIds?.has(req.ingredientId);
+                                            const qs = QUALITY_STYLE[req.quality] || QUALITY_STYLE[1];
                                             return (
                                                 <Tooltip key={i} content={
                                                     <StickerTip sticker={req} inventory={inventory} requiredCount={req.count} />
                                                 }>
                                                     <div className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
-                                                        <div className={`w-7 h-7 rounded border ${
+                                                        <div className={`w-7 h-7 rounded border-2 ${
                                                             isHovered ? 'border-kitchen-info-border bg-[#F0F8FF] ring-2 ring-kitchen-info/40'
                                                             : enough ? 'border-kitchen-success-border bg-[#F0FFF8]'
-                                                            : 'border-kitchen-gold-border-muted bg-kitchen-card'
+                                                            : qs.border + ' bg-kitchen-card'
                                                         } flex items-center justify-center text-sm shadow-sm`}>
                                                             {req.icon}
                                                         </div>
@@ -248,4 +252,4 @@ const BulletinBoard = ({
 };
 
 export default BulletinBoard;
-export { RewardCard, IngredientTip, StickerTip, RARITY_STYLE, SCORE_STYLE, DIFFICULTY_STYLE };
+export { RewardCard, IngredientTip, StickerTip, QUALITY_STYLE, RARITY_STYLE, SCORE_STYLE, DIFFICULTY_STYLE };

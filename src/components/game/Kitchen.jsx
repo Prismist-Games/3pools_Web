@@ -50,7 +50,7 @@ function scoreDish(dish, effectiveSlots, placements) {
     const slotScores = effectiveSlots.map((slot, i) => {
         const ing = placements[i];
         if (!ing) return { score: 0, empty: true, required: slot.required, crossBonus: 0 };
-        const base = ing.rarity || 1;
+        const base = ing.quality || 1;
         const { multiplier, matchLevel } = getSlotMatch(ing, slot);
         return { score: base * multiplier, matchLevel, empty: false, required: slot.required, crossBonus: 0 };
     });
@@ -153,7 +153,7 @@ const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, on
                         <span className="text-2xl">{placed.icon}</span>
                         <div>
                             <div className="text-xs font-bold text-kitchen-text-title leading-tight">{placedName}</div>
-                            <div className="text-[10px] text-kitchen-text-muted">{'★'.repeat(placed.rarity || 1)}</div>
+                            <div className="text-[10px] text-kitchen-text-muted">{'★'.repeat(placed.quality || placed.rarity || 1)}</div>
                         </div>
                     </div>
                 ) : (
@@ -527,7 +527,7 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                         ) : (
                             <div className="flex flex-wrap gap-2">
                                 {fridgeItems.map((item, idx) => {
-                                    const rarity = item.rarity || item.score || 1;
+                                    const rarity = item.quality || item.rarity || item.score || 1;
                                     const rs = RARITY_STYLE[rarity] || RARITY_STYLE[1];
                                     const isSelected = selectedFridgeIdx === idx;
                                     const interactive = !viewOnly;
@@ -541,7 +541,7 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                                             >
                                                 {item.icon}
                                                 <span className={`absolute -bottom-1 -right-1 ${rs.badge} text-white text-[7px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow`}>
-                                                    {rarity}
+                                                    {'★'.repeat(rarity)}
                                                 </span>
                                             </div>
                                         </Tooltip>
