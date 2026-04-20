@@ -79,7 +79,6 @@ function generateOrder() {
     const template = pickWeightedTemplate();
 
     const rewardQualityDef = QUALITY_CONFIG.find(q => q.id === template.rewardQuality) || QUALITY_CONFIG[0];
-    const rewardIng = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
 
     // Pick N ingredients from distinct categories for requirements
     const shuffledIngredients = [...INGREDIENTS].sort(() => Math.random() - 0.5);
@@ -94,8 +93,8 @@ function generateOrder() {
 
     // Reward must be from a different category than all requirements
     const rewardPool = INGREDIENTS.filter(i => !usedCategories.has(i.tags[0]));
-    const rewardIngFinal = rewardPool[Math.floor(Math.random() * rewardPool.length)] || rewardIng;
-    const finalReward = { ...reward, ...rewardIngFinal, quality: template.rewardQuality, score: rewardQualityDef.scoreValue, isOutOfGame: true };
+    const rewardIngFinal = rewardPool[Math.floor(Math.random() * rewardPool.length)] || INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
+    const finalReward = { ...rewardIngFinal, quality: template.rewardQuality, score: rewardQualityDef.scoreValue, isOutOfGame: true };
 
     const requirements = [];
     let remaining = template.totalIngredients;
