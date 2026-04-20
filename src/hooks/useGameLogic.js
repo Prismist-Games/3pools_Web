@@ -89,7 +89,8 @@ function generateOrder() {
 
     const shuffledIngredients = [...INGREDIENTS].sort(() => Math.random() - 0.5);
     const selectedIngredients = shuffledIngredients.slice(0, template.ingredientTypes);
-    const rewardPool = INGREDIENTS.filter(i => !selectedIngredients.includes(i));
+    const selectedIds = new Set(selectedIngredients.map(i => i.id));
+    const rewardPool = INGREDIENTS.filter(i => !selectedIds.has(i.id));
     const rewardIngFinal = rewardPool[Math.floor(Math.random() * rewardPool.length)] || rewardIng;
     const finalReward = { ...reward, ...rewardIngFinal, quality: template.rewardQuality, score: rewardQualityDef.scoreValue, isOutOfGame: true };
 
@@ -261,10 +262,11 @@ export const useGameLogic = (config) => {
         // Reset draw direction for alternating wall
         setLastDrawDirection(null);
 
-        // Generate 3 market candidates (no duplicate market types within the 3).
+        // Generate up to 3 unique market candidates (capped at available types to prevent infinite loop).
+        const maxCandidates = Math.min(3, MARKET_TYPES.length);
         const candidates = [];
         const usedTypeIds = new Set();
-        while (candidates.length < 3) {
+        while (candidates.length < maxCandidates) {
             const marketType = pickMarketType();
             if (usedTypeIds.has(marketType.id)) continue;
             usedTypeIds.add(marketType.id);
@@ -892,7 +894,7 @@ export const useGameLogic = (config) => {
     // =============================================
 
     const addToInventory = (itemCell) => {
-        const quality = rollQuality();
+        const quality = itemCell.item?.quality ?? rollQuality();
         const qualityDef = QUALITY_CONFIG.find(q => q.id === quality) || QUALITY_CONFIG[0];
         const newItem = {
             ...itemCell.item,
