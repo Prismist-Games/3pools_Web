@@ -2,7 +2,7 @@
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { INGREDIENTS } from '../data/v2Config';
 import { CELL_TYPES, LEVEL_TEMPLATES } from '../data/levelTemplates';
-import { pickWallStickers, fillDoomAndSpecials, fillEmptyCellsWithStickers } from './matrixHelpers';
+import { fillDoomAndSpecials } from './matrixHelpers';
 
 function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
@@ -51,11 +51,8 @@ function resolveConstrainedCell(token) {
     case CELL_TYPES.OUT_OF_GAME_2:
     case CELL_TYPES.OUT_OF_GAME_3:
     case CELL_TYPES.OUT_OF_GAME_5: {
-      // Legacy tier-5 templates now map to rarity 4 (new top tier).
-      const rawTier = parseInt(cellType.split('_').pop());
-      const tier = rawTier === 5 ? 4 : rawTier;
-      const pool = INGREDIENTS.filter(i => i.rarity === tier);
-      const item = pool[Math.floor(Math.random() * pool.length)];
+      // Ingredients no longer have rarity — pick randomly from full pool.
+      const item = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
       return { type: 'out_of_game', icon: item.icon, name: item.name, item: { ...item }, uid: generateUID(), ...extras };
     }
     case CELL_TYPES.ANY_SPECIAL: {
@@ -69,8 +66,8 @@ function resolveConstrainedCell(token) {
     case CELL_TYPES.GRAVITY:
       return { type: 'gravity', icon: '⬇️', name: '重力开关', uid: generateUID(), ...extras };
     case CELL_TYPES.ANY_STICKER:
-      // Sticker type is assigned later from the wall's sticker pool.
-      return { type: 'sticker', item: null, uid: generateUID(), ...extras };
+      // Ingredient type is assigned later from the wall's ingredient pool.
+      return { type: 'ingredient', item: null, uid: generateUID(), ...extras };
     default: {
       // Handle dynamic entrance cells: "entrance:{subLevelId}"
       if (cellType && cellType.startsWith('entrance:')) {
@@ -120,42 +117,43 @@ export function generateWallFromTemplate(template) {
     }
   }
 
-  // Step 2: Pick the wall's sticker type pool (respects stickerTypeRange)
-  const [rangeMin, rangeMax] = settings.stickerTypeRange || [3, 4];
-  const totalTypeCount = rangeMin + Math.floor(Math.random() * (rangeMax - rangeMin + 1));
-  const shuffledStickers = [...STICKER_TYPES].sort(() => Math.random() - 0.5);
-  const wallStickerPool = shuffledStickers.slice(0, Math.min(totalTypeCount, shuffledStickers.length));
-
-  // Assign a random sticker type to each template-placed sticker cell
+  // Step 2: Assign random ingredient to each placeholder ingredient cell
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const cell = grid[r][c];
-      if (cell && cell.type === 'sticker' && !cell.item) {
-        cell.item = { ...wallStickerPool[Math.floor(Math.random() * wallStickerPool.length)] };
+      if (cell && cell.type === 'ingredient' && !cell.item) {
+        const ing = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
+        cell.item = { ...ing };
+        cell.groupId = cell.uid;
+        cell.shapeSize = 1;
       }
     }
   }
 
   // Step 3: Procedural fill on blank cells
-  const proceduralDoom = fillDoomAndSpecials(grid, gridSize, {
-    maxDoomInBlank: settings.maxDoomInBlank,
-  });
+  const proceduralDoom = fillDoomAndSpecials(grid, gridSize);
   doomCellCount.resolution += proceduralDoom.resolution;
   doomCellCount.upgrade += proceduralDoom.upgrade;
 
-  // Procedural sticker fill uses the same wall pool
-  fillEmptyCellsWithStickers(grid, wallStickerPool, gridSize);
+  // Fill remaining empty cells with random ingredients
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      if (grid[r][c] !== null) continue;
+      const ing = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
+      grid[r][c] = { type: 'ingredient', item: { ...ing }, uid: generateUID(), groupId: generateUID(), shapeSize: 1 };
+    }
+  }
 
-  // Collect all unique sticker types on the grid for preview
-  const stickerMap = new Map();
+  // Collect all unique ingredient types on the grid for preview
+  const ingredientMap = new Map();
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const cell = grid[r][c];
-      if (cell && cell.type === 'sticker' && cell.item) {
-        stickerMap.set(cell.item.id, cell.item);
+      if (cell && cell.type === 'ingredient' && cell.item) {
+        ingredientMap.set(cell.item.id, cell.item);
       }
     }
   }
 
-  return { grid, doomCellCount, stickers: [...stickerMap.values()] };
+  return { grid, doomCellCount, stickers: [...ingredientMap.values()] };
 }
