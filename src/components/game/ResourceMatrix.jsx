@@ -154,7 +154,7 @@ function countBuffFieldCoverage(matrix, r, c) {
 }
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, sameNeighbors, inHoveredCluster, onClusterHover }) => {
+const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, sameNeighbors, inHoveredCluster, onClusterHover, onBlockEnter, onBlockLeave, onBlockClick, blockClickable }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution'
@@ -272,7 +272,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         <div
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
-            className={`relative border rounded-lg flex flex-col items-center justify-center ${bgClass} ${highlightClass}`}
+            className={`relative border rounded-lg flex flex-col items-center justify-center ${bgClass} ${highlightClass} ${blockClickable ? 'cursor-pointer' : ''}`}
             style={{
                 margin: `${HALF}px`,
                 width: CELL_SIZE,
@@ -286,10 +286,15 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
             onMouseEnter={() => {
                 if (hasTip) setHovered(true);
                 if (isStickerCell && onClusterHover) onClusterHover(rowIndex, colIndex);
+                if (onBlockEnter) onBlockEnter(rowIndex, colIndex);
             }}
             onMouseLeave={() => {
                 if (hasTip) setHovered(false);
                 if (isStickerCell && onClusterHover) onClusterHover(null, null);
+                if (onBlockLeave) onBlockLeave();
+            }}
+            onClick={() => {
+                if (blockClickable && onBlockClick) onBlockClick(rowIndex, colIndex);
             }}
         >
             {cellContent}
@@ -306,10 +311,10 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 /**
  * Wall grid display for turn-based prototype (size from MATRIX_CONFIG.gridSize).
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverIngredientIds, gravityDrops, rotationMoves, growthFlashes }) => {
+const ResourceMatrix = ({ matrix, onSelectBlock, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverIngredientIds, gravityDrops, rotationMoves, growthFlashes }) => {
     const { t, language } = useLanguage();
-    const [hoveredRow, setHoveredRow] = useState(null);
-    const [hoveredCol, setHoveredCol] = useState(null);
+    // Anchor of the 2×2 block currently under the cursor; null when not hovering.
+    const [hoveredAnchor, setHoveredAnchor] = useState(null);
     const [doomFlash, setDoomFlash] = useState(false);
     const [hoveredClusterPos, setHoveredClusterPos] = useState(null); // [r, c] of seed
 
@@ -401,20 +406,32 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         }
     }, [drawAnimState]);
 
-    // Report hovered ingredient IDs to parent
-    const reportHover = (row, col) => {
+    // Clamp an (r, c) cell position to a valid 2×2 anchor (top-left). At edges
+    // this maps the cell to the 2×2 it participates in that stays in-bounds.
+    const clampAnchor = (r, c) => {
+        const size = matrix.length;
+        return {
+            r: Math.max(0, Math.min(r, size - 2)),
+            c: Math.max(0, Math.min(c, size - 2)),
+        };
+    };
+
+    // Report the ingredient IDs covered by the hovered 2×2 to the parent so
+    // order requirements elsewhere can highlight their tag2 matches.
+    const reportHoverAnchor = (anchor) => {
         if (!onHoverIngredientIds) return;
-        const ids = new Set();
-        if (row !== null) {
-            matrix[row]?.forEach(cell => {
-                if ((cell?.type === 'ingredient' || cell?.type === 'item') && cell.item?.id) ids.add(cell.item.id);
-            });
+        if (!anchor) {
+            onHoverIngredientIds(null);
+            return;
         }
-        if (col !== null) {
-            matrix.forEach(r => {
-                const cell = r[col];
-                if ((cell?.type === 'ingredient' || cell?.type === 'item') && cell.item?.id) ids.add(cell.item.id);
-            });
+        const ids = new Set();
+        for (let dr = 0; dr < 2; dr++) {
+            for (let dc = 0; dc < 2; dc++) {
+                const cell = matrix[anchor.r + dr]?.[anchor.c + dc];
+                if ((cell?.type === 'ingredient' || cell?.type === 'item') && cell.item?.id) {
+                    ids.add(cell.item.id);
+                }
+            }
         }
         onHoverIngredientIds(ids.size > 0 ? ids : null);
     };
@@ -504,15 +521,10 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         );
     };
 
-    // Row button width
-    const ROW_BTN_WIDTH = 36;
-    const ROW_BTN_MARGIN = 8; // mr-2
-
     // Fix container width to grid natural width so long modifier descriptions
     // wrap instead of stretching the wall asymmetrically.
-    const FIXED_WALL_WIDTH = (matrix[0]?.length || 4) * CELL_SIZE
-        + ((matrix[0]?.length || 4) - 1) * GAP
-        + ROW_BTN_WIDTH + ROW_BTN_MARGIN
+    const FIXED_WALL_WIDTH = (matrix[0]?.length || 3) * CELL_SIZE
+        + ((matrix[0]?.length || 3) - 1) * GAP
         + 32; // p-4 padding
 
     return (
@@ -527,69 +539,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 </div>
             )}
 
-            {/* Column buttons row — offset by row-button area */}
-            <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
-                {Array.from({ length: matrix[0]?.length || 4 }, (_, colIndex) => {
-                    const hasActive = matrix.some(row => row[colIndex] !== null);
-                    const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
-                    const colClickable = canDraw && hasActive && !altBlocked;
-                    return (
-                        <button
-                            key={colIndex}
-                            onClick={() => colClickable && onSelectColumn(colIndex)}
-                            onMouseEnter={() => { if (colClickable) { setHoveredCol(colIndex); reportHover(null, colIndex); } }}
-                            onMouseLeave={() => { setHoveredCol(null); reportHover(null, null); }}
-                            disabled={!colClickable}
-                            className={`
-                                rounded-lg text-xs font-black flex-shrink-0
-                                flex items-center justify-center
-                                transition-all duration-150
-                                ${colClickable
-                                    ? 'bg-gradient-to-b from-[#FFF3E0] to-[#FFE8CC] border-2 border-kitchen-gold rounded-lg shadow-[0_2px_0_#D4952A,0_0_10px_rgba(232,168,48,0.25)] text-kitchen-gold-deep font-bold cursor-pointer'
-                                    : 'bg-[#F5F0E8] border-2 border-kitchen-gold-border-muted/50 text-kitchen-text-muted cursor-not-allowed opacity-60'
-                                }
-                            `}
-                            style={{ width: CELL_SIZE, height: 24, marginRight: GAP }}
-                            title={colClickable ? t('抽取此列') : t('无法抽取')}
-                        >
-                            ⬇
-                        </button>
-                    );
-                })}
-            </div>
-
-            <div className="flex items-start">
-                {/* Row buttons */}
-                <div className="flex flex-col mr-2" style={{ paddingTop: HALF }}>
-                    {matrix.map((row, rowIndex) => {
-                        const hasActive = row.some(c => c !== null);
-                        const altBlockedRow = wallType?.id === 'alternating' && lastDrawDirection === 'row';
-                        const rowClickable = canDraw && hasActive && !altBlockedRow;
-                        return (
-                            <button
-                                key={rowIndex}
-                                onClick={() => rowClickable && onSelectRow(rowIndex)}
-                                onMouseEnter={() => { if (rowClickable) { setHoveredRow(rowIndex); reportHover(rowIndex, null); } }}
-                                onMouseLeave={() => { setHoveredRow(null); reportHover(null, null); }}
-                                disabled={!rowClickable}
-                                className={`
-                                    rounded-lg text-xs font-black flex-shrink-0
-                                    flex items-center justify-center
-                                    transition-all duration-150
-                                    ${rowClickable
-                                        ? 'bg-gradient-to-r from-[#FFF3E0] to-[#FFE8CC] border-2 border-kitchen-gold rounded-lg shadow-[0_2px_0_#D4952A,0_0_10px_rgba(232,168,48,0.25)] text-kitchen-gold-deep font-bold cursor-pointer'
-                                        : 'bg-[#F5F0E8] border-2 border-kitchen-gold-border-muted/50 text-kitchen-text-muted cursor-not-allowed opacity-60'
-                                    }
-                                `}
-                                style={{ width: 36, height: CELL_SIZE, marginBottom: GAP }}
-                                title={rowClickable ? t('抽取此行') : t('无法抽取')}
-                            >
-                                ➡
-                            </button>
-                        );
-                    })}
-                </div>
-
+            <div className="flex items-start justify-center">
                 {/* Wall grid — zero-gap CSS Grid, margins create visual spacing */}
                 <div
                     style={{
@@ -786,24 +736,31 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                     })()}
                     {matrix.flatMap((row, rowIndex) =>
                         row.map((cell, colIndex) => {
-                            // Hover: cell is in hovered row or hovered column
-                            const isRowHovered = hoveredRow === rowIndex && cell !== null;
-                            const isColHovered = hoveredCol === colIndex && cell !== null;
-                            const showHover = isRowHovered || isColHovered;
+                            // In-block checks (hover + animation) use a clamped anchor
+                            // so edge cells still participate in a valid 2×2.
+                            const inAnchoredBlock = (anchor) =>
+                                anchor != null &&
+                                rowIndex >= anchor.r && rowIndex <= anchor.r + 1 &&
+                                colIndex >= anchor.c && colIndex <= anchor.c + 1;
 
-                            // Draw animation highlight — row mode
-                            const isRowScanning = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === colIndex;
-                            const isRowSettled = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && drawAnimState.phase === 'settled' && drawAnimState.finalColIndex === colIndex;
-                            const isScanRow = drawAnimState?.direction === 'row' && drawAnimState.rowIndex === rowIndex && cell !== null && drawAnimState.phase === 'scanning';
+                            // Hover: cell is within the 2×2 at the hovered anchor
+                            const showHover = cell !== null && inAnchoredBlock(hoveredAnchor);
 
-                            // Draw animation highlight — column mode
-                            const isColScanning = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'scanning' && drawAnimState.currentHighlight === rowIndex;
-                            const isColSettled = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && drawAnimState.phase === 'settled' && drawAnimState.finalRowIndex === rowIndex;
-                            const isScanCol = drawAnimState?.direction === 'column' && drawAnimState.colIndex === colIndex && cell !== null && drawAnimState.phase === 'scanning';
+                            // Draw animation highlight (block mode)
+                            const animAnchor = drawAnimState?.direction === 'block'
+                                ? { r: drawAnimState.anchorR, c: drawAnimState.anchorC }
+                                : null;
+                            const inAnimBlock = inAnchoredBlock(animAnchor);
+                            const ch = drawAnimState?.currentHighlight;
+                            const isBlockScanning = inAnimBlock && drawAnimState?.phase === 'scanning'
+                                && ch && ch.r === rowIndex && ch.c === colIndex;
+                            const isBlockSettled = inAnimBlock && drawAnimState?.phase === 'settled'
+                                && drawAnimState.finalRow === rowIndex && drawAnimState.finalCol === colIndex;
+                            const isScanBlock = inAnimBlock && cell !== null && drawAnimState?.phase === 'scanning';
 
-                            const isScanning = isRowScanning || isColScanning;
-                            const isSettled = isRowSettled || isColSettled;
-                            const isScanLine = isScanRow || isScanCol;
+                            const isScanning = isBlockScanning;
+                            const isSettled = isBlockSettled;
+                            const isScanLine = isScanBlock;
 
                             const dropDist = gravityDrops?.[`${rowIndex}-${colIndex}`] || 0;
                             const rotMove = rotationMoves?.[`${rowIndex}-${colIndex}`] || null;
@@ -828,6 +785,22 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                     sameNeighbors={sameNeighborsMap?.get(cellKey)}
                                     inHoveredCluster={hoveredClusterSet?.has(cellKey) || false}
                                     onClusterHover={handleClusterHover}
+                                    blockClickable={canDraw}
+                                    onBlockEnter={(r, c) => {
+                                        if (!canDraw) return;
+                                        const anchor = clampAnchor(r, c);
+                                        setHoveredAnchor(anchor);
+                                        reportHoverAnchor(anchor);
+                                    }}
+                                    onBlockLeave={() => {
+                                        setHoveredAnchor(null);
+                                        reportHoverAnchor(null);
+                                    }}
+                                    onBlockClick={(r, c) => {
+                                        if (!canDraw || !onSelectBlock) return;
+                                        const anchor = clampAnchor(r, c);
+                                        onSelectBlock(anchor.r, anchor.c);
+                                    }}
                                 />
                             );
                         })

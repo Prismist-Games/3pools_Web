@@ -271,7 +271,17 @@ export const useGameLogic = (config) => {
     const [modalContent, setModalContent] = useState(null);
     const [flyingItem, setFlyingItem] = useState(null);
     const [drawAnimState, setDrawAnimState] = useState(null);
-    // { direction: 'row'|'column', rowIndex, colIndex, activeCols, finalColIndex, finalRowIndex, finalHighlight, drawnCell, tick, totalTicks, currentHighlight, phase: 'scanning'|'settled' }
+    // {
+    //   direction: 'block',
+    //   anchorR, anchorC,                 // top-left of chosen 2×2 (clamped to size-2)
+    //   activeCells: [{r, c}, ...],       // non-empty cells in the 2×2 (up to 4)
+    //   finalRow, finalCol,               // final drawn cell coords
+    //   finalRowIndex, finalColIndex,     // legacy aliases
+    //   drawnCell,
+    //   tick, totalTicks,
+    //   currentHighlight: {r, c},         // cell currently under the scan cursor
+    //   phase: 'scanning' | 'settled',
+    // }
 
     // --- Derived State ---
     const dangerCount = useMemo(() =>
@@ -477,107 +487,77 @@ export const useGameLogic = (config) => {
 
     const isDrawAnimating = drawAnimState !== null;
 
-    /** Select a row — starts scanning animation, then resolves */
-    const selectRow = (rowIndex) => {
-        if (phase !== 'drawing' && phase !== 'drawing_sub') return;
-        if (isDoomResolving || isDrawAnimating) return;
-        if (gold < turnConfig.drawCost) return;
-        if (!matrix || !matrix[rowIndex]) return;
-
-        setDoomResolutionResult(null);
-        setFlyingItem(null);
-        setLastDrawResult(null);
-
-        const row = matrix[rowIndex];
-        const activeCols = [];
-        row.forEach((cell, colIndex) => {
-            if (cell !== null && cell.type !== 'empty') activeCols.push(colIndex);
-        });
-        if (activeCols.length === 0) return;
-
-        setGold(prev => prev - turnConfig.drawCost);
-
-        // Pre-determine result
-        const finalColIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
-        const drawnCell = row[finalColIndex];
-
-        // Calculate total ticks: cycle through active cells multiple times, end on finalColIndex
-        const finalIdx = activeCols.indexOf(finalColIndex);
-        // At least 2 full passes + land on final
-        const fullPasses = 1;
-        const totalTicks = fullPasses * activeCols.length + finalIdx + 1;
-
-        setDrawAnimState({
-            direction: 'row',
-            rowIndex,
-            colIndex: null,
-            activeCols,
-            finalColIndex,
-            finalRowIndex: rowIndex,
-            finalHighlight: finalColIndex,
-            drawnCell,
-            tick: 0,
-            totalTicks,
-            currentHighlight: activeCols[0],
-            phase: 'scanning',
-        });
-    };
-
-    /** Select a column — starts scanning animation top-to-bottom, then resolves */
-    const selectColumn = (colIndex) => {
+    /** Select a 2×2 block anchored at (anchorR, anchorC). Anchor is clamped
+     *  to keep the 2×2 inside the grid. Starts the scanning animation; the
+     *  final draw is pre-determined as a random non-empty cell in the 2×2. */
+    const selectBlock = (anchorR, anchorC) => {
         if (phase !== 'drawing' && phase !== 'drawing_sub') return;
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix) return;
 
+        const size = matrix.length;
+        const ar = Math.max(0, Math.min(anchorR, size - 2));
+        const ac = Math.max(0, Math.min(anchorC, size - 2));
+
+        // Collect non-empty cells within the 2×2 (scan order TL→TR→BL→BR)
+        const activeCells = [];
+        for (let dr = 0; dr < 2; dr++) {
+            for (let dc = 0; dc < 2; dc++) {
+                const r = ar + dr;
+                const c = ac + dc;
+                const cell = matrix[r]?.[c];
+                if (cell !== null && cell !== undefined && cell.type !== 'empty') {
+                    activeCells.push({ r, c });
+                }
+            }
+        }
+        if (activeCells.length === 0) return;
+
         setDoomResolutionResult(null);
         setFlyingItem(null);
         setLastDrawResult(null);
-
-        // activeCols here are actually active row indices for this column
-        const activeCols = [];
-        matrix.forEach((row, rowIndex) => {
-            if (row[colIndex] !== null && row[colIndex].type !== 'empty') activeCols.push(rowIndex);
-        });
-        if (activeCols.length === 0) return;
-
         setGold(prev => prev - turnConfig.drawCost);
 
-        // Pre-determine result: pick a random row from active rows
-        const finalRowIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
-        const drawnCell = matrix[finalRowIndex][colIndex];
+        // Pre-determine the drawn cell
+        const finalIdx = Math.floor(Math.random() * activeCells.length);
+        const { r: finalRow, c: finalCol } = activeCells[finalIdx];
+        const drawnCell = matrix[finalRow][finalCol];
 
-        // Calculate total ticks: 1 full pass + landing on finalRowIndex
-        const finalIdx = activeCols.indexOf(finalRowIndex);
         const fullPasses = 1;
-        const totalTicks = fullPasses * activeCols.length + finalIdx + 1;
+        const totalTicks = fullPasses * activeCells.length + finalIdx + 1;
 
         setDrawAnimState({
-            direction: 'column',
-            rowIndex: null,
-            colIndex,
-            activeCols,
-            finalColIndex: colIndex,
-            finalRowIndex,
-            finalHighlight: finalRowIndex,
+            direction: 'block',
+            anchorR: ar,
+            anchorC: ac,
+            activeCells,
+            finalRow,
+            finalCol,
+            finalRowIndex: finalRow,
+            finalColIndex: finalCol,
             drawnCell,
             tick: 0,
             totalTicks,
-            currentHighlight: activeCols[0],
+            currentHighlight: activeCells[0],
             phase: 'scanning',
         });
     };
 
-    /** Advance draw scanning animation — sequential through active cells */
+    /** Advance draw scanning animation — sequential through activeCells */
     const tickDrawAnim = () => {
         setDrawAnimState(prev => {
             if (!prev || prev.phase !== 'scanning') return prev;
             const newTick = prev.tick + 1;
             if (newTick >= prev.totalTicks) {
-                return { ...prev, tick: newTick, currentHighlight: prev.finalHighlight, phase: 'settled' };
+                return {
+                    ...prev,
+                    tick: newTick,
+                    currentHighlight: { r: prev.finalRow, c: prev.finalCol },
+                    phase: 'settled',
+                };
             }
-            // Cycle through activeCols
-            const next = prev.activeCols[newTick % prev.activeCols.length];
+            const next = prev.activeCells[newTick % prev.activeCells.length];
             return { ...prev, tick: newTick, currentHighlight: next };
         });
     };
@@ -1538,8 +1518,7 @@ export const useGameLogic = (config) => {
         selectWall,
         confirmWallReveal,
         pendingWallCandidate,
-        selectRow,
-        selectColumn,
+        selectBlock,
         endTurn,
         continueToNextTurn,
         handleEvacuate,

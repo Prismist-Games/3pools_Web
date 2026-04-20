@@ -81,7 +81,7 @@ const GameCore = () => {
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
-        startGame, selectWall, confirmWallReveal, selectRow, selectColumn, endTurn, continueToNextTurn,
+        startGame, selectWall, confirmWallReveal, selectBlock, endTurn, continueToNextTurn,
         wallCandidates, pendingWallCandidate,
         handleEvacuate, returnToRestaurant, handleCookResult, startNextDay,
         handleReset, startNextExpedition,
@@ -281,8 +281,7 @@ const GameCore = () => {
                                             <div className="transform scale-[0.5] origin-top">
                                                 <ResourceMatrix
                                                     matrix={wallStack[wallStack.length - 1].matrix}
-                                                    onSelectRow={() => {}}
-                                                    onSelectColumn={() => {}}
+                                                    onSelectBlock={() => {}}
                                                     gold={0}
                                                     drawCost={1}
                                                     phase="drawing"
@@ -295,8 +294,7 @@ const GameCore = () => {
                                     <div className={`flex flex-col items-center ${phase === 'drawing_sub' ? 'sub-level-enter' : phase === 'exiting_sub' ? 'sub-level-exit pointer-events-none' : ''}`}>
                                         <ResourceMatrix
                                             matrix={matrix}
-                                            onSelectRow={selectRow}
-                                            onSelectColumn={selectColumn}
+                                            onSelectBlock={selectBlock}
                                             gold={gold}
                                             drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
                                             phase={phase}
