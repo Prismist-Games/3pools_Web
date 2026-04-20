@@ -1,7 +1,11 @@
 import React, { useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import Tooltip from '../ui/Tooltip';
-import { INGREDIENTS } from '../../data/v2Config';
+import { INGREDIENTS, QUALITY_CONFIG, ORDER_CONFIG } from '../../data/v2Config';
+
+// Map quality id (1-5) → scoreValue (1/2/3/5/8). Badges display the actual
+// gameplay score, not the internal quality id.
+const qualityToScore = (q) => QUALITY_CONFIG.find(c => c.id === q)?.scoreValue ?? q;
 
 // ingredientId → 二级 tag; used to translate hover highlights (which come
 // in as concrete ids from the wall) into tag2-level matches against order reqs.
@@ -113,7 +117,7 @@ const RewardCard = ({ reward, size = 'md', bonusValue }) => {
                     {displayName}
                 </span>
                 <span className={`absolute -bottom-1 -right-1 ${s.badge} text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow`}>
-                    {quality}
+                    {qualityToScore(quality)}
                 </span>
             </div>
         </Tooltip>
@@ -153,7 +157,7 @@ const BulletinBoard = ({
             {/* Panel header */}
             <div className="px-3 py-2 border-b border-dashed border-kitchen-wood-border flex items-center justify-between gap-2">
                 <h3 className="text-sm font-bold text-kitchen-text-body">📌 {t('货架')}</h3>
-                <span className="text-[10px] text-kitchen-text-muted font-medium">{orders.length}/5</span>
+                <span className="text-[10px] text-kitchen-text-muted font-medium">{orders.length}/{ORDER_CONFIG.bulletinCapacity}</span>
             </div>
 
             <div className="p-2">

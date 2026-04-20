@@ -27,7 +27,7 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
     if (cell.type === 'doom_resolution') {
         icon = cell.icon;
         name = t(cell.name);
-        desc = t('抽中时触发厄运结算，不获得物品');
+        desc = t('抽中时触发抢菜人，不获得物品');
     } else if (cell.type === 'gold') {
         icon = cell.icon;
         name = t(cell.name);
@@ -520,12 +520,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             style={{ width: FIXED_WALL_WIDTH }}
             className={`bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-[3px] border-kitchen-wood-border rounded-[14px] p-4 shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)] transition-all duration-300${doomFlash ? ' crt-heavy vignette-heavy animate-signal-shake' : ''}`}
         >
-            <div className="text-center mb-2 pb-2 border-b border-dashed border-kitchen-wood-border">
-                <span className="text-sm font-bold text-kitchen-text-body">🎯 {t('奖品墙')}</span>
-            </div>
-
             {wallType && (
-                <div className="text-center mb-2">
+                <div className="text-center mb-2 pb-2 border-b border-dashed border-kitchen-wood-border">
                     <span className="text-sm font-bold">{wallType.icon} {t(wallType.name)}</span>
                     <p className="text-[11px] text-gray-400 mt-0.5 break-words">{t(wallType.desc)}</p>
                 </div>

@@ -1,27 +1,25 @@
-import { MATRIX_CONFIG } from '../data/matrixConfig';
+import { MATRIX_CONFIG, pickDoomEmoji } from '../data/matrixConfig';
 import { INGREDIENTS } from '../data/v2Config';
+import { LIVE_CONFIG } from '../data/runtimeConfig';
 
 function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 }
 
-// itemShapes not yet in matrixConfig.js — defined locally until config is extended.
-// Weights: probability of trying each polyomino size first (falls back to 1 on failure).
-const ITEM_SHAPES = {
-  weights: { 1: 60, 2: 30, 3: 10 },
-  shapes: {
-    1: [[[0, 0]]],
-    2: [
-      [[0, 0], [0, 1]],
-      [[0, 0], [1, 0]],
-    ],
-    3: [
-      [[0, 0], [0, 1], [0, 2]],
-      [[0, 0], [1, 0], [2, 0]],
-      [[0, 0], [0, 1], [1, 1]],
-      [[0, 0], [1, 0], [1, 1]],
-    ],
-  },
+// Polyomino shape geometry — static. Size weights live in LIVE_CONFIG.shapeWeights
+// so the ConfigPanel can tune the 1-/2-/3-格概率分布.
+const SHAPE_GEOMETRY = {
+  1: [[[0, 0]]],
+  2: [
+    [[0, 0], [0, 1]],
+    [[0, 0], [1, 0]],
+  ],
+  3: [
+    [[0, 0], [0, 1], [0, 2]],
+    [[0, 0], [1, 0], [2, 0]],
+    [[0, 0], [0, 1], [1, 1]],
+    [[0, 0], [1, 0], [1, 1]],
+  ],
 };
 
 function rollItemSize(weights) {
@@ -73,23 +71,24 @@ export function generateWall(marketIngredients) {
     throw new Error('generateWall: marketIngredients is empty or undefined');
   }
   const { gridSize, doomCells, specialCells } = MATRIX_CONFIG;
-  const itemShapes = ITEM_SHAPES;
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
   const doomCellCount = { resolution: 0 };
 
-  // Phase 1 + 2: Doom and special cells — per-cell probability roll
+  // Phase 1 + 2: Doom and special cells — per-cell probability roll.
+  // Rates read from LIVE_CONFIG.cellSpawn so ConfigPanel tweaks take effect
+  // on the next-generated wall.
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
       if (grid[row][col] !== null) continue;
 
       const roll = Math.random();
-      const doomChance = doomCells.resolution.spawnChance;
-      const goldChance = doomChance + specialCells.gold.spawnChance;
-      const orderChance = goldChance + specialCells.order.spawnChance;
-      const bombChance = orderChance + (specialCells.bomb?.spawnChance || 0);
+      const doomChance = LIVE_CONFIG.cellSpawn.doom;
+      const goldChance = doomChance + LIVE_CONFIG.cellSpawn.gold;
+      const orderChance = goldChance + LIVE_CONFIG.cellSpawn.order;
+      const bombChance = orderChance + (LIVE_CONFIG.cellSpawn.bomb || 0);
 
       if (roll < doomChance) {
-        grid[row][col] = { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID() };
+        grid[row][col] = { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
         doomCellCount.resolution++;
         continue;
       }
@@ -123,11 +122,11 @@ export function generateWall(marketIngredients) {
     // Cell was already filled by a multi-cell shape in the previous iteration — skip without re-query.
     if (grid[startR][startC] !== null) { empty.shift(); continue; }
 
-    let size = rollItemSize(itemShapes.weights);
+    let size = rollItemSize(LIVE_CONFIG.shapeWeights);
     let placed = false;
 
     while (size >= 1 && !placed) {
-      const shapesForSize = itemShapes.shapes[size];
+      const shapesForSize = SHAPE_GEOMETRY[size];
       const shuffled = [...shapesForSize].sort(() => Math.random() - 0.5);
 
       for (const shape of shuffled) {
@@ -203,7 +202,7 @@ export function fillDoomAndSpecials(grid, gridSize) {
       } else if (roll < bombChance) {
         grid[row][col] = { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
       } else if (roll < doomResChance) {
-        grid[row][col] = { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID() };
+        grid[row][col] = { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
         doomCellCount.resolution++;
       }
     }

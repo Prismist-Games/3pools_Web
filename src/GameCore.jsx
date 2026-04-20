@@ -11,12 +11,23 @@ import DishCard from './components/game/DishCard';
 import SpritePreview from './components/game/SpritePreview';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
-import { INGREDIENTS, DISHES } from './data/v2Config';
+import { INGREDIENTS, DISHES, QUALITY_CONFIG } from './data/v2Config';
+
+// Badge 显示的是"最终投入时的分值" = scoreValue，而不是内部 quality id。
+// 旧代码 badge 直接展示 quality id（1-5），在 quality=4/5 时与实际分值
+// 脱节（顶级=5 分、传说=8 分），于是用这个 helper 统一取 scoreValue。
+const itemScoreValue = (item) => {
+    if (!item) return 1;
+    if (typeof item.score === 'number') return item.score;
+    const q = item.quality ?? item.rarity ?? 1;
+    return QUALITY_CONFIG.find(c => c.id === q)?.scoreValue ?? q;
+};
 import { Link } from 'react-router-dom';
 import { GameGuide } from './components/ui/GameGuide';
 import RoundTransition from './components/ui/RoundTransition';
 import WallPicker from './components/game/WallPicker';
 import OrderSubmitModal from './components/game/OrderSubmitModal';
+import ConfigPanel from './components/game/ConfigPanel';
 
 // DIAG: temporary wrapper to log mount/unmount of the fly element
 const FlyElementDiag = ({ flyId, icon, count, style }) => {
@@ -55,6 +66,8 @@ const GameCore = () => {
     const [dispatchOpen, setDispatchOpen] = useState(false);
     const [kitchenOpen, setKitchenOpen] = useState(false);
     const [spritePreviewOpen, setSpritePreviewOpen] = useState(false);
+    const [configOpen, setConfigOpen] = useState(false);
+    const [swapFromIdx, setSwapFromIdx] = useState(null); // inventory swap: picked-up slot index
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -75,7 +88,7 @@ const GameCore = () => {
         dayNumber, popularity, lastCookResult,
         tickDoomResolution, completeDoomResolution,
         tickDrawAnim, completeDrawAnim,
-        replaceInventoryItem, discardInventoryItem, synthesizeItems, discardPendingItem, debugAddItem,
+        replaceInventoryItem, discardInventoryItem, synthesizeItems, swapInventoryItems, synthesizeWithPending, discardPendingItem, debugAddItem,
         bulletinBoard, pendingChosenOrder, refreshCharges,
         submitOrder, canSubmitOrder, submittingOrder, confirmSubmitOrder, cancelSubmitOrder, triggerRefresh,
         incomingOrder, incomingQueueLength, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
@@ -193,14 +206,9 @@ const GameCore = () => {
                             <button onClick={() => setKitchenOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🍳 {t('厨房')}</button>
                             <button onClick={() => setSpritePreviewOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🎬 {t('动画')}</button>
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
+                            <button onClick={() => setConfigOpen(true)} title="配置面板" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">⚙</button>
                             <Link to="/editor" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors no-underline">📐</Link>
                         </div>
-                    </div>
-                    {/* Row 2: HP as hearts */}
-                    <div className="flex items-center gap-0.5 px-4 py-2">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <span key={i} className="text-base leading-none">{i < hp ? '❤️' : '🤍'}</span>
-                        ))}
                     </div>
                 </div>
 
@@ -353,7 +361,7 @@ const GameCore = () => {
                                         ))}
                                     </div>
                                     <p className="text-kitchen-text-secondary text-sm mb-1">
-                                        {t('厄运等级')}: 💀 Lv.{doomLevel}
+                                        {t('厄运等级')}: 🧑 Lv.{doomLevel}
                                     </p>
                                     <p className="text-kitchen-text-muted text-sm mb-6">
                                         {t('下次进入抽奖将添加一个厄运标记')}
@@ -462,7 +470,7 @@ const GameCore = () => {
                             {/* Doom Grid */}
                             <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
                                 <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between">
-                                    <h3 className="text-sm font-bold text-kitchen-text-body">💀 {t('厄运')}</h3>
+                                    <h3 className="text-sm font-bold text-kitchen-text-body">🧑 {t('厄运')}</h3>
                                     <span className="text-[11px] font-bold text-kitchen-danger-text">Lv.{doomLevel}</span>
                                 </div>
                                 <div className="p-2">
@@ -475,7 +483,7 @@ const GameCore = () => {
                                                     className={`w-10 h-10 rounded flex items-center justify-center text-sm border relative
                                                         ${getDoomCellClass(cell, i)}`}
                                                 >
-                                                    {cell.type === 'danger' ? '☠' : '·'}
+                                                    {cell.type === 'danger' ? (cell.emoji || '🧑') : '·'}
                                                     {cursors > 0 && (
                                                         <span className="absolute -top-1 -right-1 bg-kitchen-gold text-kitchen-text-title text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                                                             {cursors}
@@ -496,7 +504,7 @@ const GameCore = () => {
                                             <div className="flex items-center gap-1 mb-2">
                                                 {doomAnimState.finalSelections.map((s, i) => (
                                                     <span key={i} className={`text-lg ${s.isHit ? 'animate-bounce' : ''}`}>
-                                                        {s.isHit ? '💀' : '✅'}
+                                                        {s.isHit ? (s.emoji || '🧑') : '✅'}
                                                     </span>
                                                 ))}
                                                 {doomAnimState.hpLoss > 0 && (
@@ -516,8 +524,16 @@ const GameCore = () => {
 
                             {/* Inventory */}
                             <div ref={inventoryRef} className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
-                                <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between">
+                                <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between gap-2">
                                     <h3 className="text-sm font-bold text-kitchen-text-body">🧺 {t('菜篮')}</h3>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] font-bold text-kitchen-text-secondary">{t('耐久度')}</span>
+                                        <div className="flex items-center gap-0.5">
+                                            {Array.from({ length: 5 }).map((_, i) => (
+                                                <span key={i} className="text-sm leading-none">{i < hp ? '❤️' : '🤍'}</span>
+                                            ))}
+                                        </div>
+                                    </div>
                                     <span className="text-[10px] text-kitchen-text-muted font-medium">{inventory.length}/{maxInventorySize}</span>
                                 </div>
                                 <div className="p-2">
@@ -595,7 +611,7 @@ const GameCore = () => {
                                                             <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
                                                                 {language === 'en' && pItem.nameEn ? pItem.nameEn : t(pItem.name)}
                                                             </span>
-                                                            {pSc && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow`}>{pItem.quality || pItem.rarity || pItem.score}</span>}
+                                                            {pSc && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow`}>{itemScoreValue(pItem)}</span>}
                                                         </div>
                                                     );
                                                     return pItem.isOutOfGame
@@ -611,8 +627,12 @@ const GameCore = () => {
                                         {Array.from({ length: maxInventorySize }).map((_, i) => {
                                             const item = inventory[i];
                                             const canReplace = pendingItem && item && !recycleMode && !synthesizeMode;
+                                            const canMergeWithPending = canReplace && pendingItem?.isOutOfGame && item?.isOutOfGame
+                                                && pendingItem.id === item.id && pendingItem.quality === item.quality && (item.quality || 1) < 5;
                                             const isRecycleSelected = recycleMode && recycleSelected.has(i);
                                             const isSynthesizeSelected = synthesizeMode && synthesizeSelected.has(i);
+                                            const isSwapPicked = swapFromIdx === i;
+                                            const inSwapMode = swapFromIdx !== null && !recycleMode && !synthesizeMode && !pendingItem;
                                             const sc = item?.isOutOfGame ? (SCORE_STYLE[item.quality || item.rarity || item.score] || SCORE_STYLE[1]) : null;
                                             const cell = (
                                                 <div
@@ -640,18 +660,37 @@ const GameCore = () => {
                                                                 return next;
                                                             });
                                                         } else if (canReplace) {
-                                                            replaceInventoryItem(i);
+                                                            // Priority: if pending can merge with this item → synthesize directly
+                                                            if (canMergeWithPending) {
+                                                                synthesizeWithPending(i);
+                                                            } else {
+                                                                replaceInventoryItem(i);
+                                                            }
+                                                        } else if (!pendingItem && !recycleMode && !synthesizeMode) {
+                                                            // Default mode: click-to-swap
+                                                            if (swapFromIdx === null) {
+                                                                if (item) setSwapFromIdx(i);
+                                                            } else if (swapFromIdx === i) {
+                                                                setSwapFromIdx(null);
+                                                            } else {
+                                                                swapInventoryItems(swapFromIdx, i);
+                                                                setSwapFromIdx(null);
+                                                            }
                                                         }
                                                     }}
                                                     className={`w-14 h-14 rounded flex flex-col items-center justify-center border-2 relative transition-all duration-150 px-0.5
                                                         ${isRecycleSelected ? 'bg-[#FFF0EE] border-kitchen-danger scale-95 opacity-60'
                                                             : isSynthesizeSelected ? 'bg-[#F0F8FF] border-kitchen-info-border scale-95'
+                                                            : isSwapPicked ? 'bg-[#FFF3E0] border-kitchen-gold ring-2 ring-kitchen-gold scale-110 -translate-y-0.5'
                                                             : !item ? 'bg-[#F8F4EC] border-kitchen-gold-border-muted'
                                                             : sc ? `bg-gradient-to-b ${sc.bg} ${sc.border}`
                                                             : 'bg-kitchen-card border-kitchen-gold-border-muted'}
-                                                        ${canReplace ? 'cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:scale-110'
+                                                        ${canMergeWithPending ? 'cursor-pointer hover:bg-[#F0F8FF] hover:border-kitchen-info-border hover:scale-110 ring-2 ring-kitchen-info-border/60'
+                                                            : canReplace ? 'cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:scale-110'
                                                             : recycleMode && item ? 'cursor-pointer hover:border-kitchen-danger'
-                                                            : synthesizeMode && item?.isOutOfGame ? 'cursor-pointer hover:border-kitchen-info-border' : ''}`}
+                                                            : synthesizeMode && item?.isOutOfGame ? 'cursor-pointer hover:border-kitchen-info-border'
+                                                            : inSwapMode ? 'cursor-pointer hover:bg-[#FFF3E0] hover:border-kitchen-gold'
+                                                            : (!pendingItem && item && !recycleMode && !synthesizeMode) ? 'cursor-pointer hover:brightness-105' : ''}`}
                                                 >
                                                     {item && (
                                                         <>
@@ -663,7 +702,7 @@ const GameCore = () => {
                                                     )}
                                                     {sc && (
                                                         <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow`}>
-                                                            {item.quality || item.rarity || item.score}
+                                                            {itemScoreValue(item)}
                                                         </span>
                                                     )}
                                                 </div>
@@ -775,7 +814,7 @@ const GameCore = () => {
                                                             </span>
                                                         </div>
                                                         <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow`}>
-                                                            +{item.quality || item.rarity || item.score}
+                                                            +{itemScoreValue(item)}
                                                         </span>
                                                     </div>
                                                 );
@@ -822,7 +861,7 @@ const GameCore = () => {
                 {doomResolutionResult && !isDoomResolving && phase !== 'restaurant' && phase !== 'cook_result' && phase !== 'game_over' && phase !== 'pre_game' && (
                     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-lg shadow-lg">
                         <div className="text-sm">
-                            💀 {t('厄运结算')}:
+                            🧑 {t('抢菜人')}:
                             {doomResolutionResult.hits.map((hit, i) => (
                                 <span key={i} className={`ml-1 ${hit.result === 'danger' ? 'text-red-400' : 'text-gray-400'}`}>
                                     {hit.result === 'danger' ? '💥' : '·'}
@@ -850,7 +889,7 @@ const GameCore = () => {
                 {/* Mid-wall incoming order picker — shown immediately when
                     an order_cell is drawn during a wall. Pauses the wall
                     (draws are already disabled by the picker's presence). */}
-                {(phase === 'drawing' || phase === 'drawing_sub') && incomingOrder && incomingOrder.candidates && !pendingChosenOrder && (
+                {phase !== 'between_turns' && phase !== 'pre_game' && phase !== 'game_over' && incomingOrder && incomingOrder.candidates && !pendingChosenOrder && (
                     <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
                         <div className="max-w-md w-full p-5 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-2xl shadow-2xl">
                             <div className="text-sm font-bold text-kitchen-gold-deep mb-3">
@@ -970,6 +1009,7 @@ const GameCore = () => {
 
                 {/* Sprite Preview Modal */}
                 {spritePreviewOpen && <SpritePreview onClose={() => setSpritePreviewOpen(false)} />}
+                {configOpen && <ConfigPanel onClose={() => setConfigOpen(false)} />}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}

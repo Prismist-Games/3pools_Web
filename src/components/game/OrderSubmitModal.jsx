@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { INGREDIENTS } from '../../data/v2Config';
+import { INGREDIENTS, QUALITY_CONFIG } from '../../data/v2Config';
+
+const qualityToScore = (q) => QUALITY_CONFIG.find(c => c.id === q)?.scoreValue ?? q;
 import { QUALITY_STYLE, DIFFICULTY_STYLE } from './BulletinBoard';
 
 const QUALITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★', 5: '★★★★★' };
@@ -119,7 +121,7 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                                                         {displayName}
                                                     </span>
                                                     <span className={`absolute -bottom-1 -right-1 ${iqs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>
-                                                        {item.quality}
+                                                        {qualityToScore(item.quality)}
                                                     </span>
                                                     {isPickedHere && (
                                                         <span className="absolute -top-1 -right-1 bg-kitchen-success text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow">
@@ -177,7 +179,7 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                                                         {displayName}
                                                     </span>
                                                     <span className={`absolute -bottom-1 -right-1 ${qs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>
-                                                        {reward.quality}
+                                                        {qualityToScore(reward.quality)}
                                                     </span>
                                                     {isPicked && (
                                                         <span className="absolute -top-1 -right-1 bg-kitchen-gold text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow">

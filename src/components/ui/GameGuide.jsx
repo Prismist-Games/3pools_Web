@@ -77,8 +77,8 @@ export const GameGuide = ({ onClose }) => {
                                 <span><b>{t('贴纸')}</b> — {t('收集完成订单')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <span className="w-5 text-center">💀</span>
-                                <span><b>{t('厄运结算')}</b> — {t('触发厄运，可能扣血')}</span>
+                                <span className="w-5 text-center">🧑</span>
+                                <span><b>{t('抢菜人')}</b> — {t('触发厄运，可能扣血')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className="w-5 text-center">⚠️</span>

@@ -5,6 +5,8 @@ import { LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES } from '../data/v2Config';
+import { LIVE_CONFIG } from '../data/runtimeConfig';
+import { pickDoomEmoji } from '../data/matrixConfig';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -45,17 +47,18 @@ function weightedRandom(weights) {
 }
 
 function pickWeightedTemplate() {
-    const total = ORDER_TEMPLATES.reduce((sum, t) => sum + t.weight, 0);
+    const templates = LIVE_CONFIG.orderTemplates;
+    const total = templates.reduce((sum, t) => sum + t.weight, 0);
     let roll = Math.random() * total;
-    for (const t of ORDER_TEMPLATES) {
+    for (const t of templates) {
         roll -= t.weight;
         if (roll <= 0) return t;
     }
-    return ORDER_TEMPLATES[0];
+    return templates[0];
 }
 
 function rollQuality() {
-    const entries = Object.entries(QUALITY_WEIGHTS);
+    const entries = Object.entries(LIVE_CONFIG.qualityWeights);
     const total = entries.reduce((sum, [, w]) => sum + w, 0);
     let roll = Math.random() * total;
     for (const [qId, weight] of entries) {
@@ -109,19 +112,14 @@ function generateOrder() {
 
     const rewardQualityDef = QUALITY_CONFIG.find(q => q.id === template.rewardQuality) || QUALITY_CONFIG[0];
 
-    // Pick N 二级 tag entries for requirements — one per 大类 to preserve 跨大类
-    const shuffledTag2 = [...TAG2_ENTRIES].sort(() => Math.random() - 0.5);
-    const selectedTag2 = [];
-    const usedCategories = new Set();
-    for (const entry of shuffledTag2) {
-        if (usedCategories.has(entry.categoryTag)) continue;
-        selectedTag2.push(entry);
-        usedCategories.add(entry.categoryTag);
-        if (selectedTag2.length === template.ingredientTypes) break;
-    }
+    // Pick N distinct 二级 tag entries for requirements — fully random,
+    // no cross-category constraint (may include multiple tags from the same 大类).
+    const selectedTag2 = [...TAG2_ENTRIES].sort(() => Math.random() - 0.5).slice(0, template.ingredientTypes);
 
-    // Reward tag2 from a different category than all requirements
-    const rewardPool = TAG2_ENTRIES.filter(e => !usedCategories.has(e.categoryTag));
+    // Reward tag2: avoid duplicating any requirement tag2 (same 小类), but
+    // 大类 collisions between reward and reqs are allowed now.
+    const reqTag2Set = new Set(selectedTag2.map(e => e.tag2));
+    const rewardPool = TAG2_ENTRIES.filter(e => !reqTag2Set.has(e.tag2));
     const rewardEntry = rewardPool[Math.floor(Math.random() * rewardPool.length)]
         || TAG2_ENTRIES[Math.floor(Math.random() * TAG2_ENTRIES.length)];
     const finalReward = {
@@ -135,8 +133,19 @@ function generateOrder() {
         isOutOfGame: true,
     };
 
-    // Assign quality to each slot from reqBudget; each slot needs exactly 1 ingredient.
-    const qualityIds = assignQualitiesFromBudget(template.reqBudget, selectedTag2.length);
+    // Assign quality to each slot.
+    //   qualityDist (explicit, e.g. hard/extreme) → shuffle + slot 1:1 map
+    //   reqBudget  (legacy, e.g. easy/medium)    → distribute with ±25% variance
+    // Shuffle so display order doesn't reveal the tier ladder.
+    let qualityIds;
+    if (template.qualityDist) {
+        qualityIds = [...template.qualityDist].sort(() => Math.random() - 0.5);
+        // Pad/truncate defensively so length == selectedTag2.length
+        while (qualityIds.length < selectedTag2.length) qualityIds.push(1);
+        qualityIds = qualityIds.slice(0, selectedTag2.length);
+    } else {
+        qualityIds = assignQualitiesFromBudget(template.reqBudget, selectedTag2.length);
+    }
     const requirements = selectedTag2.map((entry, i) => ({
         tag2: entry.tag2,
         categoryTag: entry.categoryTag,
@@ -208,7 +217,7 @@ export const useGameLogic = (config) => {
     const [doomGrid, setDoomGrid] = useState(() => {
         const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
         for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-            grid[i] = { type: 'danger' };
+            grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
         }
         return grid;
     });
@@ -290,7 +299,7 @@ export const useGameLogic = (config) => {
                 let added = 0;
                 for (let i = 0; i < newGrid.length && added < doomConfig.dangerPerTurn; i++) {
                     if (newGrid[i].type === 'empty') {
-                        newGrid[i] = { type: 'danger' };
+                        newGrid[i] = { type: 'danger', emoji: pickDoomEmoji() };
                         added++;
                     }
                 }
@@ -986,6 +995,43 @@ export const useGameLogic = (config) => {
         return true;
     };
 
+    /** Swap two inventory positions (both must exist in the packed array). */
+    const swapInventoryItems = (i, j) => {
+        if (i === j) return false;
+        setInventory(prev => {
+            if (i < 0 || j < 0 || i >= prev.length || j >= prev.length) return prev;
+            const next = [...prev];
+            [next[i], next[j]] = [next[j], next[i]];
+            return next;
+        });
+        return true;
+    };
+
+    /** If pending head item can synthesize with inventory[idx] (same id + same
+     *  quality + quality < 5), merge: consume pending, upgrade inventory[idx]
+     *  to next quality tier. Returns true if synthesis happened. */
+    const synthesizeWithPending = (idx) => {
+        if (pendingItems.length === 0) return false;
+        const pending = pendingItems[0];
+        const target = inventory[idx];
+        if (!target || !pending) return false;
+        if (!target.isOutOfGame || !pending.isOutOfGame) return false;
+        if (target.id !== pending.id) return false;
+        if (target.quality !== pending.quality) return false;
+        if (target.quality >= 5) return false;
+
+        const newQuality = target.quality + 1;
+        const newQualityDef = QUALITY_CONFIG.find(q => q.id === newQuality) || QUALITY_CONFIG[QUALITY_CONFIG.length - 1];
+
+        setInventory(prev => prev.map((it, i) => i === idx
+            ? { ...target, quality: newQuality, score: newQualityDef.scoreValue, uid: generateUID() }
+            : it
+        ));
+        setPendingItems(prev => prev.slice(1));
+        showToast(`${t('合成成功')}: ${target.icon} ${target.name} (${newQualityDef.name})`, 'success');
+        return true;
+    };
+
     /** Debug: add items directly to inventory */
     const debugAddItem = (itemDef, count) => {
         const quality = itemDef.quality || 1;
@@ -1132,6 +1178,8 @@ export const useGameLogic = (config) => {
 
         setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
         setSubmittingOrderId(null);
+        // Completing an order offers a pick-1-of-2 just like leaving a wall.
+        addBulletinOrder();
         showToast(t('订单完成'), 'success');
     };
 
@@ -1159,9 +1207,10 @@ export const useGameLogic = (config) => {
         for (let t = 0; t < times; t++) {
             for (let i = 0; i < doomLevel; i++) {
                 const cellIndex = Math.floor(Math.random() * doomConfig.gridSize);
-                const isHit = doomGrid[cellIndex].type === 'danger';
+                const cell = doomGrid[cellIndex];
+                const isHit = cell.type === 'danger';
                 if (isHit) hpLoss++;
-                finalSelections.push({ index: cellIndex, isHit });
+                finalSelections.push({ index: cellIndex, isHit, emoji: cell.emoji || pickDoomEmoji() });
             }
         }
 
@@ -1286,7 +1335,7 @@ export const useGameLogic = (config) => {
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
             for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger' };
+                grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
             }
             return grid;
         });
@@ -1333,7 +1382,7 @@ export const useGameLogic = (config) => {
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
             for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger' };
+                grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
             }
             return grid;
         });
@@ -1378,7 +1427,7 @@ export const useGameLogic = (config) => {
         setDoomGrid(() => {
             const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
             for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger' };
+                grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
             }
             return grid;
         });
@@ -1506,6 +1555,8 @@ export const useGameLogic = (config) => {
         replaceInventoryItem,
         discardInventoryItem,
         synthesizeItems,
+        swapInventoryItems,
+        synthesizeWithPending,
         debugAddItem,
         discardPendingItem,
         submitOrder,

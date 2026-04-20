@@ -6,8 +6,7 @@ const WallPicker = ({ candidates, onSelect }) => {
 
     return (
         <div className="text-center py-6">
-            <h2 className="text-base font-bold mb-1">{t('选择下一面奖品墙')}</h2>
-            <p className="text-[11px] text-gray-400 mb-5">{t('每面墙只出现对应市场的食材')}</p>
+            <h2 className="text-base font-bold mb-5">{t('接下来去哪儿？')}</h2>
             <div className="flex gap-4 justify-center">
                 {candidates.map((wall, idx) => {
                     const subcategories = wall.marketIngredients
@@ -32,7 +31,7 @@ const WallPicker = ({ candidates, onSelect }) => {
                             </div>
 
                             <div className="text-[10px] text-red-500 font-bold">
-                                💀 {wall.doomCellCount.resolution} {t('厄运格')}
+                                🧑 {wall.doomCellCount.resolution} {t('抢菜人')}
                             </div>
                         </button>
                     );

@@ -130,11 +130,11 @@ export const QUALITY_WEIGHTS = { 1: 0.40, 2: 0.30, 3: 0.18, 4: 0.08, 5: 0.04 };
 // --- 市场类型（替换原墙类型）---
 // 每种市场只出现对应大类的食材
 export const MARKET_TYPES = [
-    { id: 'seafood_market',  name: '海鲜市场', icon: '🦐', desc: '只出现海鲜类食材', category: '海鲜',    weight: 20 },
-    { id: 'butcher',         name: '肉铺',     icon: '🍖', desc: '只出现肉类食材',   category: '肉类',    weight: 20 },
-    { id: 'grain_store',     name: '粮食店',   icon: '🍚', desc: '只出现主食类食材', category: '主食',    weight: 20 },
-    { id: 'vegetable_shop',  name: '蔬菜店',   icon: '🥬', desc: '蔬菜·水果·菌菇类食材', category: '蔬菜',    weight: 20 },
-    { id: 'dairy_store',     name: '乳品店',   icon: '🧀', desc: '只出现蛋奶制品',   category: '蛋奶制品', weight: 20 },
+    { id: 'seafood_market',  name: '海鲜市场', icon: '🦐', desc: '只能抢到海鲜类食材',        category: '海鲜',    weight: 20 },
+    { id: 'butcher',         name: '肉铺',     icon: '🍖', desc: '只能抢到肉类食材',          category: '肉类',    weight: 20 },
+    { id: 'grain_store',     name: '粮食店',   icon: '🍚', desc: '只能抢到主食类食材',        category: '主食',    weight: 20 },
+    { id: 'vegetable_shop',  name: '蔬菜店',   icon: '🥬', desc: '只能抢到蔬菜·水果·菌菇类食材', category: '蔬菜',    weight: 20 },
+    { id: 'dairy_store',     name: '乳品店',   icon: '🧀', desc: '只能抢到蛋奶制品',          category: '蛋奶制品', weight: 20 },
 ];
 
 // --- 菜品关卡 ---
@@ -238,13 +238,16 @@ export const DISHES = [
 ];
 
 // --- 订单模板 ---
-// reqBudget: total quality score-value units distributed across all requirement slots.
-// Each slot count=1; quality per slot is derived so sum(scores) ≈ reqBudget ≈ reward score.
+// 两种需求模式（二选一）：
+//   qualityDist: 固定品质数组（每个元素是该 slot 要求的品质 id）——
+//                优先使用；长度 = 槽位数；每个 slot count 仍 = 1。
+//   reqBudget:   legacy 预算法 —— 把总 scoreValue 分布到 ingredientTypes
+//                个 slot 上，品质带 ±25% 方差。仅在未设 qualityDist 时生效。
 export const ORDER_TEMPLATES = [
-    { id: 'easy',    difficulty: 'easy',    reqBudget: 2, rewardQuality: 2, ingredientTypes: 2, weight: 30 },
-    { id: 'medium',  difficulty: 'medium',  reqBudget: 3, rewardQuality: 3, ingredientTypes: 2, weight: 40 },
-    { id: 'hard',    difficulty: 'hard',    reqBudget: 5, rewardQuality: 4, ingredientTypes: 3, weight: 20 },
-    { id: 'extreme', difficulty: 'extreme', reqBudget: 5, rewardQuality: 5, ingredientTypes: 4, weight: 10 },
+    { id: 'easy',    difficulty: 'easy',    reqBudget: 2,                   rewardQuality: 2, ingredientTypes: 2, weight: 30 },
+    { id: 'medium',  difficulty: 'medium',  reqBudget: 3,                   rewardQuality: 3, ingredientTypes: 2, weight: 40 },
+    { id: 'hard',    difficulty: 'hard',    qualityDist: [3, 2, 1],         rewardQuality: 4, ingredientTypes: 3, weight: 20 },
+    { id: 'extreme', difficulty: 'extreme', qualityDist: [3, 3, 2],         rewardQuality: 5, ingredientTypes: 3, weight: 10 },
 ];
 
 // --- 远征配置 ---
@@ -255,7 +258,7 @@ export const EXPEDITION_CONFIG = {
 
 // --- 订单配置 ---
 export const ORDER_CONFIG = {
-    bulletinCapacity: 5,
+    bulletinCapacity: 4,
     maxActive: 3,
     newPerTurn: 1,
     initialCount: 4,
