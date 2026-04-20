@@ -75,41 +75,24 @@ export function generateWall(marketIngredients) {
   const { gridSize, doomCells, specialCells } = MATRIX_CONFIG;
   const itemShapes = ITEM_SHAPES;
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
-  const doomCellCount = { resolution: 0, upgrade: 0 };
+  const doomCellCount = { resolution: 0 };
 
-  // Phase 1: Doom cells — normal distribution, median ~5
-  const u1 = Math.random();
-  const u2 = Math.random();
-  const normalSample = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  const totalDoom = Math.max(1, Math.min(9, Math.round(5 + normalSample * 1.5)));
-  const resCount = Math.max(0, Math.min(totalDoom, Math.round(totalDoom * (0.5 + (Math.random() - 0.5) * 0.3))));
-
-  const allPositions = [];
-  for (let r = 0; r < gridSize; r++)
-    for (let c = 0; c < gridSize; c++)
-      allPositions.push([r, c]);
-  allPositions.sort(() => Math.random() - 0.5);
-
-  for (let i = 0; i < totalDoom && i < allPositions.length; i++) {
-    const [r, c] = allPositions[i];
-    if (i < resCount) {
-      grid[r][c] = { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID() };
-      doomCellCount.resolution++;
-    } else {
-      grid[r][c] = { type: 'doom_upgrade', icon: doomCells.upgrade.icon, name: doomCells.upgrade.name, uid: generateUID() };
-      doomCellCount.upgrade++;
-    }
-  }
-
-  // Phase 2: Special cells
+  // Phase 1 + 2: Doom and special cells — per-cell probability roll
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
       if (grid[row][col] !== null) continue;
 
       const roll = Math.random();
-      const goldChance = specialCells.gold.spawnChance;
+      const doomChance = doomCells.resolution.spawnChance;
+      const goldChance = doomChance + specialCells.gold.spawnChance;
       const orderChance = goldChance + specialCells.order.spawnChance;
       const bombChance = orderChance + (specialCells.bomb?.spawnChance || 0);
+
+      if (roll < doomChance) {
+        grid[row][col] = { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID() };
+        doomCellCount.resolution++;
+        continue;
+      }
 
       if (roll < goldChance) {
         const [min, max] = specialCells.gold.goldRange;
@@ -202,7 +185,7 @@ export function pickWallStickers(allStickers, min = 3, max = 4) {
 /** @deprecated No longer used in new wall generation */
 export function fillDoomAndSpecials(grid, gridSize) {
   const { specialCells, doomCells } = MATRIX_CONFIG;
-  const doomCellCount = { resolution: 0, upgrade: 0 };
+  const doomCellCount = { resolution: 0 };
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
       if (grid[row][col] !== null) continue;
@@ -211,7 +194,6 @@ export function fillDoomAndSpecials(grid, gridSize) {
       const orderChance = goldChance + specialCells.order.spawnChance;
       const bombChance = orderChance + (specialCells.bomb?.spawnChance || 0);
       const doomResChance = bombChance + (doomCells?.resolution?.spawnChance || 0);
-      const doomUpChance = doomResChance + (doomCells?.upgrade?.spawnChance || 0);
       if (roll < goldChance) {
         const [min, max] = specialCells.gold.goldRange;
         const goldAmount = min + Math.floor(Math.random() * (max - min + 1));
@@ -223,9 +205,6 @@ export function fillDoomAndSpecials(grid, gridSize) {
       } else if (roll < doomResChance) {
         grid[row][col] = { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID() };
         doomCellCount.resolution++;
-      } else if (roll < doomUpChance) {
-        grid[row][col] = { type: 'doom_upgrade', icon: doomCells.upgrade.icon, name: doomCells.upgrade.name, uid: generateUID() };
-        doomCellCount.upgrade++;
       }
     }
   }

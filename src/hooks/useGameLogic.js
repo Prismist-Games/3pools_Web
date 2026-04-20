@@ -560,14 +560,12 @@ export const useGameLogic = (config) => {
         const buffMult = buffCov + 1;
         const mult = (drawnCell.multiplier || 1) * buffMult;
         let obtainedItem = null;
-        const doomEffects = { resolutions: 0, upgrades: 0 };
+        const doomEffects = { resolutions: 0 };
 
         if (drawnCell.type === 'ingredient' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
         } else if (drawnCell.type === 'doom_resolution') {
             doomEffects.resolutions = 1 * mult;
-        } else if (drawnCell.type === 'doom_upgrade') {
-            doomEffects.upgrades = 1 * mult;
         } else if (drawnCell.type === 'gold') {
             const goldGain = drawnCell.goldAmount * mult;
             setGold(prev => prev + goldGain);
@@ -627,8 +625,6 @@ export const useGameLogic = (config) => {
                 showToast(`🪞 ${t('镜像')}: ${mirrorCell.item?.icon || mirrorCell.icon || ''} ${t(itemName)}`, 'success');
             } else if (mirrorCell.type === 'doom_resolution') {
                 doomEffects.resolutions += 1 * mMult;
-            } else if (mirrorCell.type === 'doom_upgrade') {
-                doomEffects.upgrades += 1 * mMult;
             } else if (mirrorCell.type === 'gold') {
                 const g = mirrorCell.goldAmount * mMult;
                 setGold(prev => prev + g);
@@ -880,11 +876,6 @@ export const useGameLogic = (config) => {
             } else {
                 addToInventory(obtainedItem);
             }
-        }
-
-        if (doomEffects.upgrades > 0) {
-            setDoomLevel(prev => prev + doomEffects.upgrades);
-            showToast(t('厄运升级') + ` +${doomEffects.upgrades}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'warning');
         }
 
         if (doomEffects.resolutions > 0) {

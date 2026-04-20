@@ -10,14 +10,9 @@ export const MATRIX_CONFIG = {
   // same per-cell pass as other special cells (gold/order/bomb/etc.).
   doomCells: {
     resolution: {
-      spawnChance: 0.20,  // 20% per cell position — ~3.2 per 16-cell wall
+      spawnChance: 0.15,  // 15% per cell position — ~2.4 per 16-cell wall
       icon: '💀',
       name: '厄运结算',
-    },
-    upgrade: {
-      spawnChance: 0,  // disabled — 厄运升级 no longer spawns on random walls
-      icon: '⚠️',
-      name: '厄运升级',
     },
   },
 
@@ -40,7 +35,7 @@ export const MATRIX_CONFIG = {
       name: '食材',
     },
     bomb: {
-      spawnChance: 0.04,  // 4% per cell position
+      spawnChance: 0.05,  // 5% per cell position
       icon: '💣',
       name: '炸弹',
     },

@@ -28,12 +28,8 @@ function resolveConstrainedCell(token) {
       return { type: 'empty', uid: generateUID() };
     case CELL_TYPES.DOOM_RESOLVE:
       return { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID(), ...extras };
-    case CELL_TYPES.DOOM_UPGRADE:
-      return { type: 'doom_upgrade', icon: doomCells.upgrade.icon, name: doomCells.upgrade.name, uid: generateUID(), ...extras };
     case CELL_TYPES.ANY_DOOM:
-      return Math.random() < 0.5
-        ? { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID(), ...extras }
-        : { type: 'doom_upgrade', icon: doomCells.upgrade.icon, name: doomCells.upgrade.name, uid: generateUID(), ...extras };
+      return { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID(), ...extras };
     case CELL_TYPES.BOMB:
       return { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID(), ...extras };
     case CELL_TYPES.GOLD: {
@@ -102,7 +98,7 @@ export function generateWallFromTemplate(template) {
   const settings = template.settings || template.constraints || {};
 
   // Step 1: Resolve all template cells
-  const doomCellCount = { resolution: 0, upgrade: 0 };
+  const doomCellCount = { resolution: 0 };
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const token = template.grid[r]?.[c];
@@ -112,7 +108,6 @@ export function generateWallFromTemplate(template) {
       if (cell) {
         grid[r][c] = cell;
         if (cell.type === 'doom_resolution') doomCellCount.resolution++;
-        if (cell.type === 'doom_upgrade') doomCellCount.upgrade++;
       }
     }
   }
@@ -133,7 +128,6 @@ export function generateWallFromTemplate(template) {
   // Step 3: Procedural fill on blank cells
   const proceduralDoom = fillDoomAndSpecials(grid, gridSize);
   doomCellCount.resolution += proceduralDoom.resolution;
-  doomCellCount.upgrade += proceduralDoom.upgrade;
 
   // Fill remaining empty cells with random ingredients
   for (let r = 0; r < gridSize; r++) {

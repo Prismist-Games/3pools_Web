@@ -9,7 +9,6 @@ export const CELL_TYPES = {
   EMPTY: 'empty',                // true blank — skipped during draw, not filled by procedural
   // Fixed types
   DOOM_RESOLVE: 'doom_resolve',
-  DOOM_UPGRADE: 'doom_upgrade',
   BOMB: 'bomb',
   GOLD: 'gold',
   ORDER: 'order',
@@ -23,7 +22,7 @@ export const CELL_TYPES = {
   BACKPACK_EXPAND: 'backpack_expand', // +backpack slots
   GRAVITY: 'gravity',               // triggers gravity — all cells fall down
   // Constrained types (resolved at generation time)
-  ANY_DOOM: 'any_doom',           // randomly doom_resolve or doom_upgrade
+  ANY_DOOM: 'any_doom',           // alias for doom_resolve
   ANY_SPECIAL: 'any_special',     // randomly gold/order/out_of_game/bomb
   ANY_STICKER: 'any_sticker',     // random sticker type (1×1)
 };

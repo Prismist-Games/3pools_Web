@@ -5,7 +5,6 @@ const MINI_COLORS = {
   // Template token types
   empty: 'bg-gray-900',
   doom_resolve: 'bg-red-700',
-  doom_upgrade: 'bg-red-500',
   any_doom: 'bg-red-600',
   bomb: 'bg-orange-700',
   gold: 'bg-yellow-600',

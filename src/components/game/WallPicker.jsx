@@ -32,7 +32,7 @@ const WallPicker = ({ candidates, onSelect }) => {
                             </div>
 
                             <div className="text-[10px] text-red-500 font-bold">
-                                💀 {wall.doomCellCount.resolution + wall.doomCellCount.upgrade} {t('厄运格')}
+                                💀 {wall.doomCellCount.resolution} {t('厄运格')}
                             </div>
                         </button>
                     );

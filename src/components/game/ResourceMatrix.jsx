@@ -28,10 +28,6 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时触发厄运结算，不获得物品');
-    } else if (cell.type === 'doom_upgrade') {
-        icon = cell.icon;
-        name = t(cell.name);
-        desc = t('抽中时厄运等级+1，不获得物品');
     } else if (cell.type === 'gold') {
         icon = cell.icon;
         name = t(cell.name);
@@ -161,7 +157,7 @@ function countBuffFieldCoverage(matrix, r, c) {
 const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, sameNeighbors, inHoveredCluster, onClusterHover }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
-    const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
+    const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
         || cell.type === 'buff_field' || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item');
@@ -173,9 +169,6 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     } else if (cell === null || cell.type === 'empty') {
         bgClass = 'bg-[#F8F4EC] border-[#D4C8B0]';
     } else if (cell.type === 'doom_resolution') {
-        bgClass = 'bg-[#FFB8A8] border-[#D04020]';
-    } else if (cell.type === 'doom_upgrade') {
-        // Stronger red background so the ⚠️ warning reads clearly as danger.
         bgClass = 'bg-[#FFB8A8] border-[#D04020]';
     } else if (cell.type === 'ingredient' || cell.type === 'item' || cell.type === 'sticker') {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
@@ -437,9 +430,15 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             return <span className="text-xl">❓</span>;
         }
         if (cell.type === 'ingredient' || cell.type === 'item' || cell.type === 'sticker') {
+            const displayName = cell.item ? (language === 'en' && cell.item.nameEn ? cell.item.nameEn : t(cell.item.name)) : '';
             return (
                 <>
-                    <span className="text-xl">{cell.item?.icon || cell.icon}</span>
+                    <span className="text-lg leading-none">{cell.item?.icon || cell.icon}</span>
+                    {displayName && (
+                        <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5 px-0.5">
+                            {displayName}
+                        </span>
+                    )}
                     {cell.multiplier && cell.multiplier > 1 && (
                         <span className="absolute -top-1 -right-1 bg-amber-400 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10">×{cell.multiplier}</span>
                     )}
@@ -449,9 +448,15 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         if (cell.type === 'out_of_game') {
             const badgeColor = { 1: 'bg-green-500', 2: 'bg-blue-500', 3: 'bg-purple-500', 4: 'bg-orange-500' };
             const r = cell.item?.rarity || cell.item?.score || 1;
+            const displayName = cell.item ? (language === 'en' && cell.item.nameEn ? cell.item.nameEn : t(cell.item.name)) : '';
             return (
                 <>
-                    <span className="text-xl">{cell.item?.icon || cell.icon}</span>
+                    <span className="text-lg leading-none">{cell.item?.icon || cell.icon}</span>
+                    {displayName && (
+                        <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5 px-0.5">
+                            {displayName}
+                        </span>
+                    )}
                     <span className={`absolute -bottom-1 -right-1 ${badgeColor[r] || 'bg-amber-500'} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10`}>
                         {r}
                     </span>
