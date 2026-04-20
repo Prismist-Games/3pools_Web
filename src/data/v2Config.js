@@ -5,111 +5,112 @@
 
 // --- 食材总表 (80 types, no rarity — quality assigned at draw time) ---
 // tags: [大类, 小类]
+// shortLabel / shortLabelEn: 角标文字，用于在同一小类（共用 emoji）内快速区分个体
 export const INGREDIENTS = [
     // ── 肉类 · 鸡 ──
-    { id: 'chicken_breast',    icon: '🍗', name: '鸡胸肉',   nameEn: 'Chicken Breast',      tags: ['肉类', '鸡'] },
-    { id: 'chicken_thigh',     icon: '🍗', name: '鸡腿肉',   nameEn: 'Chicken Thigh',       tags: ['肉类', '鸡'] },
-    { id: 'chicken_wing',      icon: '🍗', name: '鸡翅',     nameEn: 'Chicken Wing',        tags: ['肉类', '鸡'] },
-    { id: 'chicken_tenderloin',icon: '🍗', name: '鸡里脊',   nameEn: 'Chicken Tenderloin',  tags: ['肉类', '鸡'] },
+    { id: 'chicken_breast',    icon: '🍗', name: '鸡胸肉',   nameEn: 'Chicken Breast',      shortLabel: '胸', shortLabelEn: 'Br', tags: ['肉类', '鸡'] },
+    { id: 'chicken_thigh',     icon: '🍗', name: '鸡腿肉',   nameEn: 'Chicken Thigh',       shortLabel: '腿', shortLabelEn: 'Th', tags: ['肉类', '鸡'] },
+    { id: 'chicken_wing',      icon: '🍗', name: '鸡翅',     nameEn: 'Chicken Wing',        shortLabel: '翅', shortLabelEn: 'Wg', tags: ['肉类', '鸡'] },
+    { id: 'chicken_tenderloin',icon: '🍗', name: '鸡里脊',   nameEn: 'Chicken Tenderloin',  shortLabel: '脊', shortLabelEn: 'Tl', tags: ['肉类', '鸡'] },
     // ── 肉类 · 牛 ──
-    { id: 'ground_beef',       icon: '🥩', name: '牛肉碎',   nameEn: 'Ground Beef',         tags: ['肉类', '牛'] },
-    { id: 'beef_brisket',      icon: '🥩', name: '牛腩',     nameEn: 'Beef Brisket',        tags: ['肉类', '牛'] },
-    { id: 'beef_steak',        icon: '🥩', name: '牛排',     nameEn: 'Beef Steak',          tags: ['肉类', '牛'] },
-    { id: 'beef_tenderloin',   icon: '🥩', name: '牛里脊',   nameEn: 'Beef Tenderloin',     tags: ['肉类', '牛'] },
+    { id: 'ground_beef',       icon: '🥩', name: '牛肉碎',   nameEn: 'Ground Beef',         shortLabel: '碎', shortLabelEn: 'Gd', tags: ['肉类', '牛'] },
+    { id: 'beef_brisket',      icon: '🥩', name: '牛腩',     nameEn: 'Beef Brisket',        shortLabel: '腩', shortLabelEn: 'Bk', tags: ['肉类', '牛'] },
+    { id: 'beef_steak',        icon: '🥩', name: '牛排',     nameEn: 'Beef Steak',          shortLabel: '排', shortLabelEn: 'Sk', tags: ['肉类', '牛'] },
+    { id: 'beef_tenderloin',   icon: '🥩', name: '牛里脊',   nameEn: 'Beef Tenderloin',     shortLabel: '脊', shortLabelEn: 'Tl', tags: ['肉类', '牛'] },
     // ── 肉类 · 猪 ──
-    { id: 'ground_pork',       icon: '🥓', name: '猪肉碎',   nameEn: 'Ground Pork',         tags: ['肉类', '猪'] },
-    { id: 'pork_belly',        icon: '🥓', name: '五花肉',   nameEn: 'Pork Belly',          tags: ['肉类', '猪'] },
-    { id: 'pork_ribs',         icon: '🥓', name: '排骨',     nameEn: 'Pork Ribs',           tags: ['肉类', '猪'] },
-    { id: 'pork_tenderloin',   icon: '🥓', name: '猪里脊',   nameEn: 'Pork Tenderloin',     tags: ['肉类', '猪'] },
+    { id: 'ground_pork',       icon: '🥓', name: '猪肉碎',   nameEn: 'Ground Pork',         shortLabel: '碎', shortLabelEn: 'Gd', tags: ['肉类', '猪'] },
+    { id: 'pork_belly',        icon: '🥓', name: '五花肉',   nameEn: 'Pork Belly',          shortLabel: '花', shortLabelEn: 'Bl', tags: ['肉类', '猪'] },
+    { id: 'pork_ribs',         icon: '🥓', name: '排骨',     nameEn: 'Pork Ribs',           shortLabel: '骨', shortLabelEn: 'Rb', tags: ['肉类', '猪'] },
+    { id: 'pork_tenderloin',   icon: '🥓', name: '猪里脊',   nameEn: 'Pork Tenderloin',     shortLabel: '脊', shortLabelEn: 'Tl', tags: ['肉类', '猪'] },
     // ── 肉类 · 羊 ──
-    { id: 'ground_lamb',       icon: '🍖', name: '羊肉碎',   nameEn: 'Ground Lamb',         tags: ['肉类', '羊'] },
-    { id: 'lamb_leg',          icon: '🍖', name: '羊腿',     nameEn: 'Lamb Leg',            tags: ['肉类', '羊'] },
-    { id: 'lamb_chop',         icon: '🍖', name: '羊排',     nameEn: 'Lamb Chop',           tags: ['肉类', '羊'] },
-    { id: 'lamb_tenderloin',   icon: '🍖', name: '羊里脊',   nameEn: 'Lamb Tenderloin',     tags: ['肉类', '羊'] },
+    { id: 'ground_lamb',       icon: '🍖', name: '羊肉碎',   nameEn: 'Ground Lamb',         shortLabel: '碎', shortLabelEn: 'Gd', tags: ['肉类', '羊'] },
+    { id: 'lamb_leg',          icon: '🍖', name: '羊腿',     nameEn: 'Lamb Leg',            shortLabel: '腿', shortLabelEn: 'Lg', tags: ['肉类', '羊'] },
+    { id: 'lamb_chop',         icon: '🍖', name: '羊排',     nameEn: 'Lamb Chop',           shortLabel: '排', shortLabelEn: 'Ch', tags: ['肉类', '羊'] },
+    { id: 'lamb_tenderloin',   icon: '🍖', name: '羊里脊',   nameEn: 'Lamb Tenderloin',     shortLabel: '脊', shortLabelEn: 'Tl', tags: ['肉类', '羊'] },
 
     // ── 海鲜 · 鱼 ──
-    { id: 'sardine',           icon: '🐟', name: '沙丁鱼',   nameEn: 'Sardine',             tags: ['海鲜', '鱼'] },
-    { id: 'sea_bass',          icon: '🐟', name: '鲈鱼',     nameEn: 'Sea Bass',            tags: ['海鲜', '鱼'] },
-    { id: 'salmon',            icon: '🐟', name: '三文鱼',   nameEn: 'Salmon',              tags: ['海鲜', '鱼'] },
-    { id: 'tuna',              icon: '🐟', name: '金枪鱼',   nameEn: 'Tuna',                tags: ['海鲜', '鱼'] },
+    { id: 'sardine',           icon: '🐟', name: '沙丁鱼',   nameEn: 'Sardine',             shortLabel: '沙', shortLabelEn: 'Sd', tags: ['海鲜', '鱼'] },
+    { id: 'sea_bass',          icon: '🐟', name: '鲈鱼',     nameEn: 'Sea Bass',            shortLabel: '鲈', shortLabelEn: 'Bs', tags: ['海鲜', '鱼'] },
+    { id: 'salmon',            icon: '🐟', name: '三文鱼',   nameEn: 'Salmon',              shortLabel: '文', shortLabelEn: 'Sm', tags: ['海鲜', '鱼'] },
+    { id: 'tuna',              icon: '🐟', name: '金枪鱼',   nameEn: 'Tuna',                shortLabel: '金', shortLabelEn: 'Tn', tags: ['海鲜', '鱼'] },
     // ── 海鲜 · 虾 ──
-    { id: 'river_shrimp',      icon: '🦐', name: '河虾',     nameEn: 'River Shrimp',        tags: ['海鲜', '虾'] },
-    { id: 'white_shrimp',      icon: '🦐', name: '基围虾',   nameEn: 'White Shrimp',        tags: ['海鲜', '虾'] },
-    { id: 'tiger_prawn',       icon: '🦐', name: '明虾',     nameEn: 'Tiger Prawn',         tags: ['海鲜', '虾'] },
-    { id: 'spot_prawn',        icon: '🦐', name: '牡丹虾',   nameEn: 'Spot Prawn',          tags: ['海鲜', '虾'] },
+    { id: 'river_shrimp',      icon: '🦐', name: '河虾',     nameEn: 'River Shrimp',        shortLabel: '河', shortLabelEn: 'Rv', tags: ['海鲜', '虾'] },
+    { id: 'white_shrimp',      icon: '🦐', name: '基围虾',   nameEn: 'White Shrimp',        shortLabel: '基', shortLabelEn: 'Wh', tags: ['海鲜', '虾'] },
+    { id: 'tiger_prawn',       icon: '🦐', name: '明虾',     nameEn: 'Tiger Prawn',         shortLabel: '明', shortLabelEn: 'Tg', tags: ['海鲜', '虾'] },
+    { id: 'spot_prawn',        icon: '🦐', name: '牡丹虾',   nameEn: 'Spot Prawn',          shortLabel: '丹', shortLabelEn: 'Sp', tags: ['海鲜', '虾'] },
     // ── 海鲜 · 贝 ──
-    { id: 'clam',              icon: '🐚', name: '蛤蜊',     nameEn: 'Clam',                tags: ['海鲜', '贝'] },
-    { id: 'mussel',            icon: '🐚', name: '青口',     nameEn: 'Mussel',              tags: ['海鲜', '贝'] },
-    { id: 'scallop',           icon: '🐚', name: '扇贝',     nameEn: 'Scallop',             tags: ['海鲜', '贝'] },
-    { id: 'abalone',           icon: '🐚', name: '鲍鱼',     nameEn: 'Abalone',             tags: ['海鲜', '贝'] },
+    { id: 'clam',              icon: '🐚', name: '蛤蜊',     nameEn: 'Clam',                shortLabel: '蜊', shortLabelEn: 'Cl', tags: ['海鲜', '贝'] },
+    { id: 'mussel',            icon: '🐚', name: '青口',     nameEn: 'Mussel',              shortLabel: '青', shortLabelEn: 'Ms', tags: ['海鲜', '贝'] },
+    { id: 'scallop',           icon: '🐚', name: '扇贝',     nameEn: 'Scallop',             shortLabel: '扇', shortLabelEn: 'Sc', tags: ['海鲜', '贝'] },
+    { id: 'abalone',           icon: '🐚', name: '鲍鱼',     nameEn: 'Abalone',             shortLabel: '鲍', shortLabelEn: 'Ab', tags: ['海鲜', '贝'] },
     // ── 海鲜 · 蟹 ──
-    { id: 'blue_crab',         icon: '🦀', name: '花蟹',     nameEn: 'Blue Crab',           tags: ['海鲜', '蟹'] },
-    { id: 'swimming_crab',     icon: '🦀', name: '梭子蟹',   nameEn: 'Swimming Crab',       tags: ['海鲜', '蟹'] },
-    { id: 'dungeness_crab',    icon: '🦀', name: '面包蟹',   nameEn: 'Dungeness Crab',      tags: ['海鲜', '蟹'] },
-    { id: 'king_crab',         icon: '🦀', name: '帝王蟹',   nameEn: 'King Crab',           tags: ['海鲜', '蟹'] },
+    { id: 'blue_crab',         icon: '🦀', name: '花蟹',     nameEn: 'Blue Crab',           shortLabel: '花', shortLabelEn: 'Bl', tags: ['海鲜', '蟹'] },
+    { id: 'swimming_crab',     icon: '🦀', name: '梭子蟹',   nameEn: 'Swimming Crab',       shortLabel: '梭', shortLabelEn: 'Sw', tags: ['海鲜', '蟹'] },
+    { id: 'dungeness_crab',    icon: '🦀', name: '面包蟹',   nameEn: 'Dungeness Crab',      shortLabel: '包', shortLabelEn: 'Du', tags: ['海鲜', '蟹'] },
+    { id: 'king_crab',         icon: '🦀', name: '帝王蟹',   nameEn: 'King Crab',           shortLabel: '帝', shortLabelEn: 'Ki', tags: ['海鲜', '蟹'] },
 
     // ── 蔬菜 · 青菜 ──
-    { id: 'cabbage',           icon: '🥬', name: '白菜',     nameEn: 'Cabbage',             tags: ['蔬菜', '青菜'] },
-    { id: 'spinach',           icon: '🥬', name: '菠菜',     nameEn: 'Spinach',             tags: ['蔬菜', '青菜'] },
-    { id: 'lettuce',           icon: '🥬', name: '生菜',     nameEn: 'Lettuce',             tags: ['蔬菜', '青菜'] },
-    { id: 'rapeseed',          icon: '🥬', name: '油菜',     nameEn: 'Rapeseed',            tags: ['蔬菜', '青菜'] },
+    { id: 'cabbage',           icon: '🥬', name: '白菜',     nameEn: 'Cabbage',             shortLabel: '白', shortLabelEn: 'Cb', tags: ['蔬菜', '青菜'] },
+    { id: 'spinach',           icon: '🥬', name: '菠菜',     nameEn: 'Spinach',             shortLabel: '菠', shortLabelEn: 'Sp', tags: ['蔬菜', '青菜'] },
+    { id: 'lettuce',           icon: '🥬', name: '生菜',     nameEn: 'Lettuce',             shortLabel: '生', shortLabelEn: 'Le', tags: ['蔬菜', '青菜'] },
+    { id: 'rapeseed',          icon: '🥬', name: '油菜',     nameEn: 'Rapeseed',            shortLabel: '油', shortLabelEn: 'Ra', tags: ['蔬菜', '青菜'] },
     // ── 蔬菜 · 根茎 ──
-    { id: 'potato',            icon: '🥔', name: '土豆',     nameEn: 'Potato',              tags: ['蔬菜', '根茎'] },
-    { id: 'sweet_potato',      icon: '🥔', name: '红薯',     nameEn: 'Sweet Potato',        tags: ['蔬菜', '根茎'] },
-    { id: 'taro',              icon: '🥔', name: '芋头',     nameEn: 'Taro',                tags: ['蔬菜', '根茎'] },
-    { id: 'lotus_root',        icon: '🥔', name: '莲藕',     nameEn: 'Lotus Root',          tags: ['蔬菜', '根茎'] },
+    { id: 'potato',            icon: '🥔', name: '土豆',     nameEn: 'Potato',              shortLabel: '土', shortLabelEn: 'Pt', tags: ['蔬菜', '根茎'] },
+    { id: 'sweet_potato',      icon: '🥔', name: '红薯',     nameEn: 'Sweet Potato',        shortLabel: '薯', shortLabelEn: 'Sw', tags: ['蔬菜', '根茎'] },
+    { id: 'taro',              icon: '🥔', name: '芋头',     nameEn: 'Taro',                shortLabel: '芋', shortLabelEn: 'Ta', tags: ['蔬菜', '根茎'] },
+    { id: 'lotus_root',        icon: '🥔', name: '莲藕',     nameEn: 'Lotus Root',          shortLabel: '藕', shortLabelEn: 'Lo', tags: ['蔬菜', '根茎'] },
     // ── 蔬菜 · 水果 ──
-    { id: 'apple',             icon: '🍎', name: '苹果',     nameEn: 'Apple',               tags: ['蔬菜', '水果'] },
-    { id: 'lemon',             icon: '🍋', name: '柠檬',     nameEn: 'Lemon',               tags: ['蔬菜', '水果'] },
-    { id: 'mango',             icon: '🥭', name: '芒果',     nameEn: 'Mango',               tags: ['蔬菜', '水果'] },
-    { id: 'strawberry',        icon: '🍓', name: '草莓',     nameEn: 'Strawberry',          tags: ['蔬菜', '水果'] },
+    { id: 'apple',             icon: '🍎', name: '苹果',     nameEn: 'Apple',               shortLabel: '苹', shortLabelEn: 'Ap', tags: ['蔬菜', '水果'] },
+    { id: 'lemon',             icon: '🍋', name: '柠檬',     nameEn: 'Lemon',               shortLabel: '柠', shortLabelEn: 'Lm', tags: ['蔬菜', '水果'] },
+    { id: 'mango',             icon: '🥭', name: '芒果',     nameEn: 'Mango',               shortLabel: '芒', shortLabelEn: 'Mn', tags: ['蔬菜', '水果'] },
+    { id: 'strawberry',        icon: '🍓', name: '草莓',     nameEn: 'Strawberry',          shortLabel: '莓', shortLabelEn: 'St', tags: ['蔬菜', '水果'] },
     // ── 蔬菜 · 菌菇 ──
-    { id: 'oyster_mushroom',   icon: '🍄', name: '平菇',     nameEn: 'Oyster Mushroom',     tags: ['蔬菜', '菌菇'] },
-    { id: 'shiitake',          icon: '🍄', name: '香菇',     nameEn: 'Shiitake',            tags: ['蔬菜', '菌菇'] },
-    { id: 'enoki',             icon: '🍄', name: '金针菇',   nameEn: 'Enoki',               tags: ['蔬菜', '菌菇'] },
-    { id: 'king_oyster',       icon: '🍄', name: '杏鲍菇',   nameEn: 'King Oyster Mushroom',tags: ['蔬菜', '菌菇'] },
+    { id: 'oyster_mushroom',   icon: '🍄', name: '平菇',     nameEn: 'Oyster Mushroom',     shortLabel: '平', shortLabelEn: 'Oy', tags: ['蔬菜', '菌菇'] },
+    { id: 'shiitake',          icon: '🍄', name: '香菇',     nameEn: 'Shiitake',            shortLabel: '香', shortLabelEn: 'Sh', tags: ['蔬菜', '菌菇'] },
+    { id: 'enoki',             icon: '🍄', name: '金针菇',   nameEn: 'Enoki',               shortLabel: '针', shortLabelEn: 'En', tags: ['蔬菜', '菌菇'] },
+    { id: 'king_oyster',       icon: '🍄', name: '杏鲍菇',   nameEn: 'King Oyster Mushroom',shortLabel: '杏', shortLabelEn: 'KO', tags: ['蔬菜', '菌菇'] },
 
     // ── 主食 · 米 ──
-    { id: 'white_rice',        icon: '🍚', name: '粳米',     nameEn: 'White Rice',          tags: ['主食', '米'] },
-    { id: 'brown_rice',        icon: '🍚', name: '糙米',     nameEn: 'Brown Rice',          tags: ['主食', '米'] },
-    { id: 'jasmine_rice',      icon: '🍚', name: '茉莉香米', nameEn: 'Jasmine Rice',        tags: ['主食', '米'] },
-    { id: 'black_rice',        icon: '🍚', name: '紫米',     nameEn: 'Black Rice',          tags: ['主食', '米'] },
+    { id: 'white_rice',        icon: '🍚', name: '粳米',     nameEn: 'White Rice',          shortLabel: '粳', shortLabelEn: 'Wh', tags: ['主食', '米'] },
+    { id: 'brown_rice',        icon: '🍚', name: '糙米',     nameEn: 'Brown Rice',          shortLabel: '糙', shortLabelEn: 'Br', tags: ['主食', '米'] },
+    { id: 'jasmine_rice',      icon: '🍚', name: '茉莉香米', nameEn: 'Jasmine Rice',        shortLabel: '莉', shortLabelEn: 'Ja', tags: ['主食', '米'] },
+    { id: 'black_rice',        icon: '🍚', name: '紫米',     nameEn: 'Black Rice',          shortLabel: '紫', shortLabelEn: 'Bk', tags: ['主食', '米'] },
     // ── 主食 · 面 ──
-    { id: 'dried_noodles',     icon: '🍜', name: '挂面',     nameEn: 'Dried Noodles',       tags: ['主食', '面'] },
-    { id: 'egg_noodles',       icon: '🍜', name: '鸡蛋面',   nameEn: 'Egg Noodles',         tags: ['主食', '面'] },
-    { id: 'buckwheat_noodles', icon: '🍜', name: '荞麦面',   nameEn: 'Buckwheat Noodles',   tags: ['主食', '面'] },
-    { id: 'udon',              icon: '🍜', name: '乌冬面',   nameEn: 'Udon',                tags: ['主食', '面'] },
+    { id: 'dried_noodles',     icon: '🍜', name: '挂面',     nameEn: 'Dried Noodles',       shortLabel: '挂', shortLabelEn: 'Dr', tags: ['主食', '面'] },
+    { id: 'egg_noodles',       icon: '🍜', name: '鸡蛋面',   nameEn: 'Egg Noodles',         shortLabel: '蛋', shortLabelEn: 'Eg', tags: ['主食', '面'] },
+    { id: 'buckwheat_noodles', icon: '🍜', name: '荞麦面',   nameEn: 'Buckwheat Noodles',   shortLabel: '荞', shortLabelEn: 'Bu', tags: ['主食', '面'] },
+    { id: 'udon',              icon: '🍜', name: '乌冬面',   nameEn: 'Udon',                shortLabel: '冬', shortLabelEn: 'Ud', tags: ['主食', '面'] },
     // ── 主食 · 豆 ──
-    { id: 'soybean',           icon: '🫘', name: '黄豆',     nameEn: 'Soybean',             tags: ['主食', '豆'] },
-    { id: 'red_bean',          icon: '🫘', name: '红豆',     nameEn: 'Red Bean',            tags: ['主食', '豆'] },
-    { id: 'mung_bean',         icon: '🫘', name: '绿豆',     nameEn: 'Mung Bean',           tags: ['主食', '豆'] },
-    { id: 'chickpea',          icon: '🫘', name: '鹰嘴豆',   nameEn: 'Chickpea',            tags: ['主食', '豆'] },
+    { id: 'soybean',           icon: '🫘', name: '黄豆',     nameEn: 'Soybean',             shortLabel: '黄', shortLabelEn: 'Sy', tags: ['主食', '豆'] },
+    { id: 'red_bean',          icon: '🫘', name: '红豆',     nameEn: 'Red Bean',            shortLabel: '红', shortLabelEn: 'Rd', tags: ['主食', '豆'] },
+    { id: 'mung_bean',         icon: '🫘', name: '绿豆',     nameEn: 'Mung Bean',           shortLabel: '绿', shortLabelEn: 'Mu', tags: ['主食', '豆'] },
+    { id: 'chickpea',          icon: '🫘', name: '鹰嘴豆',   nameEn: 'Chickpea',            shortLabel: '鹰', shortLabelEn: 'Ck', tags: ['主食', '豆'] },
     // ── 主食 · 面包 ──
-    { id: 'white_bread',       icon: '🍞', name: '白面包',   nameEn: 'White Bread',         tags: ['主食', '面包'] },
-    { id: 'whole_wheat_bread', icon: '🍞', name: '全麦面包', nameEn: 'Whole Wheat Bread',   tags: ['主食', '面包'] },
-    { id: 'sourdough',         icon: '🍞', name: '酸面包',   nameEn: 'Sourdough',           tags: ['主食', '面包'] },
-    { id: 'baguette',          icon: '🍞', name: '法棍',     nameEn: 'Baguette',            tags: ['主食', '面包'] },
+    { id: 'white_bread',       icon: '🍞', name: '白面包',   nameEn: 'White Bread',         shortLabel: '白', shortLabelEn: 'Wt', tags: ['主食', '面包'] },
+    { id: 'whole_wheat_bread', icon: '🍞', name: '全麦面包', nameEn: 'Whole Wheat Bread',   shortLabel: '麦', shortLabelEn: 'Ww', tags: ['主食', '面包'] },
+    { id: 'sourdough',         icon: '🍞', name: '酸面包',   nameEn: 'Sourdough',           shortLabel: '酸', shortLabelEn: 'So', tags: ['主食', '面包'] },
+    { id: 'baguette',          icon: '🍞', name: '法棍',     nameEn: 'Baguette',            shortLabel: '棍', shortLabelEn: 'Bg', tags: ['主食', '面包'] },
 
     // ── 蛋奶制品 · 蛋 ──
-    { id: 'chicken_egg',       icon: '🥚', name: '鸡蛋',     nameEn: 'Chicken Egg',         tags: ['蛋奶制品', '蛋'] },
-    { id: 'duck_egg',          icon: '🥚', name: '鸭蛋',     nameEn: 'Duck Egg',            tags: ['蛋奶制品', '蛋'] },
-    { id: 'quail_egg',         icon: '🥚', name: '鹌鹑蛋',   nameEn: 'Quail Egg',           tags: ['蛋奶制品', '蛋'] },
-    { id: 'goose_egg',         icon: '🥚', name: '鹅蛋',     nameEn: 'Goose Egg',           tags: ['蛋奶制品', '蛋'] },
+    { id: 'chicken_egg',       icon: '🥚', name: '鸡蛋',     nameEn: 'Chicken Egg',         shortLabel: '鸡', shortLabelEn: 'Ch', tags: ['蛋奶制品', '蛋'] },
+    { id: 'duck_egg',          icon: '🥚', name: '鸭蛋',     nameEn: 'Duck Egg',            shortLabel: '鸭', shortLabelEn: 'Du', tags: ['蛋奶制品', '蛋'] },
+    { id: 'quail_egg',         icon: '🥚', name: '鹌鹑蛋',   nameEn: 'Quail Egg',           shortLabel: '鹑', shortLabelEn: 'Qu', tags: ['蛋奶制品', '蛋'] },
+    { id: 'goose_egg',         icon: '🥚', name: '鹅蛋',     nameEn: 'Goose Egg',           shortLabel: '鹅', shortLabelEn: 'Go', tags: ['蛋奶制品', '蛋'] },
     // ── 蛋奶制品 · 奶 ──
-    { id: 'cow_milk',          icon: '🥛', name: '牛奶',     nameEn: 'Cow Milk',            tags: ['蛋奶制品', '奶'] },
-    { id: 'goat_milk',         icon: '🥛', name: '羊奶',     nameEn: 'Goat Milk',           tags: ['蛋奶制品', '奶'] },
-    { id: 'buffalo_milk',      icon: '🥛', name: '水牛奶',   nameEn: 'Buffalo Milk',        tags: ['蛋奶制品', '奶'] },
-    { id: 'camel_milk',        icon: '🥛', name: '驼奶',     nameEn: 'Camel Milk',          tags: ['蛋奶制品', '奶'] },
+    { id: 'cow_milk',          icon: '🥛', name: '牛奶',     nameEn: 'Cow Milk',            shortLabel: '牛', shortLabelEn: 'Co', tags: ['蛋奶制品', '奶'] },
+    { id: 'goat_milk',         icon: '🥛', name: '羊奶',     nameEn: 'Goat Milk',           shortLabel: '羊', shortLabelEn: 'Gt', tags: ['蛋奶制品', '奶'] },
+    { id: 'buffalo_milk',      icon: '🥛', name: '水牛奶',   nameEn: 'Buffalo Milk',        shortLabel: '水', shortLabelEn: 'Bu', tags: ['蛋奶制品', '奶'] },
+    { id: 'camel_milk',        icon: '🥛', name: '驼奶',     nameEn: 'Camel Milk',          shortLabel: '驼', shortLabelEn: 'Cm', tags: ['蛋奶制品', '奶'] },
     // ── 蛋奶制品 · 豆腐 ── (🥣 used to distinguish from 主食·豆 which uses 🫘)
-    { id: 'soft_tofu',         icon: '🥣', name: '嫩豆腐',   nameEn: 'Soft Tofu',           tags: ['蛋奶制品', '豆腐'] },
-    { id: 'firm_tofu',         icon: '🥣', name: '老豆腐',   nameEn: 'Firm Tofu',           tags: ['蛋奶制品', '豆腐'] },
-    { id: 'frozen_tofu',       icon: '🥣', name: '冻豆腐',   nameEn: 'Frozen Tofu',         tags: ['蛋奶制品', '豆腐'] },
-    { id: 'tofu_skin',         icon: '🥣', name: '腐竹',     nameEn: 'Tofu Skin',           tags: ['蛋奶制品', '豆腐'] },
+    { id: 'soft_tofu',         icon: '🥣', name: '嫩豆腐',   nameEn: 'Soft Tofu',           shortLabel: '嫩', shortLabelEn: 'Sf', tags: ['蛋奶制品', '豆腐'] },
+    { id: 'firm_tofu',         icon: '🥣', name: '老豆腐',   nameEn: 'Firm Tofu',           shortLabel: '老', shortLabelEn: 'Fm', tags: ['蛋奶制品', '豆腐'] },
+    { id: 'frozen_tofu',       icon: '🥣', name: '冻豆腐',   nameEn: 'Frozen Tofu',         shortLabel: '冻', shortLabelEn: 'Fz', tags: ['蛋奶制品', '豆腐'] },
+    { id: 'tofu_skin',         icon: '🥣', name: '腐竹',     nameEn: 'Tofu Skin',           shortLabel: '竹', shortLabelEn: 'Tk', tags: ['蛋奶制品', '豆腐'] },
     // ── 蛋奶制品 · 奶酪 ──
-    { id: 'mozzarella',        icon: '🧀', name: '马苏里拉', nameEn: 'Mozzarella',          tags: ['蛋奶制品', '奶酪'] },
-    { id: 'cheddar',           icon: '🧀', name: '切达',     nameEn: 'Cheddar',             tags: ['蛋奶制品', '奶酪'] },
-    { id: 'brie',              icon: '🧀', name: '布里',     nameEn: 'Brie',                tags: ['蛋奶制品', '奶酪'] },
-    { id: 'parmesan',          icon: '🧀', name: '帕玛森',   nameEn: 'Parmesan',            tags: ['蛋奶制品', '奶酪'] },
+    { id: 'mozzarella',        icon: '🧀', name: '马苏里拉', nameEn: 'Mozzarella',          shortLabel: '马', shortLabelEn: 'Mz', tags: ['蛋奶制品', '奶酪'] },
+    { id: 'cheddar',           icon: '🧀', name: '切达',     nameEn: 'Cheddar',             shortLabel: '切', shortLabelEn: 'Cd', tags: ['蛋奶制品', '奶酪'] },
+    { id: 'brie',              icon: '🧀', name: '布里',     nameEn: 'Brie',                shortLabel: '布', shortLabelEn: 'Bi', tags: ['蛋奶制品', '奶酪'] },
+    { id: 'parmesan',          icon: '🧀', name: '帕玛森',   nameEn: 'Parmesan',            shortLabel: '帕', shortLabelEn: 'Pm', tags: ['蛋奶制品', '奶酪'] },
 ];
 
 // --- 品质系统 ---
@@ -122,7 +123,7 @@ export const QUALITY_CONFIG = [
 ];
 
 // Probability weights for random quality roll on draw — must sum to 1.0
-export const QUALITY_WEIGHTS = { 1: 0.5, 2: 0.3, 3: 0.15, 4: 0.05 };
+export const QUALITY_WEIGHTS = { 1: 0.45, 2: 0.35, 3: 0.15, 4: 0.05 };
 
 // --- 市场类型（替换原墙类型）---
 // 每种市场只出现对应大类的食材
@@ -228,11 +229,13 @@ export const DISHES = [
 ];
 
 // --- 订单模板 ---
+// reqBudget: total quality score-value units distributed across all requirement slots.
+// Each slot count=1; quality per slot is derived so sum(scores) ≈ reqBudget ≈ reward score.
 export const ORDER_TEMPLATES = [
-    { id: 'easy',    difficulty: 'easy',    reqQuality: 1, rewardQuality: 2, totalIngredients: 2, ingredientTypes: 1, weight: 40 },
-    { id: 'medium',  difficulty: 'medium',  reqQuality: 2, rewardQuality: 3, totalIngredients: 3, ingredientTypes: 2, weight: 30 },
-    { id: 'hard',    difficulty: 'hard',    reqQuality: 3, rewardQuality: 4, totalIngredients: 4, ingredientTypes: 3, weight: 20 },
-    { id: 'extreme', difficulty: 'extreme', reqQuality: 2, rewardQuality: 4, totalIngredients: 6, ingredientTypes: 4, weight: 10 },
+    { id: 'easy',    difficulty: 'easy',    reqBudget: 2, rewardQuality: 2, ingredientTypes: 2, weight: 40 },
+    { id: 'medium',  difficulty: 'medium',  reqBudget: 3, rewardQuality: 3, ingredientTypes: 2, weight: 30 },
+    { id: 'hard',    difficulty: 'hard',    reqBudget: 5, rewardQuality: 4, ingredientTypes: 3, weight: 20 },
+    { id: 'extreme', difficulty: 'extreme', reqBudget: 5, rewardQuality: 4, ingredientTypes: 4, weight: 10 },
 ];
 
 // --- 远征配置 ---

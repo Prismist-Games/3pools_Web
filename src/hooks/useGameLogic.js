@@ -65,6 +65,19 @@ function rollQuality() {
     return 1;
 }
 
+// Distribute reqBudget (score-value units) across slotCount requirement slots.
+// Returns an array of quality IDs. Each slot targets avgScore ±25% variance,
+// mapped to the nearest quality tier — creating natural quality mixing.
+function assignQualitiesFromBudget(reqBudget, slotCount) {
+    const avgScore = reqBudget / slotCount;
+    return Array.from({ length: slotCount }, () => {
+        const targetScore = avgScore * (0.75 + Math.random() * 0.5);
+        return QUALITY_CONFIG.reduce((best, q) =>
+            Math.abs(q.scoreValue - targetScore) < Math.abs(best.scoreValue - targetScore) ? q : best
+        , QUALITY_CONFIG[0]).id;
+    });
+}
+
 function pickMarketType() {
     const total = MARKET_TYPES.reduce((s, t) => s + t.weight, 0);
     let roll = Math.random() * total;
@@ -96,23 +109,17 @@ function generateOrder() {
     const rewardIngFinal = rewardPool[Math.floor(Math.random() * rewardPool.length)] || INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
     const finalReward = { ...rewardIngFinal, quality: template.rewardQuality, score: rewardQualityDef.scoreValue, isOutOfGame: true };
 
-    const requirements = [];
-    let remaining = template.totalIngredients;
-    for (let i = 0; i < selectedIngredients.length; i++) {
-        const count = i === selectedIngredients.length - 1
-            ? remaining
-            : 1 + Math.floor(Math.random() * (remaining - (selectedIngredients.length - i - 1)));
-        requirements.push({
-            ingredientId: selectedIngredients[i].id,
-            icon: selectedIngredients[i].icon,
-            name: selectedIngredients[i].name,
-            nameEn: selectedIngredients[i].nameEn,
-            tags: selectedIngredients[i].tags,
-            quality: Math.ceil(Math.random() * 4),
-            count,
-        });
-        remaining -= count;
-    }
+    // Assign quality to each slot from reqBudget; each slot needs exactly 1 ingredient.
+    const qualityIds = assignQualitiesFromBudget(template.reqBudget, selectedIngredients.length);
+    const requirements = selectedIngredients.map((ing, i) => ({
+        ingredientId: ing.id,
+        icon: ing.icon,
+        name: ing.name,
+        nameEn: ing.nameEn,
+        tags: ing.tags,
+        quality: qualityIds[i],
+        count: 1,
+    }));
 
     return { id: generateUID(), difficulty: template.difficulty, rewards: [finalReward], totalScore: finalReward.score, requirements };
 }
