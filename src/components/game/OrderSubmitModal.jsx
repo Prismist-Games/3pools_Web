@@ -49,10 +49,13 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
 
     const ds = DIFFICULTY_STYLE[order.difficulty] || DIFFICULTY_STYLE.easy;
 
+    // Wrapper is pointer-events-none: clicks pass through so the shelf and
+    // inventory behind stay interactive. Only the inner modal captures clicks.
+    // Cancel is still reachable via the explicit 取消 button in the footer.
     return (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onCancel}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <div onClick={(e) => e.stopPropagation()}
-                className="max-w-2xl w-full max-h-[90vh] overflow-y-auto bg-kitchen-card rounded-2xl border-2 border-kitchen-gold shadow-2xl">
+                className="max-w-xl w-full max-h-[85vh] overflow-y-auto bg-kitchen-card rounded-2xl border-2 border-kitchen-gold shadow-2xl pointer-events-auto">
 
                 {/* Header */}
                 <div className="px-4 py-3 border-b-2 border-kitchen-gold-border-muted bg-gradient-to-r from-[#FFF8E0] to-[#FFF3E0] sticky top-0 z-10 rounded-t-2xl">

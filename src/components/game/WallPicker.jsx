@@ -1,8 +1,19 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
-const WallPicker = ({ candidates, onSelect }) => {
+const WallPicker = ({ candidates, onSelect, onHoverIngredientIds }) => {
     const { t } = useLanguage();
+
+    // Hovering a market card reports that market's full ingredient id set up
+    // to the shared `hoveredIngredientIds` channel — BulletinBoard listens and
+    // rings order requirements whose tag2 matches. Restores pre-sticker-era
+    // behavior that was dropped during the 贴纸→食材 refactor (commit 3dc84fd).
+    const reportHover = (wall) => {
+        if (!onHoverIngredientIds) return;
+        if (!wall || !wall.marketIngredients) { onHoverIngredientIds(null); return; }
+        const ids = new Set(wall.marketIngredients.map(i => i.id));
+        onHoverIngredientIds(ids.size > 0 ? ids : null);
+    };
 
     return (
         <div className="text-center py-6">
@@ -16,6 +27,8 @@ const WallPicker = ({ candidates, onSelect }) => {
                         <button
                             key={idx}
                             onClick={() => onSelect(idx)}
+                            onMouseEnter={() => reportHover(wall)}
+                            onMouseLeave={() => reportHover(null)}
                             className="w-48 p-4 bg-white rounded-xl shadow-md border-2 border-gray-200
                                 hover:border-blue-400 hover:shadow-lg transition-all duration-150 text-left"
                         >

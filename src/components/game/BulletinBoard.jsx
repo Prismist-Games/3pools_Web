@@ -261,12 +261,11 @@ const BulletinBoard = ({
                                                         </div>
                                                     </>
                                                 }>
-                                                    <div className={`flex items-center gap-0.5 transition-all duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
+                                                    <div className={`flex items-center gap-0.5 transition-transform duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
                                                         <div className={`relative w-12 h-12 rounded border-2 ${
-                                                            isHovered ? 'border-kitchen-info-border bg-[#F0F8FF] ring-2 ring-kitchen-info/40'
-                                                            : enough ? 'border-kitchen-success-border bg-[#F0FFF8]'
+                                                            enough ? 'border-kitchen-success-border bg-[#F0FFF8]'
                                                             : qs.border + ' bg-kitchen-card'
-                                                        } flex flex-col items-center justify-center shadow-sm px-0.5`}>
+                                                        } ${isHovered ? 'animate-[req-highlight-pulse_1.4s_ease-in-out_infinite]' : 'shadow-sm'} flex flex-col items-center justify-center px-0.5`}>
                                                             <span className="text-lg leading-none">{req.icon}</span>
                                                             <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
                                                                 {t(req.name)}
