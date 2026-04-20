@@ -78,7 +78,6 @@ export function generateWall(marketIngredients) {
   const normalSample = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   const totalDoom = Math.max(1, Math.min(9, Math.round(5 + normalSample * 1.5)));
   const resCount = Math.max(0, Math.min(totalDoom, Math.round(totalDoom * (0.5 + (Math.random() - 0.5) * 0.3))));
-  const upgCount = totalDoom - resCount;
 
   const allPositions = [];
   for (let r = 0; r < gridSize; r++)
@@ -226,10 +225,7 @@ export function fillDoomAndSpecials(grid, gridSize) {
       } else if (roll < orderChance) {
         grid[row][col] = { type: 'order_cell', icon: specialCells.order.icon, name: specialCells.order.name, uid: generateUID() };
       } else if (roll < outOfGameChance) {
-        const rarityRoll = Math.random();
-        const rarity = rarityRoll < 0.4 ? 1 : rarityRoll < 0.7 ? 2 : rarityRoll < 0.9 ? 3 : 4;
-        const pool = INGREDIENTS.filter(i => i.rarity === rarity);
-        const item = pool[Math.floor(Math.random() * pool.length)];
+        const item = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
         grid[row][col] = { type: 'out_of_game', icon: item.icon, name: item.name, item: { ...item }, uid: generateUID() };
       } else if (roll < bombChance) {
         grid[row][col] = { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
