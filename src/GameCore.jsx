@@ -12,6 +12,7 @@ import SpritePreview from './components/game/SpritePreview';
 import { useLanguage } from './contexts/LanguageContext';
 import { Toast } from './components/ui/Toast';
 import { INGREDIENTS, DISHES, QUALITY_CONFIG } from './data/v2Config';
+import { MATRIX_CONFIG } from './data/matrixConfig';
 
 // Badge 显示的是"最终投入时的分值" = scoreValue，而不是内部 quality id。
 // 旧代码 badge 直接展示 quality id（1-5），在 quality=4/5 时与实际分值
@@ -68,6 +69,14 @@ const GameCore = () => {
     const [spritePreviewOpen, setSpritePreviewOpen] = useState(false);
     const [configOpen, setConfigOpen] = useState(false);
     const [swapFromIdx, setSwapFromIdx] = useState(null); // inventory swap: picked-up slot index
+    const [gridSize, setGridSize] = useState(MATRIX_CONFIG.gridSize);
+
+    const toggleGridSize = () => {
+        const next = MATRIX_CONFIG.gridSize === 4 ? 3 : 4;
+        MATRIX_CONFIG.gridSize = next;
+        setGridSize(next);
+        handleReset();
+    };
 
     const state = useGameLogic(INITIAL_GAME_CONFIG);
 
@@ -202,6 +211,7 @@ const GameCore = () => {
                             <button onClick={() => setGuideOpen(true)} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">❓</button>
                             <button onClick={toggleLanguage} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
                             <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#FFF0F0] border border-kitchen-danger text-kitchen-danger-text hover:bg-red-100 transition-colors">{t('重置')}</button>
+                            <button onClick={toggleGridSize} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">{gridSize}×{gridSize}</button>
                             <button onClick={() => setDispatchOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-800 text-amber-200 border border-amber-600 hover:bg-amber-700 transition-colors">{t('派遣')}</button>
                             <button onClick={() => setKitchenOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🍳 {t('厨房')}</button>
                             <button onClick={() => setSpritePreviewOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🎬 {t('动画')}</button>
