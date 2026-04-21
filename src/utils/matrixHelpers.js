@@ -1,5 +1,5 @@
 import { MATRIX_CONFIG, pickDoomEmoji } from '../data/matrixConfig';
-import { INGREDIENTS, MIN_QUALITY_CONFIG } from '../data/v2Config';
+import { INGREDIENTS } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 
 function generateUID() {
@@ -7,9 +7,10 @@ function generateUID() {
 }
 
 function rollMinQualityLevel() {
+  const weights = LIVE_CONFIG.minQuality.weights;
   const r = Math.random();
   let cum = 0;
-  for (const [q, w] of Object.entries(MIN_QUALITY_CONFIG.weights)) {
+  for (const [q, w] of Object.entries(weights)) {
     cum += w;
     if (r < cum) return Number(q);
   }
@@ -191,7 +192,7 @@ export function generateWall(marketIngredients) {
     const j = Math.floor(Math.random() * (i + 1));
     [itemList[i], itemList[j]] = [itemList[j], itemList[i]];
   }
-  const [minCount, maxCount] = MIN_QUALITY_CONFIG.countRange;
+  const [minCount, maxCount] = LIVE_CONFIG.minQuality.countRange;
   const variantCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
   for (let i = 0; i < Math.min(variantCount, itemList.length); i++) {
     itemList[i].minQuality = rollMinQualityLevel();

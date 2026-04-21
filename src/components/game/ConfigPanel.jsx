@@ -166,6 +166,44 @@ function OrderTemplatesSection() {
     );
 }
 
+// ─── Section D: 最低品质食材格 ────────────────────────────────────
+function MinQualitySection() {
+    const mq = LIVE_CONFIG.minQuality;
+    const weightKeys = Object.keys(mq.weights).map(Number).sort((a, b) => a - b);
+    const sum = weightKeys.reduce((s, k) => s + mq.weights[k], 0);
+    const colors = { 2: '绿', 3: '蓝', 4: '紫' };
+    return (
+        <section className="mb-5">
+            <h3 className="text-sm font-bold text-gray-100 mb-2">D. 最低品质食材格</h3>
+            <div className="grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1.5 items-center text-xs text-gray-300 mb-3">
+                <span>每墙数量范围</span>
+                <div className="flex items-center gap-1">
+                    <IntInput value={mq.countRange[0]} onChange={v => { mq.countRange[0] = Math.max(0, Math.min(v, mq.countRange[1])); bumpConfig(); }} min={0} max={16} width="w-12" />
+                    <span className="text-gray-500">–</span>
+                    <IntInput value={mq.countRange[1]} onChange={v => { mq.countRange[1] = Math.max(mq.countRange[0], v); bumpConfig(); }} min={0} max={16} width="w-12" />
+                </div>
+                <span className="text-gray-500">组</span>
+            </div>
+            <div className="text-xs text-gray-400 mb-1.5">最低品质档次分布：</div>
+            <div className="grid grid-cols-[auto_auto_1fr] gap-x-3 gap-y-1.5 items-center text-xs text-gray-300">
+                {weightKeys.map(k => {
+                    const qd = QUALITY_CONFIG.find(q => q.id === k);
+                    return (
+                        <React.Fragment key={k}>
+                            <span>{qd?.stars || '?'} ({colors[k] || k})</span>
+                            <NumInput value={mq.weights[k]} onChange={v => { mq.weights[k] = v; bumpConfig(); }} step={0.01} max={1} />
+                            <span className="text-gray-500">{(mq.weights[k] * 100).toFixed(1)}%</span>
+                        </React.Fragment>
+                    );
+                })}
+            </div>
+            <div className={`text-[11px] mt-1 ${Math.abs(sum - 1) < 0.001 ? 'text-green-400' : 'text-orange-400'}`}>
+                合计: {(sum * 100).toFixed(1)}% {Math.abs(sum - 1) < 0.001 ? '' : '(应为 100%)'}
+            </div>
+        </section>
+    );
+}
+
 // ─── Panel root ───────────────────────────────────────────────────
 export default function ConfigPanel({ onClose }) {
     useLiveConfigVersion();
@@ -203,6 +241,7 @@ export default function ConfigPanel({ onClose }) {
                 <div className="p-4">
                     <QualityWeightsSection />
                     <CellSpawnSection />
+                    <MinQualitySection />
                     <OrderTemplatesSection />
 
                     <div className="border-t border-gray-700 pt-3 mt-2">
