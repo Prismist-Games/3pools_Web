@@ -9,7 +9,7 @@
  * 不持久化：F5 刷新回到初始默认。用于开发 / 调试。
  */
 
-import { QUALITY_WEIGHTS, ORDER_TEMPLATES, MIN_QUALITY_CONFIG } from './v2Config';
+import { QUALITY_WEIGHTS, ORDER_TEMPLATES } from './v2Config';
 import { MATRIX_CONFIG } from './matrixConfig';
 
 function deepClone(obj) {
@@ -28,7 +28,6 @@ export const LIVE_CONFIG = {
     // 形状权重当前 hard-coded 在 matrixHelpers.js 里（{1:60, 2:30, 3:10}）；
     // 这里镜像一份用于面板调整 —— matrixHelpers 读 LIVE_CONFIG.shapeWeights。
     shapeWeights: { 1: 60, 2: 30, 3: 10 },
-    minQuality: deepClone(MIN_QUALITY_CONFIG),
 };
 
 const DEFAULTS = deepClone(LIVE_CONFIG);

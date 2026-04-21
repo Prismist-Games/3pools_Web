@@ -92,7 +92,8 @@ function resolveConstrainedCell(token) {
  * 2. Assign sticker types from the wall's sticker pool (each sticker cell independent)
  * 3. Procedural fill on blank cells, respecting settings
  */
-export function generateWallFromTemplate(template) {
+export function generateWallFromTemplate(template, marketIngredients) {
+  const pool = (marketIngredients && marketIngredients.length > 0) ? marketIngredients : INGREDIENTS;
   const { gridSize } = MATRIX_CONFIG;
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
   const settings = template.settings || template.constraints || {};
@@ -117,7 +118,7 @@ export function generateWallFromTemplate(template) {
     for (let c = 0; c < gridSize; c++) {
       const cell = grid[r][c];
       if (cell && cell.type === 'ingredient' && !cell.item) {
-        const ing = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
+        const ing = pool[Math.floor(Math.random() * pool.length)];
         cell.item = { ...ing };
         cell.groupId = cell.uid;
         cell.shapeSize = 1;
@@ -133,7 +134,7 @@ export function generateWallFromTemplate(template) {
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       if (grid[r][c] !== null) continue;
-      const ing = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
+      const ing = pool[Math.floor(Math.random() * pool.length)];
       grid[r][c] = { type: 'ingredient', item: { ...ing }, uid: generateUID(), groupId: generateUID(), shapeSize: 1 };
     }
   }

@@ -127,12 +127,6 @@ export const QUALITY_CONFIG = [
 // Probability weights for random quality roll on draw — must sum to 1.0
 export const QUALITY_WEIGHTS = { 1: 0.40, 2: 0.30, 3: 0.18, 4: 0.08, 5: 0.04 };
 
-// Min-quality variant: 2-4 ingredient groups per wall get a quality floor (Q2/Q3/Q4 only)
-export const MIN_QUALITY_CONFIG = {
-    countRange: [2, 4],
-    weights: { 2: 0.70, 3: 0.25, 4: 0.05 },
-};
-
 // --- 市场类型（替换原墙类型）---
 // 每种市场只出现对应大类的食材
 export const MARKET_TYPES = [

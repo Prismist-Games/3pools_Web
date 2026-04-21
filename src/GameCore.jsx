@@ -29,6 +29,7 @@ import RoundTransition from './components/ui/RoundTransition';
 import WallPicker from './components/game/WallPicker';
 import OrderSubmitModal from './components/game/OrderSubmitModal';
 import ConfigPanel from './components/game/ConfigPanel';
+import { LEVEL_TEMPLATES } from './data/levelTemplates';
 
 // DIAG: temporary wrapper to log mount/unmount of the fly element
 const FlyElementDiag = ({ flyId, icon, count, style }) => {
@@ -68,6 +69,7 @@ const GameCore = () => {
     const [kitchenOpen, setKitchenOpen] = useState(false);
     const [spritePreviewOpen, setSpritePreviewOpen] = useState(false);
     const [configOpen, setConfigOpen] = useState(false);
+    const [levelTesterOpen, setLevelTesterOpen] = useState(false);
     const [swapFromIdx, setSwapFromIdx] = useState(null); // inventory swap: picked-up slot index
     const [gridSize, setGridSize] = useState(MATRIX_CONFIG.gridSize);
 
@@ -104,6 +106,7 @@ const GameCore = () => {
         dishIntroPending, currentDish, dismissDishIntro,
         isInSubLevel, wallStack,
         enterSubLevel, exitSubLevel,
+        loadTestLevel,
     } = state;
 
     // --- Doom animation interval ---
@@ -217,6 +220,7 @@ const GameCore = () => {
                             <button onClick={() => setSpritePreviewOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🎬 {t('动画')}</button>
                             <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
                             <button onClick={() => setConfigOpen(true)} title="配置面板" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">⚙</button>
+                            <button onClick={() => setLevelTesterOpen(v => !v)} title="关卡测试" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-900 text-indigo-200 border border-indigo-600 hover:bg-indigo-800 transition-colors">🎯</button>
                             <Link to="/editor" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors no-underline">📐</Link>
                         </div>
                     </div>
@@ -1012,6 +1016,36 @@ const GameCore = () => {
                 {/* Sprite Preview Modal */}
                 {spritePreviewOpen && <SpritePreview onClose={() => setSpritePreviewOpen(false)} />}
                 {configOpen && <ConfigPanel onClose={() => setConfigOpen(false)} />}
+
+                {/* Level Tester Panel */}
+                {levelTesterOpen && (
+                    <div className="fixed top-14 right-4 z-50 bg-gray-900 border border-indigo-600 rounded-xl shadow-2xl p-4 w-72 max-h-[80vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-sm font-bold text-indigo-200">🎯 关卡测试</h3>
+                            <button onClick={() => setLevelTesterOpen(false)} className="text-gray-400 hover:text-gray-100 text-lg leading-none">✕</button>
+                        </div>
+                        <div className="space-y-2">
+                            {LEVEL_TEMPLATES.length === 0 && (
+                                <p className="text-gray-500 text-xs">无关卡模板</p>
+                            )}
+                            {LEVEL_TEMPLATES.map(level => (
+                                <button
+                                    key={level.id}
+                                    onClick={() => { loadTestLevel(level); setLevelTesterOpen(false); }}
+                                    className="w-full text-left px-3 py-2 bg-gray-800 hover:bg-indigo-900 border border-gray-700 hover:border-indigo-500 rounded-lg transition-colors"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-base">{level.icon || '📋'}</span>
+                                        <span className="text-sm font-medium text-gray-100">{level.name}</span>
+                                    </div>
+                                    {level.description && (
+                                        <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{level.description}</p>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}

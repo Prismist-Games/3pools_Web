@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { generateWall, pickMarketIngredients } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { LEVEL_TEMPLATES } from '../data/levelTemplates';
@@ -330,6 +330,7 @@ export const useGameLogic = (config) => {
     const selectWall = (index) => {
         if (!wallCandidates || !wallCandidates[index]) return;
         const chosen = wallCandidates[index];
+        wallDrawCountRef.current = 0;
         setCurrentWallType(chosen.wallType);
         setMatrix(chosen.grid.map(r => r.map(c => c ? { ...c } : null)));
         setWallCandidates(null);
@@ -401,11 +402,31 @@ export const useGameLogic = (config) => {
         startNewTurn();
     };
 
+    /** Dev tool: force-load any level template immediately, regardless of phase. */
+    const loadTestLevel = (template) => {
+        const marketType = pickMarketType();
+        const marketIngredients = pickMarketIngredients(marketType);
+        const result = generateWallFromTemplate(template, marketIngredients);
+        wallDrawCountRef.current = 0;
+        if (template.boardEffect === 'quality_upgrade') upgradeGridCells(result.grid);
+        setCurrentLevel(template);
+        setCurrentWallType(marketType);
+        setWallCandidates(null);
+        setPendingWallCandidate(null);
+        setMatrix(result.grid);
+        setLastDrawResult(null);
+        setGravityActive(false);
+        setGold(template.settings?.gold ?? turnConfig.goldPerTurn);
+        if (turnNumber === 0) setTurnNumber(1);
+        setPhase('drawing');
+    };
+
     /** Apply a chosen wall candidate. Modifier-specific grid mutations and
      *  wallType randomization are baked in at candidate-generation time
      *  (finalizeProceduralCandidate), so this is now just a state setter
      *  plus gold override and phase transition. */
     const applyWallCandidate = (chosen) => {
+        wallDrawCountRef.current = 0;
         setCurrentWallType(chosen.wallType || null);
         setCurrentLevel(chosen.level || null);
 
@@ -416,7 +437,10 @@ export const useGameLogic = (config) => {
             setGold(chosen.level.settings.gold);
         }
 
-        setMatrix(chosen.grid);
+        const grid = chosen.level?.boardEffect === 'quality_upgrade'
+            ? upgradeGridCells(chosen.grid.map(r => r.map(c => c ? { ...c } : null)))
+            : chosen.grid;
+        setMatrix(grid);
         setPhase('drawing');
     };
 
@@ -439,8 +463,10 @@ export const useGameLogic = (config) => {
             level: currentLevel,
         }]);
 
-        // Generate and load sub-level
-        const result = generateWallFromTemplate(subLevel);
+        // Generate and load sub-level — inherit parent wall's market type if available
+        const subMarketType = currentWallType && currentWallType.category ? currentWallType : pickMarketType();
+        const subMarketIngredients = pickMarketIngredients(subMarketType);
+        const result = generateWallFromTemplate(subLevel, subMarketIngredients);
         const subGold = subLevel.settings?.gold ?? turnConfig.goldPerTurn;
         setMatrix(result.grid);
         setGold(subGold);
@@ -478,6 +504,59 @@ export const useGameLogic = (config) => {
     const isDrawAnimating = drawAnimState !== null;
 
     /** Select a row — starts scanning animation, then resolves */
+    // Tracks how many draws have completed on the current wall, for board effects tied to draw count.
+    const wallDrawCountRef = useRef(0);
+
+    /** Pure helper: applies 2 quality upgrades directly to a grid array (for level-load trigger).
+     *  Returns the mutated grid (same reference). */
+    const upgradeGridCells = (grid) => {
+        const upgradeable = [];
+        for (let r = 0; r < grid.length; r++) {
+            for (let c = 0; c < grid[0].length; c++) {
+                if (grid[r][c]?.type === 'ingredient') upgradeable.push([r, c]);
+            }
+        }
+        if (upgradeable.length === 0) return grid;
+        for (let i = 0; i < 2; i++) {
+            const [ur, uc] = upgradeable[Math.floor(Math.random() * upgradeable.length)];
+            const cell = grid[ur][uc];
+            grid[ur][uc] = { ...cell, minQuality: Math.min((cell.minQuality ?? 1) + 1, 5) };
+        }
+        return grid;
+    };
+
+    /** Quality upgrade board effect: upgrade 2 random ingredient cells (with replacement)
+     *  via React state, excluding the cell just drawn. Used after draws 1 and 2. */
+    const applyQualityUpgrade = (excludeRow, excludeCol) => {
+        const upgradeable = [];
+        for (let r = 0; r < matrix.length; r++) {
+            for (let c = 0; c < matrix[0].length; c++) {
+                const cell = matrix[r][c];
+                if (cell?.type === 'ingredient' && !(r === excludeRow && c === excludeCol)) {
+                    upgradeable.push([r, c]);
+                }
+            }
+        }
+        if (upgradeable.length === 0) return;
+        const positions = [];
+        for (let i = 0; i < 2; i++) {
+            positions.push(upgradeable[Math.floor(Math.random() * upgradeable.length)]);
+        }
+        setMatrix(prev => {
+            const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
+            for (const [ur, uc] of positions) {
+                const qCell = newMatrix[ur][uc];
+                if (qCell?.type === 'ingredient') {
+                    newMatrix[ur][uc] = { ...qCell, minQuality: Math.min((qCell.minQuality ?? 1) + 1, 5) };
+                }
+            }
+            return newMatrix;
+        });
+        showToast('✨ 食材品质提升 ×2', 'info');
+        setGrowthFlashes(new Set(positions.map(([r, c]) => `${r}-${c}`)));
+        setTimeout(() => setGrowthFlashes(null), 400);
+    };
+
     const selectRow = (rowIndex) => {
         if (phase !== 'drawing' && phase !== 'drawing_sub') return;
         if (isDoomResolving || isDrawAnimating) return;
@@ -926,6 +1005,14 @@ export const useGameLogic = (config) => {
             doomEffects,
         });
         setDrawAnimState(null);
+
+        // Quality upgrade board effect: fire after draws 1 and 2 (not 3).
+        if (currentLevel?.boardEffect === 'quality_upgrade') {
+            wallDrawCountRef.current += 1;
+            if (wallDrawCountRef.current <= 2) {
+                applyQualityUpgrade(finalRowIndex, finalColIndex);
+            }
+        }
     };
 
     // =============================================
@@ -933,9 +1020,8 @@ export const useGameLogic = (config) => {
     // =============================================
 
     const addToInventory = (itemCell) => {
-        const minQ = itemCell.item?.minQuality;
-        const rawQuality = itemCell.item?.quality ?? rollQuality();
-        const quality = minQ ? Math.max(rawQuality, minQ) : rawQuality;
+        const rolled = itemCell.item?.quality ?? rollQuality();
+        const quality = Math.max(rolled, itemCell.minQuality ?? 1);
         const qualityDef = QUALITY_CONFIG.find(q => q.id === quality) || QUALITY_CONFIG[0];
         const newItem = {
             ...itemCell.item,
@@ -1577,5 +1663,6 @@ export const useGameLogic = (config) => {
         dishIntroPending,
         currentDish,
         dismissDishIntro,
+        loadTestLevel,
     };
 };

@@ -178,8 +178,6 @@ export const EN_TRANSLATIONS = {
     "品质得分加成": "Rarity Score Bonus",
 
     // --- Rarity ---
-    "品质未知，抽到后揭示": "Quality unknown — revealed on draw",
-    "最低品质": "Min. quality",
     "普通": "Common",
     "精选": "Choice",
     "优质": "Premium",

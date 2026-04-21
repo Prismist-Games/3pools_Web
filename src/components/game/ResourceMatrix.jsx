@@ -4,9 +4,6 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
 import { MATRIX_CONFIG } from '../../data/matrixConfig';
 import { getClusterMembers } from '../../utils/matrixHelpers';
-import { QUALITY_CONFIG } from '../../data/v2Config';
-
-const QUALITY_MIN_COLORS = { 2: '#22c55e', 3: '#3b82f6', 4: '#a855f7' };
 
 /** Tooltip for grid cells — Portal-based, same style as ToolItemTooltip */
 const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
@@ -89,17 +86,14 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
         const ingTags = cell.item?.tags || [];
-        const minQ = cell.item?.minQuality;
-        const minQDef = minQ ? QUALITY_CONFIG.find(q => q.id === minQ) : null;
+        const minQ = cell.minQuality ?? 1;
+        const minQNames = { 1: '普通', 2: '精选', 3: '优质', 4: '顶级', 5: '传说' };
         desc = (
             <>
-                {minQDef ? (
-                    <span className="text-[10px] font-semibold" style={{ color: QUALITY_MIN_COLORS[minQ] }}>
-                        {t('最低品质')}：{minQDef.stars} {t(minQDef.name)}
-                    </span>
-                ) : (
-                    <span className="text-[10px] text-gray-400 italic">{t('品质未知，抽到后揭示')}</span>
-                )}
+                {minQ > 1
+                    ? <span className="text-[10px] text-amber-300 font-bold">最低品质: {'★'.repeat(minQ)} {minQNames[minQ]}</span>
+                    : <span className="text-[10px] text-gray-400 italic">{t('品质未知，抽到后揭示')}</span>
+                }
                 {ingTags.length > 0 && (
                     <span className="ml-2">
                         {ingTags.map(tag => (
@@ -279,11 +273,6 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 
     const isStickerCell = cell?.type === 'sticker' || cell?.type === 'ingredient';
 
-    const cellMinQuality = cell?.type === 'ingredient' ? cell.item?.minQuality : null;
-    const minQBorderStyle = cellMinQuality
-        ? { borderColor: QUALITY_MIN_COLORS[cellMinQuality], borderWidth: '2px' }
-        : {};
-
     return (
         <div
             ref={ref}
@@ -294,7 +283,6 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
                 width: CELL_SIZE,
                 height: CELL_SIZE,
                 boxShadow: finalShadow,
-                ...minQBorderStyle,
                 ...borderStyle,
                 ...gravityStyle,
                 ...rotationStyle,
@@ -313,14 +301,6 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
             {isBuffed && (
                 <span className="absolute -top-1 -left-1 bg-amber-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-20">
                     ×{buffCoverage + 1}
-                </span>
-            )}
-            {cellMinQuality && (
-                <span
-                    className="absolute -bottom-1 -right-1 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-20"
-                    style={{ backgroundColor: QUALITY_MIN_COLORS[cellMinQuality] }}
-                >
-                    ≥
                 </span>
             )}
             {hasTip && <CellTooltip cell={cell} anchorRef={ref} visible={hovered} t={t} language={language} />}
@@ -456,12 +436,19 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         }
         if (cell.type === 'ingredient' || cell.type === 'item' || cell.type === 'sticker') {
             const displayName = cell.item ? (language === 'en' && cell.item.nameEn ? cell.item.nameEn : t(cell.item.name)) : '';
+            const minQ = cell.minQuality ?? 1;
+            const minQColors = { 2: 'bg-green-500', 3: 'bg-blue-500', 4: 'bg-purple-500', 5: 'bg-amber-500' };
             return (
                 <>
                     <span className="text-lg leading-none">{cell.item?.icon || cell.icon}</span>
                     {displayName && (
                         <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5 px-0.5">
                             {displayName}
+                        </span>
+                    )}
+                    {minQ > 1 && (
+                        <span className={`absolute -top-1 -left-1 ${minQColors[minQ] || 'bg-green-500'} text-white text-[7px] font-black px-1 rounded shadow z-10 leading-tight`}>
+                            {'★'.repeat(minQ)}
                         </span>
                     )}
                     {cell.multiplier && cell.multiplier > 1 && (
