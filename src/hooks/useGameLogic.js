@@ -525,8 +525,8 @@ export const useGameLogic = (config) => {
         return grid;
     };
 
-    /** Quality upgrade board effect: upgrade 2 random ingredient cells (with replacement)
-     *  via React state, excluding the cell just drawn. Used after draws 1 and 2. */
+    /** Quality upgrade board effect: upgrade 1 random ingredient cell via React state,
+     *  excluding the cell just drawn. Fires after every draw on quality_upgrade walls. */
     const applyQualityUpgrade = (excludeRow, excludeCol) => {
         const upgradeable = [];
         for (let r = 0; r < matrix.length; r++) {
@@ -538,22 +538,18 @@ export const useGameLogic = (config) => {
             }
         }
         if (upgradeable.length === 0) return;
-        const positions = [];
-        for (let i = 0; i < 2; i++) {
-            positions.push(upgradeable[Math.floor(Math.random() * upgradeable.length)]);
-        }
+        const pos = upgradeable[Math.floor(Math.random() * upgradeable.length)];
         setMatrix(prev => {
             const newMatrix = prev.map(r => r.map(c => c ? { ...c } : null));
-            for (const [ur, uc] of positions) {
-                const qCell = newMatrix[ur][uc];
-                if (qCell?.type === 'ingredient') {
-                    newMatrix[ur][uc] = { ...qCell, minQuality: Math.min((qCell.minQuality ?? 1) + 1, 5) };
-                }
+            const [ur, uc] = pos;
+            const qCell = newMatrix[ur][uc];
+            if (qCell?.type === 'ingredient') {
+                newMatrix[ur][uc] = { ...qCell, minQuality: Math.min((qCell.minQuality ?? 1) + 1, 5) };
             }
             return newMatrix;
         });
-        showToast('✨ 食材品质提升 ×2', 'info');
-        setGrowthFlashes(new Set(positions.map(([r, c]) => `${r}-${c}`)));
+        showToast('✨ 食材品质提升', 'info');
+        setGrowthFlashes(new Set([`${pos[0]}-${pos[1]}`]));
         setTimeout(() => setGrowthFlashes(null), 400);
     };
 
@@ -1042,12 +1038,9 @@ export const useGameLogic = (config) => {
         });
         setDrawAnimState(null);
 
-        // Quality upgrade board effect: fire after draws 1 and 2 (not 3).
+        // Quality upgrade board effect: fire after every draw.
         if (currentLevel?.boardEffect === 'quality_upgrade') {
-            wallDrawCountRef.current += 1;
-            if (wallDrawCountRef.current <= 2) {
-                applyQualityUpgrade(finalRowIndex, finalColIndex);
-            }
+            applyQualityUpgrade(finalRowIndex, finalColIndex);
         }
     };
 
