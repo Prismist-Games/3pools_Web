@@ -1,0 +1,19 @@
+{
+  "id": "loudmouth",
+  "name": "大嗓门",
+  "name_en": "Loudmouth",
+  "description": "场上固定出现一个大嗓门；他存在时，每次抽取后空出的格子会自动填入一个抢菜人；抽到大嗓门将其移除，抢菜人停止刷新；抽到抢菜人将随机夺走你篮中的一件食材",
+  "description_en": "A Loudmouth appears on the board; while present, each emptied cell refills with a Competitor; draw the Loudmouth to remove it; drawing a Competitor steals a random item from your basket",
+  "icon": "📢",
+  "role": "main",
+  "boardEffect": "loudmouth",
+  "grid": [
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, null, null]
+  ],
+  "settings": {
+    "gold": 5
+  }
+}

@@ -409,6 +409,7 @@ export const useGameLogic = (config) => {
         const result = generateWallFromTemplate(template, marketIngredients);
         wallDrawCountRef.current = 0;
         if (template.boardEffect === 'quality_upgrade') upgradeGridCells(result.grid);
+        if (template.boardEffect === 'loudmouth') placeLoudmouth(result.grid);
         setCurrentLevel(template);
         setCurrentWallType(marketType);
         setWallCandidates(null);
@@ -437,9 +438,10 @@ export const useGameLogic = (config) => {
             setGold(chosen.level.settings.gold);
         }
 
-        const grid = chosen.level?.boardEffect === 'quality_upgrade'
-            ? upgradeGridCells(chosen.grid.map(r => r.map(c => c ? { ...c } : null)))
-            : chosen.grid;
+        const rawGrid = chosen.grid.map(r => r.map(c => c ? { ...c } : null));
+        if (chosen.level?.boardEffect === 'quality_upgrade') upgradeGridCells(rawGrid);
+        if (chosen.level?.boardEffect === 'loudmouth') placeLoudmouth(rawGrid);
+        const grid = rawGrid;
         setMatrix(grid);
         setPhase('drawing');
     };
@@ -506,6 +508,20 @@ export const useGameLogic = (config) => {
     /** Select a row — starts scanning animation, then resolves */
     // Tracks how many draws have completed on the current wall, for board effects tied to draw count.
     const wallDrawCountRef = useRef(0);
+
+    /** Pure helper: place loudmouth at a random non-null cell, replacing it. Returns mutated grid. */
+    const placeLoudmouth = (grid) => {
+        const cells = [];
+        for (let r = 0; r < grid.length; r++) {
+            for (let c = 0; c < grid[0].length; c++) {
+                if (grid[r][c] !== null) cells.push([r, c]);
+            }
+        }
+        if (cells.length === 0) return grid;
+        const [lr, lc] = cells[Math.floor(Math.random() * cells.length)];
+        grid[lr][lc] = { type: 'loudmouth', icon: '📢', name: '大嗓门', uid: generateUID() };
+        return grid;
+    };
 
     /** Pure helper: applies 2 quality upgrades directly to a grid array (for level-load trigger).
      *  Returns the mutated grid (same reference). */
@@ -735,6 +751,10 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'gravity') {
             setGravityActive(true);
             showToast('⬇️ ' + t('重力开关！'), 'info');
+        } else if (drawnCell.type === 'loudmouth') {
+            showToast('📢 ' + t('大嗓门被驱散！'), 'success');
+        } else if (drawnCell.type === 'competitor') {
+            // steal handled after setMatrix
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {
@@ -947,6 +967,19 @@ export const useGameLogic = (config) => {
                 }
             }
 
+            // Loudmouth board effect: while loudmouth still on board, refill drawn cell with competitor
+            if (currentLevel?.boardEffect === 'loudmouth') {
+                const loudmouthAlive = newMatrix.some(row => row.some(c => c?.type === 'loudmouth'));
+                if (loudmouthAlive) {
+                    newMatrix[finalRowIndex][finalColIndex] = {
+                        type: 'competitor',
+                        icon: '🧑',
+                        name: '抢菜人',
+                        uid: generateUID(),
+                    };
+                }
+            }
+
             // Gravity: all cells fall down independently, one step per iteration
             // Iterative bottom-up: process from bottom row upward so lower things settle first
             if (gravityActive || drawnCell.type === 'gravity') {
@@ -1041,6 +1074,20 @@ export const useGameLogic = (config) => {
         // Quality upgrade board effect: fire after every draw.
         if (currentLevel?.boardEffect === 'quality_upgrade') {
             applyQualityUpgrade(finalRowIndex, finalColIndex);
+        }
+
+        // Competitor steal effect: remove a random item from backpack
+        if (drawnCell.type === 'competitor') {
+            if (inventory.length === 0) {
+                showToast('🧑 ' + t('抢菜人扑了个空'), 'warning');
+            } else {
+                const stealIdx = Math.floor(Math.random() * inventory.length);
+                const stolen = inventory[stealIdx];
+                const icon = stolen.item?.icon || stolen.icon || '';
+                const name = stolen.item?.name || stolen.name || '';
+                showToast(`🧑 ${t('抢菜人抢走了')} ${icon} ${t(name)}!`, 'warning');
+                setInventory(prev => prev.filter((_, i) => i !== stealIdx));
+            }
         }
     };
 

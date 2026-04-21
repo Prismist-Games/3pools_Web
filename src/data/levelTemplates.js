@@ -25,6 +25,9 @@ export const CELL_TYPES = {
   ANY_DOOM: 'any_doom',           // alias for doom_resolve
   ANY_SPECIAL: 'any_special',     // randomly gold/order/out_of_game/bomb
   ANY_STICKER: 'any_sticker',     // random sticker type (1×1)
+  // Loudmouth level types
+  LOUDMOUTH: 'loudmouth',
+  COMPETITOR: 'competitor',
 };
 
 // --- Levels: auto-imported from src/data/levels/*.json ---

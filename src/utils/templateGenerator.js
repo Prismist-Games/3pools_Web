@@ -61,6 +61,10 @@ function resolveConstrainedCell(token) {
       return { type: 'backpack_expand', icon: '🎒', name: '菜篮扩容', expandAmount: extras.expandAmount ?? 1, uid: generateUID(), ...extras };
     case CELL_TYPES.GRAVITY:
       return { type: 'gravity', icon: '⬇️', name: '重力开关', uid: generateUID(), ...extras };
+    case CELL_TYPES.LOUDMOUTH:
+      return { type: 'loudmouth', icon: '📢', name: '大嗓门', uid: generateUID(), ...extras };
+    case CELL_TYPES.COMPETITOR:
+      return { type: 'competitor', icon: '🧑', name: '抢菜人', uid: generateUID(), ...extras };
     case CELL_TYPES.ANY_STICKER:
       // Ingredient type is assigned later from the wall's ingredient pool.
       return { type: 'ingredient', item: null, uid: generateUID(), ...extras };
