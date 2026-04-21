@@ -347,6 +347,15 @@ const GameCore = () => {
                                                     <span className="text-sm text-kitchen-text-muted"> / {INITIAL_GAME_CONFIG.turn.goldPerTurn}</span>
                                                 </div>
                                             )}
+                                            {currentLevel?.boardEffect === 'discard_keep' && gold > 0 && (
+                                                <div className={`mb-2 text-center text-sm font-bold px-3 py-1 rounded-lg ${
+                                                    gold % 2 === 0
+                                                        ? 'bg-red-100 text-red-600 border border-red-200'
+                                                        : 'bg-green-100 text-green-700 border border-green-200'
+                                                }`}>
+                                                    {gold % 2 === 0 ? `🚫 ${t('丢弃')}` : `✅ ${t('获取')}`}
+                                                </div>
+                                            )}
                                             <button
                                                 onClick={phase === 'drawing_sub' ? exitSubLevel : endTurn}
                                                 disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}

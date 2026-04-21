@@ -99,6 +99,7 @@ export const EN_TRANSLATIONS = {
     "按顺序处理": "Process in Order",
     "当前处理": "Processing",
     "丢弃": "Discard",
+    "获取": "Keep",
     "取消置换": "Cancel Trade",
     "精准：二选一 (不可取消)": "Precise: Choose One (Irreversible)",
     "有的放矢：请选择你想要的": "Targeted: Choose Your Desire",

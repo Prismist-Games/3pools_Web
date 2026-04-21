@@ -669,6 +669,42 @@ export const useGameLogic = (config) => {
         // Track draw direction for alternating wall
         setLastDrawDirection(direction);
 
+        // Discard-keep board effect: odd draws (1st, 3rd, 5th) are discarded with no effects.
+        if (currentLevel?.boardEffect === 'discard_keep') {
+            wallDrawCountRef.current += 1;
+            if (wallDrawCountRef.current % 2 === 1) {
+                setMatrix(prev => {
+                    const m = prev.map(r => r.map(c => c ? { ...c } : null));
+                    m[finalRowIndex][finalColIndex] = null;
+                    if (gravityActive) {
+                        const rows = m.length, cols = m[0].length;
+                        let moved = true;
+                        while (moved) {
+                            moved = false;
+                            for (let r = rows - 2; r >= 0; r--) {
+                                for (let c = 0; c < cols; c++) {
+                                    const cell = m[r][c];
+                                    if (!cell || cell.type === 'empty') continue;
+                                    if (m[r + 1][c] === null) {
+                                        m[r + 1][c] = cell;
+                                        m[r][c] = null;
+                                        moved = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return m;
+                });
+                const discardIcon = drawnCell.item?.icon || drawnCell.icon || '';
+                const discardName = drawnCell.item?.name || drawnCell.name || '';
+                showToast(`🚫 ${t('丢弃')} ${discardIcon} ${t(discardName)}`, 'warning');
+                setLastDrawResult({ rowIndex: finalRowIndex, colIndex: finalColIndex, obtained: null, doomEffects: { resolutions: 0 } });
+                setDrawAnimState(null);
+                return;
+            }
+        }
+
         // Buff field coverage at the drawn cell — bomb is explicitly unaffected.
         const buffCov = drawnCell.type === 'bomb'
             ? 0

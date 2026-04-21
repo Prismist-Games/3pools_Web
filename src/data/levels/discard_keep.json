@@ -1,0 +1,19 @@
+{
+  "id": "discard_keep",
+  "name": "取舍之道",
+  "name_en": "Discard & Keep",
+  "description": "共 6 次抽取，单数次丢弃（不触发效果），双数次正常获取",
+  "description_en": "Draw 6 times: odd draws are discarded (no effects), even draws are kept",
+  "icon": "🔄",
+  "role": "main",
+  "boardEffect": "discard_keep",
+  "grid": [
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, null, null]
+  ],
+  "settings": {
+    "gold": 6
+  }
+}
