@@ -1,9 +1,19 @@
 import { MATRIX_CONFIG, pickDoomEmoji } from '../data/matrixConfig';
-import { INGREDIENTS } from '../data/v2Config';
+import { INGREDIENTS, MIN_QUALITY_CONFIG } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 
 function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+}
+
+function rollMinQualityLevel() {
+  const r = Math.random();
+  let cum = 0;
+  for (const [q, w] of Object.entries(MIN_QUALITY_CONFIG.weights)) {
+    cum += w;
+    if (r < cum) return Number(q);
+  }
+  return 2;
 }
 
 // Polyomino shape geometry — static. Size weights live in LIVE_CONFIG.shapeWeights
@@ -134,10 +144,11 @@ export function generateWall(marketIngredients) {
         if (positions) {
           const ingredient = marketIngredients[Math.floor(Math.random() * marketIngredients.length)];
           const groupId = generateUID();
+          const item = { ...ingredient };
           for (const [r, c] of positions) {
             grid[r][c] = {
               type: 'ingredient',
-              item: { ...ingredient },
+              item,
               uid: generateUID(),
               groupId,
               shapeSize: size,
@@ -163,6 +174,27 @@ export function generateWall(marketIngredients) {
 
     empty = getEmptyPositions();
     empty.sort(() => Math.random() - 0.5);
+  }
+
+  // Assign minQuality to a random selection of 2-4 ingredient groups
+  const groupItemMap = new Map(); // groupId -> item reference
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      const cell = grid[r][c];
+      if (cell?.type === 'ingredient' && !groupItemMap.has(cell.groupId)) {
+        groupItemMap.set(cell.groupId, cell.item);
+      }
+    }
+  }
+  const itemList = [...groupItemMap.values()];
+  for (let i = itemList.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [itemList[i], itemList[j]] = [itemList[j], itemList[i]];
+  }
+  const [minCount, maxCount] = MIN_QUALITY_CONFIG.countRange;
+  const variantCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
+  for (let i = 0; i < Math.min(variantCount, itemList.length); i++) {
+    itemList[i].minQuality = rollMinQualityLevel();
   }
 
   return { grid, doomCellCount };

@@ -933,7 +933,9 @@ export const useGameLogic = (config) => {
     // =============================================
 
     const addToInventory = (itemCell) => {
-        const quality = itemCell.item?.quality ?? rollQuality();
+        const minQ = itemCell.item?.minQuality;
+        const rawQuality = itemCell.item?.quality ?? rollQuality();
+        const quality = minQ ? Math.max(rawQuality, minQ) : rawQuality;
         const qualityDef = QUALITY_CONFIG.find(q => q.id === quality) || QUALITY_CONFIG[0];
         const newItem = {
             ...itemCell.item,
