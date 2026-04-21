@@ -754,7 +754,8 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'loudmouth') {
             showToast('📢 ' + t('大嗓门被驱散！'), 'success');
         } else if (drawnCell.type === 'competitor') {
-            // steal handled after setMatrix
+            doomEffects.resolutions = 1 * mult;
+            showToast('🧑 ' + t('抢菜人！触发人挤人'), 'warning');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {
@@ -967,6 +968,15 @@ export const useGameLogic = (config) => {
                 }
             }
 
+            // Loudmouth drawn: clear all competitors from the board
+            if (drawnCell.type === 'loudmouth') {
+                for (let r = 0; r < newMatrix.length; r++) {
+                    for (let c = 0; c < newMatrix[0].length; c++) {
+                        if (newMatrix[r][c]?.type === 'competitor') newMatrix[r][c] = null;
+                    }
+                }
+            }
+
             // Loudmouth board effect: while loudmouth still on board, refill drawn cell with competitor
             if (currentLevel?.boardEffect === 'loudmouth') {
                 const loudmouthAlive = newMatrix.some(row => row.some(c => c?.type === 'loudmouth'));
@@ -1076,19 +1086,6 @@ export const useGameLogic = (config) => {
             applyQualityUpgrade(finalRowIndex, finalColIndex);
         }
 
-        // Competitor steal effect: remove a random item from backpack
-        if (drawnCell.type === 'competitor') {
-            if (inventory.length === 0) {
-                showToast('🧑 ' + t('抢菜人扑了个空'), 'warning');
-            } else {
-                const stealIdx = Math.floor(Math.random() * inventory.length);
-                const stolen = inventory[stealIdx];
-                const icon = stolen.item?.icon || stolen.icon || '';
-                const name = stolen.item?.name || stolen.name || '';
-                showToast(`🧑 ${t('抢菜人抢走了')} ${icon} ${t(name)}!`, 'warning');
-                setInventory(prev => prev.filter((_, i) => i !== stealIdx));
-            }
-        }
     };
 
     // =============================================

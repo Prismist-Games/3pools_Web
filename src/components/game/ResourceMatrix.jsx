@@ -89,7 +89,7 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
     } else if (cell.type === 'competitor') {
         icon = '🧑';
         name = t('抢菜人');
-        desc = t('抽中时随机夺走你篮中的一件食材');
+        desc = t('抽中时触发人挤人');
     } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
