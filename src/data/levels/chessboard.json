@@ -1,0 +1,19 @@
+{
+  "id": "chessboard",
+  "name": "黑白棋盘",
+  "name_en": "Black & White Board",
+  "description": "墙分黑白两色棋盘格。你只能与同色格子互动，对面色被灰显跳过。抽中 ☯️ 切换格则黑白身份对调。",
+  "description_en": "The wall is split into a black-and-white checkerboard. You can only interact with same-color cells; the opposite color is dimmed and skipped. Drawing a ☯️ switch cell flips your side.",
+  "icon": "☯️",
+  "role": "main",
+  "boardEffect": "chessboard",
+  "grid": [
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, null, null]
+  ],
+  "settings": {
+    "gold": 5
+  }
+}

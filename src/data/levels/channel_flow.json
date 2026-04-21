@@ -1,0 +1,19 @@
+{
+  "id": "channel_flow",
+  "name": "开渠引流",
+  "name_en": "Channel & Flow",
+  "description": "抽到的格子只是被挖成水渠。回合结束时水从一条边涌入，沿水渠 8 邻接流过的格子才结算。",
+  "description_en": "Drawn cells are only carved into canals. At end of turn, water flows in from one edge — only cells the water reaches (via 8-neighbor adjacency) are resolved.",
+  "icon": "💧",
+  "role": "main",
+  "boardEffect": "channel_flow",
+  "grid": [
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, null, null]
+  ],
+  "settings": {
+    "gold": 5
+  }
+}

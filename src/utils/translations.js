@@ -656,6 +656,18 @@ export const EN_TRANSLATIONS = {
     // --- Level-related UI ---
     "特殊地形关卡": "Special terrain level",
     "进入子关卡": "Entering sub-level",
+    // Level: 开渠引流 (channel_flow boardEffect)
+    "开渠引流": "Channel & Flow",
+    "抽到的格子只是被挖成水渠。回合结束时水从一条边涌入，沿水渠 8 邻接流过的格子才结算。": "Drawn cells are only carved into canals. At end of turn, water flows in from one edge — only cells the water reaches (via 8-neighbor adjacency) are resolved.",
+    "新订单": "New Order",
+    // Level: 黑白棋盘 (chessboard boardEffect)
+    "黑白棋盘": "Black & White Board",
+    "墙分黑白两色棋盘格。你只能与同色格子互动，对面色被灰显跳过。抽中 ☯️ 切换格则黑白身份对调。": "The wall is split into a black-and-white checkerboard. You can only interact with same-color cells; the opposite color is dimmed and skipped. Drawing a ☯️ switch cell flips your side.",
+    "切换格": "Switch Cell",
+    "抽中时切换黑白身份": "Flips your black/white side when drawn",
+    "身份切换": "Side switched",
+    "黑": "Black",
+    "白": "White",
     "结束事件": "End Event",
     "子关卡入口": "Sub-level Entrance",
     "抽中时进入子关卡": "Enters sub-level when drawn",

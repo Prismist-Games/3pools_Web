@@ -223,6 +223,18 @@ body {
     100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.0); transform: scale(1); }
 }
 
+/* Channel-flow source-edge water bar: subtle pulse so the player
+   immediately reads the bar as "source", separate from any cell
+   highlight. */
+@keyframes channel-flow-pulse-h {
+    0%, 100% { box-shadow: 0 0 8px rgba(56, 168, 232, 0.45); }
+    50%      { box-shadow: 0 0 16px rgba(56, 168, 232, 0.75); }
+}
+@keyframes channel-flow-pulse-v {
+    0%, 100% { box-shadow: 0 0 8px rgba(56, 168, 232, 0.45); }
+    50%      { box-shadow: 0 0 16px rgba(56, 168, 232, 0.75); }
+}
+
 /* Breathing gold glow — used by BulletinBoard's order requirement cards
    when the player hovers a market card on the wall picker. Keeps quality
    border/bg intact and just layers a pulsing glow on top. */

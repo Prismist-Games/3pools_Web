@@ -82,6 +82,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.icon || '🌽';
         name = t(cell.name || '膨化格');
         desc = t('抽中时无效果，周围的增益消失');
+    } else if (cell.type === 'state_switch') {
+        icon = cell.icon || '☯️';
+        name = t(cell.name || '切换格');
+        desc = t('抽中时切换黑白身份');
     } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
@@ -159,13 +163,13 @@ function countBuffFieldCoverage(matrix, r, c) {
 }
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, sameNeighbors, inHoveredCluster, onClusterHover }) => {
+const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, sameNeighbors, inHoveredCluster, onClusterHover, chessDimmed }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
-        || cell.type === 'buff_field' || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item');
+        || cell.type === 'buff_field' || cell.type === 'state_switch' || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item');
 
     // Cell background
     let bgClass;
@@ -273,6 +277,8 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 
     const isStickerCell = cell?.type === 'sticker' || cell?.type === 'ingredient';
 
+    const dimStyle = chessDimmed ? { opacity: 0.28, filter: 'grayscale(0.85)' } : null;
+
     return (
         <div
             ref={ref}
@@ -287,6 +293,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
                 ...gravityStyle,
                 ...rotationStyle,
                 ...growthStyle,
+                ...dimStyle,
             }}
             onMouseEnter={() => {
                 if (hasTip) setHovered(true);
@@ -298,6 +305,19 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
             }}
         >
             {cellContent}
+            {/* Channel-flow dug overlay: translucent blue canal layer
+                indicating the cell is carved. Sits above content (zIndex 8)
+                but is non-blocking so tooltips and animations still work. */}
+            {cell?.dug && (
+                <div
+                    className="pointer-events-none absolute inset-0 rounded-lg"
+                    style={{
+                        background: 'linear-gradient(135deg, rgba(56,168,232,0.32), rgba(120,200,240,0.22))',
+                        boxShadow: 'inset 0 0 8px rgba(56,168,232,0.4)',
+                        zIndex: 8,
+                    }}
+                />
+            )}
             {isBuffed && (
                 <span className="absolute -top-1 -left-1 bg-amber-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-20">
                     ×{buffCoverage + 1}
@@ -311,7 +331,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 /**
  * Wall grid display for turn-based prototype (size from MATRIX_CONFIG.gridSize).
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverIngredientIds, gravityDrops, rotationMoves, growthFlashes }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverIngredientIds, gravityDrops, rotationMoves, growthFlashes, currentLevel, chessColor, sourceEdge }) => {
     const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -506,6 +526,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         if (cell.type === 'buff_field') {
             return <span className="text-xl">{cell.icon || '🌽'}</span>;
         }
+        if (cell.type === 'state_switch') {
+            return <span className="text-xl">{cell.icon || '☯️'}</span>;
+        }
         return (
             <>
                 <span className="text-xl">{cell.icon}</span>
@@ -542,7 +565,15 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             {/* Column buttons row — offset by row-button area */}
             <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
                 {Array.from({ length: matrix[0]?.length || 4 }, (_, colIndex) => {
-                    const hasActive = matrix.some(row => row[colIndex] !== null);
+                    const isChannelFlow = currentLevel?.boardEffect === 'channel_flow';
+                    const isChessboard = currentLevel?.boardEffect === 'chessboard';
+                    const hasActive = matrix.some(row => {
+                        const cell = row[colIndex];
+                        if (!cell) return false;
+                        if (isChannelFlow && cell.dug) return false;
+                        if (isChessboard && chessColor && cell.cellColor !== chessColor) return false;
+                        return true;
+                    });
                     const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
                     const colClickable = canDraw && hasActive && !altBlocked;
                     return (
@@ -574,7 +605,14 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 {/* Row buttons */}
                 <div className="flex flex-col mr-2" style={{ paddingTop: HALF }}>
                     {matrix.map((row, rowIndex) => {
-                        const hasActive = row.some(c => c !== null);
+                        const isChannelFlow = currentLevel?.boardEffect === 'channel_flow';
+                        const isChessboard = currentLevel?.boardEffect === 'chessboard';
+                        const hasActive = row.some(c => {
+                            if (!c) return false;
+                            if (isChannelFlow && c.dug) return false;
+                            if (isChessboard && chessColor && c.cellColor !== chessColor) return false;
+                            return true;
+                        });
                         const altBlockedRow = wallType?.id === 'alternating' && lastDrawDirection === 'row';
                         const rowClickable = canDraw && hasActive && !altBlockedRow;
                         return (
@@ -796,6 +834,35 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             </div>
                         );
                     })()}
+                    {/* Channel-flow source-edge water bar: animated stripe
+                        anchored OUTSIDE the grid (overhanging by 12px) so it
+                        visually reads as "water about to enter from this side". */}
+                    {currentLevel?.boardEffect === 'channel_flow' && sourceEdge && (() => {
+                        const size = MATRIX_CONFIG.gridSize;
+                        const sideLen = size * TRACK;
+                        const BAR = 10;
+                        const OVERHANG = 12;
+                        const stripeH = 'repeating-linear-gradient(90deg, rgba(56,168,232,0.85) 0 14px, rgba(120,200,240,0.85) 14px 28px)';
+                        const stripeV = 'repeating-linear-gradient(0deg, rgba(56,168,232,0.85) 0 14px, rgba(120,200,240,0.85) 14px 28px)';
+                        const baseStyle = {
+                            position: 'absolute',
+                            borderRadius: '4px',
+                            zIndex: 4,
+                            pointerEvents: 'none',
+                        };
+                        let style;
+                        if (sourceEdge === 'top') {
+                            style = { ...baseStyle, top: `-${OVERHANG}px`, left: '0px', width: `${sideLen}px`, height: `${BAR}px`, background: stripeH, animation: 'channel-flow-pulse-h 2s ease-in-out infinite' };
+                        } else if (sourceEdge === 'bottom') {
+                            style = { ...baseStyle, bottom: `-${OVERHANG}px`, left: '0px', width: `${sideLen}px`, height: `${BAR}px`, background: stripeH, animation: 'channel-flow-pulse-h 2s ease-in-out infinite' };
+                        } else if (sourceEdge === 'left') {
+                            style = { ...baseStyle, top: '0px', left: `-${OVERHANG}px`, width: `${BAR}px`, height: `${sideLen}px`, background: stripeV, animation: 'channel-flow-pulse-v 2s ease-in-out infinite' };
+                        } else { // right
+                            style = { ...baseStyle, top: '0px', right: `-${OVERHANG}px`, width: `${BAR}px`, height: `${sideLen}px`, background: stripeV, animation: 'channel-flow-pulse-v 2s ease-in-out infinite' };
+                        }
+                        return <div style={style} />;
+                    })()}
+
                     {matrix.flatMap((row, rowIndex) =>
                         row.map((cell, colIndex) => {
                             // Hover: cell is in hovered row or hovered column
@@ -823,6 +890,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             const buffCov = countBuffFieldCoverage(matrix, rowIndex, colIndex);
 
                             const cellKey = `${rowIndex}-${colIndex}`;
+                            const isChessboardLevel = currentLevel?.boardEffect === 'chessboard';
+                            const isOppositeChess = !!(isChessboardLevel && cell?.cellColor && chessColor && cell.cellColor !== chessColor);
                             return (
                                 <GridCell
                                     key={cellKey}
@@ -840,6 +909,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                     sameNeighbors={sameNeighborsMap?.get(cellKey)}
                                     inHoveredCluster={hoveredClusterSet?.has(cellKey) || false}
                                     onClusterHover={handleClusterHover}
+                                    chessDimmed={isOppositeChess}
                                 />
                             );
                         })

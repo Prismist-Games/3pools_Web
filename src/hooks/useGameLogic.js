@@ -207,6 +207,8 @@ export const useGameLogic = (config) => {
     const [gravityDrops, setGravityDrops] = useState(null); // { "row-col": dropDistance } for animation
     const [rotationMoves, setRotationMoves] = useState(null); // { "row-col": {fromRow, fromCol} } for center-rotate animation
     const [growthFlashes, setGrowthFlashes] = useState(null); // Set of "row-col" keys for savage-growth flash feedback
+    const [chessColor, setChessColor] = useState(null); // 'black' | 'white' — chessboard boardEffect only
+    const [sourceEdge, setSourceEdge] = useState(null); // 'top'|'bottom'|'left'|'right' — channel_flow boardEffect only
 
     // --- Sub-Level State ---
     const [wallStack, setWallStack] = useState([]); // stack of { matrix, gold, wallType }
@@ -390,9 +392,172 @@ export const useGameLogic = (config) => {
         startNewTurn();
     }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
 
-    /** End current turn: resolve doom once, then go to between-turns decision */
+    /** Channel-flow water resolution. Runs at end of turn, before the
+     *  standard end-turn doom round. BFS (8-neighbor) from dug source-edge
+     *  cells; each visited cell resolves under the same rules a normal
+     *  draw would, except every effect is queued and applied in one batch.
+     *  Returns the count of doom_resolution cells flooded — caller folds
+     *  that into the doom resolution call so animation fires once. */
+    const resolveWaterFlow = () => {
+        if (currentLevel?.boardEffect !== 'channel_flow') return 0;
+        if (!matrix || !sourceEdge) return 0;
+        const rows = matrix.length;
+        const cols = matrix[0].length;
+
+        // Step 1: entry points = dug cells on the source edge.
+        const entryPoints = [];
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (!matrix[r][c]?.dug) continue;
+                const onEdge = (
+                    (sourceEdge === 'top'    && r === 0) ||
+                    (sourceEdge === 'bottom' && r === rows - 1) ||
+                    (sourceEdge === 'left'   && c === 0) ||
+                    (sourceEdge === 'right'  && c === cols - 1)
+                );
+                if (onEdge) entryPoints.push([r, c]);
+            }
+        }
+        if (entryPoints.length === 0) return 0;
+
+        // Step 2: BFS 8-neighbor through dug cells, recording wave layers.
+        const DIRS_8 = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+        const visited = new Set();
+        for (const [r, c] of entryPoints) visited.add(`${r}-${c}`);
+        const layers = [];
+        let frontier = entryPoints;
+        while (frontier.length > 0) {
+            layers.push(frontier);
+            const next = [];
+            for (const [r, c] of frontier) {
+                for (const [dr, dc] of DIRS_8) {
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                    const key = `${nr}-${nc}`;
+                    if (visited.has(key)) continue;
+                    if (!matrix[nr][nc]?.dug) continue;
+                    visited.add(key);
+                    next.push([nr, nc]);
+                }
+            }
+            frontier = next;
+        }
+
+        // Step 3: walk layers and produce a new matrix + batched effects.
+        const newMatrix = matrix.map(r => r.map(c => c ? { ...c } : null));
+        const consumed = new Set();
+        const inventoryAdds = [];
+        let goldGain = 0;
+        let healGain = 0;
+        let bagExpand = 0;
+        let orderAddCount = 0;
+        let totalDoomResolutions = 0;
+        let bombFired = false;
+
+        // Cell becomes content-empty but keeps dug flag (so water in later
+        // waves can still flow through). Non-dug cells go to null.
+        const clearContent = (r, c) => {
+            const cell = newMatrix[r][c];
+            if (!cell) return;
+            const wasDug = !!cell.dug;
+            newMatrix[r][c] = wasDug
+                ? { type: 'empty', dug: true, uid: generateUID() }
+                : null;
+        };
+
+        for (const layer of layers) {
+            // Sub-pass 1: collect content. Same-wave cells gathered here
+            // are immune to bombs that detonate in sub-pass 2.
+            for (const [r, c] of layer) {
+                if (consumed.has(`${r}-${c}`)) continue;
+                const cell = newMatrix[r][c];
+                if (!cell) continue;
+
+                if (cell.type === 'ingredient' || cell.type === 'out_of_game') {
+                    inventoryAdds.push({ ...cell });
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                } else if (cell.type === 'gold') {
+                    goldGain += cell.goldAmount || 0;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                } else if (cell.type === 'order_cell') {
+                    orderAddCount += 1;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                } else if (cell.type === 'heal') {
+                    healGain += cell.healAmount || 1;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                } else if (cell.type === 'backpack_expand') {
+                    bagExpand += cell.expandAmount || 1;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                }
+            }
+
+            // Sub-pass 2: structural effects (bombs, doom).
+            for (const [r, c] of layer) {
+                const orig = matrix[r][c];
+                if (!orig) continue;
+                if (orig.type === 'bomb') {
+                    for (const [dr, dc] of DIRS_8) {
+                        const nr = r + dr;
+                        const nc = c + dc;
+                        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                        if (consumed.has(`${nr}-${nc}`)) continue;
+                        consumed.add(`${nr}-${nc}`);
+                        clearContent(nr, nc);
+                    }
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                    bombFired = true;
+                } else if (orig.type === 'doom_resolution') {
+                    totalDoomResolutions += 1;
+                    consumed.add(`${r}-${c}`);
+                    clearContent(r, c);
+                }
+            }
+        }
+
+        setMatrix(newMatrix);
+        if (goldGain > 0) {
+            setGold(prev => prev + goldGain);
+            showToast(`💧 ${t('抽数')} +${goldGain}`, 'success');
+        }
+        if (healGain > 0) {
+            setHp(prev => Math.min(prev + healGain, doomConfig.initialHP));
+            showToast(`💧 ❤️‍🩹 HP +${healGain}`, 'success');
+        }
+        if (bagExpand > 0) {
+            setInventoryBonus(prev => prev + bagExpand);
+            showToast(`💧 🎒 ${t('菜篮')} +${bagExpand}`, 'success');
+        }
+        for (let i = 0; i < orderAddCount; i++) addBulletinOrder();
+        if (orderAddCount > 0) {
+            showToast(`💧 📋 ${t('新订单')} +${orderAddCount}`, 'info');
+        }
+        for (const item of inventoryAdds) {
+            addToInventory(item);
+        }
+        if (bombFired) {
+            showToast('💧 💣 ' + t('炸弹爆炸！'), 'warning');
+        }
+
+        return totalDoomResolutions;
+    };
+
+    /** End current turn: resolve doom once, then go to between-turns decision.
+     *  Channel_flow levels first run water flow (which may queue extra doom
+     *  resolution rounds), then fold those into a single resolveDoom call. */
     const endTurn = () => {
-        resolveDoom('end_turn');
+        if (currentLevel?.boardEffect === 'channel_flow') {
+            const extraRounds = resolveWaterFlow();
+            resolveDoom('end_turn', 1 + extraRounds);
+        } else {
+            resolveDoom('end_turn');
+        }
     };
 
     /** Continue to next turn. Per-turn auto refill removed — shelf stays
@@ -408,7 +573,7 @@ export const useGameLogic = (config) => {
         const marketIngredients = pickMarketIngredients(marketType);
         const result = generateWallFromTemplate(template, marketIngredients);
         wallDrawCountRef.current = 0;
-        if (template.boardEffect === 'quality_upgrade') upgradeGridCells(result.grid);
+        setupBoardEffect(template, result.grid);
         setCurrentLevel(template);
         setCurrentWallType(marketType);
         setWallCandidates(null);
@@ -437,8 +602,8 @@ export const useGameLogic = (config) => {
             setGold(chosen.level.settings.gold);
         }
 
-        const grid = chosen.level?.boardEffect === 'quality_upgrade'
-            ? upgradeGridCells(chosen.grid.map(r => r.map(c => c ? { ...c } : null)))
+        const grid = chosen.level
+            ? setupBoardEffect(chosen.level, chosen.grid.map(r => r.map(c => c ? { ...c } : null)))
             : chosen.grid;
         setMatrix(grid);
         setPhase('drawing');
@@ -507,6 +672,64 @@ export const useGameLogic = (config) => {
     // Tracks how many draws have completed on the current wall, for board effects tied to draw count.
     const wallDrawCountRef = useRef(0);
 
+    /** Chessboard boardEffect setup: tag each cell with cellColor based on
+     *  (r+c) parity, then overwrite a random cell of each color with a
+     *  state_switch so the player can transit both ways. Mutates grid in
+     *  place. Returns grid. */
+    const setupChessboardGrid = (grid) => {
+        const black = [];
+        const white = [];
+        for (let r = 0; r < grid.length; r++) {
+            for (let c = 0; c < grid[r].length; c++) {
+                if (!grid[r][c]) continue;
+                const color = (r + c) % 2 === 0 ? 'black' : 'white';
+                grid[r][c].cellColor = color;
+                if (color === 'black') black.push([r, c]);
+                else white.push([r, c]);
+            }
+        }
+        const switchCfg = MATRIX_CONFIG.specialCells.stateSwitch;
+        const place = (positions, color) => {
+            if (positions.length === 0) return;
+            const [pr, pc] = positions[Math.floor(Math.random() * positions.length)];
+            grid[pr][pc] = {
+                type: 'state_switch',
+                icon: switchCfg.icon,
+                name: switchCfg.name,
+                cellColor: color,
+                uid: generateUID(),
+            };
+        };
+        place(black, 'black');
+        place(white, 'white');
+        return grid;
+    };
+
+    /** Apply boardEffect-specific setup at level entry. Mutates the grid
+     *  for effects that need cell tagging (e.g. chessboard) and resets
+     *  any per-effect state on the player side. Always called before
+     *  setMatrix during loadTestLevel / applyWallCandidate. */
+    const setupBoardEffect = (level, grid) => {
+        const eff = level?.boardEffect;
+        if (eff === 'quality_upgrade') {
+            upgradeGridCells(grid);
+            setChessColor(null);
+            setSourceEdge(null);
+        } else if (eff === 'channel_flow') {
+            const edges = ['top', 'bottom', 'left', 'right'];
+            setSourceEdge(edges[Math.floor(Math.random() * edges.length)]);
+            setChessColor(null);
+        } else if (eff === 'chessboard') {
+            setupChessboardGrid(grid);
+            setChessColor(Math.random() < 0.5 ? 'black' : 'white');
+            setSourceEdge(null);
+        } else {
+            setChessColor(null);
+            setSourceEdge(null);
+        }
+        return grid;
+    };
+
     /** Pure helper: applies 2 quality upgrades directly to a grid array (for level-load trigger).
      *  Returns the mutated grid (same reference). */
     const upgradeGridCells = (grid) => {
@@ -569,8 +792,13 @@ export const useGameLogic = (config) => {
 
         const row = matrix[rowIndex];
         const activeCols = [];
+        const isChannelFlow = currentLevel?.boardEffect === 'channel_flow';
+        const chessFilter = currentLevel?.boardEffect === 'chessboard' ? chessColor : null;
         row.forEach((cell, colIndex) => {
-            if (cell !== null && cell.type !== 'empty') activeCols.push(colIndex);
+            if (cell === null || cell.type === 'empty') return;
+            if (isChannelFlow && cell.dug) return;
+            if (chessFilter && cell.cellColor !== chessFilter) return;
+            activeCols.push(colIndex);
         });
         if (activeCols.length === 0) return;
 
@@ -615,8 +843,14 @@ export const useGameLogic = (config) => {
 
         // activeCols here are actually active row indices for this column
         const activeCols = [];
+        const isChannelFlow = currentLevel?.boardEffect === 'channel_flow';
+        const chessFilter = currentLevel?.boardEffect === 'chessboard' ? chessColor : null;
         matrix.forEach((row, rowIndex) => {
-            if (row[colIndex] !== null && row[colIndex].type !== 'empty') activeCols.push(rowIndex);
+            const cell = row[colIndex];
+            if (cell === null || cell.type === 'empty') return;
+            if (isChannelFlow && cell.dug) return;
+            if (chessFilter && cell.cellColor !== chessFilter) return;
+            activeCols.push(rowIndex);
         });
         if (activeCols.length === 0) return;
 
@@ -705,6 +939,28 @@ export const useGameLogic = (config) => {
             }
         }
 
+        // Channel flow: drawing only carves the cell into a canal; all
+        // resolution is deferred to end-of-turn water flow. Mark dug,
+        // preserve content, fire no effects.
+        if (currentLevel?.boardEffect === 'channel_flow') {
+            setMatrix(prev => {
+                const next = prev.map(r => r.map(c => c ? { ...c } : null));
+                if (next[finalRowIndex]?.[finalColIndex]) {
+                    next[finalRowIndex][finalColIndex].dug = true;
+                }
+                return next;
+            });
+            setLastDrawResult({
+                rowIndex: finalRowIndex,
+                colIndex: finalColIndex,
+                obtained: null,
+                doomEffects: { resolutions: 0 },
+                dugOnly: true,
+            });
+            setDrawAnimState(null);
+            return;
+        }
+
         // Buff field coverage at the drawn cell — bomb is explicitly unaffected.
         const buffCov = drawnCell.type === 'bomb'
             ? 0
@@ -741,6 +997,13 @@ export const useGameLogic = (config) => {
             showToast('⬇️ ' + t('重力开关！'), 'info');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
+        } else if (drawnCell.type === 'state_switch') {
+            // Chessboard switch: flip the player's color. No other effect; the
+            // cell removal happens in the standard setMatrix block below.
+            const next = drawnCell.cellColor === 'black' ? 'white' : 'black';
+            setChessColor(next);
+            const label = next === 'black' ? t('黑') : t('白');
+            showToast(`☯️ ${t('身份切换')} → ${label}`, 'info');
         } else if (drawnCell.type === 'entrance') {
             // Enter sub-level directly — no setTimeout, no stale closure issues
             const entryName = (language === 'en' && drawnCell.name_en) ? drawnCell.name_en : drawnCell.name;
@@ -812,23 +1075,30 @@ export const useGameLogic = (config) => {
 
             // Bomb: destroy all adjacent cells (8 directions). Runs for the
             // drawn cell and (if mirror modifier) for the mirror cell too.
+            // Chessboard: bomb only damages cells of the same color (the
+            // player's current side); the opposite-color "phantom" cells
+            // are unaffected, so a black bomb wipes its 4 diagonal black
+            // neighbors and leaves the 4 orthogonal white cells alone.
             const bombDirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-            const explodeAt = (br, bc) => {
+            const isChessboard = currentLevel?.boardEffect === 'chessboard';
+            const explodeAt = (br, bc, bombColor) => {
                 for (const [dr, dc] of bombDirs) {
                     const nr = br + dr;
                     const nc = bc + dc;
-                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length && newMatrix[nr][nc]) {
-                        newMatrix[nr][nc] = null;
-                    }
+                    if (nr < 0 || nr >= newMatrix.length || nc < 0 || nc >= newMatrix[0].length) continue;
+                    const target = newMatrix[nr][nc];
+                    if (!target) continue;
+                    if (isChessboard && bombColor && target.cellColor !== bombColor) continue;
+                    newMatrix[nr][nc] = null;
                 }
             };
             let bombFired = false;
             if (drawnCell.type === 'bomb') {
-                explodeAt(finalRowIndex, finalColIndex);
+                explodeAt(finalRowIndex, finalColIndex, drawnCell.cellColor);
                 bombFired = true;
             }
             if (mirrorCell?.type === 'bomb') {
-                explodeAt(mirrorRow, mirrorCol);
+                explodeAt(mirrorRow, mirrorCol, mirrorCell.cellColor);
                 bombFired = true;
             }
             if (bombFired) {
@@ -1622,6 +1892,8 @@ export const useGameLogic = (config) => {
         gravityDrops,
         rotationMoves,
         growthFlashes,
+        chessColor,
+        sourceEdge,
 
         // Sub-Level
         isInSubLevel, wallStack,

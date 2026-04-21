@@ -91,7 +91,7 @@ const GameCore = () => {
         inventory, fridge, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
-        drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
+        drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes, chessColor, sourceEdge,
         startGame, selectWall, confirmWallReveal, selectRow, selectColumn, endTurn, continueToNextTurn,
         wallCandidates, pendingWallCandidate,
         handleEvacuate, returnToRestaurant, handleCookResult, startNextDay,
@@ -322,6 +322,9 @@ const GameCore = () => {
                                             gravityDrops={gravityDrops}
                                             rotationMoves={rotationMoves}
                                             growthFlashes={growthFlashes}
+                                            currentLevel={currentLevel}
+                                            chessColor={chessColor}
+                                            sourceEdge={sourceEdge}
                                         />
 
                                         {/* Draw result feedback */}

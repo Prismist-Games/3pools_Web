@@ -55,5 +55,10 @@ export const MATRIX_CONFIG = {
       icon: '🌽',
       name: '膨化格',
     },
+    stateSwitch: {
+      spawnChance: 0,  // only placed by chessboard boardEffect at level load
+      icon: '☯️',
+      name: '切换格',
+    },
   },
 };
