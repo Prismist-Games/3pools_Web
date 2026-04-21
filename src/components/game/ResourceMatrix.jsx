@@ -86,10 +86,6 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = '📢';
         name = t('大嗓门');
         desc = t('抽中时被驱散，停止刷新抢菜人');
-    } else if (cell.type === 'competitor') {
-        icon = '🧑';
-        name = t('抢菜人');
-        desc = t('抽中时触发人挤人');
     } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
@@ -173,7 +169,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
-        || cell.type === 'buff_field' || cell.type === 'loudmouth' || cell.type === 'competitor'
+        || cell.type === 'buff_field' || cell.type === 'loudmouth'
         || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item');
 
     // Cell background
@@ -208,8 +204,6 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         bgClass = 'bg-[#FFFAE8] border-[#E8B840]';
     } else if (cell.type === 'loudmouth') {
         bgClass = 'bg-orange-100 border-orange-500';
-    } else if (cell.type === 'competitor') {
-        bgClass = 'bg-red-100 border-red-400';
     } else {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     }
@@ -521,9 +515,6 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         }
         if (cell.type === 'loudmouth') {
             return <span className="text-xl">📢</span>;
-        }
-        if (cell.type === 'competitor') {
-            return <span className="text-xl">🧑</span>;
         }
         return (
             <>

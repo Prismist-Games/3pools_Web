@@ -27,7 +27,6 @@ export const CELL_TYPES = {
   ANY_STICKER: 'any_sticker',     // random sticker type (1×1)
   // Loudmouth level types
   LOUDMOUTH: 'loudmouth',
-  COMPETITOR: 'competitor',
 };
 
 // --- Levels: auto-imported from src/data/levels/*.json ---
