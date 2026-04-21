@@ -475,15 +475,22 @@ export const useGameLogic = (config) => {
         if (entryPoints.length === 0) return 0;
 
         // Step 2: BFS through dug cells, recording each wave layer.
+        // Uses 8-neighbor adjacency — diagonally-touching dug cells count
+        // as a connected canal. This matches how bombs already treat
+        // "adjacency" elsewhere in the game, and deliberately makes
+        // connectivity forgiving so the player's strategic attention goes
+        // to "which cells do I want flooded" rather than "did I connect
+        // correctly".
         const visited = new Set();
         const layers = [];
         for (const [r, c] of entryPoints) visited.add(`${r}-${c}`);
         let frontier = entryPoints;
+        const DIRS_8 = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
         while (frontier.length > 0) {
             layers.push(frontier);
             const next = [];
             for (const [r, c] of frontier) {
-                for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                for (const [dr, dc] of DIRS_8) {
                     const nr = r + dr;
                     const nc = c + dc;
                     if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
