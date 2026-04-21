@@ -105,6 +105,12 @@ function finalizeProceduralCandidate(rawWallType, baseGrid) {
             sourceEdge: edges[Math.floor(Math.random() * edges.length)],
         };
     }
+    if (wallType?.id === 'chessboard') {
+        wallType = {
+            ...wallType,
+            startColor: Math.random() < 0.5 ? 'black' : 'white',
+        };
+    }
 
     const grid = baseGrid.map(r => r.map(c => c ? { ...c } : null));
 
@@ -151,6 +157,39 @@ function finalizeProceduralCandidate(rawWallType, baseGrid) {
                 uid: uidGen(),
             };
         }
+    }
+
+    if (wallType?.id === 'chessboard') {
+        // Tag every cell with its checkerboard color. (r+c) even = black,
+        // (r+c) odd = white. Color is purely positional and never changes.
+        const blackCells = [];
+        const whiteCells = [];
+        for (let r = 0; r < grid.length; r++) {
+            for (let c = 0; c < grid[r].length; c++) {
+                if (!grid[r][c]) continue;
+                const color = (r + c) % 2 === 0 ? 'black' : 'white';
+                grid[r][c].cellColor = color;
+                if (color === 'black') blackCells.push([r, c]);
+                else whiteCells.push([r, c]);
+            }
+        }
+        // Guarantee at least one state_switch cell per color so the player
+        // can transit both ways. Overwrite a random cell per color.
+        const switchCfg = MATRIX_CONFIG.specialCells.stateSwitch;
+        const uidGen = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        const placeSwitch = (positions, color) => {
+            if (positions.length === 0) return;
+            const [pr, pc] = positions[Math.floor(Math.random() * positions.length)];
+            grid[pr][pc] = {
+                type: 'state_switch',
+                icon: switchCfg.icon,
+                name: switchCfg.name,
+                cellColor: color,
+                uid: uidGen(),
+            };
+        };
+        placeSwitch(blackCells, 'black');
+        placeSwitch(whiteCells, 'white');
     }
 
     return { wallType, grid };
@@ -221,6 +260,7 @@ export const useGameLogic = (config) => {
     const [gravityDrops, setGravityDrops] = useState(null); // { "row-col": dropDistance } for animation
     const [rotationMoves, setRotationMoves] = useState(null); // { "row-col": {fromRow, fromCol} } for center-rotate animation
     const [growthFlashes, setGrowthFlashes] = useState(null); // Set of "row-col" keys for savage-growth flash feedback
+    const [chessColor, setChessColor] = useState(null); // 'black' | 'white' — only set on chessboard walls
 
     // --- Sub-Level State ---
     const [wallStack, setWallStack] = useState([]); // stack of { matrix, gold, wallType }
@@ -672,6 +712,11 @@ export const useGameLogic = (config) => {
             setGold(chosen.level.settings.gold);
         }
 
+        // Chessboard: seed the player's color from the wall's pre-rolled
+        // startColor. Cleared back to null on any non-chessboard wall so a
+        // stale color from a previous turn can't leak through.
+        setChessColor(chosen.wallType?.id === 'chessboard' ? (chosen.wallType.startColor || 'black') : null);
+
         setMatrix(chosen.grid);
         setPhase('drawing');
     };
@@ -748,8 +793,11 @@ export const useGameLogic = (config) => {
 
         const row = matrix[rowIndex];
         const activeCols = [];
+        const chessFilter = currentWallType?.id === 'chessboard' ? chessColor : null;
         row.forEach((cell, colIndex) => {
-            if (cell !== null && cell.type !== 'empty' && !cell.dug) activeCols.push(colIndex);
+            if (cell === null || cell.type === 'empty' || cell.dug) return;
+            if (chessFilter && cell.cellColor !== chessFilter) return;
+            activeCols.push(colIndex);
         });
         if (activeCols.length === 0) return;
 
@@ -796,8 +844,12 @@ export const useGameLogic = (config) => {
 
         // activeCols here are actually active row indices for this column
         const activeCols = [];
+        const chessFilter = currentWallType?.id === 'chessboard' ? chessColor : null;
         matrix.forEach((row, rowIndex) => {
-            if (row[colIndex] !== null && row[colIndex].type !== 'empty' && !row[colIndex].dug) activeCols.push(rowIndex);
+            const cell = row[colIndex];
+            if (cell === null || cell.type === 'empty' || cell.dug) return;
+            if (chessFilter && cell.cellColor !== chessFilter) return;
+            activeCols.push(rowIndex);
         });
         if (activeCols.length === 0) return;
 
@@ -931,6 +983,13 @@ export const useGameLogic = (config) => {
             showToast('⬇️ ' + t('重力开关！'), 'info');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
+        } else if (drawnCell.type === 'state_switch') {
+            // Chessboard switch: flip the player's color. No other effect; the
+            // cell removal happens in the standard setMatrix block below.
+            const next = drawnCell.cellColor === 'black' ? 'white' : 'black';
+            setChessColor(next);
+            const label = next === 'black' ? t('黑') : t('白');
+            showToast(`☯️ ${t('身份切换')} → ${label}`, 'info');
         } else if (drawnCell.type === 'entrance') {
             // Enter sub-level directly — no setTimeout, no stale closure issues
             const entryName = (language === 'en' && drawnCell.name_en) ? drawnCell.name_en : drawnCell.name;
@@ -1048,23 +1107,30 @@ export const useGameLogic = (config) => {
 
             // Bomb: destroy all adjacent cells (8 directions). Runs for the
             // drawn cell and (if mirror modifier) for the mirror cell too.
+            // Chessboard: bomb only damages cells of the same color (the
+            // player's current side); the opposite-color "phantom" cells
+            // are unaffected, so a black bomb wipes its 4 diagonal black
+            // neighbors and leaves the 4 orthogonal white cells alone.
             const bombDirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-            const explodeAt = (br, bc) => {
+            const isChessboard = currentWallType?.id === 'chessboard';
+            const explodeAt = (br, bc, bombColor) => {
                 for (const [dr, dc] of bombDirs) {
                     const nr = br + dr;
                     const nc = bc + dc;
-                    if (nr >= 0 && nr < newMatrix.length && nc >= 0 && nc < newMatrix[0].length && newMatrix[nr][nc]) {
-                        newMatrix[nr][nc] = null;
-                    }
+                    if (nr < 0 || nr >= newMatrix.length || nc < 0 || nc >= newMatrix[0].length) continue;
+                    const target = newMatrix[nr][nc];
+                    if (!target) continue;
+                    if (isChessboard && bombColor && target.cellColor !== bombColor) continue;
+                    newMatrix[nr][nc] = null;
                 }
             };
             let bombFired = false;
             if (drawnCell.type === 'bomb') {
-                explodeAt(finalRowIndex, finalColIndex);
+                explodeAt(finalRowIndex, finalColIndex, drawnCell.cellColor);
                 bombFired = true;
             }
             if (mirrorCell?.type === 'bomb') {
-                explodeAt(mirrorRow, mirrorCol);
+                explodeAt(mirrorRow, mirrorCol, mirrorCell.cellColor);
                 bombFired = true;
             }
             if (bombFired) {
@@ -1765,6 +1831,7 @@ export const useGameLogic = (config) => {
         gravityDrops,
         rotationMoves,
         growthFlashes,
+        chessColor,
 
         // Sub-Level
         isInSubLevel, wallStack,

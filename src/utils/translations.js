@@ -589,6 +589,13 @@ export const EN_TRANSLATIONS = {
     "下": "Bottom",
     "左": "Left",
     "右": "Right",
+    "黑白棋盘": "Black & White Board",
+    "墙分黑白两色棋盘格。你只能与同色格子互动，对面色被灰显跳过。抽中切换格则黑白身份对调。": "The wall is split into a black-and-white checkerboard. You can only interact with same-color cells; the opposite color is dimmed and skipped. Drawing a switch cell flips your side.",
+    "切换格": "Switch Cell",
+    "抽中时切换黑白身份": "Flips your black/white side when drawn",
+    "身份切换": "Side switched",
+    "黑": "Black",
+    "白": "White",
     "镜像": "Mirror",
 
     // --- Level-related UI ---

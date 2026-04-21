@@ -50,7 +50,7 @@ const GameCore = () => {
         inventory, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
-        drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
+        drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes, chessColor,
         startGame, selectWall, confirmWallReveal, selectRow, selectColumn, endTurn, continueToNextTurn,
         wallCandidates, pendingWallCandidate,
         handleEvacuate, handleReset, startNextExpedition,
@@ -326,6 +326,7 @@ const GameCore = () => {
                                             gravityDrops={gravityDrops}
                                             rotationMoves={rotationMoves}
                                             growthFlashes={growthFlashes}
+                                            chessColor={chessColor}
                                         />
 
                                         {/* Draw result feedback */}

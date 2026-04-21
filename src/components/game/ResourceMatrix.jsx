@@ -88,6 +88,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.icon || '🌽';
         name = t(cell.name || '膨化格');
         desc = t('抽中时无效果，周围的增益消失');
+    } else if (cell.type === 'state_switch') {
+        icon = cell.icon || '☯️';
+        name = t(cell.name || '切换格');
+        desc = t('抽中时切换黑白身份');
     } else {
         return null;
     }
@@ -144,13 +148,13 @@ function countBuffFieldCoverage(matrix, r, c) {
 }
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, sameNeighbors, inHoveredCluster, onClusterHover }) => {
+const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, sameNeighbors, inHoveredCluster, onClusterHover, chessDimmed }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && (cell.type === 'doom_resolution' || cell.type === 'doom_upgrade'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
-        || cell.type === 'buff_field');
+        || cell.type === 'buff_field' || cell.type === 'state_switch');
 
     // Cell background
     let bgClass;
@@ -260,6 +264,8 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 
     const isStickerCell = cell?.type === 'sticker';
 
+    const dimStyle = chessDimmed ? { opacity: 0.28, filter: 'grayscale(0.85)' } : null;
+
     return (
         <div
             ref={ref}
@@ -274,6 +280,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
                 ...gravityStyle,
                 ...rotationStyle,
                 ...growthStyle,
+                ...dimStyle,
             }}
             onMouseEnter={() => {
                 if (hasTip) setHovered(true);
@@ -316,7 +323,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 /**
  * Wall grid display for turn-based prototype (size from MATRIX_CONFIG.gridSize).
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, gravityDrops, rotationMoves, growthFlashes }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverStickerIds, bonusItemMap, gravityDrops, rotationMoves, growthFlashes, chessColor }) => {
     const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -494,6 +501,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         if (cell.type === 'buff_field') {
             return <span className="text-xl">{cell.icon || '🌽'}</span>;
         }
+        if (cell.type === 'state_switch') {
+            return <span className="text-xl">{cell.icon || '☯️'}</span>;
+        }
         return (
             <>
                 <span className="text-xl">{cell.icon}</span>
@@ -524,7 +534,13 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             {/* Column buttons row — offset by row-button area */}
             <div className="flex mb-1" style={{ paddingLeft: ROW_BTN_WIDTH + ROW_BTN_MARGIN }}>
                 {Array.from({ length: matrix[0]?.length || 4 }, (_, colIndex) => {
-                    const hasActive = matrix.some(row => row[colIndex] !== null);
+                    const isChessboard = wallType?.id === 'chessboard';
+                    const hasActive = matrix.some(row => {
+                        const cell = row[colIndex];
+                        if (!cell) return false;
+                        if (isChessboard && chessColor && cell.cellColor !== chessColor) return false;
+                        return true;
+                    });
                     const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
                     const colClickable = canDraw && hasActive && !altBlocked;
                     return (
@@ -556,7 +572,12 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 {/* Row buttons */}
                 <div className="flex flex-col mr-2" style={{ paddingTop: HALF }}>
                     {matrix.map((row, rowIndex) => {
-                        const hasActive = row.some(c => c !== null);
+                        const isChessboard = wallType?.id === 'chessboard';
+                        const hasActive = row.some(c => {
+                            if (!c) return false;
+                            if (isChessboard && chessColor && c.cellColor !== chessColor) return false;
+                            return true;
+                        });
                         const altBlockedRow = wallType?.id === 'alternating' && lastDrawDirection === 'row';
                         const rowClickable = canDraw && hasActive && !altBlockedRow;
                         return (
@@ -836,6 +857,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             const buffCov = countBuffFieldCoverage(matrix, rowIndex, colIndex);
 
                             const cellKey = `${rowIndex}-${colIndex}`;
+                            const isChessboardWall = wallType?.id === 'chessboard';
+                            const isOppositeChess = !!(isChessboardWall && cell?.cellColor && chessColor && cell.cellColor !== chessColor);
                             return (
                                 <GridCell
                                     key={cellKey}
@@ -853,6 +876,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                     sameNeighbors={sameNeighborsMap?.get(cellKey)}
                                     inHoveredCluster={hoveredClusterSet?.has(cellKey) || false}
                                     onClusterHover={handleClusterHover}
+                                    chessDimmed={isOppositeChess}
                                 />
                             );
                         })

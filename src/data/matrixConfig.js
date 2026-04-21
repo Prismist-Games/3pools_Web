@@ -49,5 +49,10 @@ export const MATRIX_CONFIG = {
       icon: '🌽',
       name: '膨化格',
     },
+    stateSwitch: {
+      spawnChance: 0,  // not spawned on random walls — only via chessboard modifier
+      icon: '☯️',
+      name: '切换格',
+    },
   },
 };
