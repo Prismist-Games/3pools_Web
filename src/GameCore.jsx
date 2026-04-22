@@ -112,6 +112,9 @@ const GameCore = () => {
         currentOrderRegion,
     } = state;
 
+    // Auto-start game on mount — skip the pre_game screen
+    useEffect(() => { startGame(); }, []);
+
     // --- Crush animation interval (人挤人) ---
     useEffect(() => {
         if (!crushAnimState || crushAnimState.phase !== 'spinning') return;
