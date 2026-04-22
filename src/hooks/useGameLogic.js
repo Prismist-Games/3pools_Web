@@ -7,7 +7,7 @@ import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 import { pickCrushEmoji } from '../data/matrixConfig';
-import { MAP_V1_NODES, MAP_V1_EDGES } from '../data/maps/map_v1';
+import { generateMapNodes, MAP_V1_EDGES } from '../data/maps/map_v1';
 import { MAP_CONFIG, STALL_MARKET_TYPES } from '../data/mapConfig';
 import { nodeBehaviors } from './useNodeBehaviors';
 
@@ -173,7 +173,7 @@ function buildInitialMapState() {
         if (edge) edge.hasGrabber = true;
     }
     return {
-        nodes: JSON.parse(JSON.stringify(MAP_V1_NODES)),
+        nodes: generateMapNodes(),
         edges,
         playerPosition: { x: 0, y: 0 },
         actionCounter: 0,
@@ -246,6 +246,7 @@ export const useGameLogic = (config) => {
     // --- Map State ---
     const [mapState, setMapState] = useState(null); // initialized on each day start via buildInitialMapState()
     const [activeStallNodeId, setActiveStallNodeId] = useState(null);
+    const [remainingStallDraws, setRemainingStallDraws] = useState(0);
     const [evacuationPending, setEvacuationPending] = useState(false);
     const [goldModalType, setGoldModalType] = useState(null); // null | 'variety' | 'quality'
     const [isMoving, setIsMoving] = useState(false);
@@ -317,10 +318,8 @@ export const useGameLogic = (config) => {
     );
 
     const currentDrawCost = useMemo(() => {
-        if (activeStallNodeId && mapState) {
-            const stallNode = mapState.nodes.find(n => n.id === activeStallNodeId);
-            if (stallNode?.state?.price != null) return stallNode.state.price;
-        }
+        // Stall draws are free — entry fee paid upfront when entering the stall
+        if (phase === 'stall_drawing') return 0;
         if (!matrix) return MAP_CONFIG.gold.drawBaseCost;
         let crushCount = 0;
         for (const row of matrix) {
@@ -329,7 +328,7 @@ export const useGameLogic = (config) => {
             }
         }
         return Math.max(MAP_CONFIG.stall.drawCostMin, MAP_CONFIG.gold.drawBaseCost - crushCount);
-    }, [matrix, activeStallNodeId, mapState]);
+    }, [matrix, phase]);
 
     // =============================================
     // TURN FLOW
@@ -347,14 +346,14 @@ export const useGameLogic = (config) => {
         const nextDay = expeditionNumber + 1;
         const dish = DISHES[(nextDay - 1) % DISHES.length];
         setCurrentDish(dish);
-        setDishIntroPending(true);
+        setDishIntroPending(false);
 
-        setBulletinBoard([]);
+        const ordersA = [{ ...generateOrder(), regionId: 'a' }, { ...generateOrder(), regionId: 'a' }];
+        const ordersB = [{ ...generateOrder(), regionId: 'b' }, { ...generateOrder(), regionId: 'b' }];
+        setBulletinBoard([...ordersA, ...ordersB]);
         setPendingChosenOrder(null);
         setMapState(buildInitialMapState());
-        setPhase('setup');
-        // Queue will be filled once the player dismisses the dish intro
-        // (see dismissDishIntro below).
+        setPhase('map');
     };
 
     /** Player dismisses the "today's dish" overlay — auto-fill the shelf
@@ -550,7 +549,7 @@ export const useGameLogic = (config) => {
     const selectRow = (rowIndex) => {
         if (phase !== 'drawing' && phase !== 'drawing_sub' && phase !== 'stall_drawing') return;
         if (isCrushResolving || isDrawAnimating) return;
-        if (gold < currentDrawCost) return;
+        if (phase === 'stall_drawing' ? remainingStallDraws <= 0 : gold < currentDrawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
 
         setCrushResolutionResult(null);
@@ -564,7 +563,11 @@ export const useGameLogic = (config) => {
         });
         if (activeCols.length === 0) return;
 
-        setGold(prev => prev - currentDrawCost);
+        if (phase === 'stall_drawing') {
+            setRemainingStallDraws(prev => prev - 1);
+        } else {
+            setGold(prev => prev - currentDrawCost);
+        }
         performAction();
 
         // Pre-determine result
@@ -597,7 +600,7 @@ export const useGameLogic = (config) => {
     const selectColumn = (colIndex) => {
         if (phase !== 'drawing' && phase !== 'drawing_sub' && phase !== 'stall_drawing') return;
         if (isCrushResolving || isDrawAnimating) return;
-        if (gold < currentDrawCost) return;
+        if (phase === 'stall_drawing' ? remainingStallDraws <= 0 : gold < currentDrawCost) return;
         if (!matrix) return;
 
         setCrushResolutionResult(null);
@@ -611,7 +614,11 @@ export const useGameLogic = (config) => {
         });
         if (activeCols.length === 0) return;
 
-        setGold(prev => prev - currentDrawCost);
+        if (phase === 'stall_drawing') {
+            setRemainingStallDraws(prev => prev - 1);
+        } else {
+            setGold(prev => prev - currentDrawCost);
+        }
         performAction();
 
         // Pre-determine result: pick a random row from active rows
@@ -1493,10 +1500,18 @@ export const useGameLogic = (config) => {
         const edge = findEdge(currentEdges, from, to);
         const hadGrabber = edge?.hasGrabber ?? false;
 
-        // Move player (grabber stays on the edge — player just suffers the effect)
+        // Move player; clear needsLeave on the node being vacated
         setMapState(prev => {
             if (!prev) return prev;
-            return { ...prev, playerPosition: { ...to } };
+            return {
+                ...prev,
+                playerPosition: { ...to },
+                nodes: prev.nodes.map(n =>
+                    n.position.x === from.x && n.position.y === from.y && n.state?.needsLeave
+                        ? { ...n, state: { ...n.state, needsLeave: false } }
+                        : n
+                ),
+            };
         });
 
         if (hadGrabber) {
@@ -1533,6 +1548,12 @@ export const useGameLogic = (config) => {
         if (!result) return;
         switch (result.type) {
             case 'OPEN_STALL': {
+                const entryPrice = node.state?.price ?? MAP_CONFIG.gold.drawBaseCost;
+                if (gold < entryPrice) {
+                    showToast(`💰 金币不足（入场费 ${entryPrice}g）`, 'warning');
+                    break;
+                }
+
                 const marketTypeId = STALL_MARKET_TYPES[result.stallType];
                 const marketType = MARKET_TYPES.find(m => m.id === marketTypeId);
                 if (!marketType) break;
@@ -1555,7 +1576,6 @@ export const useGameLogic = (config) => {
                 setMatrix(stallGrid.map(r => r.map(c => c ? { ...c } : null)));
                 setActiveStallNodeId(node.id);
 
-                // Update stall node state with initial crushCount
                 setMapState(prev => {
                     if (!prev) return prev;
                     return {
@@ -1568,6 +1588,8 @@ export const useGameLogic = (config) => {
                     };
                 });
 
+                setGold(prev => prev - entryPrice);
+                setRemainingStallDraws(MAP_CONFIG.stall.drawsPerVisit);
                 setPhase('stall_drawing');
                 break;
             }
@@ -1586,7 +1608,7 @@ export const useGameLogic = (config) => {
                 setMapState(prev => ({
                     ...prev,
                     nodes: prev.nodes.map(n =>
-                        n.id === node.id ? { ...n, state: { ...n.state, claimed: true } } : n
+                        n.id === node.id ? { ...n, state: { ...n.state, claimed: true, needsLeave: true } } : n
                     ),
                 }));
                 performAction();
@@ -1613,6 +1635,10 @@ export const useGameLogic = (config) => {
             n => n.position.x === mapState.playerPosition.x && n.position.y === mapState.playerPosition.y
         );
         if (!node) return;
+        if (node.state?.needsLeave) {
+            showToast('请先离开再返回', 'info');
+            return;
+        }
         const behavior = nodeBehaviors[node.type];
         if (!behavior) return;
         const result = behavior.onEnter(node, { gold, inventory, bulletinBoard, crushGrid, hp });
@@ -1622,22 +1648,25 @@ export const useGameLogic = (config) => {
     /** Leave a stall and return to the map. */
     const leaveStall = () => {
         // Save current matrix grid to stall node state (for return visits)
-        if (activeStallNodeId && matrix) {
+        if (activeStallNodeId) {
             setMapState(prev => {
                 if (!prev) return prev;
                 return {
                     ...prev,
-                    nodes: prev.nodes.map(n =>
-                        n.id === activeStallNodeId
-                            ? { ...n, state: { ...n.state, grid: matrix.map(r => r.map(c => c ? { ...c } : null)) } }
-                            : n
-                    ),
+                    nodes: prev.nodes.map(n => {
+                        if (n.id !== activeStallNodeId) return n;
+                        const savedGrid = matrix
+                            ? matrix.map(r => r.map(c => c ? { ...c } : null))
+                            : n.state?.grid;
+                        return { ...n, state: { ...n.state, grid: savedGrid, needsLeave: true } };
+                    }),
                 };
             });
         }
         setMatrix(null);
         setCurrentWallType(null);
         setActiveStallNodeId(null);
+        setRemainingStallDraws(0);
         setPhase('map');
     };
 
@@ -2017,6 +2046,7 @@ export const useGameLogic = (config) => {
         mapState,
         setMapState,
         activeStallNodeId,
+        remainingStallDraws,
         evacuationPending,
         setEvacuationPending,
         isMoving,
