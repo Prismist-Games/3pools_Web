@@ -165,9 +165,16 @@ function generateOrder() {
 /** Build a fresh mapState from the v1 map definition. Deep-cloned so each
  *  day starts with independent mutable node/edge objects. */
 function buildInitialMapState() {
+    const edges = JSON.parse(JSON.stringify(MAP_V1_EDGES));
+    // Place 3 initial grabbers on random distinct edges
+    const shuffled = [...edges].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < 3 && i < shuffled.length; i++) {
+        const edge = edges.find(e => e.id === shuffled[i].id);
+        if (edge) edge.hasGrabber = true;
+    }
     return {
         nodes: JSON.parse(JSON.stringify(MAP_V1_NODES)),
-        edges: JSON.parse(JSON.stringify(MAP_V1_EDGES)),
+        edges,
         playerPosition: { x: 0, y: 0 },
         actionCounter: 0,
         clockTicks: 0,
@@ -1388,22 +1395,27 @@ export const useGameLogic = (config) => {
                     newEdges = prev.edges.map(e => e.id === target.id ? { ...e, hasGrabber: true } : e);
                 }
             }
-            // Grabber drift: each edge grabber has a chance to relocate to an adjacent passage node
+            // Grabber drift: each edge grabber has a chance to move to an adjacent edge
             if (phase === 'map') {
                 const driftChance = MAP_CONFIG.map.grabberDriftChance;
                 for (const edge of newEdges.filter(e => e.hasGrabber)) {
                     if (Math.random() > driftChance) continue;
-                    const passageTargets = [edge.from, edge.to]
-                        .map(pos => newNodes.find(n => n.position.x === pos.x && n.position.y === pos.y && n.type === 'passage'))
-                        .filter(Boolean);
-                    if (passageTargets.length === 0) continue;
-                    const target = passageTargets[Math.floor(Math.random() * passageTargets.length)];
-                    newEdges = newEdges.map(e => e.id === edge.id ? { ...e, hasGrabber: false } : e);
-                    newNodes = newNodes.map(n =>
-                        n.id === target.id
-                            ? { ...n, state: { ...n.state, grabberCount: (n.state.grabberCount ?? 0) + 1 } }
-                            : n
+                    // Adjacent edges: share at least one endpoint with this edge
+                    const adj = newEdges.filter(e =>
+                        !e.hasGrabber && e.id !== edge.id && (
+                            (e.from.x === edge.from.x && e.from.y === edge.from.y) ||
+                            (e.from.x === edge.to.x   && e.from.y === edge.to.y)   ||
+                            (e.to.x   === edge.from.x && e.to.y   === edge.from.y) ||
+                            (e.to.x   === edge.to.x   && e.to.y   === edge.to.y)
+                        )
                     );
+                    if (adj.length === 0) continue;
+                    const dest = adj[Math.floor(Math.random() * adj.length)];
+                    newEdges = newEdges.map(e => {
+                        if (e.id === edge.id) return { ...e, hasGrabber: false };
+                        if (e.id === dest.id)  return { ...e, hasGrabber: true };
+                        return e;
+                    });
                 }
             }
             return {
@@ -1411,7 +1423,6 @@ export const useGameLogic = (config) => {
                 actionCounter: newCounter,
                 clockTicks: prev.clockTicks + (didTick ? 1 : 0),
                 edges: newEdges,
-                nodes: newNodes,
             };
         });
         if (didTick) {
@@ -1482,26 +1493,13 @@ export const useGameLogic = (config) => {
         const edge = findEdge(currentEdges, from, to);
         const hadGrabber = edge?.hasGrabber ?? false;
 
-        const currentNodes = mapStateRef.current?.nodes ?? [];
-        const destNode = currentNodes.find(n => n.position.x === to.x && n.position.y === to.y);
-        const destPassageGrabbers = (destNode?.type === 'passage' && (destNode?.state?.grabberCount ?? 0) > 0) ? destNode : null;
-
-        // Move player, clear traversed edge grabber, decrement passage grabbers — atomically
+        // Move player (grabber stays on the edge — player just suffers the effect)
         setMapState(prev => {
             if (!prev) return prev;
-            const newEdges = hadGrabber
-                ? prev.edges.map(e => e.id === edge.id ? { ...e, hasGrabber: false } : e)
-                : prev.edges;
-            const newNodes = destPassageGrabbers
-                ? prev.nodes.map(n =>
-                    n.id === destPassageGrabbers.id
-                        ? { ...n, state: { ...n.state, grabberCount: Math.max(0, n.state.grabberCount - 1) } }
-                        : n)
-                : prev.nodes;
-            return { ...prev, playerPosition: { ...to }, edges: newEdges, nodes: newNodes };
+            return { ...prev, playerPosition: { ...to } };
         });
 
-        if (hadGrabber || destPassageGrabbers) {
+        if (hadGrabber) {
             triggerCrushResolution('move_step');
         } else {
             setTimeout(() => advanceMoveStepRef.current?.(), 280);
@@ -1930,9 +1928,8 @@ export const useGameLogic = (config) => {
         if (selectedItems.length === 0) return;
 
         const distinctTag2s = new Set(selectedItems.map(item => item.tags?.[1] ?? item.id));
-        const varietyCount = Math.min(distinctTag2s.size, 5); // cap at index 5
-        const pricePerItem = MAP_CONFIG.goldVariety.priceByVariety[varietyCount];
-        const totalGain = pricePerItem * selectedItems.length;
+        const varietyCount = Math.min(distinctTag2s.size, 5);
+        const totalGain = MAP_CONFIG.goldVariety.priceByVariety[varietyCount];
 
         const sortedIndices = [...selectedIndices].sort((a, b) => b - a);
         setInventory(prev => {
@@ -1942,7 +1939,7 @@ export const useGameLogic = (config) => {
         });
 
         setGold(prev => prev + totalGain);
-        showToast(`大排档 +${totalGain}g (${selectedItems.length}件 × ${pricePerItem}g)`, 'success');
+        showToast(`大排档 +${totalGain}g (${varietyCount}种组合)`, 'success');
         setGoldModalType(null);
         performAction();
     };
