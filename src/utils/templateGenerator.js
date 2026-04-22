@@ -119,8 +119,6 @@ export function generateWallFromTemplate(template) {
       if (cell && cell.type === 'ingredient' && !cell.item) {
         const ing = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
         cell.item = { ...ing };
-        cell.groupId = cell.uid;
-        cell.shapeSize = 1;
       }
     }
   }
@@ -134,7 +132,7 @@ export function generateWallFromTemplate(template) {
     for (let c = 0; c < gridSize; c++) {
       if (grid[r][c] !== null) continue;
       const ing = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
-      grid[r][c] = { type: 'ingredient', item: { ...ing }, uid: generateUID(), groupId: generateUID(), shapeSize: 1 };
+      grid[r][c] = { type: 'ingredient', item: { ...ing }, uid: generateUID() };
     }
   }
 

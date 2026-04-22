@@ -193,7 +193,6 @@ export const LIVE_CONFIG = {
     qualityWeights:  { ...QUALITY_WEIGHTS },                  // 1-5 档品质 roll 权重
     orderTemplates:  deepClone(ORDER_TEMPLATES),              // 订单模板（weight / rewardQuality / ingredientTypes / qualityDist 或 reqBudget）
     cellSpawn:       { doom, gold, order, bomb },             // 墙面特殊格概率
-    shapeWeights:    { 1:60, 2:30, 3:10 },                    // polyomino 1/2/3 格权重
     minQuality:      deepClone(MIN_QUALITY_CONFIG),           // { countRange, weights } 保底品质规则
 };
 ```
@@ -207,7 +206,6 @@ export const LIVE_CONFIG = {
 | `useGameLogic.rollQuality` | `LIVE_CONFIG.qualityWeights` |
 | `useGameLogic.pickWeightedTemplate` | `LIVE_CONFIG.orderTemplates` |
 | `matrixHelpers.generateWall` Phase 1+2 | `LIVE_CONFIG.cellSpawn` |
-| `matrixHelpers.generateWall` Phase 3 | `LIVE_CONFIG.shapeWeights` |
 | `matrixHelpers.generateWall` 末尾 MIN_QUALITY 标记 | `LIVE_CONFIG.minQuality` |
 
 ### 5.3 通知机制
@@ -356,8 +354,8 @@ UI 工具（`components/ui/`）：Tooltip / Toast / ConfirmDialog / GameGuide / 
 ### 8.1 `generateWall(marketIngredients)` 流程
 
 1. **Phase 1+2**：对每个空格按 `LIVE_CONFIG.cellSpawn` 累积概率 roll。顺序：doom → gold → order → bomb → 留空（食材）
-2. **Phase 3**：剩余空格按 `LIVE_CONFIG.shapeWeights` roll 形状大小；按 `SHAPE_GEOMETRY[size]` 选几个变体之一；尝试放置，放不下缩小；同形状共享 `groupId` + 同食材
-3. **MIN_QUALITY 标记**：收集所有 groupId 对应的 item，洗牌取 2-4 个，每个赋 `item.minQuality = rollMinQualityLevel()`（Q2/Q3/Q4）
+2. **Phase 3**：剩余每一格独立放 1 个食材（`{ type: 'ingredient', item, uid }`），没有分组 / 形状概念
+3. **MIN_QUALITY 标记**：按 `item.id` 收集墙上出现的食材品类，洗牌取 2-4 个；对每个被选中的 id，把所有同 id 食材格的 `item.minQuality` 统一赋为 `rollMinQualityLevel()`（Q2/Q3/Q4）
 4. 返回 `{ grid, doomCellCount }`
 
 ### 8.2 `rollQuality()`（`useGameLogic`）

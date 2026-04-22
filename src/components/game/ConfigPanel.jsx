@@ -68,11 +68,8 @@ function QualityWeightsSection() {
 // ─── Section B: 墙面符号比例 ───────────────────────────────────────
 function CellSpawnSection() {
     const cs = LIVE_CONFIG.cellSpawn;
-    const sw = LIVE_CONFIG.shapeWeights;
     const specialTotal = cs.doom + cs.gold + cs.order + cs.bomb;
     const ingredientPct = (1 - specialTotal) * 100;
-    const shapeKeys = Object.keys(sw).map(Number).sort((a, b) => a - b);
-    const shapeTotal = shapeKeys.reduce((s, k) => s + sw[k], 0);
     return (
         <section className="mb-5">
             <h3 className="text-sm font-bold text-gray-100 mb-2">B. 墙面符号比例</h3>
@@ -102,17 +99,6 @@ function CellSpawnSection() {
                     ⚠ 特殊格合计 {(specialTotal * 100).toFixed(1)}% 已 &gt; 100%
                 </div>
             )}
-
-            <h4 className="text-xs font-bold text-gray-200 mt-3 mb-1">食材形状权重（1/2/3 格）</h4>
-            <div className="grid grid-cols-[auto_auto_1fr] gap-x-3 gap-y-1.5 items-center text-xs text-gray-300">
-                {shapeKeys.map(k => (
-                    <React.Fragment key={k}>
-                        <span>{k} 格</span>
-                        <IntInput value={sw[k]} onChange={v => { sw[k] = v; bumpConfig(); }} min={0} max={999} />
-                        <span className="text-gray-500">{shapeTotal > 0 ? ((sw[k] / shapeTotal) * 100).toFixed(0) : 0}%</span>
-                    </React.Fragment>
-                ))}
-            </div>
         </section>
     );
 }

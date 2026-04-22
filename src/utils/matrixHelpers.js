@@ -17,47 +17,6 @@ function rollMinQualityLevel() {
   return 2;
 }
 
-// Polyomino shape geometry — static. Size weights live in LIVE_CONFIG.shapeWeights
-// so the ConfigPanel can tune the 1-/2-/3-格概率分布.
-const SHAPE_GEOMETRY = {
-  1: [[[0, 0]]],
-  2: [
-    [[0, 0], [0, 1]],
-    [[0, 0], [1, 0]],
-  ],
-  3: [
-    [[0, 0], [0, 1], [0, 2]],
-    [[0, 0], [1, 0], [2, 0]],
-    [[0, 0], [0, 1], [1, 1]],
-    [[0, 0], [1, 0], [1, 1]],
-  ],
-};
-
-function rollItemSize(weights) {
-  // Object.entries on integer-keyed objects iterates in ascending numeric order (ES2015+),
-  // so the fallback `return 1` covers float-drift on the last (largest) entry, not an arbitrary size.
-  const entries = Object.entries(weights).map(([k, v]) => [Number(k), v]);
-  const total = entries.reduce((sum, [, w]) => sum + w, 0);
-  let roll = Math.random() * total;
-  for (const [size, weight] of entries) {
-    roll -= weight;
-    if (roll <= 0) return size;
-  }
-  return 1;
-}
-
-function tryPlaceShape(shape, startRow, startCol, grid, gridSize) {
-  const positions = [];
-  for (const [dr, dc] of shape) {
-    const r = startRow + dr;
-    const c = startCol + dc;
-    if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return null;
-    if (grid[r][c] !== null) return null;
-    positions.push([r, c]);
-  }
-  return positions;
-}
-
 /**
  * Pick all ingredients belonging to a market type's category.
  * @param {Object} marketType — from MARKET_TYPES, has .category
@@ -69,11 +28,11 @@ export function pickMarketIngredients(marketType) {
 /**
  * Generate a wall matrix using ingredient types from the given pool.
  *
- * Phase 1: Place doom cells (normal distribution, median ~5)
- * Phase 2: Roll special cells (gold / order_cell / bomb)
- * Phase 3: Fill remaining cells with ingredient shapes
+ * Phase 1 + 2: Per-cell roll for doom / gold / order / bomb
+ * Phase 3: Fill every remaining cell with one independent ingredient
  *
  * Grid cells do NOT store quality — quality is assigned at draw time.
+ * Each ingredient cell is a standalone 1×1 entity.
  *
  * @param {Array} marketIngredients — ingredient objects filtered by market category
  */
@@ -116,86 +75,44 @@ export function generateWall(marketIngredients) {
     }
   }
 
-  // Phase 3: Fill remaining cells with ingredient shapes
-  const getEmptyPositions = () => {
-    const empty = [];
-    for (let r = 0; r < gridSize; r++)
-      for (let c = 0; c < gridSize; c++)
-        if (grid[r][c] === null) empty.push([r, c]);
-    return empty;
-  };
-
-  let empty = getEmptyPositions();
-  empty.sort(() => Math.random() - 0.5);
-
-  while (empty.length > 0) {
-    const [startR, startC] = empty[0];
-    // Cell was already filled by a multi-cell shape in the previous iteration — skip without re-query.
-    if (grid[startR][startC] !== null) { empty.shift(); continue; }
-
-    let size = rollItemSize(LIVE_CONFIG.shapeWeights);
-    let placed = false;
-
-    while (size >= 1 && !placed) {
-      const shapesForSize = SHAPE_GEOMETRY[size];
-      const shuffled = [...shapesForSize].sort(() => Math.random() - 0.5);
-
-      for (const shape of shuffled) {
-        const positions = tryPlaceShape(shape, startR, startC, grid, gridSize);
-        if (positions) {
-          const ingredient = marketIngredients[Math.floor(Math.random() * marketIngredients.length)];
-          const groupId = generateUID();
-          const item = { ...ingredient };
-          for (const [r, c] of positions) {
-            grid[r][c] = {
-              type: 'ingredient',
-              item,
-              uid: generateUID(),
-              groupId,
-              shapeSize: size,
-            };
-          }
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) size--;
-    }
-
-    if (!placed) {
+  // Phase 3: Fill each remaining cell with one independent ingredient.
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      if (grid[r][c] !== null) continue;
       const ingredient = marketIngredients[Math.floor(Math.random() * marketIngredients.length)];
-      grid[startR][startC] = {
+      grid[r][c] = {
         type: 'ingredient',
         item: { ...ingredient },
         uid: generateUID(),
-        groupId: generateUID(),
-        shapeSize: 1,
       };
     }
-
-    empty = getEmptyPositions();
-    empty.sort(() => Math.random() - 0.5);
   }
 
-  // Assign minQuality to a random selection of 2-4 ingredient groups
-  const groupItemMap = new Map(); // groupId -> item reference
+  // Assign minQuality to 2-4 ingredient types present on the grid. Each
+  // cell owns its own clone of an ingredient, so we key by item.id and
+  // stamp minQuality onto every cell whose item matches a selected id.
+  const idToCells = new Map(); // item.id -> array of cell refs
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       const cell = grid[r][c];
-      if (cell?.type === 'ingredient' && !groupItemMap.has(cell.groupId)) {
-        groupItemMap.set(cell.groupId, cell.item);
-      }
+      if (cell?.type !== 'ingredient' || !cell.item?.id) continue;
+      const list = idToCells.get(cell.item.id);
+      if (list) list.push(cell);
+      else idToCells.set(cell.item.id, [cell]);
     }
   }
-  const itemList = [...groupItemMap.values()];
-  for (let i = itemList.length - 1; i > 0; i--) {
+  const ids = [...idToCells.keys()];
+  for (let i = ids.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [itemList[i], itemList[j]] = [itemList[j], itemList[i]];
+    [ids[i], ids[j]] = [ids[j], ids[i]];
   }
   const [minCount, maxCount] = LIVE_CONFIG.minQuality.countRange;
   const variantCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
-  for (let i = 0; i < Math.min(variantCount, itemList.length); i++) {
-    itemList[i].minQuality = rollMinQualityLevel();
+  for (let i = 0; i < Math.min(variantCount, ids.length); i++) {
+    const q = rollMinQualityLevel();
+    for (const cell of idToCells.get(ids[i])) {
+      cell.item.minQuality = q;
+    }
   }
 
   return { grid, doomCellCount };
