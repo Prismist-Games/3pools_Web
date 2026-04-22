@@ -115,7 +115,7 @@ const GameCore = () => {
     // Auto-start game on mount — skip the pre_game screen
     useEffect(() => { startGame(); }, []);
 
-    // Auto-dismiss dish intro — skip the setup screen
+    // Auto-dismiss dish intro — skip the setup/dish screen
     useEffect(() => { if (dishIntroPending) dismissDishIntro(); }, [dishIntroPending]);
 
     // --- Crush animation interval (人挤人) ---
