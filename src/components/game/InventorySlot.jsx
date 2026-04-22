@@ -254,7 +254,7 @@ export const InventorySlot = ({
                         {(!isSelectionMode && isOverloadTarget && !(isHovered && canSynthesize)) && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/60 rounded-lg transition-opacity z-10 backdrop-blur-[1px]">
                                 <Trash2 size={32} className="text-white drop-shadow-md" />
-                                <span className="text-white text-[10px] font-black uppercase tracking-wider text-center px-1">{t("回收")}</span>
+                                <span className="text-white text-[10px] font-black uppercase tracking-wider text-center px-1">{t("丢弃")}</span>
                                 {['rare', 'epic', 'legendary', 'mythic'].includes(item.rarity?.id) && (
                                     <span className="text-amber-200 text-xs font-bold whitespace-nowrap drop-shadow-md">
                                         +{item.rarity.recycleValue || 0} 🪙

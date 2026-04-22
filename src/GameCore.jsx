@@ -542,7 +542,7 @@ const GameCore = () => {
                                     {/* Recycle / Synthesize controls */}
                                     {recycleMode ? (
                                         <div className="mb-2 p-2 bg-[#FFF0EE] border-2 border-kitchen-danger rounded-lg">
-                                            <p className="text-[11px] text-kitchen-danger-text mb-1.5">{t('点击选择要回收的物品')}</p>
+                                            <p className="text-[11px] text-kitchen-danger-text mb-1.5">{t('点击选择要丢弃的物品')}</p>
                                             <div className="flex gap-2">
                                                 <button onClick={() => {
                                                     if (recycleSelected.size > 0) {
@@ -552,7 +552,7 @@ const GameCore = () => {
                                                 }}
                                                     disabled={recycleSelected.size === 0}
                                                     className={`text-[10px] px-2 py-1 rounded-md font-bold transition-colors ${recycleSelected.size > 0 ? 'bg-kitchen-danger text-white hover:bg-kitchen-danger-border' : 'bg-[#F5F0E8] text-kitchen-text-muted cursor-not-allowed'}`}>
-                                                    {t('确认回收')} {recycleSelected.size > 0 && `(${recycleSelected.size})`}
+                                                    {t('确认丢弃')} {recycleSelected.size > 0 && `(${recycleSelected.size})`}
                                                 </button>
                                                 <button onClick={() => { setRecycleMode(false); setRecycleSelected(new Set()); }}
                                                     className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">{t('取消')}</button>
@@ -582,12 +582,12 @@ const GameCore = () => {
                                         </div>
                                     ) : !pendingItem && (
                                         <div className="mb-2 p-2 bg-[#FFF8F0] border border-kitchen-gold-border-muted rounded-lg flex items-center justify-between">
-                                            <span className="text-[11px] text-kitchen-text-secondary">{actionHint === 'synthesize' ? t('合成为高品质物品') : t('回收不需要的物品')}</span>
+                                            <span className="text-[11px] text-kitchen-text-secondary">{actionHint === 'synthesize' ? t('合成为高品质物品') : t('丢弃不需要的物品')}</span>
                                             <div className="flex gap-1.5">
                                                 <button
                                                     onMouseEnter={() => setActionHint('recycle')}
                                                     onClick={() => { setRecycleMode(true); setRecycleSelected(new Set()); setSynthesizeMode(false); setSynthesizeSelected(new Set()); }}
-                                                    className="text-[10px] px-2 py-1 rounded-md font-bold text-kitchen-text-body bg-[#FFF3E0] border border-kitchen-gold-border hover:bg-[#FFF0EE] hover:text-kitchen-danger-text transition-colors">{t('回收')}</button>
+                                                    className="text-[10px] px-2 py-1 rounded-md font-bold text-kitchen-text-body bg-[#FFF3E0] border border-kitchen-gold-border hover:bg-[#FFF0EE] hover:text-kitchen-danger-text transition-colors">{t('丢弃')}</button>
                                                 <button
                                                     onMouseEnter={() => setActionHint('synthesize')}
                                                     onClick={() => { setSynthesizeMode(true); setSynthesizeSelected(new Set()); setRecycleMode(false); setRecycleSelected(new Set()); }}
