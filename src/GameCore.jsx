@@ -109,7 +109,7 @@ const GameCore = () => {
         mapState, movePlayer, enterCurrentNode, leaveStall,
         activeStallNodeId, evacuationPending, setEvacuationPending, isMoving,
         goldModalType, setGoldModalType, sellToGoldVariety, sellToGoldQuality,
-        orderRegionOpen, closeOrderRegion,
+        currentOrderRegion,
     } = state;
 
     // --- Crush animation interval (人挤人) ---
@@ -258,24 +258,40 @@ const GameCore = () => {
                 {/* Gameplay phases — single persistent sidebar layout */}
                 {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'map' || phase === 'stall_drawing') && (
                     <div className="flex gap-4">
-                        {/* LEFT SIDEBAR */}
-                        <div className="w-96 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
-                            {bulletinBoard && (
-                                <BulletinBoard
-                                    orders={bulletinBoard}
-                                    inventory={inventory}
-                                    onSubmit={submitOrder}
-                                    canSubmitOrder={canSubmitOrder}
-                                    incomingOrder={incomingOrder}
-                                    onConfirmIncoming={confirmIncomingOrder}
-                                    onDiscardIncoming={discardIncomingOrder}
-                                    pendingChosenOrder={pendingChosenOrder}
-                                    onReplaceIncoming={replaceBulletinOrder}
-                                    refreshCharges={refreshCharges}
-                                    onRefresh={triggerRefresh}
-                                    hoveredIngredientIds={hoveredIngredientIds}
-                                />
-                            )}
+                        {/* LEFT SIDEBAR — exchange zone A and B */}
+                        <div className="w-96 flex-shrink-0 flex flex-col gap-3 self-start" ref={bulletinRef}>
+                            {bulletinBoard && (['a', 'b']).map(region => {
+                                const isActive = currentOrderRegion === region;
+                                const regionLabel = region === 'a' ? '交换区 A' : '交换区 B';
+                                const regionOrders = bulletinBoard.filter(o => o.regionId === region);
+                                const regionIncoming = incomingQueue.find(e => e.regionId === region) || null;
+                                const regionIncomingEvent = isActive ? (incomingOrder?.regionId === region ? incomingOrder : null) : null;
+                                return (
+                                    <div key={region} className={`rounded-xl border-2 transition-colors ${isActive ? 'border-kitchen-gold shadow-[0_2px_0_#D4B896]' : 'border-kitchen-gold-border-muted opacity-80'}`}>
+                                        <div className={`px-3 py-1.5 flex items-center justify-between rounded-t-xl border-b ${isActive ? 'bg-kitchen-gold/10 border-kitchen-gold-border' : 'bg-kitchen-card border-kitchen-gold-border-muted/40'}`}>
+                                            <span className="text-xs font-bold text-kitchen-text-body">📋 {regionLabel}</span>
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isActive ? 'bg-kitchen-gold text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                                {isActive ? '✓ 在此' : '需前往'}
+                                            </span>
+                                        </div>
+                                        <BulletinBoard
+                                            orders={regionOrders}
+                                            capacity={2}
+                                            inventory={inventory}
+                                            onSubmit={submitOrder}
+                                            canSubmitOrder={canSubmitOrder}
+                                            incomingOrder={regionIncomingEvent}
+                                            onConfirmIncoming={(chosenOrder) => confirmIncomingOrder(chosenOrder, regionIncoming?.id)}
+                                            onDiscardIncoming={discardIncomingOrder}
+                                            pendingChosenOrder={pendingChosenOrder?.regionId === region ? pendingChosenOrder : null}
+                                            onReplaceIncoming={replaceBulletinOrder}
+                                            refreshCharges={isActive ? refreshCharges : 0}
+                                            onRefresh={triggerRefresh}
+                                            hoveredIngredientIds={hoveredIngredientIds}
+                                        />
+                                    </div>
+                                );
+                            })}
                         </div>
 
                         {/* CENTER — changes by phase */}
@@ -1008,35 +1024,6 @@ const GameCore = () => {
                     />
                 )}
 
-                {/* Order Region Modal (A区 / B区) */}
-                {orderRegionOpen && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={closeOrderRegion}>
-                        <div className="bg-white rounded-xl p-4 w-[420px] max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-                            <div className="flex justify-between items-center mb-3">
-                                <h2 className="text-lg font-bold">📋 订单区 {orderRegionOpen.toUpperCase()}</h2>
-                                <button onClick={closeOrderRegion} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
-                            </div>
-                            <BulletinBoard
-                                orders={bulletinBoard.filter(o => o.regionId === orderRegionOpen)}
-                                inventory={inventory}
-                                onSubmit={submitOrder}
-                                canSubmitOrder={canSubmitOrder}
-                                incomingOrder={incomingQueue.find(e => e.regionId === orderRegionOpen) || null}
-                                onConfirmIncoming={(chosenOrder) => {
-                                    const event = incomingQueue.find(e => e.regionId === orderRegionOpen);
-                                    confirmIncomingOrder(chosenOrder, event?.id);
-                                }}
-                                onDiscardIncoming={discardIncomingOrder}
-                                pendingChosenOrder={pendingChosenOrder?.regionId === orderRegionOpen ? pendingChosenOrder : null}
-                                onReplaceIncoming={replaceBulletinOrder}
-                                refreshCharges={refreshCharges}
-                                onRefresh={triggerRefresh}
-                                hoveredIngredientIds={hoveredIngredientIds}
-                                capacity={2}
-                            />
-                        </div>
-                    </div>
-                )}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}

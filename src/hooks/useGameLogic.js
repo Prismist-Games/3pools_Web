@@ -241,8 +241,17 @@ export const useGameLogic = (config) => {
     const [activeStallNodeId, setActiveStallNodeId] = useState(null);
     const [evacuationPending, setEvacuationPending] = useState(false);
     const [goldModalType, setGoldModalType] = useState(null); // null | 'variety' | 'quality'
-    const [orderRegionOpen, setOrderRegionOpen] = useState(null); // null | 'a' | 'b'
     const [isMoving, setIsMoving] = useState(false);
+    const currentOrderRegion = useMemo(() => {
+        if (!mapState) return null;
+        const node = mapState.nodes.find(n =>
+            n.position.x === mapState.playerPosition.x &&
+            n.position.y === mapState.playerPosition.y
+        );
+        if (node?.type === 'order_region_a') return 'a';
+        if (node?.type === 'order_region_b') return 'b';
+        return null;
+    }, [mapState]);
     const mapStateRef = useRef(null);
     mapStateRef.current = mapState; // always-current mirror for async callbacks
     const movePathRef = useRef(null); // { path: [{x,y}], step: number } | null
@@ -1246,6 +1255,7 @@ export const useGameLogic = (config) => {
     const canSubmitOrder = (orderId) => {
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return false;
+        if (currentOrderRegion !== order.regionId) return false;
         const used = new Set();
         for (const req of order.requirements) {
             let allocated = 0;
@@ -1327,9 +1337,9 @@ export const useGameLogic = (config) => {
     const triggerRefresh = () => {
         if (refreshCharges <= 0) return;
         if (pendingChosenOrder) return;
-        if (!orderRegionOpen) return; // can only refresh from a region node
+        if (!currentOrderRegion) return; // can only refresh from an order region node
         setRefreshCharges(c => c - 1);
-        addBulletinOrder(orderRegionOpen);
+        addBulletinOrder(currentOrderRegion);
     };
 
     // =============================================
@@ -1506,7 +1516,7 @@ export const useGameLogic = (config) => {
                 break;
             }
             case 'OPEN_ORDER_REGION':
-                setOrderRegionOpen(result.regionId);
+                // Submission is now gated by player position (currentOrderRegion), no modal needed.
                 performAction();
                 break;
             case 'OPEN_GOLD_VARIETY':
@@ -1749,7 +1759,6 @@ export const useGameLogic = (config) => {
         setCurrentDish(null);
         setLastCookResult(null);
         setEvacuationPending(false);
-        setOrderRegionOpen(null);
         setMapState(buildInitialMapState());
         setPhase('pre_game');
     };
@@ -1805,7 +1814,6 @@ export const useGameLogic = (config) => {
         setExpeditionScores([]);
         setTotalScore(0);
         setEvacuationPending(false);
-        setOrderRegionOpen(null);
         setMapState(buildInitialMapState());
     };
 
@@ -1845,7 +1853,6 @@ export const useGameLogic = (config) => {
         setDishIntroPending(false);
         setCurrentDish(null);
         setEvacuationPending(false);
-        setOrderRegionOpen(null);
         setMapState(buildInitialMapState());
         setPhase('pre_game');
     };
@@ -2037,7 +2044,6 @@ export const useGameLogic = (config) => {
         sellToGoldQuality,
 
         // Order Region
-        orderRegionOpen,
-        closeOrderRegion: () => setOrderRegionOpen(null),
+        currentOrderRegion,
     };
 };
