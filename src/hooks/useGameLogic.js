@@ -635,6 +635,8 @@ export const useGameLogic = (config) => {
             showToast('⬇️ ' + t('重力开关！'), 'info');
         } else if (drawnCell.type === 'loudmouth') {
             showToast('📢 ' + t('大嗓门被驱散！'), 'success');
+        } else if (drawnCell.type === 'snatcher') {
+            showToast('🕴️ ' + t('抢菜达人被驱逐！'), 'success');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {
@@ -694,6 +696,65 @@ export const useGameLogic = (config) => {
             }
             // bomb mirror handled in setMatrix below
             // entrance mirror skipped (entrance only on hand-crafted levels, not mirror walls)
+        }
+
+        // 抢菜达人决策：在 setMatrix 之前同步计算，setMatrix 里只应用。
+        // （React 18 的状态更新是异步的，在 setMatrix 回调里赋值闭包变量
+        //  会导致外部的 toast 检查拿到 null。）
+        let snatchedItem = null;
+        let snatcherPlannedMove = null; // { from: [r,c], to: [r,c] }
+        if (matrix && drawnCell.type !== 'snatcher') {
+            let snatcherR = -1, snatcherC = -1;
+            for (let r = 0; r < matrix.length && snatcherR === -1; r++) {
+                for (let c = 0; c < matrix[0].length; c++) {
+                    if (matrix[r][c]?.type === 'snatcher') { snatcherR = r; snatcherC = c; break; }
+                }
+            }
+            if (snatcherR !== -1) {
+                const rows = matrix.length;
+                const cols = matrix[0].length;
+                const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+                const inBounds = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols;
+                // 视角：假装已经清掉 drawn cell（及 mirror cell）
+                const getCell = (r, c) => {
+                    if (r === finalRowIndex && c === finalColIndex) return null;
+                    if (mirrorCell && r === mirrorRow && c === mirrorCol) return null;
+                    return matrix[r]?.[c] ?? null;
+                };
+                const ingNbrs = [];
+                const nullNbrs = [];
+                for (const [dr, dc] of dirs) {
+                    const nr = snatcherR + dr;
+                    const nc = snatcherC + dc;
+                    if (!inBounds(nr, nc)) continue;
+                    const cell = getCell(nr, nc);
+                    if (cell?.type === 'ingredient') ingNbrs.push([nr, nc]);
+                    else if (cell === null) nullNbrs.push([nr, nc]);
+                }
+                let target = null;
+                if (ingNbrs.length > 0) {
+                    target = ingNbrs[Math.floor(Math.random() * ingNbrs.length)];
+                    snatchedItem = matrix[target[0]][target[1]].item;
+                } else if (nullNbrs.length > 0) {
+                    let best = [];
+                    let bestScore = -1;
+                    for (const [nr, nc] of nullNbrs) {
+                        let score = 0;
+                        for (const [dr, dc] of dirs) {
+                            const nnr = nr + dr;
+                            const nnc = nc + dc;
+                            if (!inBounds(nnr, nnc)) continue;
+                            if (getCell(nnr, nnc)?.type === 'ingredient') score++;
+                        }
+                        if (score > bestScore) { bestScore = score; best = [[nr, nc]]; }
+                        else if (score === bestScore) best.push([nr, nc]);
+                    }
+                    target = best[Math.floor(Math.random() * best.length)];
+                }
+                if (target) {
+                    snatcherPlannedMove = { from: [snatcherR, snatcherC], to: target };
+                }
+            }
         }
 
         // Remove drawn cell(s) and apply wall modifiers
@@ -856,10 +917,23 @@ export const useGameLogic = (config) => {
                 }
             }
 
+            // 抢菜达人：决策在外面已同步算好（snatcherPlannedMove），这里只应用。
+            // 放在 loudmouth refill 之前，以便他占到刚被抽空的格子时不会被 doom 覆盖。
+            // 守护：只在源格确实还是 snatcher 时才移动——避免 bomb 爆炸已经把他清了的情况下"复活"。
+            if (snatcherPlannedMove) {
+                const { from, to } = snatcherPlannedMove;
+                const srcCell = newMatrix[from[0]][from[1]];
+                if (srcCell?.type === 'snatcher') {
+                    newMatrix[to[0]][to[1]] = srcCell;
+                    newMatrix[from[0]][from[1]] = null;
+                }
+            }
+
             // Loudmouth refill: while a loudmouth still on board, the drawn cell
-            // is replaced with a fresh doom_resolution (抢菜人).
+            // is replaced with a fresh doom_resolution (抢菜人)。
+            // 只在该格仍为空时填——抢菜达人可能已移动到此位置。
             const loudmouthAlive = newMatrix.some(row => row.some(c => c?.type === 'loudmouth'));
-            if (loudmouthAlive) {
+            if (loudmouthAlive && newMatrix[finalRowIndex][finalColIndex] === null) {
                 newMatrix[finalRowIndex][finalColIndex] = {
                     type: 'doom_resolution',
                     icon: pickDoomEmoji(),
@@ -925,6 +999,11 @@ export const useGameLogic = (config) => {
 
             return newMatrix;
         });
+
+        if (snatchedItem) {
+            const stolenName = (language === 'en' && snatchedItem.nameEn) ? snatchedItem.nameEn : t(snatchedItem.name);
+            showToast(`🕴️ ${t('抢菜达人偷走了')} ${snatchedItem.icon} ${stolenName}`, 'warning');
+        }
 
         if (obtainedItem) {
             const yieldCount = mult;

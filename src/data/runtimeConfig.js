@@ -27,6 +27,7 @@ export const LIVE_CONFIG = {
         buffField: MATRIX_CONFIG.specialCells.buffField.spawnChance,
         loudmouth: MATRIX_CONFIG.specialCells.loudmouth.spawnChance,
         slime:     MATRIX_CONFIG.specialCells.slime.spawnChance,
+        snatcher:  MATRIX_CONFIG.specialCells.snatcher.spawnChance,
     },
     // 形状权重当前 hard-coded 在 matrixHelpers.js 里（{1:60, 2:30, 3:10}）；
     // 这里镜像一份用于面板调整 —— matrixHelpers 读 LIVE_CONFIG.shapeWeights。

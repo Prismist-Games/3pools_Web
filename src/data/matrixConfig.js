@@ -66,5 +66,11 @@ export const MATRIX_CONFIG = {
       icon: '🫠',
       name: '黏糊糊的一摊',
     },
+    snatcher: {
+      spawnChance: 0.05,  // 5% per cell position, capped by maxPerWall
+      maxPerWall: 1,
+      icon: '🕴️',
+      name: '抢菜达人',
+    },
   },
 };

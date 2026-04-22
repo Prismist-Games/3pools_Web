@@ -86,6 +86,8 @@ export function generateWall(marketIngredients) {
   const doomCellCount = { resolution: 0 };
   let loudmouthPlaced = 0;
   const loudmouthCap = specialCells.loudmouth.maxPerWall;
+  let snatcherPlaced = 0;
+  const snatcherCap = specialCells.snatcher.maxPerWall;
 
   // Phase 1 + 2: Doom and special cells — per-cell probability roll.
   // Rates read from LIVE_CONFIG.cellSpawn so ConfigPanel tweaks take effect
@@ -102,6 +104,7 @@ export function generateWall(marketIngredients) {
       const buffFieldChance = bombChance + (LIVE_CONFIG.cellSpawn.buffField || 0);
       const loudmouthChance = buffFieldChance + (LIVE_CONFIG.cellSpawn.loudmouth || 0);
       const slimeChance = loudmouthChance + (LIVE_CONFIG.cellSpawn.slime || 0);
+      const snatcherChance = slimeChance + (LIVE_CONFIG.cellSpawn.snatcher || 0);
 
       if (roll < doomChance) {
         grid[row][col] = { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
@@ -124,6 +127,9 @@ export function generateWall(marketIngredients) {
         loudmouthPlaced++;
       } else if (roll < slimeChance) {
         grid[row][col] = { type: 'slime', icon: specialCells.slime.icon, name: specialCells.slime.name, uid: generateUID() };
+      } else if (roll < snatcherChance && snatcherPlaced < snatcherCap) {
+        grid[row][col] = { type: 'snatcher', icon: specialCells.snatcher.icon, name: specialCells.snatcher.name, uid: generateUID() };
+        snatcherPlaced++;
       }
     }
   }

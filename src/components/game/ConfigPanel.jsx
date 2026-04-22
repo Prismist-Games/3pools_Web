@@ -70,7 +70,7 @@ function QualityWeightsSection() {
 function CellSpawnSection() {
     const cs = LIVE_CONFIG.cellSpawn;
     const sw = LIVE_CONFIG.shapeWeights;
-    const specialTotal = cs.doom + cs.gold + cs.order + cs.bomb + (cs.buffField || 0) + (cs.loudmouth || 0) + (cs.slime || 0);
+    const specialTotal = cs.doom + cs.gold + cs.order + cs.bomb + (cs.buffField || 0) + (cs.loudmouth || 0) + (cs.slime || 0) + (cs.snatcher || 0);
     const ingredientPct = (1 - specialTotal) * 100;
     const shapeKeys = Object.keys(sw).map(Number).sort((a, b) => a - b);
     const shapeTotal = shapeKeys.reduce((s, k) => s + sw[k], 0);
@@ -105,6 +105,10 @@ function CellSpawnSection() {
                 <span>🫠 黏糊糊的一摊</span>
                 <NumInput value={cs.slime} onChange={v => { cs.slime = v; bumpConfig(); }} />
                 <span className="text-gray-500">{((cs.slime || 0) * 100).toFixed(1)}%</span>
+
+                <span>🕴️ 抢菜达人 <span className="text-[10px] text-gray-500">(每墙≤{MATRIX_CONFIG.specialCells.snatcher.maxPerWall})</span></span>
+                <NumInput value={cs.snatcher} onChange={v => { cs.snatcher = v; bumpConfig(); }} />
+                <span className="text-gray-500">{((cs.snatcher || 0) * 100).toFixed(1)}%</span>
 
                 <span className="text-gray-400 italic">🍴 食材格</span>
                 <span className="text-gray-500">(余下)</span>

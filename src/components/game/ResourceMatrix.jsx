@@ -93,6 +93,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.icon || '🫠';
         name = t(cell.name || '黏糊糊的一摊');
         desc = t('黏糊糊的一摊，沾在篮子里甩不掉。需合成为一坨才能丢弃。');
+    } else if (cell.type === 'snatcher') {
+        icon = cell.icon || '🕴️';
+        name = t(cell.name || '抢菜达人');
+        desc = t('每次抽取后，他会偷走相邻食材并移过去；没食材时会朝食材方向踱步。抽到他可驱逐。');
     } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
@@ -179,7 +183,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
-        || cell.type === 'buff_field' || cell.type === 'loudmouth' || cell.type === 'slime'
+        || cell.type === 'buff_field' || cell.type === 'loudmouth' || cell.type === 'slime' || cell.type === 'snatcher'
         || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item');
 
     // Cell background
@@ -216,6 +220,8 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         bgClass = 'bg-orange-100 border-orange-500';
     } else if (cell.type === 'slime') {
         bgClass = 'bg-[#FFB8A8] border-[#D04020]';
+    } else if (cell.type === 'snatcher') {
+        bgClass = 'bg-orange-100 border-orange-500';
     } else {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     }
@@ -537,6 +543,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         }
         if (cell.type === 'slime') {
             return <span className="text-xl">{cell.icon || '🫠'}</span>;
+        }
+        if (cell.type === 'snatcher') {
+            return <span className="text-xl">{cell.icon || '🕴️'}</span>;
         }
         return (
             <>

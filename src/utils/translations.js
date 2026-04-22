@@ -782,4 +782,10 @@ export const EN_TRANSLATIONS = {
     "黏糊糊的东西，沾手甩不掉。合成为一坨才能丢弃。": "Slimy stuff, can't shake it off. Merge to a lump to discard.",
     "黏糊糊的一坨。可以正常丢弃。": "Slimy lump. Can be discarded.",
     "黏糊糊的一摊，沾在篮子里甩不掉。需合成为一坨才能丢弃。": "Slimy puddle, stuck in your basket. Merge to a lump to discard.",
+
+    // --- Snatcher (抢菜达人) ---
+    "抢菜达人": "Grocery Pro",
+    "抢菜达人被驱逐！": "Grocery Pro driven off!",
+    "抢菜达人偷走了": "Grocery Pro swiped",
+    "每次抽取后，他会偷走相邻食材并移过去；没食材时会朝食材方向踱步。抽到他可驱逐。": "After each draw, he swipes an adjacent ingredient and moves into its cell; otherwise he strolls toward more food. Draw him to drive him off.",
 };
