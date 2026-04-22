@@ -1420,7 +1420,21 @@ export const useGameLogic = (config) => {
         const didTick = newCounter % MAP_CONFIG.clock.actionsPerTick === 0;
         setMapState(prev => {
             if (!prev) return prev;
-            return { ...prev, actionCounter: newCounter, clockTicks: prev.clockTicks + (didTick ? 1 : 0) };
+            let newEdges = prev.edges;
+            if (didTick) {
+                // Spawn grabber on a random edge that doesn't already have one
+                const emptyEdges = prev.edges.filter(e => !e.hasGrabber);
+                if (emptyEdges.length > 0) {
+                    const target = emptyEdges[Math.floor(Math.random() * emptyEdges.length)];
+                    newEdges = prev.edges.map(e => e.id === target.id ? { ...e, hasGrabber: true } : e);
+                }
+            }
+            return {
+                ...prev,
+                actionCounter: newCounter,
+                clockTicks: prev.clockTicks + (didTick ? 1 : 0),
+                edges: newEdges,
+            };
         });
         if (didTick) {
             setCrushGrid(prevGrid => {
