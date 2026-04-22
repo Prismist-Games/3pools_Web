@@ -25,8 +25,6 @@ const itemScoreValue = (item) => {
 };
 import { Link } from 'react-router-dom';
 import { GameGuide } from './components/ui/GameGuide';
-import RoundTransition from './components/ui/RoundTransition';
-import WallPicker from './components/game/WallPicker';
 import OrderSubmitModal from './components/game/OrderSubmitModal';
 import ConfigPanel from './components/game/ConfigPanel';
 import MarketMap from './components/game/MarketMap';
@@ -94,8 +92,7 @@ const GameCore = () => {
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
         drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
-        startGame, selectWall, confirmWallReveal, selectRow, selectColumn, endTurn, continueToNextTurn,
-        wallCandidates, pendingWallCandidate,
+        startGame, selectRow, selectColumn, endTurn,
         handleEvacuate, returnToRestaurant, handleCookResult, startNextDay,
         handleReset, startNextExpedition,
         dayNumber, popularity, lastCookResult,
@@ -262,7 +259,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'between_turns' || phase === 'wall_choice' || phase === 'wall_reveal' || phase === 'map' || phase === 'stall_drawing') && (
+                {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'map' || phase === 'stall_drawing') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-96 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -286,11 +283,6 @@ const GameCore = () => {
 
                         {/* CENTER — changes by phase */}
                         <div className="flex-1 min-w-0">
-                            {/* Wall choice phase — 3-choose-1 */}
-                            {phase === 'wall_choice' && wallCandidates && (
-                                <WallPicker candidates={wallCandidates} onSelect={selectWall} onHoverIngredientIds={setHoveredIngredientIds} />
-                            )}
-
                             {/* Drawing phase */}
                             {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub') && matrix && (
                                 <div className="flex flex-col items-center">
@@ -380,102 +372,6 @@ const GameCore = () => {
                                 </div>
                             )}
 
-                            {/* Between turns */}
-                            {phase === 'between_turns' && (
-                                <div className="text-center py-8">
-                                    <h2 className="text-xl font-bold mb-3 text-kitchen-text-title">{t('成功挤出人群')}</h2>
-                                    <div className="flex items-center justify-center gap-0.5 mb-2">
-                                        {Array.from({ length: 5 }).map((_, i) => (
-                                            <span key={i} className="text-lg leading-none">{i < hp ? '❤️' : '🤍'}</span>
-                                        ))}
-                                    </div>
-                                    <p className="text-kitchen-text-muted text-sm mb-6">
-                                        {t('下次进店人群将会更多')}
-                                    </p>
-
-                                    {/* Centered incoming order picker — shown after leaving a wall */}
-                                    {incomingOrder && incomingOrder.candidates && !pendingChosenOrder && (
-                                        <div className="max-w-md mx-auto mb-6 p-4 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-2xl shadow-[0_3px_0_#D4952A]">
-                                            <div className="text-sm font-bold text-kitchen-gold-deep mb-3">
-                                                📋 {t('新订单')} — {t('选择一个加入交换区')}
-                                                {incomingQueueLength > 1 && (
-                                                    <span className="ml-2 text-[11px] text-kitchen-text-muted">(还有 {incomingQueueLength - 1})</span>
-                                                )}
-                                            </div>
-                                            <div className="flex flex-col gap-2">
-                                                {incomingOrder.candidates.map((candidate) => {
-                                                    const ds = DIFFICULTY_STYLE[candidate.difficulty] || DIFFICULTY_STYLE.easy;
-                                                    return (
-                                                        <button key={candidate.id}
-                                                            onClick={() => confirmIncomingOrder(candidate)}
-                                                            className="p-3 rounded-lg border-2 border-kitchen-gold-border-muted bg-kitchen-card hover:border-kitchen-gold hover:bg-[#FFF3E0] transition-colors text-left">
-                                                            <div className="flex items-center gap-2 mb-1.5">
-                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
-                                                                <div className="flex gap-0.5">
-                                                                    {candidate.rewards.map((r, i) => (
-                                                                        <RewardCard key={i} reward={r} size="sm" />
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                            {candidate.requirements && candidate.requirements.length > 0 && (
-                                                                <div className="flex gap-1 flex-wrap items-center">
-                                                                    <span className="text-[9px] text-kitchen-text-muted">{t('需要')}</span>
-                                                                    {candidate.requirements.map((req, i) => (
-                                                                        <div key={i} className="flex items-center gap-0.5">
-                                                                            <div className="relative w-12 h-12 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex flex-col items-center justify-center shadow-sm px-0.5">
-                                                                                <span className="text-base leading-none">{req.icon}</span>
-                                                                                <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
-                                                                                    {language === 'en' && req.nameEn ? req.nameEn : t(req.name)}
-                                                                                </span>
-                                                                            </div>
-                                                                            <span className="text-[10px] font-bold text-kitchen-text-body">×{req.count}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                            <div className="mt-3 flex justify-center">
-                                                <button onClick={discardIncomingOrder}
-                                                    className="text-xs px-3 py-1.5 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">
-                                                    {t('跳过')}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Replacement step — shown when shelf was full and a choice was made */}
-                                    {pendingChosenOrder && (
-                                        <div className="max-w-md mx-auto mb-6 p-4 bg-[#FFF0EE] border-2 border-kitchen-danger rounded-2xl shadow-[0_3px_0_rgba(208,64,32,0.4)]">
-                                            <div className="text-sm font-bold text-kitchen-danger-text mb-2">
-                                                ⚠️ {t('交换区已满，选择下方订单替换')}
-                                            </div>
-                                            <div className="text-xs text-kitchen-text-muted">
-                                                {t('在左侧交换区点击要替换掉的订单')}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className={`flex gap-4 justify-center ${incomingOrder ? 'opacity-40 pointer-events-none' : ''}`}>
-                                        <button
-                                            onClick={continueToNextTurn}
-                                            disabled={!!incomingOrder}
-                                            className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
-                                        >
-                                            {t('继续')}
-                                        </button>
-                                        <button
-                                            onClick={handleEvacuate}
-                                            disabled={!!incomingOrder}
-                                            className="px-8 py-3 bg-kitchen-success border-2 border-kitchen-success-border text-white font-bold rounded-xl shadow-[0_3px_0_rgba(96,160,112,0.5)] hover:brightness-95 transition-colors"
-                                        >
-                                            {t('回到餐厅')}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                             {/* Map phase — 4×4 market map navigation */}
                             {phase === 'map' && mapState && (
                                 <MarketMap
@@ -1150,24 +1046,6 @@ const GameCore = () => {
                 {/* Dish intro overlay removed — the setup phase now renders
                     the detailed Kitchen view directly, with a "Start Day" button. */}
 
-                {/* Wall reveal — gated by explicit click, shows the modifier/
-                    level identity after the player has committed to a pick. */}
-                <RoundTransition
-                    reveal={phase === 'wall_reveal' && pendingWallCandidate ? (
-                        pendingWallCandidate.level ? {
-                            icon: pendingWallCandidate.level.icon || '📐',
-                            name: (language === 'en' && pendingWallCandidate.level.name_en) ? pendingWallCandidate.level.name_en : t(pendingWallCandidate.level.name),
-                            desc: (language === 'en' && pendingWallCandidate.level.description_en) ? pendingWallCandidate.level.description_en : (t(pendingWallCandidate.level.description) || t('特殊地形关卡')),
-                            subtitle: t('奖品墙揭晓'),
-                        } : {
-                            icon: pendingWallCandidate.wallType?.icon || '🎬',
-                            name: t(pendingWallCandidate.wallType?.name || ''),
-                            desc: t(pendingWallCandidate.wallType?.desc || ''),
-                            subtitle: t('奖品墙揭晓'),
-                        }
-                    ) : null}
-                    onDismiss={confirmWallReveal}
-                />
             </div>
         </div>
     );

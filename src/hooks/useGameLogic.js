@@ -209,13 +209,6 @@ export const useGameLogic = (config) => {
     const [currentWallType, setCurrentWallType] = useState(null);
     const [currentLevel, setCurrentLevel] = useState(null); // hand-crafted level for reveal overlay
     const [lastDrawDirection, setLastDrawDirection] = useState(null);
-    // 3-choose-1 candidates surfaced during 'wall_choice' phase. Each is
-    // { marketIngredients, grid, doomCellCount, wallType }
-    const [wallCandidates, setWallCandidates] = useState(null);
-    // Set when the player clicks a candidate on the picker — holds the
-    // chosen candidate while the reveal overlay shows the modifier/level
-    // for a confirm-click. Commit-on-click: no back-out once peeked.
-    const [pendingWallCandidate, setPendingWallCandidate] = useState(null);
 
     // --- Board Effect State ---
     const [gravityActive, setGravityActive] = useState(false);
@@ -317,70 +310,6 @@ export const useGameLogic = (config) => {
     // TURN FLOW
     // =============================================
 
-    /** Start a new turn: generate grid
-     *  TODO M9: This function manages the old wall_choice→drawing flow. Will be replaced by map navigation in M9. */
-    const startNewTurn = () => {
-        const newTurnNumber = turnNumber + 1;
-        setTurnNumber(newTurnNumber);
-        // Gold is now persistent across turns — do not reset here.
-        setLastDrawResult(null);
-        setCrushResolutionResult(null);
-        setGravityActive(false);
-
-        // Crush accumulation (人挤人危险格增加, not on first turn)
-        if (newTurnNumber > 1) {
-            setCrushGrid(prev => {
-                const newGrid = [...prev];
-                let added = 0;
-                for (let i = 0; i < newGrid.length && added < crushConfig.dangerPerTurn; i++) {
-                    if (newGrid[i].type === 'empty') {
-                        newGrid[i] = { type: 'danger', emoji: pickCrushEmoji() };
-                        added++;
-                    }
-                }
-                return newGrid;
-            });
-        }
-
-        // Reset draw direction for alternating wall
-        setLastDrawDirection(null);
-
-        // Generate up to 3 unique market candidates (capped at available types to prevent infinite loop).
-        const maxCandidates = Math.min(3, MARKET_TYPES.length);
-        const candidates = [];
-        const usedTypeIds = new Set();
-        while (candidates.length < maxCandidates) {
-            const marketType = pickMarketType();
-            if (usedTypeIds.has(marketType.id)) continue;
-            usedTypeIds.add(marketType.id);
-            const marketIngredients = pickMarketIngredients(marketType);
-            const { grid, doomCellCount } = generateWall(marketIngredients);
-            candidates.push({ marketIngredients, grid, doomCellCount, wallType: marketType });
-        }
-        setWallCandidates(candidates);
-        setPhase('wall_choice');
-    };
-
-    /** Player picks one of the 3 market candidates — apply it immediately. */
-    const selectWall = (index) => {
-        if (!wallCandidates || !wallCandidates[index]) return;
-        const chosen = wallCandidates[index];
-        wallDrawCountRef.current = 0;
-        setCurrentWallType(chosen.wallType);
-        setMatrix(chosen.grid.map(r => r.map(c => c ? { ...c } : null)));
-        setWallCandidates(null);
-        setPhase('drawing');
-    };
-
-    /** Player clicks past the reveal — apply the chosen candidate. */
-    const confirmWallReveal = () => {
-        if (!pendingWallCandidate) return;
-        const chosen = pendingWallCandidate;
-        setPendingWallCandidate(null);
-        setWallCandidates(null);
-        applyWallCandidate(chosen);
-    };
-
     /** Start the game: show today's dish, then let the player assemble the
      *  initial bulletin via SETUP_CONFIG.pickCount × pick-1-of-2 events. The
      *  first wall does NOT generate until setup finishes — that way the
@@ -428,13 +357,6 @@ export const useGameLogic = (config) => {
         triggerCrushResolution('end_turn');
     };
 
-    /** Continue to next turn. Per-turn auto refill removed — shelf stays
-     *  full via completion-triggered auto refill and the manual refresh
-     *  button. */
-    const continueToNextTurn = () => {
-        startNewTurn();
-    };
-
     /** Dev tool: force-load any level template immediately, regardless of phase. */
     const loadTestLevel = (template) => {
         const marketType = pickMarketType();
@@ -445,8 +367,6 @@ export const useGameLogic = (config) => {
         if (template.boardEffect === 'loudmouth') placeLoudmouth(result.grid);
         setCurrentLevel(template);
         setCurrentWallType(marketType);
-        setWallCandidates(null);
-        setPendingWallCandidate(null);
         setMatrix(result.grid);
         setLastDrawResult(null);
         setGravityActive(false);
@@ -1766,8 +1686,6 @@ export const useGameLogic = (config) => {
         setTurnNumber(0);
         setGold(20);
         setMatrix(null);
-        setWallCandidates(null);
-        setPendingWallCandidate(null);
         setCurrentWallType(null);
         setCurrentLevel(null);
         setLastDrawDirection(null);
@@ -1844,8 +1762,6 @@ export const useGameLogic = (config) => {
         setIncomingQueue([]);
         setDishIntroPending(false);
         setCurrentDish(null);
-        setWallCandidates(null);
-        setPendingWallCandidate(null);
         setToast(null);
         setLastDrawResult(null);
         setModalContent(null);
@@ -1897,8 +1813,6 @@ export const useGameLogic = (config) => {
         setIncomingQueue([]);
         setDishIntroPending(false);
         setCurrentDish(null);
-        setWallCandidates(null);
-        setPendingWallCandidate(null);
         setEvacuationPending(false);
         setOrderRegionOpen(null);
         setMapState(buildInitialMapState());
@@ -1992,7 +1906,6 @@ export const useGameLogic = (config) => {
         currentWallType,
         currentLevel,
         lastDrawDirection,
-        wallCandidates,
 
         // Board Effects
         gravityDrops,
@@ -2046,13 +1959,9 @@ export const useGameLogic = (config) => {
 
         // Actions
         startGame,
-        selectWall,
-        confirmWallReveal,
-        pendingWallCandidate,
         selectRow,
         selectColumn,
         endTurn,
-        continueToNextTurn,
         handleEvacuate,
         returnToRestaurant,
         handleCookResult,
