@@ -55,6 +55,7 @@ const NODE_BG = {
 function getValidMoves(playerPos) {
     const { x, y } = playerPos;
     const targets = [];
+    // Straight moves: same row or column, 1–2 steps
     for (const dx of [-2, -1, 1, 2]) {
         const nx = x + dx;
         if (nx >= 0 && nx <= 3) targets.push({ x: nx, y });
@@ -62,6 +63,11 @@ function getValidMoves(playerPos) {
     for (const dy of [-2, -1, 1, 2]) {
         const ny = y + dy;
         if (ny >= 0 && ny <= 3) targets.push({ x, y: ny });
+    }
+    // Diagonal moves: 1 step in each direction
+    for (const [dx, dy] of [[-1,-1],[-1,1],[1,-1],[1,1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx <= 3 && ny >= 0 && ny <= 3) targets.push({ x: nx, y: ny });
     }
     return targets;
 }

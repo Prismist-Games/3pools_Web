@@ -1379,17 +1379,18 @@ export const useGameLogic = (config) => {
     };
 
     /** Move the player to (targetX, targetY).
-     *  Valid: same row (dx≤2, dy=0) or same col (dx=0, dy≤2), within 0-3. */
+     *  Straight: same row/col, 1–2 steps. Diagonal: dx=1 dy=1, L-path (horizontal first). */
     const movePlayer = (targetX, targetY) => {
         if (!mapState) return;
         const { playerPosition, edges } = mapState;
-        const dx = Math.abs(targetX - playerPosition.x);
-        const dy = Math.abs(targetY - playerPosition.y);
+        const rawDx = targetX - playerPosition.x;
+        const rawDy = targetY - playerPosition.y;
+        const dx = Math.abs(rawDx);
+        const dy = Math.abs(rawDy);
 
-        // Must move, must be on same row or column, max 2 steps
         const isValidMove = (dx === 0 && dy === 0)
             ? false
-            : (dy === 0 && dx >= 1 && dx <= 2) || (dx === 0 && dy >= 1 && dy <= 2);
+            : (dy === 0 && dx >= 1 && dx <= 2) || (dx === 0 && dy >= 1 && dy <= 2) || (dx === 1 && dy === 1);
 
         if (!isValidMove) {
             showToast('不能移动到那里', 'warning');
@@ -1412,8 +1413,15 @@ export const useGameLogic = (config) => {
             const e2 = findEdge(edges, { x: playerPosition.x, y: midY }, { x: targetX, y: targetY });
             if (e1) traversedEdges.push(e1);
             if (e2) traversedEdges.push(e2);
+        } else if (dx === 1 && dy === 1) {
+            // Diagonal: L-path horizontal-first (current→hMid→target)
+            const hMid = { x: targetX, y: playerPosition.y };
+            const e1 = findEdge(edges, playerPosition, hMid);
+            const e2 = findEdge(edges, hMid, { x: targetX, y: targetY });
+            if (e1) traversedEdges.push(e1);
+            if (e2) traversedEdges.push(e2);
         } else {
-            // 1-cell move
+            // 1-cell straight move
             const e = findEdge(edges, playerPosition, { x: targetX, y: targetY });
             if (e) traversedEdges.push(e);
         }
