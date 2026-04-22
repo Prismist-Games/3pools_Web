@@ -847,7 +847,7 @@ const GameCore = () => {
                 {/* Mid-wall incoming order picker — shown immediately when
                     an order_cell is drawn during a wall. Pauses the wall
                     (draws are already disabled by the picker's presence). */}
-                {phase !== 'between_turns' && phase !== 'pre_game' && phase !== 'game_over' && incomingOrder && incomingOrder.candidates && !pendingChosenOrder && (
+                {phase !== 'pre_game' && phase !== 'game_over' && incomingOrder && incomingOrder.candidates && !pendingChosenOrder && (
                     <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
                         <div className="max-w-md w-full p-5 bg-[#FFF8E0] border-2 border-kitchen-gold rounded-2xl shadow-2xl">
                             <div className="text-sm font-bold text-kitchen-gold-deep mb-3">
