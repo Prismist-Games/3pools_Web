@@ -279,7 +279,7 @@ const GameCore = () => {
                         <div className="flex-1 min-w-0">
                             {/* Wall choice phase — 3-choose-1 */}
                             {phase === 'wall_choice' && wallCandidates && (
-                                <WallPicker candidates={wallCandidates} onSelect={selectWall} onHoverIngredientIds={setHoveredIngredientIds} />
+                                <WallPicker candidates={wallCandidates} onSelect={selectWall} onHoverIngredientIds={setHoveredIngredientIds} onReturnToRestaurant={handleEvacuate} />
                             )}
 
                             {/* Drawing phase */}
@@ -440,20 +440,13 @@ const GameCore = () => {
                                         </div>
                                     )}
 
-                                    <div className={`flex gap-4 justify-center ${incomingOrder ? 'opacity-40 pointer-events-none' : ''}`}>
+                                    <div className={`flex justify-center ${incomingOrder ? 'opacity-40 pointer-events-none' : ''}`}>
                                         <button
                                             onClick={continueToNextTurn}
                                             disabled={!!incomingOrder}
                                             className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
                                         >
                                             {t('继续')}
-                                        </button>
-                                        <button
-                                            onClick={handleEvacuate}
-                                            disabled={!!incomingOrder}
-                                            className="px-8 py-3 bg-kitchen-success border-2 border-kitchen-success-border text-white font-bold rounded-xl shadow-[0_3px_0_rgba(96,160,112,0.5)] hover:brightness-95 transition-colors"
-                                        >
-                                            {t('回到餐厅')}
                                         </button>
                                     </div>
                                 </div>

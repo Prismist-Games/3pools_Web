@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
-const WallPicker = ({ candidates, onSelect, onHoverIngredientIds }) => {
+const WallPicker = ({ candidates, onSelect, onHoverIngredientIds, onReturnToRestaurant }) => {
     const { t } = useLanguage();
 
     // Hovering a market card reports that market's full ingredient id set up
@@ -50,6 +50,16 @@ const WallPicker = ({ candidates, onSelect, onHoverIngredientIds }) => {
                     );
                 })}
             </div>
+            {onReturnToRestaurant && (
+                <div className="mt-6 flex justify-center">
+                    <button
+                        onClick={onReturnToRestaurant}
+                        className="px-8 py-3 bg-kitchen-success border-2 border-kitchen-success-border text-white font-bold rounded-xl shadow-[0_3px_0_rgba(96,160,112,0.5)] hover:brightness-95 transition-colors"
+                    >
+                        {t('回到餐厅')}
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
