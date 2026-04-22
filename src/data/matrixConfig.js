@@ -61,5 +61,10 @@ export const MATRIX_CONFIG = {
       icon: '📢',
       name: '大嗓门',
     },
+    slime: {
+      spawnChance: 0.05,  // 5% per cell position — 甩不掉的负面占位物
+      icon: '🫠',
+      name: '黏糊糊的一摊',
+    },
   },
 };

@@ -23,6 +23,24 @@ const itemScoreValue = (item) => {
     const q = item.quality ?? item.rarity ?? 1;
     return QUALITY_CONFIG.find(c => c.id === q)?.scoreValue ?? q;
 };
+
+// 黏糊糊的一摊/一坨视觉覆盖：Q1 红（锁定），Q2+ 褪色（解锁）。
+// 两者都同 icon 🫠，靠 name + bg 差异区分状态。
+const SLIME_STYLE_LOCKED = {
+    bg: 'from-[#FFB8A8] to-[#FFD4C8]',
+    border: 'border-[#D04020]',
+    badge: 'bg-[#D04020]',
+};
+const SLIME_STYLE_UNLOCKED = {
+    bg: 'from-[#E8DDD0] to-[#F0E8DC]',
+    border: 'border-[#A89888]',
+    badge: 'bg-[#A89888]',
+};
+const slimeStyle = (item) => {
+    if (!item?.isSlime) return null;
+    return (item.quality || 1) < 2 ? SLIME_STYLE_LOCKED : SLIME_STYLE_UNLOCKED;
+};
+const isUndiscardableSlime = (item) => !!(item && item.isSlime && (item.quality || 1) < 2);
 import { Link } from 'react-router-dom';
 import { GameGuide } from './components/ui/GameGuide';
 import RoundTransition from './components/ui/RoundTransition';
@@ -604,7 +622,8 @@ const GameCore = () => {
                                             </div>
                                             <div className="flex flex-wrap gap-1.5 mb-2">
                                                 {pendingItems.map((pItem, idx) => {
-                                                    const pSc = pItem.isOutOfGame ? (SCORE_STYLE[pItem.quality || pItem.rarity || pItem.score] || SCORE_STYLE[1]) : null;
+                                                    const slimeSc = slimeStyle(pItem);
+                                                    const pSc = slimeSc || (pItem.isOutOfGame ? (SCORE_STYLE[pItem.quality || pItem.rarity || pItem.score] || SCORE_STYLE[1]) : null);
                                                     const inner = (
                                                         <div className={`relative w-14 h-14 rounded border-2 flex flex-col items-center justify-center shadow-sm px-0.5
                                                             ${idx === 0 ? 'ring-2 ring-kitchen-gold' : 'opacity-60'}
@@ -613,16 +632,25 @@ const GameCore = () => {
                                                             <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
                                                                 {language === 'en' && pItem.nameEn ? pItem.nameEn : t(pItem.name)}
                                                             </span>
-                                                            {pSc && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow`}>{itemScoreValue(pItem)}</span>}
+                                                            {pSc && !pItem.isSlime && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow`}>{itemScoreValue(pItem)}</span>}
+                                                            {isUndiscardableSlime(pItem) && (
+                                                                <span className="absolute -top-1 -right-1 text-[10px] leading-none select-none drop-shadow">🔒</span>
+                                                            )}
                                                         </div>
                                                     );
-                                                    return pItem.isOutOfGame
+                                                    return pItem.isOutOfGame && !pItem.isSlime
                                                         ? <Tooltip key={pItem.uid || idx} content={<IngredientTip item={pItem} />}>{inner}</Tooltip>
                                                         : <div key={pItem.uid || idx}>{inner}</div>;
                                                 })}
                                             </div>
                                             <p className="text-[11px] text-kitchen-gold-deep mb-1.5">{t('菜篮已满，点击下方物品替换')}</p>
-                                            <button onClick={discardPendingItem} className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">{t('丢弃当前物品')}</button>
+                                            {isUndiscardableSlime(pendingItem) ? (
+                                                <Tooltip content={t('黏糊糊的东西，沾手甩不掉')}>
+                                                    <button disabled className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-muted opacity-50 cursor-not-allowed">{t('丢弃当前物品')}</button>
+                                                </Tooltip>
+                                            ) : (
+                                                <button onClick={discardPendingItem} className="text-[10px] px-2 py-1 rounded-md border border-kitchen-gold-border-muted bg-kitchen-card font-bold text-kitchen-text-secondary hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:text-kitchen-danger-text transition-colors">{t('丢弃当前物品')}</button>
+                                            )}
                                         </div>
                                     )}
                                     <div className="grid grid-cols-5 gap-1">
@@ -635,11 +663,15 @@ const GameCore = () => {
                                             const isSynthesizeSelected = synthesizeMode && synthesizeSelected.has(i);
                                             const isSwapPicked = swapFromIdx === i;
                                             const inSwapMode = swapFromIdx !== null && !recycleMode && !synthesizeMode && !pendingItem;
-                                            const sc = item?.isOutOfGame ? (SCORE_STYLE[item.quality || item.rarity || item.score] || SCORE_STYLE[1]) : null;
+                                            const slotIsLockedSlime = isUndiscardableSlime(item);
+                                            const slimeSc = slimeStyle(item);
+                                            const sc = slimeSc || (item?.isOutOfGame ? (SCORE_STYLE[item.quality || item.rarity || item.score] || SCORE_STYLE[1]) : null);
                                             const cell = (
                                                 <div
                                                     onClick={() => {
                                                         if (recycleMode && item) {
+                                                            // R1: Q1 一摊不能被选中丢弃；点击无反应（🔒 视觉已说明）
+                                                            if (slotIsLockedSlime) return;
                                                             setRecycleSelected(prev => {
                                                                 const next = new Set(prev);
                                                                 next.has(i) ? next.delete(i) : next.add(i);
@@ -666,6 +698,8 @@ const GameCore = () => {
                                                             if (canMergeWithPending) {
                                                                 synthesizeWithPending(i);
                                                             } else {
+                                                                // R4: 篮里 Q1 一摊不能被替换；后端 replaceInventoryItem
+                                                                // 里已有 safeguard 并 toast，这里直接调用让它拦截。
                                                                 replaceInventoryItem(i);
                                                             }
                                                         } else if (!pendingItem && !recycleMode && !synthesizeMode) {
@@ -688,8 +722,10 @@ const GameCore = () => {
                                                             : sc ? `bg-gradient-to-b ${sc.bg} ${sc.border}`
                                                             : 'bg-kitchen-card border-kitchen-gold-border-muted'}
                                                         ${canMergeWithPending ? 'cursor-pointer hover:bg-[#F0F8FF] hover:border-kitchen-info-border hover:scale-110 ring-2 ring-kitchen-info-border/60'
-                                                            : canReplace ? 'cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:scale-110'
-                                                            : recycleMode && item ? 'cursor-pointer hover:border-kitchen-danger'
+                                                            : canReplace && !slotIsLockedSlime ? 'cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:scale-110'
+                                                            : canReplace && slotIsLockedSlime ? 'cursor-not-allowed'
+                                                            : recycleMode && item && !slotIsLockedSlime ? 'cursor-pointer hover:border-kitchen-danger'
+                                                            : recycleMode && slotIsLockedSlime ? 'cursor-not-allowed opacity-80'
                                                             : synthesizeMode && item?.isOutOfGame ? 'cursor-pointer hover:border-kitchen-info-border'
                                                             : inSwapMode ? 'cursor-pointer hover:bg-[#FFF3E0] hover:border-kitchen-gold'
                                                             : (!pendingItem && item && !recycleMode && !synthesizeMode) ? 'cursor-pointer hover:brightness-105' : ''}`}
@@ -702,13 +738,22 @@ const GameCore = () => {
                                                             </span>
                                                         </>
                                                     )}
-                                                    {sc && (
+                                                    {sc && !item?.isSlime && (
                                                         <span className={`absolute -bottom-1 -right-1 ${sc.badge} text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow`}>
                                                             {itemScoreValue(item)}
                                                         </span>
                                                     )}
+                                                    {slotIsLockedSlime && (
+                                                        <span className="absolute -top-1 -right-1 text-[11px] leading-none select-none drop-shadow">🔒</span>
+                                                    )}
                                                 </div>
                                             );
+                                            if (item?.isSlime) {
+                                                const slimeDesc = isUndiscardableSlime(item)
+                                                    ? t('黏糊糊的东西，沾手甩不掉。合成为一坨才能丢弃。')
+                                                    : t('黏糊糊的一坨。可以正常丢弃。');
+                                                return <Tooltip key={i} content={<div className="text-[11px]"><div className="font-bold mb-0.5">{item.icon} {t(item.name)}</div><div className="text-slate-300">{slimeDesc}</div></div>}>{cell}</Tooltip>;
+                                            }
                                             if (item?.isOutOfGame) {
                                                 return <Tooltip key={i} content={<IngredientTip item={item} />}>{cell}</Tooltip>;
                                             }

@@ -133,6 +133,18 @@ export const MIN_QUALITY_CONFIG = {
     weights: { 2: 0.70, 3: 0.25, 4: 0.05 },
 };
 
+// --- 黏糊糊的一摊（负面占位物）---
+// 抽到时以 Q1 进菜篮，Q1 无法被丢弃/替换/队列丢弃；合成到 Q2+（名字改为"一坨"）后可正常丢弃。
+// `isSlime: true` 是识别标志，供合成/丢弃/替换逻辑判定。
+export const SLIME_ITEM_BASE = {
+    id: 'slime_goo',
+    icon: '🫠',
+    name: '黏糊糊的一摊',
+    nameEn: 'Slimy Puddle',
+    tags: [],
+    isSlime: true,
+};
+
 // --- 市场类型（替换原墙类型）---
 // 每种市场只出现对应大类的食材
 export const MARKET_TYPES = [

@@ -89,6 +89,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.icon || '📢';
         name = t(cell.name || '大嗓门');
         desc = t('抽中时驱散，并清除场上所有抢菜人；在场时每次抽取后空出的格子会被填入抢菜人');
+    } else if (cell.type === 'slime') {
+        icon = cell.icon || '🫠';
+        name = t(cell.name || '黏糊糊的一摊');
+        desc = t('黏糊糊的一摊，沾在篮子里甩不掉。需合成为一坨才能丢弃。');
     } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
@@ -175,7 +179,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
-        || cell.type === 'buff_field' || cell.type === 'loudmouth'
+        || cell.type === 'buff_field' || cell.type === 'loudmouth' || cell.type === 'slime'
         || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item');
 
     // Cell background
@@ -210,6 +214,8 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         bgClass = 'bg-[#FFFAE8] border-[#E8B840]';
     } else if (cell.type === 'loudmouth') {
         bgClass = 'bg-orange-100 border-orange-500';
+    } else if (cell.type === 'slime') {
+        bgClass = 'bg-[#FFB8A8] border-[#D04020]';
     } else {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     }
@@ -528,6 +534,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         }
         if (cell.type === 'loudmouth') {
             return <span className="text-xl">{cell.icon || '📢'}</span>;
+        }
+        if (cell.type === 'slime') {
+            return <span className="text-xl">{cell.icon || '🫠'}</span>;
         }
         return (
             <>

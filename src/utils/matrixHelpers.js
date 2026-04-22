@@ -101,6 +101,7 @@ export function generateWall(marketIngredients) {
       const bombChance = orderChance + (LIVE_CONFIG.cellSpawn.bomb || 0);
       const buffFieldChance = bombChance + (LIVE_CONFIG.cellSpawn.buffField || 0);
       const loudmouthChance = buffFieldChance + (LIVE_CONFIG.cellSpawn.loudmouth || 0);
+      const slimeChance = loudmouthChance + (LIVE_CONFIG.cellSpawn.slime || 0);
 
       if (roll < doomChance) {
         grid[row][col] = { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
@@ -121,6 +122,8 @@ export function generateWall(marketIngredients) {
       } else if (roll < loudmouthChance && loudmouthPlaced < loudmouthCap) {
         grid[row][col] = { type: 'loudmouth', icon: specialCells.loudmouth.icon, name: specialCells.loudmouth.name, uid: generateUID() };
         loudmouthPlaced++;
+      } else if (roll < slimeChance) {
+        grid[row][col] = { type: 'slime', icon: specialCells.slime.icon, name: specialCells.slime.name, uid: generateUID() };
       }
     }
   }

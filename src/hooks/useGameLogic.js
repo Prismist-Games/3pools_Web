@@ -4,7 +4,7 @@ import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES } from '../data/v2Config';
+import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES, SLIME_ITEM_BASE } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 import { pickDoomEmoji } from '../data/matrixConfig';
 
@@ -601,6 +601,13 @@ export const useGameLogic = (config) => {
 
         if (drawnCell.type === 'ingredient' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
+        } else if (drawnCell.type === 'slime') {
+            // 黏糊糊的一摊：固定 Q1，走普通 obtainedItem 流程（飞入动画 + addToInventory）
+            obtainedItem = {
+                type: 'slime',
+                item: { ...SLIME_ITEM_BASE, quality: 1 },
+                uid: drawnCell.uid,
+            };
         } else if (drawnCell.type === 'doom_resolution') {
             doomEffects.resolutions = 1 * mult;
         } else if (drawnCell.type === 'gold') {
@@ -918,7 +925,8 @@ export const useGameLogic = (config) => {
         });
 
         if (obtainedItem) {
-            const yieldCount = mult;
+            // 一摊永远产出 1 个 —— buff field 是正向增益，不该放大负面占位物
+            const yieldCount = obtainedItem.type === 'slime' ? 1 : mult;
             const flyId = Date.now();
             console.log('[FLY-DIAG] setFlyingItem called, id =', flyId, 'yieldCount =', yieldCount);
             setFlyingItem({
@@ -977,8 +985,16 @@ export const useGameLogic = (config) => {
     // Current pending item is the first in queue
     const pendingItem = pendingItems.length > 0 ? pendingItems[0] : null;
 
+    // Q1 一摊不可被丢弃/替换/队列丢弃。Q2+ 一坨则回归普通行为。
+    const isUndiscardableSlime = (item) => !!(item && item.isSlime && (item.quality || 1) < 2);
+
     const replaceInventoryItem = (index) => {
         if (!pendingItem) return;
+        // R4: 篮里的 Q1 一摊不能被替换覆盖（覆盖 = 丢弃，但它不能被丢弃）
+        if (isUndiscardableSlime(inventory[index])) {
+            showToast(t('黏糊糊的东西，沾手甩不掉'), 'warning');
+            return;
+        }
         setInventory(prev => {
             const next = [...prev];
             next[index] = pendingItem;
@@ -988,12 +1004,40 @@ export const useGameLogic = (config) => {
     };
 
     const discardPendingItem = () => {
+        // R2: pending 头部的 Q1 一摊不能直接丢弃
+        if (isUndiscardableSlime(pendingItems[0])) {
+            showToast(t('黏糊糊的东西，沾手甩不掉'), 'warning');
+            return;
+        }
         setPendingItems(prev => prev.slice(1));
     };
 
     const discardInventoryItem = (indices) => {
         const idxSet = new Set(Array.isArray(indices) ? indices : [indices]);
-        setInventory(prev => prev.filter((_, i) => !idxSet.has(i)));
+        // R1: 过滤掉 Q1 一摊（即使 UI 放过来也兜底）
+        const filtered = new Set();
+        let blockedSlime = false;
+        idxSet.forEach(i => {
+            if (isUndiscardableSlime(inventory[i])) {
+                blockedSlime = true;
+            } else {
+                filtered.add(i);
+            }
+        });
+        if (blockedSlime) {
+            showToast(t('黏糊糊的东西，沾手甩不掉'), 'warning');
+        }
+        if (filtered.size === 0) return;
+        setInventory(prev => prev.filter((_, i) => !filtered.has(i)));
+    };
+
+    /** 合成到 Q2+ 时，一摊 → 一坨。icon 不变，只改 name/nameEn 传递状态。 */
+    const applySlimeRename = (item) => {
+        if (!item.isSlime) return item;
+        if ((item.quality || 1) >= 2) {
+            return { ...item, name: '黏糊糊的一坨', nameEn: 'Slimy Lump' };
+        }
+        return item;
     };
 
     /** Synthesize: merge 2 identical items at the same quality into the next quality tier */
@@ -1012,11 +1056,12 @@ export const useGameLogic = (config) => {
             const [lo, hi] = index1 < index2 ? [index1, index2] : [index2, index1];
             next.splice(hi, 1);
             next.splice(lo, 1);
-            next.push({ ...item1, quality: newQuality, score: newQualityDef.scoreValue, uid: generateUID() });
+            next.push(applySlimeRename({ ...item1, quality: newQuality, score: newQualityDef.scoreValue, uid: generateUID() }));
             return next;
         });
 
-        showToast(`${t('合成成功')}: ${item1.icon} ${item1.name} (${newQualityDef.name})`, 'success');
+        const mergedItem = applySlimeRename({ ...item1, quality: newQuality });
+        showToast(`${t('合成成功')}: ${mergedItem.icon} ${t(mergedItem.name)} (${t(newQualityDef.name)})`, 'success');
         return true;
     };
 
@@ -1049,11 +1094,12 @@ export const useGameLogic = (config) => {
         const newQualityDef = QUALITY_CONFIG.find(q => q.id === newQuality) || QUALITY_CONFIG[QUALITY_CONFIG.length - 1];
 
         setInventory(prev => prev.map((it, i) => i === idx
-            ? { ...target, quality: newQuality, score: newQualityDef.scoreValue, uid: generateUID() }
+            ? applySlimeRename({ ...target, quality: newQuality, score: newQualityDef.scoreValue, uid: generateUID() })
             : it
         ));
         setPendingItems(prev => prev.slice(1));
-        showToast(`${t('合成成功')}: ${target.icon} ${target.name} (${newQualityDef.name})`, 'success');
+        const mergedItem = applySlimeRename({ ...target, quality: newQuality });
+        showToast(`${t('合成成功')}: ${mergedItem.icon} ${t(mergedItem.name)} (${t(newQualityDef.name)})`, 'success');
         return true;
     };
 
