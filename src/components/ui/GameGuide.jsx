@@ -81,10 +81,6 @@ export const GameGuide = ({ onClose }) => {
                                 <span><b>{t('抢菜人')}</b> — {t('触发人挤人，可能扣血')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <span className="w-5 text-center">⚠️</span>
-                                <span><b>{t('厄运升级')}</b> — {t('厄运更危险')}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
                                 <span className="w-5 text-center">🎁</span>
                                 <span><b>{t('食材')}</b> — {t('直接获得食材')}</span>
                             </div>
