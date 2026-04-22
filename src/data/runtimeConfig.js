@@ -20,10 +20,11 @@ export const LIVE_CONFIG = {
     qualityWeights: { ...QUALITY_WEIGHTS },
     orderTemplates: deepClone(ORDER_TEMPLATES),
     cellSpawn: {
-        doom:  MATRIX_CONFIG.doomCells.resolution.spawnChance,
-        gold:  MATRIX_CONFIG.specialCells.gold.spawnChance,
-        order: MATRIX_CONFIG.specialCells.order.spawnChance,
-        bomb:  MATRIX_CONFIG.specialCells.bomb.spawnChance,
+        doom:      MATRIX_CONFIG.doomCells.resolution.spawnChance,
+        gold:      MATRIX_CONFIG.specialCells.gold.spawnChance,
+        order:     MATRIX_CONFIG.specialCells.order.spawnChance,
+        bomb:      MATRIX_CONFIG.specialCells.bomb.spawnChance,
+        loudmouth: MATRIX_CONFIG.specialCells.loudmouth.spawnChance,
     },
     // 形状权重当前 hard-coded 在 matrixHelpers.js 里（{1:60, 2:30, 3:10}）；
     // 这里镜像一份用于面板调整 —— matrixHelpers 读 LIVE_CONFIG.shapeWeights。

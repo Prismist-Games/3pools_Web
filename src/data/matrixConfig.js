@@ -55,5 +55,11 @@ export const MATRIX_CONFIG = {
       icon: '🌽',
       name: '膨化格',
     },
+    loudmouth: {
+      spawnChance: 0.05,   // 5% per cell position, capped by maxPerWall
+      maxPerWall: 1,
+      icon: '📢',
+      name: '大嗓门',
+    },
   },
 };

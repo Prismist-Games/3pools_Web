@@ -84,6 +84,8 @@ export function generateWall(marketIngredients) {
   const { gridSize, doomCells, specialCells } = MATRIX_CONFIG;
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
   const doomCellCount = { resolution: 0 };
+  let loudmouthPlaced = 0;
+  const loudmouthCap = specialCells.loudmouth.maxPerWall;
 
   // Phase 1 + 2: Doom and special cells — per-cell probability roll.
   // Rates read from LIVE_CONFIG.cellSpawn so ConfigPanel tweaks take effect
@@ -97,6 +99,7 @@ export function generateWall(marketIngredients) {
       const goldChance = doomChance + LIVE_CONFIG.cellSpawn.gold;
       const orderChance = goldChance + LIVE_CONFIG.cellSpawn.order;
       const bombChance = orderChance + (LIVE_CONFIG.cellSpawn.bomb || 0);
+      const loudmouthChance = bombChance + (LIVE_CONFIG.cellSpawn.loudmouth || 0);
 
       if (roll < doomChance) {
         grid[row][col] = { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
@@ -112,6 +115,9 @@ export function generateWall(marketIngredients) {
         grid[row][col] = { type: 'order_cell', icon: specialCells.order.icon, name: specialCells.order.name, uid: generateUID() };
       } else if (roll < bombChance) {
         grid[row][col] = { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
+      } else if (roll < loudmouthChance && loudmouthPlaced < loudmouthCap) {
+        grid[row][col] = { type: 'loudmouth', icon: specialCells.loudmouth.icon, name: specialCells.loudmouth.name, uid: generateUID() };
+        loudmouthPlaced++;
       }
     }
   }

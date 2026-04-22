@@ -85,6 +85,10 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.icon || '🌽';
         name = t(cell.name || '膨化格');
         desc = t('抽中时无效果，周围的增益消失');
+    } else if (cell.type === 'loudmouth') {
+        icon = cell.icon || '📢';
+        name = t(cell.name || '大嗓门');
+        desc = t('抽中时驱散，并清除场上所有抢菜人；在场时每次抽取后空出的格子会被填入抢菜人');
     } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
@@ -171,7 +175,8 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
     const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
-        || cell.type === 'buff_field' || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item');
+        || cell.type === 'buff_field' || cell.type === 'loudmouth'
+        || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item');
 
     // Cell background
     let bgClass;
@@ -203,6 +208,8 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         bgClass = 'bg-[#F0FFF8] border-kitchen-success-border';
     } else if (cell.type === 'buff_field') {
         bgClass = 'bg-[#FFFAE8] border-[#E8B840]';
+    } else if (cell.type === 'loudmouth') {
+        bgClass = 'bg-orange-100 border-orange-500';
     } else {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     }
@@ -518,6 +525,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         }
         if (cell.type === 'buff_field') {
             return <span className="text-xl">{cell.icon || '🌽'}</span>;
+        }
+        if (cell.type === 'loudmouth') {
+            return <span className="text-xl">{cell.icon || '📢'}</span>;
         }
         return (
             <>

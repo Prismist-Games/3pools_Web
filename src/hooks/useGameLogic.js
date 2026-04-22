@@ -624,6 +624,8 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'gravity') {
             setGravityActive(true);
             showToast('⬇️ ' + t('重力开关！'), 'info');
+        } else if (drawnCell.type === 'loudmouth') {
+            showToast('📢 ' + t('大嗓门被驱散！'), 'success');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {
@@ -834,6 +836,27 @@ export const useGameLogic = (config) => {
                         setTimeout(() => setRotationMoves(null), 350);
                     }
                 }
+            }
+
+            // Loudmouth drawn: clear all doom_resolution (抢菜人) cells from the board
+            if (drawnCell.type === 'loudmouth') {
+                for (let r = 0; r < newMatrix.length; r++) {
+                    for (let c = 0; c < newMatrix[0].length; c++) {
+                        if (newMatrix[r][c]?.type === 'doom_resolution') newMatrix[r][c] = null;
+                    }
+                }
+            }
+
+            // Loudmouth refill: while a loudmouth still on board, the drawn cell
+            // is replaced with a fresh doom_resolution (抢菜人).
+            const loudmouthAlive = newMatrix.some(row => row.some(c => c?.type === 'loudmouth'));
+            if (loudmouthAlive) {
+                newMatrix[finalRowIndex][finalColIndex] = {
+                    type: 'doom_resolution',
+                    icon: pickDoomEmoji(),
+                    name: MATRIX_CONFIG.doomCells.resolution.name,
+                    uid: generateUID(),
+                };
             }
 
             // Gravity: all cells fall down independently, one step per iteration
