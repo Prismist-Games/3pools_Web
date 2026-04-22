@@ -51,9 +51,9 @@ export const MATRIX_CONFIG = {
       name: '炸弹',
     },
     buffField: {
-      spawnChance: 0,  // not spawned on random walls — only via modifiers
-      icon: '🌽',
-      name: '膨化格',
+      spawnChance: 0.05,  // 5% per cell position
+      icon: '🪧',
+      name: '买一送一立牌',
     },
     loudmouth: {
       spawnChance: 0.05,   // 5% per cell position, capped by maxPerWall

@@ -82,9 +82,9 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         const useDesc = language === 'en' && subLevel?.description_en ? subLevel.description_en : subLevel?.description;
         desc = useDesc || t('抽中时进入子关卡');
     } else if (cell.type === 'buff_field') {
-        icon = cell.icon || '🌽';
-        name = t(cell.name || '膨化格');
-        desc = t('抽中时无效果，周围的增益消失');
+        icon = cell.icon || '🪧';
+        name = t(cell.name || '买一送一立牌');
+        desc = t('相邻四格抽中时送一个；抽中立牌则增益消失');
     } else if (cell.type === 'loudmouth') {
         icon = cell.icon || '📢';
         name = t(cell.name || '大嗓门');
@@ -524,7 +524,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             return <span className="text-xl">{cell.icon || '🚪'}</span>;
         }
         if (cell.type === 'buff_field') {
-            return <span className="text-xl">{cell.icon || '🌽'}</span>;
+            return <span className="text-xl">{cell.icon || '🪧'}</span>;
         }
         if (cell.type === 'loudmouth') {
             return <span className="text-xl">{cell.icon || '📢'}</span>;

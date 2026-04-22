@@ -99,7 +99,8 @@ export function generateWall(marketIngredients) {
       const goldChance = doomChance + LIVE_CONFIG.cellSpawn.gold;
       const orderChance = goldChance + LIVE_CONFIG.cellSpawn.order;
       const bombChance = orderChance + (LIVE_CONFIG.cellSpawn.bomb || 0);
-      const loudmouthChance = bombChance + (LIVE_CONFIG.cellSpawn.loudmouth || 0);
+      const buffFieldChance = bombChance + (LIVE_CONFIG.cellSpawn.buffField || 0);
+      const loudmouthChance = buffFieldChance + (LIVE_CONFIG.cellSpawn.loudmouth || 0);
 
       if (roll < doomChance) {
         grid[row][col] = { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
@@ -115,6 +116,8 @@ export function generateWall(marketIngredients) {
         grid[row][col] = { type: 'order_cell', icon: specialCells.order.icon, name: specialCells.order.name, uid: generateUID() };
       } else if (roll < bombChance) {
         grid[row][col] = { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
+      } else if (roll < buffFieldChance) {
+        grid[row][col] = { type: 'buff_field', icon: specialCells.buffField.icon, name: specialCells.buffField.name, uid: generateUID() };
       } else if (roll < loudmouthChance && loudmouthPlaced < loudmouthCap) {
         grid[row][col] = { type: 'loudmouth', icon: specialCells.loudmouth.icon, name: specialCells.loudmouth.name, uid: generateUID() };
         loudmouthPlaced++;

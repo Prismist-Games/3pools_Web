@@ -641,8 +641,8 @@ export const EN_TRANSLATIONS = {
     "爆裂愈合": "Blast Heal",
     "镜花水月": "Looking Glass",
     "祝福愈合": "Blessing Heal",
-    "膨化格": "Popcorn",
-    "抽中时无效果，周围的增益消失": "No effect when drawn; the surrounding aura disappears",
+    "买一送一立牌": "BOGO Sign",
+    "相邻四格抽中时送一个；抽中立牌则增益消失": "Adjacent cells yield one bonus item when drawn; drawing the sign ends the aura",
     "有些格子被面纱盖住。抽它们旁边的东西，面纱就会被掀开。": "Some cells are hidden under a veil. Draw next to them and the veil lifts.",
     "有些格子上画着加倍标记——抽到它们，收获变成两份！": "Some cells are marked for doubling — drawing them gives you twice the loot!",
     "行和列不能连抽。抽完一行就得挑一列，反过来也一样。": "Rows and columns can't repeat. After a row, pick a column — and vice versa.",
@@ -651,7 +651,7 @@ export const EN_TRANSLATIONS = {
     "抽到什么东西，它旁边四个格子就会跟着变成一模一样的。": "Whatever you draw, its four neighbors grow into the same thing.",
     "抽完之后，原地会冒出一颗新炸弹。越抽越多，越抽越危险！": "A fresh bomb pops up where you just drew. The more you draw, the more bombs — stay sharp!",
     "左右两半像镜子里的倒影。抽一格，对面那格也一起到手。": "The two halves are mirror images. Draw one cell and its reflection comes to you too.",
-    "抽完之后，原地会爆出一颗膨化格。膨化格周围的东西，抽到都会变多哦！": "A popcorn bursts up where you just drew. Cells next to a popcorn give you more when drawn!",
+    "抽完之后，原地会爆出一块买一送一立牌。立牌周围的东西，抽到都会变多哦！": "A BOGO sign pops up where you just drew. Cells next to a sign give you more when drawn!",
     "镜像": "Mirror",
 
     // --- Level-related UI ---

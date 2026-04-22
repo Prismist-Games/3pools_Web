@@ -24,6 +24,7 @@ export const LIVE_CONFIG = {
         gold:      MATRIX_CONFIG.specialCells.gold.spawnChance,
         order:     MATRIX_CONFIG.specialCells.order.spawnChance,
         bomb:      MATRIX_CONFIG.specialCells.bomb.spawnChance,
+        buffField: MATRIX_CONFIG.specialCells.buffField.spawnChance,
         loudmouth: MATRIX_CONFIG.specialCells.loudmouth.spawnChance,
     },
     // 形状权重当前 hard-coded 在 matrixHelpers.js 里（{1:60, 2:30, 3:10}）；
