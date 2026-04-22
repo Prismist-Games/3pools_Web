@@ -403,6 +403,18 @@ const GameCore = () => {
                             {/* Stall drawing phase */}
                             {phase === 'stall_drawing' && matrix && (
                                 <div className="flex flex-col items-center">
+                                    {/* Status bar — mirrors MarketMap status bar */}
+                                    <div className="flex items-center gap-4 px-4 py-2 mb-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] rounded-xl border-2 border-kitchen-gold-border shadow-[0_2px_0_#D4B896] text-sm font-bold">
+                                        <span className="text-kitchen-gold-deep">💰 {gold}g</span>
+                                        <span className="text-kitchen-danger-text">
+                                            {Array.from({ length: 5 }).map((_, i) => i < hp ? '❤️' : '🤍').join('')}
+                                        </span>
+                                        {mapState && (
+                                            <span className="text-kitchen-text-muted text-xs">
+                                                行动: {mapState.actionCounter} | 时钟: {mapState.clockTicks}
+                                            </span>
+                                        )}
+                                    </div>
                                     <ResourceMatrix
                                         matrix={matrix}
                                         onSelectRow={selectRow}

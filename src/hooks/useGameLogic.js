@@ -310,6 +310,10 @@ export const useGameLogic = (config) => {
     );
 
     const currentDrawCost = useMemo(() => {
+        if (activeStallNodeId && mapState) {
+            const stallNode = mapState.nodes.find(n => n.id === activeStallNodeId);
+            if (stallNode?.state?.price != null) return stallNode.state.price;
+        }
         if (!matrix) return MAP_CONFIG.gold.drawBaseCost;
         let crushCount = 0;
         for (const row of matrix) {
@@ -318,7 +322,7 @@ export const useGameLogic = (config) => {
             }
         }
         return Math.max(MAP_CONFIG.stall.drawCostMin, MAP_CONFIG.gold.drawBaseCost - crushCount);
-    }, [matrix]);
+    }, [matrix, activeStallNodeId, mapState]);
 
     // =============================================
     // TURN FLOW
@@ -1052,6 +1056,25 @@ export const useGameLogic = (config) => {
             applyQualityUpgrade(finalRowIndex, finalColIndex);
         }
 
+        // Randomize stall price and competition level after each draw
+        if (phase === 'stall_drawing' && activeStallNodeId) {
+            const { priceMin, priceMax, grabberMin, grabberMax } = MAP_CONFIG.stall;
+            setMapState(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    nodes: prev.nodes.map(n => {
+                        if (n.id !== activeStallNodeId) return n;
+                        const curPrice = n.state.price ?? MAP_CONFIG.gold.drawBaseCost;
+                        const curGrabbers = n.state.crushCount ?? 0;
+                        const newPrice = Math.max(priceMin, Math.min(priceMax, curPrice + (Math.random() < 0.5 ? 1 : -1)));
+                        const newGrabbers = Math.max(grabberMin, Math.min(grabberMax, curGrabbers + (Math.random() < 0.5 ? 1 : -1)));
+                        return { ...n, state: { ...n.state, price: newPrice, crushCount: newGrabbers } };
+                    }),
+                };
+            });
+        }
+
     };
 
     // =============================================
@@ -1356,6 +1379,7 @@ export const useGameLogic = (config) => {
         setMapState(prev => {
             if (!prev) return prev;
             let newEdges = prev.edges;
+            let newNodes = prev.nodes;
             if (didTick) {
                 // Spawn grabber on a random edge that doesn't already have one
                 const emptyEdges = prev.edges.filter(e => !e.hasGrabber);
@@ -1364,11 +1388,30 @@ export const useGameLogic = (config) => {
                     newEdges = prev.edges.map(e => e.id === target.id ? { ...e, hasGrabber: true } : e);
                 }
             }
+            // Grabber drift: each edge grabber has a chance to relocate to an adjacent passage node
+            if (phase === 'map') {
+                const driftChance = MAP_CONFIG.map.grabberDriftChance;
+                for (const edge of newEdges.filter(e => e.hasGrabber)) {
+                    if (Math.random() > driftChance) continue;
+                    const passageTargets = [edge.from, edge.to]
+                        .map(pos => newNodes.find(n => n.position.x === pos.x && n.position.y === pos.y && n.type === 'passage'))
+                        .filter(Boolean);
+                    if (passageTargets.length === 0) continue;
+                    const target = passageTargets[Math.floor(Math.random() * passageTargets.length)];
+                    newEdges = newEdges.map(e => e.id === edge.id ? { ...e, hasGrabber: false } : e);
+                    newNodes = newNodes.map(n =>
+                        n.id === target.id
+                            ? { ...n, state: { ...n.state, grabberCount: (n.state.grabberCount ?? 0) + 1 } }
+                            : n
+                    );
+                }
+            }
             return {
                 ...prev,
                 actionCounter: newCounter,
                 clockTicks: prev.clockTicks + (didTick ? 1 : 0),
                 edges: newEdges,
+                nodes: newNodes,
             };
         });
         if (didTick) {
@@ -1439,19 +1482,26 @@ export const useGameLogic = (config) => {
         const edge = findEdge(currentEdges, from, to);
         const hadGrabber = edge?.hasGrabber ?? false;
 
-        // Move player AND clear traversed edge grabber atomically
+        const currentNodes = mapStateRef.current?.nodes ?? [];
+        const destNode = currentNodes.find(n => n.position.x === to.x && n.position.y === to.y);
+        const destPassageGrabbers = (destNode?.type === 'passage' && (destNode?.state?.grabberCount ?? 0) > 0) ? destNode : null;
+
+        // Move player, clear traversed edge grabber, decrement passage grabbers — atomically
         setMapState(prev => {
             if (!prev) return prev;
-            return {
-                ...prev,
-                playerPosition: { ...to },
-                edges: hadGrabber
-                    ? prev.edges.map(e => e.id === edge.id ? { ...e, hasGrabber: false } : e)
-                    : prev.edges,
-            };
+            const newEdges = hadGrabber
+                ? prev.edges.map(e => e.id === edge.id ? { ...e, hasGrabber: false } : e)
+                : prev.edges;
+            const newNodes = destPassageGrabbers
+                ? prev.nodes.map(n =>
+                    n.id === destPassageGrabbers.id
+                        ? { ...n, state: { ...n.state, grabberCount: Math.max(0, n.state.grabberCount - 1) } }
+                        : n)
+                : prev.nodes;
+            return { ...prev, playerPosition: { ...to }, edges: newEdges, nodes: newNodes };
         });
 
-        if (hadGrabber) {
+        if (hadGrabber || destPassageGrabbers) {
             triggerCrushResolution('move_step');
         } else {
             setTimeout(() => advanceMoveStepRef.current?.(), 280);
@@ -1459,13 +1509,21 @@ export const useGameLogic = (config) => {
     };
     advanceMoveStepRef.current = advanceMoveStep;
 
-    /** Move the player to (targetX, targetY) — animated step-by-step. */
-    const movePlayer = (targetX, targetY) => {
+    /** Move the player to (targetX, targetY) — animated step-by-step.
+     *  @param {number} targetX
+     *  @param {number} targetY
+     *  @param {{x:number,y:number}|null} [via] — explicit intermediate node for diagonal moves. */
+    const movePlayer = (targetX, targetY, via = null) => {
         if (!mapState || isMoving) return;
-        const path = buildMovePath(mapState.playerPosition, { x: targetX, y: targetY });
-        if (!path) {
-            showToast('不能移动到那里', 'warning');
-            return;
+        let path;
+        if (via) {
+            path = [mapState.playerPosition, via, { x: targetX, y: targetY }];
+        } else {
+            path = buildMovePath(mapState.playerPosition, { x: targetX, y: targetY });
+            if (!path) {
+                showToast('不能移动到那里', 'warning');
+                return;
+            }
         }
         setIsMoving(true);
         movePathRef.current = { path, step: 0 };
@@ -1569,17 +1627,11 @@ export const useGameLogic = (config) => {
         if (activeStallNodeId && matrix) {
             setMapState(prev => {
                 if (!prev) return prev;
-                let crushCount = 0;
-                for (const row of matrix) {
-                    for (const cell of row) {
-                        if (cell?.type === 'crowd_grabber') crushCount++;
-                    }
-                }
                 return {
                     ...prev,
                     nodes: prev.nodes.map(n =>
                         n.id === activeStallNodeId
-                            ? { ...n, state: { ...n.state, grid: matrix.map(r => r.map(c => c ? { ...c } : null)), crushCount } }
+                            ? { ...n, state: { ...n.state, grid: matrix.map(r => r.map(c => c ? { ...c } : null)) } }
                             : n
                     ),
                 };

@@ -3,6 +3,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { MAP_CONFIG } from '../../data/mapConfig';
 
 // Short display labels for each node type
 const NODE_LABELS = {
@@ -15,7 +16,7 @@ const NODE_LABELS = {
     order_region_b:  '食材交换区 B',
     gold_variety:    '大排档',
     gold_quality:    '酒楼',
-    pocket_money:    '零钱袋',
+    pocket_money:    'ATM',
     entry_exit:      '入口',
     passage:         '过道',
 };
@@ -31,12 +32,12 @@ const NODE_ICONS = {
     order_region_b:  '📋',
     gold_variety:    '🍱',
     gold_quality:    '🏮',
-    pocket_money:    '💰',
+    pocket_money:    '🏧',
     entry_exit:      '🚪',
     passage:         '·',
 };
 
-// Tooltip descriptions for each node type
+// Tooltip descriptions for each node type (supports JSX)
 const NODE_DESCRIPTIONS = {
     stall_seafood:   '供应海鲜类食材（虾、贝、鱼等）。进入后从奖品墙抽取。',
     stall_meat:      '供应肉类食材（猪、牛、羊等）。进入后从奖品墙抽取。',
@@ -45,9 +46,21 @@ const NODE_DESCRIPTIONS = {
     stall_dairy:     '供应蛋奶类食材（鸡蛋、牛奶、乳酪等）。进入后从奖品墙抽取。',
     order_region_a:  '用背包中的食材完成订单，换取指定奖励食材。',
     order_region_b:  '用背包中的食材完成订单，换取指定奖励食材。',
-    gold_variety:    '根据携带食材的种类多样性，获得金币奖励。',
-    gold_quality:    '根据携带食材的品质等级，获得金币奖励。',
-    pocket_money:    '随机获得少量金币。',
+    gold_variety: (
+        <span>
+            根据提交食材的子类多样性定价，同批次越多样越值钱。
+            <br />
+            <span className="text-yellow-300 font-bold">1种→1g · 2种→2g · 3种→3g · 4种→5g · 5种+→8g</span>（每件）
+        </span>
+    ),
+    gold_quality: (
+        <span>
+            根据提交食材的品质逐件结算，品质越高单价越高。
+            <br />
+            <span className="text-yellow-300 font-bold">★→1g · ★★→2g · ★★★→3g · ★★★★→5g · ★★★★★→8g</span>
+        </span>
+    ),
+    pocket_money:    '取出少量现金备用。',
     entry_exit:      '菜市场出入口。回到这里后点击可收摊回家。',
     passage:         '普通过道，可自由通行，无特殊功能。',
 };
@@ -67,6 +80,10 @@ const NODE_BG = {
     entry_exit:      'bg-gray-100 border-gray-400',
     passage:         'bg-gray-50 border-gray-200',
 };
+
+const STALL_TYPES = new Set([
+    'stall_seafood', 'stall_meat', 'stall_vegetable', 'stall_grain', 'stall_dairy',
+]);
 
 /** Compute all valid move targets from current player position. */
 function getValidMoves(playerPos) {
@@ -106,6 +123,8 @@ const MarketMap = ({
     isMoving,
 }) => {
     const [tooltip, setTooltip] = useState(null);
+    // Pending diagonal move: player clicked a diagonal target but hasn't chosen the intermediate yet.
+    const [diagonalPending, setDiagonalPending] = useState(null); // null | { to: {x,y} }
 
     const onNodeMouseEnter = useCallback((e, nodeType) => {
         const desc = NODE_DESCRIPTIONS[nodeType];
@@ -124,8 +143,20 @@ const MarketMap = ({
     const { nodes, edges, playerPosition } = mapState;
     const validMoves = getValidMoves(playerPosition);
 
+    // Clear pending diagonal if movement starts externally.
+    if (isMoving && diagonalPending) setDiagonalPending(null);
+
     const isValidTarget = (x, y) => validMoves.some(m => m.x === x && m.y === y);
     const isCurrentPos = (x, y) => posEq(playerPosition, { x, y });
+    const isDiagonal = (x, y) =>
+        Math.abs(x - playerPosition.x) === 1 && Math.abs(y - playerPosition.y) === 1;
+
+    // When a diagonal destination is pending, compute the two intermediate options.
+    const interA = diagonalPending ? { x: diagonalPending.to.x, y: playerPosition.y } : null;
+    const interB = diagonalPending ? { x: playerPosition.x, y: diagonalPending.to.y } : null;
+    const isIntermediate = (x, y) =>
+        (interA && x === interA.x && y === interA.y) ||
+        (interB && x === interB.x && y === interB.y);
 
     const getNode = (x, y) => nodes.find(n => n.position.x === x && n.position.y === y);
 
@@ -155,19 +186,36 @@ const MarketMap = ({
             const bgClass = NODE_BG[node.type] || 'bg-white border-gray-300';
             const isClaimed = node.state?.claimed;
 
+            const isThisIntermediate = isIntermediate(x, y);
+            const isThisDiagDest = diagonalPending && x === diagonalPending.to.x && y === diagonalPending.to.y;
+
             let ringClass = '';
-            if (isCurrent) {
-                ringClass = 'ring-2 ring-kitchen-gold ring-offset-1';
-            } else if (isTarget && !isMoving) {
-                ringClass = 'ring-2 ring-blue-400 ring-offset-1 cursor-pointer hover:ring-blue-500 hover:brightness-95';
+            if (isMoving) {
+                // no rings during animation
+            } else if (diagonalPending) {
+                if (isThisIntermediate) {
+                    ringClass = 'ring-2 ring-orange-400 ring-offset-1 cursor-pointer hover:ring-orange-500 hover:brightness-95';
+                } else if (isThisDiagDest) {
+                    ringClass = 'ring-2 ring-purple-400 ring-offset-1';
+                }
+                // current node keeps gold ring
+                if (isCurrent) ringClass = 'ring-2 ring-kitchen-gold ring-offset-1';
+            } else {
+                if (isCurrent) {
+                    ringClass = 'ring-2 ring-kitchen-gold ring-offset-1';
+                } else if (isTarget) {
+                    ringClass = 'ring-2 ring-blue-400 ring-offset-1 cursor-pointer hover:ring-blue-500 hover:brightness-95';
+                }
             }
 
             // Entry/exit current: show special label
-            const actionLabel = isCurrent && node.type === 'entry_exit'
+            const actionLabel = !diagonalPending && isCurrent && node.type === 'entry_exit'
                 ? '点击收摊'
-                : isCurrent
+                : !diagonalPending && isCurrent
                     ? '点击进入'
-                    : null;
+                    : diagonalPending && isThisIntermediate
+                        ? '经此前往'
+                        : null;
 
             const col = 2 * x + 1;
             const row = 2 * y + 1;
@@ -181,17 +229,28 @@ const MarketMap = ({
                     onMouseLeave={onNodeMouseLeave}
                     onClick={() => {
                         if (isMoving) return;
+                        if (diagonalPending) {
+                            if (isThisIntermediate) {
+                                onMove(diagonalPending.to.x, diagonalPending.to.y, { x, y });
+                            }
+                            setDiagonalPending(null);
+                            return;
+                        }
                         if (isCurrent) {
                             onEnterNode();
                         } else if (isTarget) {
-                            onMove(x, y);
+                            if (isDiagonal(x, y)) {
+                                setDiagonalPending({ to: { x, y } });
+                            } else {
+                                onMove(x, y);
+                            }
                         }
                     }}
                     className={`
                         w-20 h-20 rounded-lg border-2 flex flex-col items-center justify-center
                         relative select-none transition-all duration-150
                         ${bgClass} ${ringClass}
-                        ${isMoving ? 'cursor-not-allowed' : isCurrent ? 'cursor-pointer' : isTarget ? 'cursor-pointer' : 'cursor-default'}
+                        ${isMoving ? 'cursor-not-allowed' : (diagonalPending ? (isThisIntermediate ? 'cursor-pointer' : 'cursor-default') : isCurrent ? 'cursor-pointer' : isTarget ? 'cursor-pointer' : 'cursor-default')}
                         ${isClaimed ? 'opacity-50' : ''}
                     `}
                 >
@@ -206,6 +265,33 @@ const MarketMap = ({
                     <span className="text-[10px] font-bold text-center leading-tight mt-0.5 px-0.5 text-gray-700 truncate max-w-full">
                         {label}
                     </span>
+                    {STALL_TYPES.has(node.type) && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded px-1 leading-tight">
+                                💰{node.state?.price ?? MAP_CONFIG.gold.drawBaseCost}g
+                            </span>
+                            {(node.state?.crushCount ?? 0) > 0 && (
+                                <span className="text-[9px] font-bold text-red-700 bg-red-100 border border-red-300 rounded px-1 leading-tight">
+                                    🧑{node.state.crushCount}
+                                </span>
+                            )}
+                        </div>
+                    )}
+                    {node.type === 'passage' && (node.state?.grabberCount ?? 0) > 0 && (
+                        <span className="text-[9px] font-bold text-red-700 bg-red-100 border border-red-300 rounded px-1 mt-0.5 leading-tight">
+                            🧑{node.state.grabberCount}
+                        </span>
+                    )}
+                    {(node.type === 'gold_variety') && (
+                        <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded px-1 mt-0.5 leading-tight">
+                            多样性 1~8g/件
+                        </span>
+                    )}
+                    {(node.type === 'gold_quality') && (
+                        <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded px-1 mt-0.5 leading-tight">
+                            品质 1~8g/件
+                        </span>
+                    )}
 
                     {/* Action label overlay */}
                     {actionLabel && (
@@ -274,7 +360,7 @@ const MarketMap = ({
             {tooltip && createPortal(
                 <div
                     style={{ position: 'fixed', top: tooltip.y + 18, left: tooltip.x + 14 }}
-                    className="max-w-[180px] px-3 py-2 bg-gray-900/95 text-white text-xs rounded-lg z-[9999] pointer-events-none shadow-xl border border-gray-700/50 leading-snug"
+                    className="max-w-[220px] px-3 py-2 bg-gray-900/95 text-white text-xs rounded-lg z-[9999] pointer-events-none shadow-xl border border-gray-700/50 leading-snug"
                 >
                     <div className="font-bold text-white mb-1">{tooltip.title}</div>
                     <div className="text-gray-300">{tooltip.content}</div>
