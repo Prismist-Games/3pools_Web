@@ -78,7 +78,7 @@
 | 系统 | 处置 |
 |------|------|
 | 贴纸系统（20 种） | 完全废弃，但代码路径（`STICKER_TYPES` 等）已移除 |
-| 簇（Cluster）系统 | 核心逻辑移除；`getClusterMembers` 还在 matrixHelpers 里供 ResourceMatrix 的 hover 视觉使用（同 id 相邻高亮） |
+| 簇（Cluster）系统 | 完全移除（2026-04-22）——代码路径与视觉连片均已删除，每格独立渲染 |
 | 旧 9 种墙 modifier（神秘面纱/双倍/...） | 全废；当前墙 = 纯市场 |
 | 开局 Setup 5 次二选一 | 废；菜品揭晓仍在（DishCard 浮层） |
 | 订单刷新次数初始值（旧版是 0 ~ 5） | 仍在（refreshCharges 0/5），但现在每回合自动 +1 订单事件，刷新次数主要靠订单格累加 |

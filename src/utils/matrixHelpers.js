@@ -254,32 +254,3 @@ export function fillEmptyCellsWithStickers(grid, wallStickers, gridSize) {
   }
 }
 
-/** @deprecated Flood-fill for sticker clusters — used by ResourceMatrix until Task 4 */
-export function getClusterMembers(matrix, r, c) {
-  const seed = matrix?.[r]?.[c];
-  if (!seed || (seed.type !== 'sticker' && seed.type !== 'ingredient')) return [];
-  const targetId = seed.item?.id;
-  if (!targetId) return [];
-  const rows = matrix.length;
-  const cols = matrix[0]?.length || 0;
-  const visited = new Set();
-  const stack = [[r, c]];
-  const members = [];
-  while (stack.length) {
-    const [cr, cc] = stack.pop();
-    const key = `${cr}-${cc}`;
-    if (visited.has(key)) continue;
-    visited.add(key);
-    const cur = matrix[cr]?.[cc];
-    if (!cur || (cur.type !== 'sticker' && cur.type !== 'ingredient') || cur.item?.id !== targetId) continue;
-    members.push([cr, cc]);
-    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-      const nr = cr + dr;
-      const nc = cc + dc;
-      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited.has(`${nr}-${nc}`)) {
-        stack.push([nr, nc]);
-      }
-    }
-  }
-  return members;
-}

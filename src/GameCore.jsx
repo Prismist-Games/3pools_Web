@@ -174,8 +174,9 @@ const GameCore = () => {
 
     // --- Compute fly animation position ONCE per flyingItem.id ---
     // Recomputing on every render causes the animation to restart when the
-    // inventory re-renders while a cluster is added (multiple addToInventory
-    // calls). Cache the style the moment flyingItem appears.
+    // inventory re-renders while additional items are added in quick
+    // succession (multiple addToInventory calls). Cache the style the moment
+    // flyingItem appears.
     const [flyStyle, setFlyStyle] = useState(null);
     useEffect(() => {
         console.log('[FLY-DIAG] effect4 fired, flyingItem?.id =', flyingItem?.id, 'at', Date.now());

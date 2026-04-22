@@ -69,7 +69,7 @@ npm run lint    # ESLint 9 配置当前缺失，需要迁移才能跑
 │   │   └── useGameLogic.js          ★ 全局状态 + actions（~2200 行）
 │   │
 │   ├── utils/
-│   │   ├── matrixHelpers.js         ★ 墙生成、形状填充、clusterMembers（hover 用）
+│   │   ├── matrixHelpers.js         ★ 墙生成、形状填充
 │   │   ├── helpers.js               v1 遗留（旧 generateOrder 等，活跃使用者少）
 │   │   ├── templateGenerator.js     LevelEditor 辅助
 │   │   └── translations.js          中英映射
@@ -87,7 +87,7 @@ npm run lint    # ESLint 9 配置当前缺失，需要迁移才能跑
 │       │   └── RoundTransition.jsx  菜品揭晓浮层
 │       ├── game/
 │       │   ├── Prologue.jsx              入场选角色
-│       │   ├── ResourceMatrix.jsx        4×4 墙渲染 + 行/列抽取 + cluster hover
+│       │   ├── ResourceMatrix.jsx        4×4 墙渲染 + 行/列抽取
 │       │   ├── WallPicker.jsx            3 市场候选卡 + onHoverIngredientIds 报告
 │       │   ├── BulletinBoard.jsx         交换区 + hoveredTag2 突显
 │       │   ├── OrderCard.jsx             订单卡（历史遗留；BulletinBoard 直渲）
@@ -337,7 +337,7 @@ GameCore header 的 **⚙ 按钮**打开 modal，3 个分区：
 | 组件 | 职责 |
 |------|------|
 | `WallPicker` | 3 市场候选；`onHoverIngredientIds` 上报→ BulletinBoard 突显 |
-| `ResourceMatrix` | 4×4 墙渲染 + 行/列按钮 + 抽取动画 + cluster hover + MIN_QUALITY 角标 + modifier overlay（center_rotate/mirror/conveyor 还在代码里但当前墙类型为 market，不会触发） |
+| `ResourceMatrix` | 4×4 墙渲染 + 行/列按钮 + 抽取动画 + MIN_QUALITY 角标 + modifier overlay（center_rotate/mirror/conveyor 还在代码里但当前墙类型为 market，不会触发） |
 | `BulletinBoard` | 交换区容器，显示 N/4 + 订单卡 + 可提交状态 + **hoveredTag2 + 金色呼吸光晕突显** |
 | `OrderSubmitModal` | 穿透式 modal（`pointer-events-none` wrapper），消耗 + 奖励两段式 |
 | `ConfigPanel` | **核心调试**：实时改数值 + 导入导出 JSON |
