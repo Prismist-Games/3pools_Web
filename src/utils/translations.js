@@ -508,7 +508,7 @@ export const EN_TRANSLATIONS = {
     "获得": "Obtained",
     "未获得物品": "No item obtained",
     "厄运升级": "Doom Upgrade",
-    "厄运命中": "Doom Hit",
+    "人挤人命中": "Crowd Crush hit",
     "厄运结算": "Doom Resolution",
     "厄运网格": "Doom Grid",
     "厄运等级": "Doom Level",

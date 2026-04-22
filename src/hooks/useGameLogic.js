@@ -163,7 +163,7 @@ export const useGameLogic = (config) => {
     const { t, language } = useLanguage();
 
     // --- Configuration ---
-    const crushConfig = config.doom || CRUSH_CONFIG;
+    const crushConfig = config.crush || CRUSH_CONFIG;
     const turnConfig = config.turn || TURN_CONFIG;
     const orderConfig = config.order || { bulletinCapacity: 5, initialCount: 5 };
     const expeditionConfig = config.expedition || { expeditionCount: 3, scoreToWin: 30 };
@@ -222,7 +222,7 @@ export const useGameLogic = (config) => {
         }
         return grid;
     });
-    const [crushLevel, setCrushLevel] = useState(crushConfig.initialDoomLevel);
+    const [crushLevel, setCrushLevel] = useState(crushConfig.initialCrushLevel);
     const [isCrushResolving, setIsCrushResolving] = useState(false);
     const [crushAnimState, setCrushAnimState] = useState(null);
     const [crushResolutionResult, setCrushResolutionResult] = useState(null);
@@ -1420,7 +1420,7 @@ export const useGameLogic = (config) => {
         if (hpLoss > 0) {
             const newHp = Math.max(0, hp - hpLoss);
             setHp(newHp);
-            showToast(t('厄运命中') + ` -${hpLoss} HP`, 'error');
+            showToast(t('人挤人命中') + ` -${hpLoss} HP`, 'error');
             if (newHp <= 0) {
                 setCrushAnimState(null);
                 setIsCrushResolving(false);
@@ -1502,7 +1502,7 @@ export const useGameLogic = (config) => {
             }
             return grid;
         });
-        setCrushLevel(crushConfig.initialDoomLevel);
+        setCrushLevel(crushConfig.initialCrushLevel);
         setIsCrushResolving(false);
         setCrushAnimState(null);
         setCrushResolutionResult(null);
@@ -1549,7 +1549,7 @@ export const useGameLogic = (config) => {
             }
             return grid;
         });
-        setCrushLevel(crushConfig.initialDoomLevel);
+        setCrushLevel(crushConfig.initialCrushLevel);
         setIsCrushResolving(false);
         setCrushAnimState(null);
         setCrushResolutionResult(null);
@@ -1594,7 +1594,7 @@ export const useGameLogic = (config) => {
             }
             return grid;
         });
-        setCrushLevel(crushConfig.initialDoomLevel);
+        setCrushLevel(crushConfig.initialCrushLevel);
         setIsCrushResolving(false);
         setCrushAnimState(null);
         setCrushResolutionResult(null);
