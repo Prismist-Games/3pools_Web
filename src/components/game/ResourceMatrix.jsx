@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
 import { MATRIX_CONFIG } from '../../data/matrixConfig';
-import { QUALITY_CONFIG } from '../../data/v2Config';
+import { QUALITY_CONFIG, TOOLS } from '../../data/v2Config';
 
-const QUALITY_MIN_COLORS = { 2: '#22c55e', 3: '#3b82f6', 4: '#a855f7' };
+// Quality badge color (shown after peek reveals a cell's actual draw quality)
+const QUALITY_BADGE_COLORS = { 1: '#9ca3af', 2: '#22c55e', 3: '#3b82f6', 4: '#a855f7', 5: '#f97316' };
 
 /** Tooltip for grid cells — Portal-based, same style as ToolItemTooltip */
 const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
@@ -84,17 +85,22 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.icon || '🌽';
         name = t(cell.name || '膨化格');
         desc = t('抽中时无效果，周围的增益消失');
+    } else if (cell.type === 'tool') {
+        const toolDef = TOOLS.find(tool => tool.id === cell.toolId);
+        icon = cell.icon || toolDef?.icon || '🧰';
+        name = toolDef ? (language === 'en' && toolDef.nameEn ? toolDef.nameEn : t(toolDef.name)) : t(cell.name || '道具');
+        desc = toolDef ? (language === 'en' && toolDef.descEn ? toolDef.descEn : t(toolDef.desc)) : t('抽中时获得此道具');
     } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
         const ingTags = cell.item?.tags || [];
-        const minQ = cell.item?.minQuality;
-        const minQDef = minQ ? QUALITY_CONFIG.find(q => q.id === minQ) : null;
+        const peekedQ = cell.item?.qualityPeeked ? cell.item?.quality : null;
+        const peekedDef = peekedQ ? QUALITY_CONFIG.find(q => q.id === peekedQ) : null;
         desc = (
             <>
-                {minQDef ? (
-                    <span className="text-[10px] font-semibold" style={{ color: QUALITY_MIN_COLORS[minQ] }}>
-                        {t('最低品质')}：{minQDef.stars} {t(minQDef.name)}
+                {peekedDef ? (
+                    <span className="text-[10px] font-semibold" style={{ color: QUALITY_BADGE_COLORS[peekedQ] }}>
+                        {t('抽到时品质')}：{peekedDef.stars} {t(peekedDef.name)}
                     </span>
                 ) : (
                     <span className="text-[10px] text-gray-400 italic">{t('品质未知，抽到后揭示')}</span>
@@ -164,13 +170,14 @@ function countBuffFieldCoverage(matrix, r, c) {
 }
 
 /** Single grid cell */
-const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage }) => {
+const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, clickable, selectedForSwap, onCellClick, toolAnimClass }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
     const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
-        || cell.type === 'buff_field' || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item');
+        || cell.type === 'buff_field' || cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item'
+        || cell.type === 'tool');
 
     // Cell background
     let bgClass;
@@ -202,6 +209,8 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         bgClass = 'bg-[#F0FFF8] border-kitchen-success-border';
     } else if (cell.type === 'buff_field') {
         bgClass = 'bg-[#FFFAE8] border-[#E8B840]';
+    } else if (cell.type === 'tool') {
+        bgClass = 'bg-amber-50 border-amber-400';
     } else {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
     }
@@ -248,30 +257,36 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         ? `${extraShadow ? extraShadow + ', ' : ''}0 0 ${6 + buffCoverage * 4}px ${2 + buffCoverage}px rgba(232, 184, 64, ${0.35 + buffCoverage * 0.12})`
         : extraShadow;
 
-    const finalShadow = mergedBoxShadow;
+    // Tool-targeting highlight: dashed amber ring on clickable cells, solid
+    // blue ring on the first selection during swap.
+    const toolTargetShadow = selectedForSwap
+        ? '0 0 0 3px rgba(59, 130, 246, 0.85), 0 0 14px rgba(59, 130, 246, 0.45)'
+        : clickable
+        ? '0 0 0 2px rgba(245, 158, 11, 0.65), 0 0 10px rgba(245, 158, 11, 0.3)'
+        : '';
+    const finalShadow = toolTargetShadow
+        ? (mergedBoxShadow ? `${toolTargetShadow}, ${mergedBoxShadow}` : toolTargetShadow)
+        : mergedBoxShadow;
 
-    const cellMinQuality = cell?.type === 'ingredient' ? cell.item?.minQuality : null;
-    const minQBorderStyle = cellMinQuality
-        ? { borderColor: QUALITY_MIN_COLORS[cellMinQuality], borderWidth: '2px' }
-        : {};
+    const peekedQuality = cell?.type === 'ingredient' && cell.item?.qualityPeeked ? cell.item?.quality : null;
 
     return (
         <div
             ref={ref}
             data-cell={`${rowIndex}-${colIndex}`}
-            className={`relative border rounded-lg flex flex-col items-center justify-center ${bgClass} ${highlightClass}`}
+            className={`relative border rounded-lg flex flex-col items-center justify-center ${bgClass} ${highlightClass} ${clickable ? 'cursor-pointer' : ''} ${toolAnimClass || ''}`}
             style={{
                 margin: `${HALF}px`,
                 width: CELL_SIZE,
                 height: CELL_SIZE,
                 boxShadow: finalShadow,
-                ...minQBorderStyle,
                 ...gravityStyle,
                 ...rotationStyle,
                 ...growthStyle,
             }}
             onMouseEnter={() => { if (hasTip) setHovered(true); }}
             onMouseLeave={() => { if (hasTip) setHovered(false); }}
+            onClick={clickable && onCellClick ? () => onCellClick(rowIndex, colIndex) : undefined}
         >
             {cellContent}
             {isBuffed && (
@@ -279,12 +294,13 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
                     ×{buffCoverage + 1}
                 </span>
             )}
-            {cellMinQuality && (
+            {peekedQuality && (
                 <span
                     className="absolute -bottom-1 -right-1 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-20"
-                    style={{ backgroundColor: QUALITY_MIN_COLORS[cellMinQuality] }}
+                    style={{ backgroundColor: QUALITY_BADGE_COLORS[peekedQuality] || '#9ca3af' }}
+                    title={`${QUALITY_CONFIG.find(q => q.id === peekedQuality)?.stars || ''}`}
                 >
-                    ≥
+                    {peekedQuality}
                 </span>
             )}
             {hasTip && <CellTooltip cell={cell} anchorRef={ref} visible={hovered} t={t} language={language} />}
@@ -295,7 +311,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 /**
  * Wall grid display for turn-based prototype (size from MATRIX_CONFIG.gridSize).
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverIngredientIds, gravityDrops, rotationMoves, growthFlashes }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverIngredientIds, gravityDrops, rotationMoves, growthFlashes, activeTool, onCellClick, toolUseAnim }) => {
     const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -334,6 +350,26 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     if (!matrix) return null;
 
     const canDraw = (phase === 'drawing' || phase === 'drawing_sub') && gold >= drawCost && !disabled;
+
+    // Tool-driven interaction flags
+    const peekActive = activeTool?.id === 'peek';
+    const cellTargetingActive = !!activeTool && ['swap', 'disperse', 'bomb_wall'].includes(activeTool.id);
+    const swapFirstSelection = activeTool?.id === 'swap' ? (activeTool.selections?.[0] || null) : null;
+
+    // Look up the CSS animation class for a given cell based on the active
+    // tool-use animation (if any). Matches on position membership.
+    const toolAnimClassFor = (r, c) => {
+        if (!toolUseAnim) return '';
+        const hit = toolUseAnim.positions?.some(([pr, pc]) => pr === r && pc === c);
+        if (!hit) return '';
+        switch (toolUseAnim.type) {
+            case 'peek': return 'animate-tool-peek';
+            case 'swap': return 'animate-tool-swap';
+            case 'disperse': return 'animate-tool-disperse';
+            case 'bomb_wall': return 'animate-tool-bomb';
+            default: return '';
+        }
+    };
 
     const getCellContent = (cell) => {
         if (cell === null) return <span className="text-gray-300">·</span>;
@@ -406,6 +442,22 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         if (cell.type === 'buff_field') {
             return <span className="text-xl">{cell.icon || '🌽'}</span>;
         }
+        if (cell.type === 'tool') {
+            const toolDef = TOOLS.find(tool => tool.id === cell.toolId);
+            const displayName = toolDef
+                ? (language === 'en' && toolDef.nameEn ? toolDef.nameEn : t(toolDef.name))
+                : '';
+            return (
+                <>
+                    <span className="text-lg leading-none">{cell.icon || toolDef?.icon || '🧰'}</span>
+                    {displayName && (
+                        <span className="text-[9px] font-bold leading-tight truncate max-w-full text-amber-800 mt-0.5 px-0.5">
+                            {displayName}
+                        </span>
+                    )}
+                </>
+            );
+        }
         return (
             <>
                 <span className="text-xl">{cell.icon}</span>
@@ -444,7 +496,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 {Array.from({ length: matrix[0]?.length || 4 }, (_, colIndex) => {
                     const hasActive = matrix.some(row => row[colIndex] !== null);
                     const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
-                    const colClickable = canDraw && hasActive && !altBlocked;
+                    // Peek passthrough: row/col buttons must stay clickable when
+                    // peek is active even if gold is 0 — peek doesn't consume a draw.
+                    const colClickable = peekActive ? hasActive : (canDraw && hasActive && !altBlocked);
                     return (
                         <button
                             key={colIndex}
@@ -476,7 +530,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                     {matrix.map((row, rowIndex) => {
                         const hasActive = row.some(c => c !== null);
                         const altBlockedRow = wallType?.id === 'alternating' && lastDrawDirection === 'row';
-                        const rowClickable = canDraw && hasActive && !altBlockedRow;
+                        const rowClickable = peekActive ? hasActive : (canDraw && hasActive && !altBlockedRow);
                         return (
                             <button
                                 key={rowIndex}
@@ -657,6 +711,13 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             const buffCov = countBuffFieldCoverage(matrix, rowIndex, colIndex);
 
                             const cellKey = `${rowIndex}-${colIndex}`;
+                            // Cell-click targeting for wall-editing tools
+                            const cellClickableForTool = cellTargetingActive && (
+                                activeTool.id === 'bomb_wall'                 // any position (null ok)
+                                || (activeTool.id === 'swap' && cell != null) // need a real cell to swap
+                                || (activeTool.id === 'disperse' && cell != null) // need a real cell to discard
+                            );
+                            const selectedForSwap = swapFirstSelection && swapFirstSelection.r === rowIndex && swapFirstSelection.c === colIndex;
                             return (
                                 <GridCell
                                     key={cellKey}
@@ -671,6 +732,10 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                     rotationMove={rotMove}
                                     growthFlash={flash}
                                     buffCoverage={buffCov}
+                                    clickable={cellClickableForTool}
+                                    selectedForSwap={!!selectedForSwap}
+                                    onCellClick={onCellClick}
+                                    toolAnimClass={toolAnimClassFor(rowIndex, colIndex)}
                                 />
                             );
                         })

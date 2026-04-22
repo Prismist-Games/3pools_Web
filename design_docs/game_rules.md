@@ -107,12 +107,6 @@ Phase 1 + 2（`LIVE_CONFIG.cellSpawn`，当前默认）：
 ```
 每个抢菜人格、`人群` panel 的 danger 格、抽取动画 hit 格都独立 roll 一个。
 
-### MIN_QUALITY 底 —— 本版特有的"保底品质"机制
-
-`MIN_QUALITY_CONFIG`（`countRange: [2, 4]`, `weights: {2:0.70, 3:0.25, 4:0.05}`）。
-
-墙生成最后一步：从**本墙出现的所有食材品类**里随机挑 2-4 种，给它们一个 **最低品质底**（Q2 / Q3 / Q4 按 70/25/5 权重）。抽到这些品类的食材时，品质 roll 结果会被 clamp 到不低于底。视觉上在 ResourceMatrix 会有标识。
-
 ---
 
 ## 抽取与品质系统
@@ -144,7 +138,7 @@ UI 上**所有"价值 badge"显示 scoreValue**（1/2/3/5/8），而不是 quali
 
 | 格类型 | 效果 |
 |--------|------|
-| 食材 | roll 品质（若有 minQuality 则 clamp）→ 找到 `{baseId}_{quality}`-like 食材条目 → 进菜篮（若满 → pendingItems） |
+| 食材 | roll 品质（若已被透视预 roll 过则使用预 roll 值）→ 进菜篮（若满 → pendingItems） |
 | 抢菜人 | 触发 **人挤人**（人群结算动画），可能扣 HP |
 | 抽数 🎫 | 获得 1-2 抽数 |
 | 订单 📋 | 在 incomingQueue 里追加一个 2 选 1 事件（between_turns 弹出） |
@@ -315,9 +309,9 @@ UI 上**所有"价值 badge"显示 scoreValue**（1/2/3/5/8），而不是 quali
 GameCore header 的 **⚙ 按钮**打开 `ConfigPanel`（2026-04-20 加）。可调：
 
 - **品质 roll 概率**：5 档 weight（合计显示）
-- **墙面符号比例**：doom/gold/order/bomb spawnChance + 形状权重 1/2/3
+- **墙面符号比例**：doom/gold/order/bomb/道具 spawnChance
+- **局面布局 & 抽取**：3×3 ↔ 4×4 切换；进店抽取次数（goldPerTurn）
 - **订单模板**：每个模板的 weight / rewardQuality / ingredientTypes / qualityDist 或 reqBudget
-- **MIN_QUALITY 底**：countRange + Q2/Q3/Q4 weight
 
 底部：
 - 重置默认（DEFAULTS 深拷贝复位）
@@ -326,7 +320,7 @@ GameCore header 的 **⚙ 按钮**打开 `ConfigPanel`（2026-04-20 加）。可
 
 **不持久化**：F5 回默认。仅开发/调试用。
 
-实装：`src/data/runtimeConfig.js` 的 `LIVE_CONFIG` 对象 + 订阅者（`useSyncExternalStore`）；消费者（`rollQuality` / `pickWeightedTemplate` / `generateWall` / 形状权重 / MIN_QUALITY roll）在 call time 读，写入后 version bump 触发重渲。
+实装：`src/data/runtimeConfig.js` 的 `LIVE_CONFIG` 对象 + 订阅者（`useSyncExternalStore`）；消费者（`rollQuality` / `pickWeightedTemplate` / `generateWall` / `startNewTurn` 的 goldPerTurn）在 call time 读，写入后 version bump 触发重渲。
 
 ---
 
@@ -361,14 +355,6 @@ GameCore header 的 **⚙ 按钮**打开 `ConfigPanel`（2026-04-20 加）。可
 | 3 | 优质 | 3 | 18% |
 | 4 | 顶级 | 5 | 8% |
 | 5 | 传说 | 8 | 4% |
-
-### MIN_QUALITY 底
-| 项目 | 值 |
-|------|------|
-| 每墙标记品类数 | 2-4 |
-| Q2 底权重 | 70% |
-| Q3 底权重 | 25% |
-| Q4 底权重 | 5% |
 
 ### 订单模板
 | id | weight | rewardQuality | types | 需求 |

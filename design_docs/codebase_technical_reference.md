@@ -59,7 +59,7 @@ npm run lint    # ESLint 9 配置当前缺失，需要迁移才能跑
 │   ├── index.css                    Tailwind + 自定义 @keyframes
 │   │
 │   ├── data/
-│   │   ├── v2Config.js              ★ 活跃数据：食材/品质/市场/菜品/订单/MIN_QUALITY
+│   │   ├── v2Config.js              ★ 活跃数据：食材/品质/市场/菜品/订单/道具（TOOLS + TOOL_CONFIG）
 │   │   ├── runtimeConfig.js         ★ LIVE_CONFIG 可变镜像 + subscribe 机制
 │   │   ├── matrixConfig.js          ★ 4×4 网格尺寸 + 特殊格 icon/name + 人像池
 │   │   ├── constants.js             ◯ 半活跃：INITIAL_GAME_CONFIG / TURN_CONFIG / v1 冷冻数据
@@ -160,7 +160,8 @@ GameCore.jsx  (布局 + 模态调度；维护 UI-local state 如 hoveredIngredie
 | `INGREDIENTS` | 80 个基础食材（`id / icon / name / nameEn / shortLabel / shortLabelEn / tags:[大类, 小类]`）。品质**不预设**，在抽取时 roll |
 | `QUALITY_CONFIG` | 5 档：普通/精选/优质/顶级/传说；每档有 `stars` 和 `scoreValue`（1/2/3/5/8） |
 | `QUALITY_WEIGHTS` | 默认 roll 权重 `{1:0.40, 2:0.30, 3:0.18, 4:0.08, 5:0.04}` |
-| `MIN_QUALITY_CONFIG` | `countRange:[2,4]`，`weights:{2:0.70,3:0.25,4:0.05}` —— 每墙标记 2-4 个品类有保底品质 |
+| `TOOLS` | 5 个道具（透视/换位/驱散/炸墙/清库换抽）—— id / name / icon / desc / targetKind |
+| `TOOL_CONFIG` | `capacity:3`，`dayStartCount:3`，`perWallExitCount:1`，`allowDuplicates:true` |
 | `MARKET_TYPES` | 5 家店，每家指向一个大类 |
 | `DISHES` | 2 道手作菜（ocean_threads / ember_hearth） |
 | `ORDER_TEMPLATES` | 4 模板（easy/medium/hard/extreme），hard/extreme 有 `qualityDist`，easy/medium 用 `reqBudget` |
@@ -192,8 +193,9 @@ GameCore.jsx  (布局 + 模态调度；维护 UI-local state 如 hoveredIngredie
 export const LIVE_CONFIG = {
     qualityWeights:  { ...QUALITY_WEIGHTS },                  // 1-5 档品质 roll 权重
     orderTemplates:  deepClone(ORDER_TEMPLATES),              // 订单模板（weight / rewardQuality / ingredientTypes / qualityDist 或 reqBudget）
-    cellSpawn:       { doom, gold, order, bomb },             // 墙面特殊格概率
-    minQuality:      deepClone(MIN_QUALITY_CONFIG),           // { countRange, weights } 保底品质规则
+    cellSpawn:       { doom, gold, order, bomb, tool },       // 墙面特殊格概率（含道具格）
+    goldPerTurn:     TURN_CONFIG.goldPerTurn,                 // 进店抽取次数（可调）
+    gridSize:        MATRIX_CONFIG.gridSize,                  // 墙尺寸（3 或 4）
 };
 ```
 
@@ -205,8 +207,9 @@ export const LIVE_CONFIG = {
 |--------|---------|
 | `useGameLogic.rollQuality` | `LIVE_CONFIG.qualityWeights` |
 | `useGameLogic.pickWeightedTemplate` | `LIVE_CONFIG.orderTemplates` |
-| `matrixHelpers.generateWall` Phase 1+2 | `LIVE_CONFIG.cellSpawn` |
-| `matrixHelpers.generateWall` 末尾 MIN_QUALITY 标记 | `LIVE_CONFIG.minQuality` |
+| `useGameLogic.startNewTurn` | `LIVE_CONFIG.goldPerTurn` |
+| `matrixHelpers.generateWall` Phase 1+2 | `LIVE_CONFIG.cellSpawn`（含 `tool`） |
+| `matrixHelpers.rollSingleCell`（炸墙 refill 用） | `LIVE_CONFIG.cellSpawn` |
 
 ### 5.3 通知机制
 
@@ -223,10 +226,11 @@ importConfigJSON(json)  // 解析覆盖，bump
 
 ### 5.4 面板 UI（`src/components/game/ConfigPanel.jsx`）
 
-GameCore header 的 **⚙ 按钮**打开 modal，3 个分区：
+GameCore header 的 **⚙ 按钮**打开 modal，4 个分区：
 - **A. 品质 roll 概率**：5 档 weight + 合计显示
-- **B. 墙面符号 + 形状权重**：4 种特殊格 spawnChance + 1/2/3 格权重 + MIN_QUALITY（countRange + Q2/Q3/Q4 weights）
+- **B. 墙面符号比例**：5 种特殊格 spawnChance（doom / gold / order / bomb / **tool**）
 - **C. 订单模板**：4 条，每条 weight / rewardQuality / ingredientTypes / qualityDist 或 reqBudget
+- **D. 局面布局 & 抽取**：3×3 ↔ 4×4 切换（触发 `handleReset`）；`goldPerTurn` 数值输入
 
 底部：重置默认 / 导出 JSON / 导入 JSON。不持久化。
 
@@ -335,7 +339,11 @@ GameCore header 的 **⚙ 按钮**打开 modal，3 个分区：
 | 组件 | 职责 |
 |------|------|
 | `WallPicker` | 3 市场候选；`onHoverIngredientIds` 上报→ BulletinBoard 突显 |
-| `ResourceMatrix` | 4×4 墙渲染 + 行/列按钮 + 抽取动画 + MIN_QUALITY 角标 + modifier overlay（center_rotate/mirror/conveyor 还在代码里但当前墙类型为 market，不会触发） |
+| `ResourceMatrix` | 墙渲染（3×3/4×4）+ 行/列按钮 + 抽取动画 + 透视后的品质角标 + 道具使用过渡动画（peek / swap / disperse / bomb 针对的格子走各自 CSS 动画 class）+ modifier overlay（center_rotate/mirror/conveyor 还在代码里但当前墙类型为 market，不会触发） |
+| `Toolbar` | 3 格道具栏；点击格子进入该道具的激活模式 |
+| `ToolHintBar` | 激活道具时顶部提示条（"使用 X 中 — 点击 Y"+取消按钮）|
+| `ToolGrantPopup` | 获得道具时弹窗（批量显示同步到手的道具），确认按钮关闭 |
+| `ToolOverflowModal` | 道具栏满时的替换/丢弃选择浮层 |
 | `BulletinBoard` | 交换区容器，显示 N/4 + 订单卡 + 可提交状态 + **hoveredTag2 + 金色呼吸光晕突显** |
 | `OrderSubmitModal` | 穿透式 modal（`pointer-events-none` wrapper），消耗 + 奖励两段式 |
 | `ConfigPanel` | **核心调试**：实时改数值 + 导入导出 JSON |
@@ -353,10 +361,9 @@ UI 工具（`components/ui/`）：Tooltip / Toast / ConfirmDialog / GameGuide / 
 
 ### 8.1 `generateWall(marketIngredients)` 流程
 
-1. **Phase 1+2**：对每个空格按 `LIVE_CONFIG.cellSpawn` 累积概率 roll。顺序：doom → gold → order → bomb → 留空（食材）
+1. **Phase 1+2**：对每个空格按 `LIVE_CONFIG.cellSpawn` 累积概率 roll。顺序：doom → gold → order → bomb → tool → 留空（食材）
 2. **Phase 3**：剩余每一格独立放 1 个食材（`{ type: 'ingredient', item, uid }`），没有分组 / 形状概念
-3. **MIN_QUALITY 标记**：按 `item.id` 收集墙上出现的食材品类，洗牌取 2-4 个；对每个被选中的 id，把所有同 id 食材格的 `item.minQuality` 统一赋为 `rollMinQualityLevel()`（Q2/Q3/Q4）
-4. 返回 `{ grid, doomCellCount }`
+3. 返回 `{ grid, doomCellCount }`
 
 ### 8.2 `rollQuality()`（`useGameLogic`）
 
@@ -368,9 +375,7 @@ total = sum(weights)
 
 抽取食材时：
 ```
-quality = rollQuality()
-if (cell.item.minQuality && quality < cell.item.minQuality)
-    quality = cell.item.minQuality  // clamp 到底
+quality = cell.item.quality ?? rollQuality()   // 透视已预 roll 过则用缓存值
 find INGREDIENTS[id=`${baseId}_${quality}-like`]  // 或直接走 scoreValue lookup
 ```
 
@@ -451,9 +456,10 @@ find INGREDIENTS[id=`${baseId}_${quality}-like`]  // 或直接走 scoreValue loo
 
 **走 ConfigPanel（⚙）** —— 不改代码：
 - 品质 roll 概率（5 档 weight）
-- 墙面 4 类特殊格 spawnChance + 形状 1/2/3 格权重
+- 墙面 5 类特殊格 spawnChance（含道具格）
 - 订单 4 模板（weight / rewardQuality / ingredientTypes / qualityDist / reqBudget）
-- MIN_QUALITY 的 countRange + Q2/Q3/Q4 权重
+- 墙尺寸切换（3×3 ↔ 4×4）
+- 进店抽取次数（goldPerTurn）
 
 ### 改平衡数值（固化到代码）
 

@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { generateWall, pickMarketIngredients } from '../utils/matrixHelpers';
+import { generateWall, pickMarketIngredients, rollSingleCell } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES } from '../data/v2Config';
+import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES, TOOLS, TOOL_CONFIG } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 import { pickDoomEmoji } from '../data/matrixConfig';
 
@@ -238,6 +238,18 @@ export const useGameLogic = (config) => {
     // --- Inventory Pending Queue ---
     const [pendingItems, setPendingItems] = useState([]); // queue of items awaiting placement when inventory full
 
+    // --- Tool State ---
+    // tools: array of { id, name, icon, ..., uid } — player's toolbar (cap TOOL_CONFIG.capacity)
+    // pendingToolGrant: a tool waiting for the player to replace/discard when toolbar is full
+    // activeTool: { uid, id, stage, selections } when a tool is being used interactively
+    // toolGrantQueue: tools recently granted to player, waiting for confirm popup
+    // toolUseAnim: { type, positions, target, endsAt } — active short animation before state change
+    const [tools, setTools] = useState([]);
+    const [pendingToolGrant, setPendingToolGrant] = useState(null);
+    const [activeTool, setActiveTool] = useState(null);
+    const [toolGrantQueue, setToolGrantQueue] = useState([]);
+    const [toolUseAnim, setToolUseAnim] = useState(null);
+
     // --- Order State ---
     const [bulletinBoard, setBulletinBoard] = useState([]);
     const REFRESH_INITIAL_CHARGES = 3;
@@ -287,7 +299,7 @@ export const useGameLogic = (config) => {
     const startNewTurn = () => {
         const newTurnNumber = turnNumber + 1;
         setTurnNumber(newTurnNumber);
-        setGold(turnConfig.goldPerTurn);
+        setGold(LIVE_CONFIG.goldPerTurn ?? turnConfig.goldPerTurn);
         setLastDrawResult(null);
         setDoomResolutionResult(null);
         setGravityActive(false);
@@ -362,6 +374,15 @@ export const useGameLogic = (config) => {
         setBulletinBoard([]);
         setPendingChosenOrder(null);
         setPhase('setup');
+
+        // Grant the opening toolbar — N distinct tools via addTool so the
+        // grant popup batches them. Toolbar capacity > dayStartCount avoids
+        // overflow.
+        setTools([]);
+        setPendingToolGrant(null);
+        setActiveTool(null);
+        setToolGrantQueue([]);
+        pickDistinctToolsFromPool(TOOL_CONFIG.dayStartCount).forEach(addTool);
         // Queue will be filled once the player dismisses the dish intro
         // (see dismissDishIntro below).
     };
@@ -479,6 +500,11 @@ export const useGameLogic = (config) => {
 
     /** Select a row — starts scanning animation, then resolves */
     const selectRow = (rowIndex) => {
+        // Intercept when a peek tool is active — row/col picker becomes target
+        if (activeTool?.id === 'peek') {
+            applyPeek('row', rowIndex);
+            return;
+        }
         if (phase !== 'drawing' && phase !== 'drawing_sub') return;
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
@@ -525,6 +551,10 @@ export const useGameLogic = (config) => {
 
     /** Select a column — starts scanning animation top-to-bottom, then resolves */
     const selectColumn = (colIndex) => {
+        if (activeTool?.id === 'peek') {
+            applyPeek('column', colIndex);
+            return;
+        }
         if (phase !== 'drawing' && phase !== 'drawing_sub') return;
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
@@ -626,6 +656,13 @@ export const useGameLogic = (config) => {
             showToast('⬇️ ' + t('重力开关！'), 'info');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
+        } else if (drawnCell.type === 'tool') {
+            // Tool cells grant the specific tool baked in at wall generation.
+            const tool = TOOLS.find(t => t.id === drawnCell.toolId);
+            if (tool) {
+                addTool({ ...tool, uid: generateUID() });
+                showToast(`🧰 ${t('获得道具')}: ${t(tool.name)}`, 'success');
+            }
         } else if (drawnCell.type === 'entrance') {
             // Enter sub-level directly — no setTimeout, no stale closure issues
             const entryName = (language === 'en' && drawnCell.name_en) ? drawnCell.name_en : drawnCell.name;
@@ -933,9 +970,7 @@ export const useGameLogic = (config) => {
     // =============================================
 
     const addToInventory = (itemCell) => {
-        const minQ = itemCell.item?.minQuality;
-        const rawQuality = itemCell.item?.quality ?? rollQuality();
-        const quality = minQ ? Math.max(rawQuality, minQ) : rawQuality;
+        const quality = itemCell.item?.quality ?? rollQuality();
         const qualityDef = QUALITY_CONFIG.find(q => q.id === quality) || QUALITY_CONFIG[0];
         const newItem = {
             ...itemCell.item,
@@ -1281,6 +1316,10 @@ export const useGameLogic = (config) => {
             setPhase('between_turns');
             // Leaving a wall always offers a pick-1-of-2 order.
             addBulletinOrder();
+            // Grant +1 random tool on wall exit (overflow handled by addTool).
+            for (let i = 0; i < TOOL_CONFIG.perWallExitCount; i++) {
+                addTool(pickRandomToolFromPool());
+            }
         }
     };
 
@@ -1360,6 +1399,11 @@ export const useGameLogic = (config) => {
         setDishIntroPending(false);
         setCurrentDish(null);
         setLastCookResult(null);
+        setTools([]);
+        setPendingToolGrant(null);
+        setActiveTool(null);
+        setToolGrantQueue([]);
+        setToolUseAnim(null);
         setPhase('pre_game');
     };
 
@@ -1414,6 +1458,11 @@ export const useGameLogic = (config) => {
         setLastCookResult(null);
         setExpeditionScores([]);
         setTotalScore(0);
+        setTools([]);
+        setPendingToolGrant(null);
+        setActiveTool(null);
+        setToolGrantQueue([]);
+        setToolUseAnim(null);
     };
 
     /** Reset per-expedition state but keep meta state, return to pre_game */
@@ -1453,6 +1502,11 @@ export const useGameLogic = (config) => {
         setCurrentDish(null);
         setWallCandidates(null);
         setPendingWallCandidate(null);
+        setTools([]);
+        setPendingToolGrant(null);
+        setActiveTool(null);
+        setToolGrantQueue([]);
+        setToolUseAnim(null);
         setPhase('pre_game');
     };
 
@@ -1466,6 +1520,222 @@ export const useGameLogic = (config) => {
 
     const clearToast = () => {
         setToast(null);
+    };
+
+    // =============================================
+    // TOOL SYSTEM
+    // =============================================
+
+    /** Pick N distinct tools from the pool, each with a fresh uid. */
+    const pickDistinctToolsFromPool = (n) => {
+        const shuffled = [...TOOLS].sort(() => Math.random() - 0.5);
+        return shuffled.slice(0, Math.min(n, TOOLS.length)).map(tool => ({ ...tool, uid: generateUID() }));
+    };
+
+    /** Pick 1 random tool from the pool (duplicates allowed across grants). */
+    const pickRandomToolFromPool = () => {
+        const tool = TOOLS[Math.floor(Math.random() * TOOLS.length)];
+        return { ...tool, uid: generateUID() };
+    };
+
+    /** Grant a tool. If toolbar has room add it AND enqueue for grant popup;
+     *  otherwise route to the overflow modal (which doubles as the grant
+     *  notification for the overflow path). */
+    const addTool = (tool) => {
+        setTools(prev => {
+            if (prev.length < TOOL_CONFIG.capacity) {
+                // Room available — enqueue for grant popup
+                setToolGrantQueue(curr => [...curr, tool]);
+                return [...prev, tool];
+            }
+            setPendingToolGrant(tool);
+            return prev;
+        });
+    };
+
+    /** Dismiss the grant popup — clears all currently queued tools. */
+    const dismissToolGrantQueue = () => setToolGrantQueue([]);
+
+    /** Overflow modal: replace the tool at `index` with the pending one. */
+    const acceptToolGrantReplace = (index) => {
+        if (!pendingToolGrant) return;
+        setTools(prev => {
+            if (index < 0 || index >= prev.length) return prev;
+            const next = [...prev];
+            next[index] = pendingToolGrant;
+            return next;
+        });
+        setPendingToolGrant(null);
+    };
+
+    /** Overflow modal: discard the pending tool, keep current toolbar. */
+    const discardToolGrant = () => setPendingToolGrant(null);
+
+    /** Enter active-tool mode to wait for the player's target selection. */
+    const startUseTool = (toolUid) => {
+        if (phase !== 'drawing' && phase !== 'drawing_sub') return;
+        if (isDoomResolving || isDrawAnimating) return;
+        // Clicking the same active tool cancels; clicking a different one switches.
+        if (activeTool && activeTool.uid === toolUid) { setActiveTool(null); return; }
+        const tool = tools.find(t => t.uid === toolUid);
+        if (!tool) return;
+        setActiveTool({ uid: toolUid, id: tool.id, stage: 0, selections: [] });
+    };
+
+    /** Cancel the currently active tool (no consumption). */
+    const cancelUseTool = () => setActiveTool(null);
+
+    /** Remove the active tool from toolbar and clear active mode. */
+    const consumeActiveTool = () => {
+        setActiveTool(curr => {
+            if (curr?.uid) {
+                setTools(prev => prev.filter(tool => tool.uid !== curr.uid));
+            }
+            return null;
+        });
+    };
+
+    // --- Tool effect handlers ---
+
+    /** Run a tool use as a two-phase action: set animation state, consume tool
+     *  immediately from toolbar, then after `duration` commit the actual
+     *  game-state change and clear the animation. */
+    const runToolAnim = (anim, duration, commit) => {
+        setToolUseAnim({ ...anim, duration });
+        consumeActiveTool();
+        setTimeout(() => {
+            try { commit(); } finally { setToolUseAnim(null); }
+        }, duration);
+    };
+
+    /** Peek: pre-roll and reveal quality for all ingredient cells in a row/col.
+     *  The pre-rolled quality propagates to the actual draw via
+     *  `addToInventory`'s `itemCell.item?.quality ?? rollQuality()` branch. */
+    const applyPeek = (direction, index) => {
+        const positions = [];
+        if (matrix) {
+            if (direction === 'row') {
+                for (let c = 0; c < (matrix[index]?.length || 0); c++) positions.push([index, c]);
+            } else {
+                for (let r = 0; r < matrix.length; r++) positions.push([r, index]);
+            }
+        }
+        runToolAnim(
+            { type: 'peek', direction, index, positions },
+            500,
+            () => {
+                setMatrix(prev => {
+                    if (!prev) return prev;
+                    const next = prev.map(row => row.map(c => c ? { ...c, item: c.item ? { ...c.item } : null } : null));
+                    const reveal = (cell) => {
+                        if (cell?.type === 'ingredient' && cell.item && cell.item.quality === undefined) {
+                            cell.item.quality = rollQuality();
+                            cell.item.qualityPeeked = true;
+                        }
+                    };
+                    if (direction === 'row') next[index]?.forEach(reveal);
+                    else for (let r = 0; r < next.length; r++) reveal(next[r][index]);
+                    return next;
+                });
+                showToast(`👁 ${t('透视')}`, 'success');
+            }
+        );
+    };
+
+    /** Swap: 1st call records first cell; 2nd call performs swap (animated). */
+    const applySwapTarget = (r, c) => {
+        if (!activeTool || activeTool.id !== 'swap') return;
+        const selections = activeTool.selections || [];
+        if (selections.length === 0) {
+            setActiveTool({ ...activeTool, stage: 1, selections: [{ r, c }] });
+            return;
+        }
+        const first = selections[0];
+        if (first.r === r && first.c === c) return;
+        runToolAnim(
+            { type: 'swap', positions: [[first.r, first.c], [r, c]] },
+            400,
+            () => {
+                setMatrix(prev => {
+                    if (!prev) return prev;
+                    const next = prev.map(row => row.map(cell => cell ? { ...cell } : null));
+                    const temp = next[first.r][first.c];
+                    next[first.r][first.c] = next[r][c];
+                    next[r][c] = temp;
+                    return next;
+                });
+                showToast(`🔄 ${t('换位')}`, 'success');
+            }
+        );
+    };
+
+    /** Disperse: fade out the target cell then null it. */
+    const applyDisperseTarget = (r, c) => {
+        if (!activeTool || activeTool.id !== 'disperse') return;
+        if (!matrix?.[r]?.[c]) return;
+        runToolAnim(
+            { type: 'disperse', positions: [[r, c]] },
+            300,
+            () => {
+                setMatrix(prev => {
+                    if (!prev) return prev;
+                    const next = prev.map(row => row.map(cell => cell ? { ...cell } : null));
+                    next[r][c] = null;
+                    return next;
+                });
+                showToast(`💨 ${t('驱散')}`, 'success');
+            }
+        );
+    };
+
+    /** Bomb wall: flash a 3×3 region, then re-roll each cell in it. */
+    const applyBombWallTarget = (centerR, centerC) => {
+        if (!activeTool || activeTool.id !== 'bomb_wall') return;
+        if (!matrix) return;
+        const marketIngs = currentWallType ? pickMarketIngredients(currentWallType) : INGREDIENTS;
+        const positions = [];
+        const rows = matrix.length;
+        const cols = matrix[0]?.length || 0;
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                const nr = centerR + dr;
+                const nc = centerC + dc;
+                if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                positions.push([nr, nc]);
+            }
+        }
+        runToolAnim(
+            { type: 'bomb_wall', positions, center: [centerR, centerC] },
+            600,
+            () => {
+                setMatrix(prev => {
+                    if (!prev) return prev;
+                    const next = prev.map(row => row.map(cell => cell ? { ...cell } : null));
+                    for (const [nr, nc] of positions) {
+                        next[nr][nc] = rollSingleCell(marketIngs);
+                    }
+                    return next;
+                });
+                showToast(`💥 ${t('炸墙')}`, 'success');
+            }
+        );
+    };
+
+    /** Clear inventory: the basket slot shrinks + fades, then is removed
+     *  and +1 draw is granted. */
+    const applyClearInventoryTarget = (invItemUid) => {
+        if (!activeTool || activeTool.id !== 'clear_inventory') return;
+        const target = inventory.find(item => item.uid === invItemUid);
+        if (!target) return;
+        runToolAnim(
+            { type: 'clear_inventory', target: { uid: invItemUid } },
+            400,
+            () => {
+                setInventory(prev => prev.filter(item => item.uid !== invItemUid));
+                setGold(prev => prev + 1);
+                showToast(`🗑 ${t('清库换抽')} +1 ${t('抽数')}`, 'success');
+            }
+        );
     };
 
     // =============================================
@@ -1577,5 +1847,22 @@ export const useGameLogic = (config) => {
         dishIntroPending,
         currentDish,
         dismissDishIntro,
+
+        // Tools
+        tools,
+        pendingToolGrant,
+        activeTool,
+        toolGrantQueue,
+        toolUseAnim,
+        startUseTool,
+        cancelUseTool,
+        acceptToolGrantReplace,
+        discardToolGrant,
+        dismissToolGrantQueue,
+        applyPeek,
+        applySwapTarget,
+        applyDisperseTarget,
+        applyBombWallTarget,
+        applyClearInventoryTarget,
     };
 };

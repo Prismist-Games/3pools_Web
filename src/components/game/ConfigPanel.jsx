@@ -68,7 +68,8 @@ function QualityWeightsSection() {
 // ─── Section B: 墙面符号比例 ───────────────────────────────────────
 function CellSpawnSection() {
     const cs = LIVE_CONFIG.cellSpawn;
-    const specialTotal = cs.doom + cs.gold + cs.order + cs.bomb;
+    const toolChance = cs.tool ?? 0;
+    const specialTotal = cs.doom + cs.gold + cs.order + cs.bomb + toolChance;
     const ingredientPct = (1 - specialTotal) * 100;
     return (
         <section className="mb-5">
@@ -89,6 +90,10 @@ function CellSpawnSection() {
                 <span>💣 炸弹</span>
                 <NumInput value={cs.bomb} onChange={v => { cs.bomb = v; bumpConfig(); }} />
                 <span className="text-gray-500">{(cs.bomb * 100).toFixed(1)}%</span>
+
+                <span>🧰 道具</span>
+                <NumInput value={toolChance} onChange={v => { cs.tool = v; bumpConfig(); }} />
+                <span className="text-gray-500">{(toolChance * 100).toFixed(1)}%</span>
 
                 <span className="text-gray-400 italic">🍴 食材格</span>
                 <span className="text-gray-500">(余下)</span>
@@ -152,46 +157,37 @@ function OrderTemplatesSection() {
     );
 }
 
-// ─── Section D: 最低品质食材格 ────────────────────────────────────
-function MinQualitySection() {
-    const mq = LIVE_CONFIG.minQuality;
-    const weightKeys = Object.keys(mq.weights).map(Number).sort((a, b) => a - b);
-    const sum = weightKeys.reduce((s, k) => s + mq.weights[k], 0);
-    const colors = { 2: '绿', 3: '蓝', 4: '紫' };
+// ─── Section D: 局面布局 & 抽取次数 ────────────────────────────────
+function WallLayoutSection({ gridSize, onToggleGridSize }) {
+    const currentGridSize = gridSize ?? LIVE_CONFIG.gridSize ?? 4;
+    const goldPerTurn = LIVE_CONFIG.goldPerTurn ?? 3;
     return (
         <section className="mb-5">
-            <h3 className="text-sm font-bold text-gray-100 mb-2">D. 最低品质食材格</h3>
-            <div className="grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1.5 items-center text-xs text-gray-300 mb-3">
-                <span>每墙数量范围</span>
+            <h3 className="text-sm font-bold text-gray-100 mb-2">D. 局面布局 & 抽取</h3>
+            <div className="grid grid-cols-[auto_auto_1fr] gap-x-3 gap-y-2 items-center text-xs text-gray-300">
+                <span>墙尺寸</span>
                 <div className="flex items-center gap-1">
-                    <IntInput value={mq.countRange[0]} onChange={v => { mq.countRange[0] = Math.max(0, Math.min(v, mq.countRange[1])); bumpConfig(); }} min={0} max={16} width="w-12" />
-                    <span className="text-gray-500">–</span>
-                    <IntInput value={mq.countRange[1]} onChange={v => { mq.countRange[1] = Math.max(mq.countRange[0], v); bumpConfig(); }} min={0} max={16} width="w-12" />
+                    <button
+                        onClick={() => { if (currentGridSize !== 3 && onToggleGridSize) onToggleGridSize(); }}
+                        className={`px-2 py-1 text-[11px] font-bold rounded border ${currentGridSize === 3 ? 'bg-amber-700 border-amber-500 text-amber-100' : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                    >3×3</button>
+                    <button
+                        onClick={() => { if (currentGridSize !== 4 && onToggleGridSize) onToggleGridSize(); }}
+                        className={`px-2 py-1 text-[11px] font-bold rounded border ${currentGridSize === 4 ? 'bg-amber-700 border-amber-500 text-amber-100' : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                    >4×4</button>
                 </div>
-                <span className="text-gray-500">组</span>
-            </div>
-            <div className="text-xs text-gray-400 mb-1.5">最低品质档次分布：</div>
-            <div className="grid grid-cols-[auto_auto_1fr] gap-x-3 gap-y-1.5 items-center text-xs text-gray-300">
-                {weightKeys.map(k => {
-                    const qd = QUALITY_CONFIG.find(q => q.id === k);
-                    return (
-                        <React.Fragment key={k}>
-                            <span>{qd?.stars || '?'} ({colors[k] || k})</span>
-                            <NumInput value={mq.weights[k]} onChange={v => { mq.weights[k] = v; bumpConfig(); }} step={0.01} max={1} />
-                            <span className="text-gray-500">{(mq.weights[k] * 100).toFixed(1)}%</span>
-                        </React.Fragment>
-                    );
-                })}
-            </div>
-            <div className={`text-[11px] mt-1 ${Math.abs(sum - 1) < 0.001 ? 'text-green-400' : 'text-orange-400'}`}>
-                合计: {(sum * 100).toFixed(1)}% {Math.abs(sum - 1) < 0.001 ? '' : '(应为 100%)'}
+                <span className="text-gray-500">切换会重置当前游戏</span>
+
+                <span>进店抽取次数</span>
+                <IntInput value={goldPerTurn} onChange={v => { LIVE_CONFIG.goldPerTurn = Math.max(1, v); bumpConfig(); }} min={1} max={99} width="w-16" />
+                <span className="text-gray-500">次 / 家店</span>
             </div>
         </section>
     );
 }
 
 // ─── Panel root ───────────────────────────────────────────────────
-export default function ConfigPanel({ onClose }) {
+export default function ConfigPanel({ onClose, gridSize, onToggleGridSize }) {
     useLiveConfigVersion();
     const [importText, setImportText] = useState('');
     const [importError, setImportError] = useState(null);
@@ -227,7 +223,7 @@ export default function ConfigPanel({ onClose }) {
                 <div className="p-4">
                     <QualityWeightsSection />
                     <CellSpawnSection />
-                    <MinQualitySection />
+                    <WallLayoutSection gridSize={gridSize} onToggleGridSize={onToggleGridSize} />
                     <OrderTemplatesSection />
 
                     <div className="border-t border-gray-700 pt-3 mt-2">

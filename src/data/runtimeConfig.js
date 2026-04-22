@@ -9,8 +9,9 @@
  * 不持久化：F5 刷新回到初始默认。用于开发 / 调试。
  */
 
-import { QUALITY_WEIGHTS, ORDER_TEMPLATES, MIN_QUALITY_CONFIG } from './v2Config';
+import { QUALITY_WEIGHTS, ORDER_TEMPLATES } from './v2Config';
 import { MATRIX_CONFIG } from './matrixConfig';
+import { TURN_CONFIG } from './constants';
 
 function deepClone(obj) {
     return JSON.parse(JSON.stringify(obj));
@@ -24,8 +25,12 @@ export const LIVE_CONFIG = {
         gold:  MATRIX_CONFIG.specialCells.gold.spawnChance,
         order: MATRIX_CONFIG.specialCells.order.spawnChance,
         bomb:  MATRIX_CONFIG.specialCells.bomb.spawnChance,
+        tool:  MATRIX_CONFIG.specialCells.tool.spawnChance,
     },
-    minQuality: deepClone(MIN_QUALITY_CONFIG),
+    // Draws per market entry (replaces TURN_CONFIG.goldPerTurn as the live value).
+    goldPerTurn: TURN_CONFIG.goldPerTurn,
+    // Wall size (3 or 4). Mirrors MATRIX_CONFIG.gridSize so ConfigPanel can toggle.
+    gridSize: MATRIX_CONFIG.gridSize,
 };
 
 const DEFAULTS = deepClone(LIVE_CONFIG);

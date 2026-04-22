@@ -1,20 +1,9 @@
 import { MATRIX_CONFIG, pickDoomEmoji } from '../data/matrixConfig';
-import { INGREDIENTS } from '../data/v2Config';
+import { INGREDIENTS, TOOLS } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 
 function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-}
-
-function rollMinQualityLevel() {
-  const weights = LIVE_CONFIG.minQuality.weights;
-  const r = Math.random();
-  let cum = 0;
-  for (const [q, w] of Object.entries(weights)) {
-    cum += w;
-    if (r < cum) return Number(q);
-  }
-  return 2;
 }
 
 /**
@@ -23,6 +12,57 @@ function rollMinQualityLevel() {
  */
 export function pickMarketIngredients(marketType) {
   return INGREDIENTS.filter(i => i.tags[0] === marketType.category);
+}
+
+/**
+ * Roll a single cell — same semantics as generateWall's Phase 1+2+3 but for
+ * one position. Used by bomb_wall tool refill. Returns a fully formed cell
+ * (doom / gold / order_cell / bomb / tool / ingredient).
+ *
+ * @param {Array} marketIngredients — ingredient pool to pull from for ingredient fallthrough
+ */
+export function rollSingleCell(marketIngredients) {
+  const { doomCells, specialCells } = MATRIX_CONFIG;
+  const cs = LIVE_CONFIG.cellSpawn;
+  const doomChance = cs.doom;
+  const goldChance = doomChance + cs.gold;
+  const orderChance = goldChance + cs.order;
+  const bombChance = orderChance + (cs.bomb || 0);
+  const toolChance = bombChance + (cs.tool || 0);
+
+  const roll = Math.random();
+
+  if (roll < doomChance) {
+    return { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
+  }
+  if (roll < goldChance) {
+    const [min, max] = specialCells.gold.goldRange;
+    const goldAmount = min + Math.floor(Math.random() * (max - min + 1));
+    return { type: 'gold', icon: specialCells.gold.icon, name: specialCells.gold.name, goldAmount, uid: generateUID() };
+  }
+  if (roll < orderChance) {
+    return { type: 'order_cell', icon: specialCells.order.icon, name: specialCells.order.name, uid: generateUID() };
+  }
+  if (roll < bombChance) {
+    return { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
+  }
+  if (roll < toolChance) {
+    const tool = TOOLS[Math.floor(Math.random() * TOOLS.length)];
+    return {
+      type: 'tool',
+      toolId: tool.id,
+      name: tool.name,
+      nameEn: tool.nameEn,
+      icon: tool.icon,
+      uid: generateUID(),
+    };
+  }
+  const ing = marketIngredients[Math.floor(Math.random() * marketIngredients.length)];
+  return {
+    type: 'ingredient',
+    item: { ...ing },
+    uid: generateUID(),
+  };
 }
 
 /**
@@ -56,6 +96,7 @@ export function generateWall(marketIngredients) {
       const goldChance = doomChance + LIVE_CONFIG.cellSpawn.gold;
       const orderChance = goldChance + LIVE_CONFIG.cellSpawn.order;
       const bombChance = orderChance + (LIVE_CONFIG.cellSpawn.bomb || 0);
+      const toolChance = bombChance + (LIVE_CONFIG.cellSpawn.tool || 0);
 
       if (roll < doomChance) {
         grid[row][col] = { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
@@ -71,6 +112,16 @@ export function generateWall(marketIngredients) {
         grid[row][col] = { type: 'order_cell', icon: specialCells.order.icon, name: specialCells.order.name, uid: generateUID() };
       } else if (roll < bombChance) {
         grid[row][col] = { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
+      } else if (roll < toolChance) {
+        const tool = TOOLS[Math.floor(Math.random() * TOOLS.length)];
+        grid[row][col] = {
+          type: 'tool',
+          toolId: tool.id,
+          name: tool.name,
+          nameEn: tool.nameEn,
+          icon: tool.icon,
+          uid: generateUID(),
+        };
       }
     }
   }
@@ -85,33 +136,6 @@ export function generateWall(marketIngredients) {
         item: { ...ingredient },
         uid: generateUID(),
       };
-    }
-  }
-
-  // Assign minQuality to 2-4 ingredient types present on the grid. Each
-  // cell owns its own clone of an ingredient, so we key by item.id and
-  // stamp minQuality onto every cell whose item matches a selected id.
-  const idToCells = new Map(); // item.id -> array of cell refs
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      const cell = grid[r][c];
-      if (cell?.type !== 'ingredient' || !cell.item?.id) continue;
-      const list = idToCells.get(cell.item.id);
-      if (list) list.push(cell);
-      else idToCells.set(cell.item.id, [cell]);
-    }
-  }
-  const ids = [...idToCells.keys()];
-  for (let i = ids.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [ids[i], ids[j]] = [ids[j], ids[i]];
-  }
-  const [minCount, maxCount] = LIVE_CONFIG.minQuality.countRange;
-  const variantCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
-  for (let i = 0; i < Math.min(variantCount, ids.length); i++) {
-    const q = rollMinQualityLevel();
-    for (const cell of idToCells.get(ids[i])) {
-      cell.item.minQuality = q;
     }
   }
 

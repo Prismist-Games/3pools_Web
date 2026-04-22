@@ -36,7 +36,7 @@ export const MATRIX_CONFIG = {
       goldRange: [1, 2],  // random draw-count amount [min, max]
     },
     order: {
-      spawnChance: 0.07,  // 7% per cell position
+      spawnChance: 0.05,  // 5% per cell position
       icon: '📋',
       name: '订单',
     },
@@ -46,9 +46,14 @@ export const MATRIX_CONFIG = {
       name: '食材',
     },
     bomb: {
-      spawnChance: 0.05,  // 5% per cell position
+      spawnChance: 0.04,  // 4% per cell position
       icon: '💣',
       name: '炸弹',
+    },
+    tool: {
+      spawnChance: 0.03,  // 3% per cell position — draw to gain the specific tool
+      icon: '🧰',
+      name: '道具',
     },
     buffField: {
       spawnChance: 0,  // not spawned on random walls — only via modifiers

@@ -235,6 +235,57 @@ body {
     }
 }
 
+/* ==== Tool-use animations ==== */
+/* Peek: sweep wash, twice pulsed. ~500ms total. */
+@keyframes tool-peek-sweep {
+    0%   { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0); background-color: transparent; }
+    40%  { box-shadow: 0 0 12px 4px rgba(96, 165, 250, 0.85); background-color: rgba(191, 219, 254, 0.55); }
+    100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0); background-color: transparent; }
+}
+.animate-tool-peek { animation: tool-peek-sweep 500ms ease-out; }
+
+/* Swap: yellow flash + tiny scale. ~400ms. */
+@keyframes tool-swap-flash {
+    0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+    30%  { transform: scale(1.12); box-shadow: 0 0 20px 6px rgba(251, 191, 36, 0.9); }
+    60%  { transform: scale(0.95); box-shadow: 0 0 16px 4px rgba(251, 191, 36, 0.6); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+}
+.animate-tool-swap { animation: tool-swap-flash 400ms ease-out; z-index: 10; }
+
+/* Disperse: fade out with shrink. ~300ms. */
+@keyframes tool-disperse-fade {
+    0%   { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.3); filter: blur(2px); }
+}
+.animate-tool-disperse { animation: tool-disperse-fade 300ms ease-in forwards; }
+
+/* Bomb wall: orange flash then shake. ~600ms. */
+@keyframes tool-bomb-flash {
+    0%   { background-color: transparent; transform: scale(1) rotate(0deg); box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+    20%  { background-color: rgba(254, 215, 170, 0.8); transform: scale(1.15) rotate(-4deg); box-shadow: 0 0 20px 8px rgba(249, 115, 22, 0.9); }
+    40%  { transform: scale(0.92) rotate(4deg); box-shadow: 0 0 18px 6px rgba(239, 68, 68, 0.85); }
+    60%  { transform: scale(1.08) rotate(-2deg); }
+    100% { background-color: transparent; transform: scale(1) rotate(0deg); box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+}
+.animate-tool-bomb { animation: tool-bomb-flash 600ms ease-out; z-index: 10; }
+
+/* Clear-inventory: inventory slot shrinks and fades. ~400ms. */
+@keyframes tool-clear-inv {
+    0%   { opacity: 1; transform: scale(1) translateY(0); }
+    50%  { opacity: 0.8; transform: scale(1.1) translateY(-4px); box-shadow: 0 0 20px 6px rgba(251, 191, 36, 0.7); }
+    100% { opacity: 0; transform: scale(0.3) translateY(-16px); }
+}
+.animate-tool-clear-inv { animation: tool-clear-inv 400ms ease-in forwards; }
+
+/* Gold counter flash when draws are gained from a tool. */
+@keyframes tool-gold-flash {
+    0%   { transform: scale(1); color: inherit; }
+    30%  { transform: scale(1.4); color: #f59e0b; text-shadow: 0 0 12px rgba(251, 191, 36, 0.9); }
+    100% { transform: scale(1); color: inherit; }
+}
+.animate-tool-gold-flash { animation: tool-gold-flash 500ms ease-out; display: inline-block; }
+
 @layer utilities {
   .scrollbar-hide::-webkit-scrollbar {
       display: none;

@@ -29,6 +29,11 @@ import RoundTransition from './components/ui/RoundTransition';
 import WallPicker from './components/game/WallPicker';
 import OrderSubmitModal from './components/game/OrderSubmitModal';
 import ConfigPanel from './components/game/ConfigPanel';
+import Toolbar from './components/game/Toolbar';
+import ToolOverflowModal from './components/game/ToolOverflowModal';
+import ToolHintBar from './components/game/ToolHintBar';
+import ToolGrantPopup from './components/game/ToolGrantPopup';
+import { TOOL_CONFIG } from './data/v2Config';
 
 // DIAG: temporary wrapper to log mount/unmount of the fly element
 const FlyElementDiag = ({ flyId, icon, count, style }) => {
@@ -104,7 +109,18 @@ const GameCore = () => {
         dishIntroPending, currentDish, dismissDishIntro,
         isInSubLevel, wallStack,
         enterSubLevel, exitSubLevel,
+        tools, pendingToolGrant, activeTool, toolGrantQueue, toolUseAnim,
+        startUseTool, cancelUseTool, acceptToolGrantReplace, discardToolGrant, dismissToolGrantQueue,
+        applySwapTarget, applyDisperseTarget, applyBombWallTarget, applyClearInventoryTarget,
     } = state;
+
+    // Dispatch wall-cell clicks to the appropriate tool handler.
+    const handleWallCellClick = (r, c) => {
+        if (!activeTool) return;
+        if (activeTool.id === 'swap') applySwapTarget(r, c);
+        else if (activeTool.id === 'disperse') applyDisperseTarget(r, c);
+        else if (activeTool.id === 'bomb_wall') applyBombWallTarget(r, c);
+    };
 
     // --- Doom animation interval ---
     useEffect(() => {
@@ -212,7 +228,6 @@ const GameCore = () => {
                             <button onClick={() => setGuideOpen(true)} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">❓</button>
                             <button onClick={toggleLanguage} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
                             <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#FFF0F0] border border-kitchen-danger text-kitchen-danger-text hover:bg-red-100 transition-colors">{t('重置')}</button>
-                            <button onClick={toggleGridSize} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">{gridSize}×{gridSize}</button>
                             <button onClick={() => setDispatchOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-800 text-amber-200 border border-amber-600 hover:bg-amber-700 transition-colors">{t('派遣')}</button>
                             <button onClick={() => setKitchenOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🍳 {t('厨房')}</button>
                             <button onClick={() => setSpritePreviewOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🎬 {t('动画')}</button>
@@ -304,6 +319,11 @@ const GameCore = () => {
                                         </div>
                                     )}
                                     <div className={`flex flex-col items-center ${phase === 'drawing_sub' ? 'sub-level-enter' : phase === 'exiting_sub' ? 'sub-level-exit pointer-events-none' : ''}`}>
+                                        {activeTool && (
+                                            <div className="mb-3 w-full">
+                                                <ToolHintBar activeTool={activeTool} onCancel={cancelUseTool} />
+                                            </div>
+                                        )}
                                         <ResourceMatrix
                                             matrix={matrix}
                                             onSelectRow={selectRow}
@@ -319,7 +339,19 @@ const GameCore = () => {
                                             gravityDrops={gravityDrops}
                                             rotationMoves={rotationMoves}
                                             growthFlashes={growthFlashes}
+                                            activeTool={activeTool}
+                                            onCellClick={handleWallCellClick}
+                                            toolUseAnim={toolUseAnim}
                                         />
+                                        <div className="mt-3">
+                                            <Toolbar
+                                                tools={tools}
+                                                capacity={TOOL_CONFIG.capacity}
+                                                activeTool={activeTool}
+                                                onUseTool={startUseTool}
+                                                enabled={!isDoomResolving && !isDrawAnimating && pendingItems.length === 0 && !incomingOrder}
+                                            />
+                                        </div>
 
                                         {/* Draw result feedback */}
                                         {lastDrawResult && !isDoomResolving && !isDrawAnimating && (
@@ -341,7 +373,6 @@ const GameCore = () => {
                                                 <div className="mb-2 text-center">
                                                     <span className="text-sm font-bold text-kitchen-text-secondary">{t('剩余抽取')}: </span>
                                                     <span className="text-lg font-black text-kitchen-gold-deep">{gold}</span>
-                                                    <span className="text-sm text-kitchen-text-muted"> / {INITIAL_GAME_CONFIG.turn.goldPerTurn}</span>
                                                 </div>
                                             )}
                                             <button
@@ -633,6 +664,11 @@ const GameCore = () => {
                                             const cell = (
                                                 <div
                                                     onClick={() => {
+                                                        // Clear-inventory tool takes priority when active — click to discard + gain 1 draw.
+                                                        if (activeTool?.id === 'clear_inventory') {
+                                                            if (item) applyClearInventoryTarget(item.uid);
+                                                            return;
+                                                        }
                                                         if (recycleMode && item) {
                                                             setRecycleSelected(prev => {
                                                                 const next = new Set(prev);
@@ -681,6 +717,8 @@ const GameCore = () => {
                                                             : !item ? 'bg-[#F8F4EC] border-kitchen-gold-border-muted'
                                                             : sc ? `bg-gradient-to-b ${sc.bg} ${sc.border}`
                                                             : 'bg-kitchen-card border-kitchen-gold-border-muted'}
+                                                        ${activeTool?.id === 'clear_inventory' && item ? 'ring-2 ring-amber-400 cursor-pointer hover:brightness-110' : ''}
+                                                        ${toolUseAnim?.type === 'clear_inventory' && toolUseAnim?.target?.uid === item?.uid ? 'animate-tool-clear-inv' : ''}
                                                         ${canMergeWithPending ? 'cursor-pointer hover:bg-[#F0F8FF] hover:border-kitchen-info-border hover:scale-110 ring-2 ring-kitchen-info-border/60'
                                                             : canReplace ? 'cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:scale-110'
                                                             : recycleMode && item ? 'cursor-pointer hover:border-kitchen-danger'
@@ -1005,7 +1043,26 @@ const GameCore = () => {
 
                 {/* Sprite Preview Modal */}
                 {spritePreviewOpen && <SpritePreview onClose={() => setSpritePreviewOpen(false)} />}
-                {configOpen && <ConfigPanel onClose={() => setConfigOpen(false)} />}
+                {configOpen && <ConfigPanel onClose={() => setConfigOpen(false)} gridSize={gridSize} onToggleGridSize={toggleGridSize} />}
+
+                {/* Tool overflow modal — blocks interaction when a new tool grant
+                    arrives and the toolbar is already at capacity. */}
+                {pendingToolGrant && (
+                    <ToolOverflowModal
+                        tools={tools}
+                        pendingTool={pendingToolGrant}
+                        onReplace={acceptToolGrantReplace}
+                        onDiscard={discardToolGrant}
+                    />
+                )}
+
+                {/* Tool grant popup — announces every successful tool grant. */}
+                {toolGrantQueue && toolGrantQueue.length > 0 && !pendingToolGrant && (
+                    <ToolGrantPopup
+                        tools={toolGrantQueue}
+                        onConfirm={dismissToolGrantQueue}
+                    />
+                )}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}
