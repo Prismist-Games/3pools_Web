@@ -202,7 +202,7 @@ export const useGameLogic = (config) => {
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
     const [gold, setGold] = useState(20);
-    const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'drawing' | 'between_turns' | 'game_over'
+    const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'setup' | 'map' | 'stall_drawing' | 'drawing' | 'restaurant' | 'cook_result' | 'game_over'
 
     // --- Grid State ---
     const [matrix, setMatrix] = useState(null);
@@ -1636,9 +1636,7 @@ export const useGameLogic = (config) => {
 
         if (afterCrushAction === 'end_turn') {
             setAfterCrushAction(null);
-            setPhase('between_turns');
-            // Leaving a wall always offers a pick-1-of-2 order.
-            addBulletinOrder();
+            setPhase('map');
         }
     };
 
