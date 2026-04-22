@@ -8,7 +8,7 @@ import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEI
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 import { pickCrushEmoji } from '../data/matrixConfig';
 import { MAP_V1_NODES, MAP_V1_EDGES } from '../data/maps/map_v1';
-import { MAP_CONFIG } from '../data/mapConfig';
+import { MAP_CONFIG, STALL_MARKET_TYPES } from '../data/mapConfig';
 import { nodeBehaviors } from './useNodeBehaviors';
 
 import { useLanguage } from '../contexts/LanguageContext';
@@ -300,6 +300,17 @@ export const useGameLogic = (config) => {
         [crushGrid]
     );
 
+    const currentDrawCost = useMemo(() => {
+        if (!matrix) return MAP_CONFIG.gold.drawBaseCost;
+        let crushCount = 0;
+        for (const row of matrix) {
+            for (const cell of row) {
+                if (cell?.type === 'crowd_grabber') crushCount++;
+            }
+        }
+        return Math.max(MAP_CONFIG.stall.drawCostMin, MAP_CONFIG.gold.drawBaseCost - crushCount);
+    }, [matrix]);
+
     // =============================================
     // TURN FLOW
     // =============================================
@@ -412,7 +423,7 @@ export const useGameLogic = (config) => {
         setPhase('map');
     }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
 
-    /** End current turn: trigger crush resolution once, then go to between-turns decision */
+/** End current turn: trigger crush resolution once, then go to between-turns decision */
     const endTurn = () => {
         triggerCrushResolution('end_turn');
     };
@@ -592,9 +603,9 @@ export const useGameLogic = (config) => {
     };
 
     const selectRow = (rowIndex) => {
-        if (phase !== 'drawing' && phase !== 'drawing_sub') return;
+        if (phase !== 'drawing' && phase !== 'drawing_sub' && phase !== 'stall_drawing') return;
         if (isCrushResolving || isDrawAnimating) return;
-        if (gold < turnConfig.drawCost) return;
+        if (gold < currentDrawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
 
         setCrushResolutionResult(null);
@@ -608,7 +619,8 @@ export const useGameLogic = (config) => {
         });
         if (activeCols.length === 0) return;
 
-        setGold(prev => prev - turnConfig.drawCost);
+        setGold(prev => prev - currentDrawCost);
+        performAction();
 
         // Pre-determine result
         const finalColIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
@@ -638,9 +650,9 @@ export const useGameLogic = (config) => {
 
     /** Select a column — starts scanning animation top-to-bottom, then resolves */
     const selectColumn = (colIndex) => {
-        if (phase !== 'drawing' && phase !== 'drawing_sub') return;
+        if (phase !== 'drawing' && phase !== 'drawing_sub' && phase !== 'stall_drawing') return;
         if (isCrushResolving || isDrawAnimating) return;
-        if (gold < turnConfig.drawCost) return;
+        if (gold < currentDrawCost) return;
         if (!matrix) return;
 
         setCrushResolutionResult(null);
@@ -654,7 +666,8 @@ export const useGameLogic = (config) => {
         });
         if (activeCols.length === 0) return;
 
-        setGold(prev => prev - turnConfig.drawCost);
+        setGold(prev => prev - currentDrawCost);
+        performAction();
 
         // Pre-determine result: pick a random row from active rows
         const finalRowIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
@@ -1381,6 +1394,7 @@ export const useGameLogic = (config) => {
      *  which adds 1 danger cell to the crush grid. */
     const performAction = () => {
         if (!mapState) return;
+        if (phase !== 'map' && phase !== 'stall_drawing') return;
         const newCounter = mapState.actionCounter + 1;
         const didTick = newCounter % MAP_CONFIG.clock.actionsPerTick === 0;
         setMapState(prev => {
@@ -1469,10 +1483,45 @@ export const useGameLogic = (config) => {
     const handleNodeEnterResult = (result, node) => {
         if (!result) return;
         switch (result.type) {
-            case 'OPEN_STALL':
+            case 'OPEN_STALL': {
+                const marketTypeId = STALL_MARKET_TYPES[result.stallType];
+                const marketType = MARKET_TYPES.find(m => m.id === marketTypeId);
+                if (!marketType) break;
+
+                let stallGrid, initialCrushCount;
+
+                if (node.state.grid) {
+                    // Revisiting — use saved grid
+                    stallGrid = node.state.grid;
+                    initialCrushCount = node.state.crushCount ?? 0;
+                } else {
+                    // First visit — generate new wall
+                    const marketIngredients = pickMarketIngredients(marketType);
+                    const { grid: newGrid, doomCellCount } = generateWall(marketIngredients);
+                    stallGrid = newGrid;
+                    initialCrushCount = doomCellCount.resolution;
+                }
+
+                setCurrentWallType(marketType);
+                setMatrix(stallGrid.map(r => r.map(c => c ? { ...c } : null)));
                 setActiveStallNodeId(node.id);
+
+                // Update stall node state with initial crushCount
+                setMapState(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        nodes: prev.nodes.map(n =>
+                            n.id === node.id
+                                ? { ...n, state: { ...n.state, crushCount: initialCrushCount } }
+                                : n
+                        ),
+                    };
+                });
+
                 setPhase('stall_drawing');
                 break;
+            }
             case 'OPEN_ORDER_REGION':
                 showToast(`订单区 ${(result.regionId || '').toUpperCase()} — 即将到来`, 'info');
                 break;
@@ -1522,6 +1571,28 @@ export const useGameLogic = (config) => {
 
     /** Leave a stall and return to the map. */
     const leaveStall = () => {
+        // Save current matrix grid to stall node state (for return visits)
+        if (activeStallNodeId && matrix) {
+            setMapState(prev => {
+                if (!prev) return prev;
+                let crushCount = 0;
+                for (const row of matrix) {
+                    for (const cell of row) {
+                        if (cell?.type === 'crowd_grabber') crushCount++;
+                    }
+                }
+                return {
+                    ...prev,
+                    nodes: prev.nodes.map(n =>
+                        n.id === activeStallNodeId
+                            ? { ...n, state: { ...n.state, grid: matrix.map(r => r.map(c => c ? { ...c } : null)), crushCount } }
+                            : n
+                    ),
+                };
+            });
+        }
+        setMatrix(null);
+        setCurrentWallType(null);
         setActiveStallNodeId(null);
         setPhase('map');
     };
@@ -1664,6 +1735,7 @@ export const useGameLogic = (config) => {
         setCurrentWallType(null);
         setCurrentLevel(null);
         setLastDrawDirection(null);
+        setActiveStallNodeId(null);
         setHp(crushConfig.initialHP);
         setCrushGrid(() => {
             const grid = Array(crushConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
@@ -1713,6 +1785,7 @@ export const useGameLogic = (config) => {
         setCurrentWallType(null);
         setCurrentLevel(null);
         setLastDrawDirection(null);
+        setActiveStallNodeId(null);
         setHp(crushConfig.initialHP);
         setCrushGrid(() => {
             const grid = Array(crushConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
@@ -1847,6 +1920,7 @@ export const useGameLogic = (config) => {
         crushGrid,
         crushLevel,
         dangerCount,
+        currentDrawCost,
         isCrushResolving,
         crushAnimState,
         crushResolutionResult,
