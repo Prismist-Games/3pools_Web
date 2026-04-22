@@ -788,4 +788,8 @@ export const EN_TRANSLATIONS = {
     "抢菜达人被驱逐！": "Grocery Pro driven off!",
     "抢菜达人偷走了": "Grocery Pro swiped",
     "每次抽取后，他会偷走相邻食材并移过去；没食材时会朝食材方向踱步。抽到他可驱逐。": "After each draw, he swipes an adjacent ingredient and moves into its cell; otherwise he strolls toward more food. Draw him to drive him off.",
+
+    // --- WallPicker danger counts ---
+    "人在抢菜": "snatchers",
+    "脏乱程度": "Mess",
 };

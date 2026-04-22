@@ -15,6 +15,23 @@ const WallPicker = ({ candidates, onSelect, onHoverIngredientIds }) => {
         onHoverIngredientIds(ids.size > 0 ? ids : null);
     };
 
+    // 统计墙面"危险"类格子——分两组展示：
+    // 1) 抢菜人类（人形干扰者）：doom_resolution + snatcher + loudmouth
+    // 2) 脏乱程度：slime
+    const countDangers = (grid) => {
+        let snatchers = 0;
+        let mess = 0;
+        if (!grid) return { snatchers, mess };
+        for (const row of grid) {
+            for (const cell of row) {
+                if (!cell) continue;
+                if (cell.type === 'doom_resolution' || cell.type === 'snatcher' || cell.type === 'loudmouth') snatchers++;
+                else if (cell.type === 'slime') mess++;
+            }
+        }
+        return { snatchers, mess };
+    };
+
     return (
         <div className="text-center py-6">
             <h2 className="text-base font-bold mb-5">{t('接下来去哪儿？')}</h2>
@@ -23,6 +40,7 @@ const WallPicker = ({ candidates, onSelect, onHoverIngredientIds }) => {
                     const subcategories = wall.marketIngredients
                         ? [...new Set(wall.marketIngredients.map(i => i.tags[1]))]
                         : [];
+                    const { snatchers, mess } = countDangers(wall.grid);
                     return (
                         <button
                             key={idx}
@@ -43,8 +61,9 @@ const WallPicker = ({ candidates, onSelect, onHoverIngredientIds }) => {
                                 ))}
                             </div>
 
-                            <div className="text-[10px] text-red-500 font-bold">
-                                🧑 {wall.doomCellCount.resolution} {t('抢菜人')}
+                            <div className="text-[10px] text-red-500 font-bold leading-tight">
+                                <div>🧑 {snatchers} {t('人在抢菜')}</div>
+                                <div>🫠 {t('脏乱程度')} ×{mess}</div>
                             </div>
                         </button>
                     );
