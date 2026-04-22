@@ -29,6 +29,8 @@ import RoundTransition from './components/ui/RoundTransition';
 import WallPicker from './components/game/WallPicker';
 import OrderSubmitModal from './components/game/OrderSubmitModal';
 import ConfigPanel from './components/game/ConfigPanel';
+import MarketMap from './components/game/MarketMap';
+import GoldExchangeModal from './components/game/GoldExchangeModal';
 import { LEVEL_TEMPLATES } from './data/levelTemplates';
 
 // DIAG: temporary wrapper to log mount/unmount of the fly element
@@ -86,7 +88,7 @@ const GameCore = () => {
         expeditionNumber, expeditionScores, totalScore, expeditionConfig,
         turnNumber, gold, phase,
         matrix, lastDrawResult, currentWallType, currentLevel, lastDrawDirection,
-        hp, crushGrid, crushLevel, dangerCount,
+        hp, crushGrid, crushLevel, dangerCount, currentDrawCost,
         isCrushResolving, crushAnimState, crushResolutionResult,
         inventory, fridge, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
@@ -102,11 +104,15 @@ const GameCore = () => {
         replaceInventoryItem, discardInventoryItem, synthesizeItems, swapInventoryItems, synthesizeWithPending, discardPendingItem, debugAddItem,
         bulletinBoard, pendingChosenOrder, refreshCharges,
         submitOrder, canSubmitOrder, submittingOrder, confirmSubmitOrder, cancelSubmitOrder, triggerRefresh,
-        incomingOrder, incomingQueueLength, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
+        incomingOrder, incomingQueue, incomingQueueLength, confirmIncomingOrder, discardIncomingOrder, replaceBulletinOrder,
         dishIntroPending, currentDish, dismissDishIntro,
         isInSubLevel, wallStack,
         enterSubLevel, exitSubLevel,
         loadTestLevel,
+        mapState, movePlayer, enterCurrentNode, leaveStall,
+        activeStallNodeId, evacuationPending, setEvacuationPending,
+        goldModalType, setGoldModalType, sellToGoldVariety, sellToGoldQuality,
+        orderRegionOpen, closeOrderRegion,
     } = state;
 
     // --- Crush animation interval (人挤人) ---
@@ -256,7 +262,7 @@ const GameCore = () => {
                 )}
 
                 {/* Gameplay phases — single persistent sidebar layout */}
-                {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'between_turns' || phase === 'wall_choice' || phase === 'wall_reveal') && (
+                {(phase === 'drawing' || phase === 'drawing_sub' || phase === 'exiting_sub' || phase === 'between_turns' || phase === 'wall_choice' || phase === 'wall_reveal' || phase === 'map' || phase === 'stall_drawing') && (
                     <div className="flex gap-4">
                         {/* LEFT SIDEBAR */}
                         <div className="w-96 flex-shrink-0 flex flex-col gap-4 self-start" ref={bulletinRef}>
@@ -312,7 +318,7 @@ const GameCore = () => {
                                             onSelectRow={selectRow}
                                             onSelectColumn={selectColumn}
                                             gold={gold}
-                                            drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
+                                            drawCost={currentDrawCost}
                                             phase={phase}
                                             disabled={isCrushResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
                                             drawAnimState={drawAnimState}
@@ -468,6 +474,47 @@ const GameCore = () => {
                                             {t('回到餐厅')}
                                         </button>
                                     </div>
+                                </div>
+                            )}
+                            {/* Map phase — 4×4 market map navigation */}
+                            {phase === 'map' && mapState && (
+                                <MarketMap
+                                    mapState={mapState}
+                                    onMove={movePlayer}
+                                    onEnterNode={enterCurrentNode}
+                                    gold={gold}
+                                    hp={hp}
+                                    evacuationPending={evacuationPending}
+                                    onConfirmEvacuation={returnToRestaurant}
+                                    onCancelEvacuation={() => setEvacuationPending(false)}
+                                />
+                            )}
+
+                            {/* Stall drawing phase */}
+                            {phase === 'stall_drawing' && matrix && (
+                                <div className="flex flex-col items-center">
+                                    <ResourceMatrix
+                                        matrix={matrix}
+                                        onSelectRow={selectRow}
+                                        onSelectColumn={selectColumn}
+                                        gold={gold}
+                                        drawCost={currentDrawCost}
+                                        phase={phase}
+                                        disabled={isCrushResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
+                                        drawAnimState={drawAnimState}
+                                        wallType={currentWallType}
+                                        lastDrawDirection={lastDrawDirection}
+                                        onHoverIngredientIds={setHoveredIngredientIds}
+                                        gravityDrops={gravityDrops}
+                                        rotationMoves={rotationMoves}
+                                        growthFlashes={growthFlashes}
+                                    />
+                                    <button
+                                        onClick={leaveStall}
+                                        className="mt-4 px-6 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200"
+                                    >
+                                        返回地图
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -1052,6 +1099,47 @@ const GameCore = () => {
                                     )}
                                 </button>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Gold Exchange Modals (大排档 / 酒楼) */}
+                {goldModalType && (
+                    <GoldExchangeModal
+                        mode={goldModalType}
+                        inventory={inventory}
+                        gold={gold}
+                        onSell={goldModalType === 'variety' ? sellToGoldVariety : sellToGoldQuality}
+                        onClose={() => setGoldModalType(null)}
+                    />
+                )}
+
+                {/* Order Region Modal (A区 / B区) */}
+                {orderRegionOpen && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={closeOrderRegion}>
+                        <div className="bg-white rounded-xl p-4 w-[420px] max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="flex justify-between items-center mb-3">
+                                <h2 className="text-lg font-bold">📋 订单区 {orderRegionOpen.toUpperCase()}</h2>
+                                <button onClick={closeOrderRegion} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+                            </div>
+                            <BulletinBoard
+                                orders={bulletinBoard.filter(o => o.regionId === orderRegionOpen)}
+                                inventory={inventory}
+                                onSubmit={submitOrder}
+                                canSubmitOrder={canSubmitOrder}
+                                incomingOrder={incomingQueue.find(e => e.regionId === orderRegionOpen) || null}
+                                onConfirmIncoming={(chosenOrder) => {
+                                    const event = incomingQueue.find(e => e.regionId === orderRegionOpen);
+                                    confirmIncomingOrder(chosenOrder, event?.id);
+                                }}
+                                onDiscardIncoming={discardIncomingOrder}
+                                pendingChosenOrder={pendingChosenOrder?.regionId === orderRegionOpen ? pendingChosenOrder : null}
+                                onReplaceIncoming={replaceBulletinOrder}
+                                refreshCharges={refreshCharges}
+                                onRefresh={triggerRefresh}
+                                hoveredIngredientIds={hoveredIngredientIds}
+                                capacity={2}
+                            />
                         </div>
                     </div>
                 )}

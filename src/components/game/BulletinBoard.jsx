@@ -131,6 +131,7 @@ const BulletinBoard = ({
     refreshCharges, onRefresh,
     hoveredIngredientIds,
     setupMode = false,
+    capacity,
 }) => {
     const { t, language } = useLanguage();
     const isReplacing = !!pendingChosenOrder;
@@ -157,7 +158,7 @@ const BulletinBoard = ({
             {/* Panel header */}
             <div className="px-3 py-2 border-b border-dashed border-kitchen-wood-border flex items-center justify-between gap-2">
                 <h3 className="text-sm font-bold text-kitchen-text-body">📌 {t('交换区')}</h3>
-                <span className="text-[10px] text-kitchen-text-muted font-medium">{orders.length}/{ORDER_CONFIG.bulletinCapacity}</span>
+                <span className="text-[10px] text-kitchen-text-muted font-medium">{orders.length}/{capacity ?? ORDER_CONFIG.bulletinCapacity}</span>
             </div>
 
             <div className="p-2">

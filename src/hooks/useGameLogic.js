@@ -247,6 +247,8 @@ export const useGameLogic = (config) => {
     const [mapState, setMapState] = useState(null); // initialized on each day start via buildInitialMapState()
     const [activeStallNodeId, setActiveStallNodeId] = useState(null);
     const [evacuationPending, setEvacuationPending] = useState(false);
+    const [goldModalType, setGoldModalType] = useState(null); // null | 'variety' | 'quality'
+    const [orderRegionOpen, setOrderRegionOpen] = useState(null); // null | 'a' | 'b'
 
     // --- Inventory State ---
     // inventory = show-only basket (菜篮)
@@ -402,15 +404,13 @@ export const useGameLogic = (config) => {
     };
 
     /** Player dismisses the "today's dish" overlay — auto-fill the shelf
-     *  with 4 initial orders. No more setup picking. */
+     *  with 4 initial orders, 2 per region. No more setup picking. */
     const dismissDishIntro = () => {
         if (!dishIntroPending) return;
         setDishIntroPending(false);
-        const initial = [];
-        for (let i = 0; i < 4; i++) {
-            initial.push(generateOrder());
-        }
-        setBulletinBoard(initial);
+        const ordersA = [{ ...generateOrder(), regionId: 'a' }, { ...generateOrder(), regionId: 'a' }];
+        const ordersB = [{ ...generateOrder(), regionId: 'b' }, { ...generateOrder(), regionId: 'b' }];
+        setBulletinBoard([...ordersA, ...ordersB]);
     };
 
     // When the setup queue drains (after the initial dish intro dismissal), transition to 'map'.
@@ -770,10 +770,9 @@ export const useGameLogic = (config) => {
             setGold(prev => prev + goldGain);
             showToast(`${t('抽数')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'order_cell') {
-            // Order cells queue an additional pick-1-of-2 for the end of
-            // this wall (resolved in between_turns along with the default
-            // one from endTurn).
-            addBulletinOrder();
+            // Order cells queue an additional pick-1-of-2 for a random region.
+            const randomRegion = Math.random() < 0.5 ? 'a' : 'b';
+            addBulletinOrder(randomRegion);
             showToast(`📋 ${t('新订单')} +1`, 'info');
         } else if (drawnCell.type === 'heal') {
             const amount = (drawnCell.healAmount || 1) * mult;
@@ -831,7 +830,8 @@ export const useGameLogic = (config) => {
                 setGold(prev => prev + g);
                 showToast(`🪞 ${t('镜像')} ${t('抽数')} +${g}`, 'success');
             } else if (mirrorCell.type === 'order_cell') {
-                addBulletinOrder();
+                const mirrorRandomRegion = Math.random() < 0.5 ? 'a' : 'b';
+                addBulletinOrder(mirrorRandomRegion);
                 showToast(`🪞 ${t('镜像')}: 📋 ${t('新订单')} +1`, 'info');
             } else if (mirrorCell.type === 'heal') {
                 const a = (mirrorCell.healAmount || 1) * mMult;
@@ -1254,32 +1254,51 @@ export const useGameLogic = (config) => {
     // ORDER SYSTEM
     // =============================================
 
-    /** Push a new 2-candidate incoming event to the back of the queue. */
-    const addBulletinOrder = () => {
+    /** Push a new 2-candidate incoming event to the back of the queue.
+     *  @param {string} [regionId] - 'a' or 'b'. Omit to assign randomly. */
+    const addBulletinOrder = (regionId) => {
+        const region = regionId ?? (Math.random() < 0.5 ? 'a' : 'b');
         setIncomingQueue(prev => [...prev, {
             id: generateUID(),
+            regionId: region,
             candidates: [generateOrder(), generateOrder()],
         }]);
     };
 
     /** Player picks one of the two candidates at the front of the queue.
-     *  If shelf is full, hold the chosen order as pendingChosenOrder and
-     *  enter replacement mode. Either way the queue head is consumed. */
-    const confirmIncomingOrder = (chosenOrder) => {
-        const head = incomingQueue[0];
-        if (!head) return;
-        if (bulletinBoard.length >= orderConfig.bulletinCapacity) {
-            setPendingChosenOrder(chosenOrder);
-            setIncomingQueue(prev => prev.slice(1));
+     *  If the order's region is full (≥2 orders), hold the chosen order as
+     *  pendingChosenOrder and enter replacement mode. Either way the matched
+     *  event is removed from the queue.
+     *  @param {object} chosenOrder  - the candidate the player picked
+     *  @param {string} [eventId]    - id of the event to consume; falls back
+     *                                 to queue[0] for backward compatibility
+     *                                 (sidebar non-modal path still omits it) */
+    const confirmIncomingOrder = (chosenOrder, eventId) => {
+        // Find the specific event by id (not always the head — queue may have
+        // items from different regions interleaved)
+        const event = eventId
+            ? incomingQueue.find(e => e.id === eventId)
+            : incomingQueue[0]; // fallback for backward compat
+        if (!event) return;
+        const regionId = event.regionId || 'a';
+        const chosenWithRegion = { ...chosenOrder, regionId };
+
+        const regionOrders = bulletinBoard.filter(o => o.regionId === regionId);
+        if (regionOrders.length >= 2) {
+            // Region is full — enter replacement mode
+            setPendingChosenOrder(chosenWithRegion);
+            setIncomingQueue(prev => prev.filter(e => e.id !== event.id)); // remove by id
             return;
         }
-        setBulletinBoard(prev => [...prev, chosenOrder]);
-        setIncomingQueue(prev => prev.slice(1));
+        setBulletinBoard(prev => [...prev, chosenWithRegion]);
+        setIncomingQueue(prev => prev.filter(e => e.id !== event.id)); // remove by id
     };
 
     /** Replace a shelf order with the pending chosen order (when shelf is full) */
     const replaceBulletinOrder = (orderId) => {
         if (!pendingChosenOrder) return;
+        const target = bulletinBoard.find(o => o.id === orderId);
+        if (!target || target.regionId !== pendingChosenOrder.regionId) return; // region fence
         setBulletinBoard(prev => prev.map(o => o.id === orderId ? pendingChosenOrder : o));
         setPendingChosenOrder(null);
     };
@@ -1369,21 +1388,23 @@ export const useGameLogic = (config) => {
         setInventory([...remaining, ...toInventory]);
         if (toPending.length > 0) setPendingItems(prev => [...prev, ...toPending]);
 
+        const regionId = order?.regionId || 'a';
         setBulletinBoard(prev => prev.filter(o => o.id !== orderId));
         setSubmittingOrderId(null);
-        // Completing an order offers a pick-1-of-2 just like leaving a wall.
-        addBulletinOrder();
+        // Completing an order offers a pick-1-of-2 for the same region.
+        addBulletinOrder(regionId);
         showToast(t('订单完成'), 'success');
     };
 
     /** Manual refresh: consume 1 charge to push a new 2-candidate event to
-     *  the queue. Multiple refreshes can stack — the player will resolve
-     *  them one at a time. Blocked only during an active replacement step. */
+     *  the queue for the currently open region. Blocked when no region modal
+     *  is open, during an active replacement step, or when out of charges. */
     const triggerRefresh = () => {
         if (refreshCharges <= 0) return;
         if (pendingChosenOrder) return;
+        if (!orderRegionOpen) return; // can only refresh from a region node
         setRefreshCharges(c => c - 1);
-        addBulletinOrder();
+        addBulletinOrder(orderRegionOpen);
     };
 
     // =============================================
@@ -1523,13 +1544,14 @@ export const useGameLogic = (config) => {
                 break;
             }
             case 'OPEN_ORDER_REGION':
-                showToast(`订单区 ${(result.regionId || '').toUpperCase()} — 即将到来`, 'info');
+                setOrderRegionOpen(result.regionId);
+                performAction();
                 break;
             case 'OPEN_GOLD_VARIETY':
-                showToast('大排档 — 即将到来', 'info');
+                setGoldModalType('variety');
                 break;
             case 'OPEN_GOLD_QUALITY':
-                showToast('酒楼 — 即将到来', 'info');
+                setGoldModalType('quality');
                 break;
             case 'CLAIM_POCKET_MONEY':
                 setGold(prev => prev + result.amount);
@@ -1764,6 +1786,7 @@ export const useGameLogic = (config) => {
         setCurrentDish(null);
         setLastCookResult(null);
         setEvacuationPending(false);
+        setOrderRegionOpen(null);
         setMapState(buildInitialMapState());
         setPhase('pre_game');
     };
@@ -1821,6 +1844,7 @@ export const useGameLogic = (config) => {
         setExpeditionScores([]);
         setTotalScore(0);
         setEvacuationPending(false);
+        setOrderRegionOpen(null);
         setMapState(buildInitialMapState());
     };
 
@@ -1862,6 +1886,7 @@ export const useGameLogic = (config) => {
         setWallCandidates(null);
         setPendingWallCandidate(null);
         setEvacuationPending(false);
+        setOrderRegionOpen(null);
         setMapState(buildInitialMapState());
         setPhase('pre_game');
     };
@@ -1876,6 +1901,55 @@ export const useGameLogic = (config) => {
 
     const clearToast = () => {
         setToast(null);
+    };
+
+    // =============================================
+    // GOLD EXCHANGE
+    // =============================================
+
+    const sellToGoldVariety = (selectedIndices) => {
+        const selectedItems = selectedIndices.map(i => inventory[i]).filter(Boolean);
+        if (selectedItems.length === 0) return;
+
+        const distinctTag2s = new Set(selectedItems.map(item => item.tags?.[1] ?? item.id));
+        const varietyCount = Math.min(distinctTag2s.size, 5); // cap at index 5
+        const pricePerItem = MAP_CONFIG.goldVariety.priceByVariety[varietyCount];
+        const totalGain = pricePerItem * selectedItems.length;
+
+        const sortedIndices = [...selectedIndices].sort((a, b) => b - a);
+        setInventory(prev => {
+            const next = [...prev];
+            for (const i of sortedIndices) next.splice(i, 1);
+            return next;
+        });
+
+        setGold(prev => prev + totalGain);
+        showToast(`大排档 +${totalGain}g (${selectedItems.length}件 × ${pricePerItem}g)`, 'success');
+        setGoldModalType(null);
+        performAction();
+    };
+
+    const sellToGoldQuality = (selectedIndices) => {
+        const selectedItems = selectedIndices.map(i => inventory[i]).filter(Boolean);
+        if (selectedItems.length === 0) return;
+
+        let totalGain = 0;
+        for (const item of selectedItems) {
+            const q = item.quality ?? 1;
+            totalGain += MAP_CONFIG.goldQuality.priceByQuality[Math.min(q, 5)];
+        }
+
+        const sortedIndices = [...selectedIndices].sort((a, b) => b - a);
+        setInventory(prev => {
+            const next = [...prev];
+            for (const i of sortedIndices) next.splice(i, 1);
+            return next;
+        });
+
+        setGold(prev => prev + totalGain);
+        showToast(`酒楼 +${totalGain}g (${selectedItems.length}件)`, 'success');
+        setGoldModalType(null);
+        performAction();
     };
 
     // =============================================
@@ -1989,6 +2063,7 @@ export const useGameLogic = (config) => {
         cancelSubmitOrder,
         triggerRefresh,
         incomingOrder: incomingQueue[0] || null,
+        incomingQueue,
         incomingQueueLength: incomingQueue.length,
         confirmIncomingOrder,
         discardIncomingOrder,
@@ -1999,5 +2074,15 @@ export const useGameLogic = (config) => {
         currentDish,
         dismissDishIntro,
         loadTestLevel,
+
+        // Gold Exchange
+        goldModalType,
+        setGoldModalType,
+        sellToGoldVariety,
+        sellToGoldQuality,
+
+        // Order Region
+        orderRegionOpen,
+        closeOrderRegion: () => setOrderRegionOpen(null),
     };
 };
