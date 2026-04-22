@@ -10,7 +10,7 @@ export const DOOM_EMOJI_POOL = [
     '👶', '🧓', '👴', '👵', '🧔',
 ];
 
-export function pickDoomEmoji() {
+export function pickCrushEmoji() {
     return DOOM_EMOJI_POOL[Math.floor(Math.random() * DOOM_EMOJI_POOL.length)];
 }
 

@@ -45,7 +45,7 @@ export const GameGuide = ({ onClose }) => {
                             </span>
                             <span className="text-kitchen-text-muted">→</span>
                             <span className="px-2 py-1 bg-purple-50 border border-purple-200 rounded-lg font-bold text-purple-700">
-                                3. {t('厄运积累')}
+                                3. {t('人挤人积累')}
                             </span>
                             <span className="text-kitchen-text-muted">→</span>
                             <span className="px-2 py-1 bg-[#FFFAF2] border border-kitchen-gold-border-muted rounded-lg font-bold text-kitchen-text-body">
@@ -78,7 +78,7 @@ export const GameGuide = ({ onClose }) => {
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className="w-5 text-center">🧑</span>
-                                <span><b>{t('抢菜人')}</b> — {t('触发厄运，可能扣血')}</span>
+                                <span><b>{t('抢菜人')}</b> — {t('触发人挤人，可能扣血')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className="w-5 text-center">⚠️</span>
@@ -127,14 +127,14 @@ export const GameGuide = ({ onClose }) => {
                         </ol>
                     </section>
 
-                    {/* Doom */}
+                    {/* Crush */}
                     <section>
                         <h3 className="font-black text-kitchen-text-title mb-1.5 flex items-center gap-1.5">
-                            💀 {t('厄运系统')}
+                            🧑 {t('人挤人系统')}
                         </h3>
                         <ul className="list-disc list-inside space-y-0.5">
-                            <li>{t('每回合结束，厄运网格自动增加 1 个危险格子')}</li>
-                            <li>{t('抽到 💀 触发结算：在厄运网格抽取，命中危险格 = -1 HP')}</li>
+                            <li>{t('每回合结束，人挤人网格自动增加 1 个危险格子')}</li>
+                            <li>{t('抽到 🧑 触发结算：在人挤人网格抽取，命中危险格 = -1 HP')}</li>
                             <li>{t('HP 归零 = 丢失全部菜篮物品，强制撤离，本场 0 分')}</li>
                         </ul>
                     </section>
@@ -146,7 +146,7 @@ export const GameGuide = ({ onClose }) => {
                         </h3>
                         <ul className="list-disc list-inside space-y-0.5">
                             <li>{t('回合结束后可选择撤离，菜篮中的食材转化为分数')}</li>
-                            <li>{t('继续 = 更多食材，但厄运在不断积累！')}</li>
+                            <li>{t('继续 = 更多食材，但人挤人在不断积累！')}</li>
                         </ul>
                     </section>
                 </div>

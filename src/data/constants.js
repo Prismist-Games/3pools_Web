@@ -562,25 +562,25 @@ export const SCORE_PROGRESS_CONFIG = {
     }
 };
 
-// --- 厄运系统配置 ---
-export const DOOM_CONFIG = {
-    gridSize: 10,              // 厄运网格格子数
+// --- 人挤人系统配置 ---
+export const CRUSH_CONFIG = {
+    gridSize: 10,              // 人挤人网格格子数
     initialDangerCount: 1,     // 初始"危险"格子数
     initialHP: 5,              // 初始生命值
-    initialDoomLevel: 1,       // 初始厄运等级
+    initialDoomLevel: 1,       // 初始人挤人等级
     dangerPerTurn: 1,          // 每回合自动增加的危险格子数
 };
 
 // --- 回合制配置 ---
 export const TURN_CONFIG = {
-    goldPerTurn: 3,            // 每次进市场的抽取次数
+    goldPerTurn: 5,            // 每次进市场的抽取次数
     drawCost: 1,               // 每次抽取消耗
 };
 
 export const INITIAL_GAME_CONFIG = {
     pools: INITIAL_POOLS_DATA,
     stages: INITIAL_STAGE_CONFIG,
-    doom: DOOM_CONFIG,
+    doom: CRUSH_CONFIG,
     turn: TURN_CONFIG,
     expedition: EXPEDITION_CONFIG,
     order: ORDER_CONFIG,

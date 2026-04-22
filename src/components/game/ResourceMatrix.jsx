@@ -24,7 +24,7 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
     if (!visible || !cell || !pos) return null;
 
     let icon, name, desc;
-    if (cell.type === 'doom_resolution') {
+    if (cell.type === 'crowd_grabber') {
         icon = cell.icon;
         name = t(cell.name);
         desc = t('抽中时触发人挤人');
@@ -166,7 +166,7 @@ function countBuffFieldCoverage(matrix, r, c) {
 const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highlight, gravityDrop, rotationMove, growthFlash, buffCoverage, sameNeighbors, inHoveredCluster, onClusterHover }) => {
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
-    const hasTip = cell && !cell.hidden && (cell.type === 'doom_resolution'
+    const hasTip = cell && !cell.hidden && (cell.type === 'crowd_grabber'
         || cell.type === 'gold' || cell.type === 'order_cell' || cell.type === 'out_of_game' || cell.type === 'bomb'
         || cell.type === 'heal' || cell.type === 'backpack_expand' || cell.type === 'gravity' || cell.type === 'entrance'
         || cell.type === 'buff_field' || cell.type === 'loudmouth'
@@ -178,7 +178,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
         bgClass = 'cell-hidden-pattern border-kitchen-gold-border-muted';
     } else if (cell === null || cell.type === 'empty') {
         bgClass = 'bg-[#F8F4EC] border-[#D4C8B0]';
-    } else if (cell.type === 'doom_resolution') {
+    } else if (cell.type === 'crowd_grabber') {
         bgClass = 'bg-[#FFB8A8] border-[#D04020]';
     } else if (cell.type === 'ingredient' || cell.type === 'item' || cell.type === 'sticker') {
         bgClass = 'bg-kitchen-card border-kitchen-gold-border-muted';
@@ -322,7 +322,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
-    const [doomFlash, setDoomFlash] = useState(false);
+    const [crushFlash, setCrushFlash] = useState(false);
     const [hoveredClusterPos, setHoveredClusterPos] = useState(null); // [r, c] of seed
 
     // Per-cell same-id 4-neighbor map (sticker only). Drives the inner-edge
@@ -402,14 +402,14 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     };
 
     useEffect(() => {
-        if (drawAnimState?.phase === 'settled' && drawAnimState?.drawnCell?.type === 'doom_resolution') {
-            setDoomFlash(true);
+        if (drawAnimState?.phase === 'settled' && drawAnimState?.drawnCell?.type === 'crowd_grabber') {
+            setCrushFlash(true);
             // Intentionally no cleanup: drawAnimState clears to null ~300ms
-            // after settle (completeDrawAnim), but the doom flash is meant
+            // after settle (completeDrawAnim), but the crush flash is meant
             // to last a full 1s. Returning a clearTimeout cleanup made the
-            // dep change cancel the timer mid-flight, leaving doomFlash
+            // dep change cancel the timer mid-flight, leaving crushFlash
             // stuck true and the CRT/vignette permanently on the wall.
-            setTimeout(() => setDoomFlash(false), 1000);
+            setTimeout(() => setCrushFlash(false), 1000);
         }
     }, [drawAnimState]);
 
@@ -540,7 +540,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     return (
         <div
             style={{ width: FIXED_WALL_WIDTH }}
-            className={`bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-[3px] border-kitchen-wood-border rounded-[14px] p-4 shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)] transition-all duration-300${doomFlash ? ' crt-heavy vignette-heavy animate-signal-shake' : ''}`}
+            className={`bg-gradient-to-br from-kitchen-wood-light to-kitchen-wood-dark border-[3px] border-kitchen-wood-border rounded-[14px] p-4 shadow-[0_4px_0_#C8A880,0_6px_12px_rgba(0,0,0,0.1)] transition-all duration-300${crushFlash ? ' crt-heavy vignette-heavy animate-signal-shake' : ''}`}
         >
             {wallType && (
                 <div className="text-center mb-2 pb-2 border-b border-dashed border-kitchen-wood-border">

@@ -27,9 +27,9 @@ function resolveConstrainedCell(token) {
     case CELL_TYPES.EMPTY:
       return { type: 'empty', uid: generateUID() };
     case CELL_TYPES.DOOM_RESOLVE:
-      return { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID(), ...extras };
+      return { type: 'crowd_grabber', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID(), ...extras };
     case CELL_TYPES.ANY_DOOM:
-      return { type: 'doom_resolution', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID(), ...extras };
+      return { type: 'crowd_grabber', icon: doomCells.resolution.icon, name: doomCells.resolution.name, uid: generateUID(), ...extras };
     case CELL_TYPES.BOMB:
       return { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID(), ...extras };
     case CELL_TYPES.GOLD: {
@@ -110,7 +110,7 @@ export function generateWallFromTemplate(template, marketIngredients) {
       const cell = resolveConstrainedCell(token);
       if (cell) {
         grid[r][c] = cell;
-        if (cell.type === 'doom_resolution') doomCellCount.resolution++;
+        if (cell.type === 'crowd_grabber') doomCellCount.resolution++;
       }
     }
   }

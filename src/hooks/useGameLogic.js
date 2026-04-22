@@ -2,11 +2,11 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { generateWall, pickMarketIngredients } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { LEVEL_TEMPLATES } from '../data/levelTemplates';
-import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
+import { CRUSH_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
-import { pickDoomEmoji } from '../data/matrixConfig';
+import { pickCrushEmoji } from '../data/matrixConfig';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -163,7 +163,7 @@ export const useGameLogic = (config) => {
     const { t, language } = useLanguage();
 
     // --- Configuration ---
-    const doomConfig = config.doom || DOOM_CONFIG;
+    const crushConfig = config.doom || CRUSH_CONFIG;
     const turnConfig = config.turn || TURN_CONFIG;
     const orderConfig = config.order || { bulletinCapacity: 5, initialCount: 5 };
     const expeditionConfig = config.expedition || { expeditionCount: 3, scoreToWin: 30 };
@@ -186,7 +186,7 @@ export const useGameLogic = (config) => {
 
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
-    const [gold, setGold] = useState(0);
+    const [gold, setGold] = useState(20);
     const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'drawing' | 'between_turns' | 'game_over'
 
     // --- Grid State ---
@@ -212,20 +212,25 @@ export const useGameLogic = (config) => {
     const [wallStack, setWallStack] = useState([]); // stack of { matrix, gold, wallType }
     const isInSubLevel = wallStack.length > 0;
 
-    // --- Doom State ---
-    const [hp, setHp] = useState(doomConfig.initialHP);
-    const [doomGrid, setDoomGrid] = useState(() => {
-        const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
-        for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-            grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
+    // --- Crush State (人挤人系统) ---
+    // "抢菜人" is the entity (cell on board); "人挤人" is the event triggered when landing on one.
+    const [hp, setHp] = useState(crushConfig.initialHP);
+    const [crushGrid, setCrushGrid] = useState(() => {
+        const grid = Array(crushConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+        for (let i = 0; i < crushConfig.initialDangerCount; i++) {
+            grid[i] = { type: 'danger', emoji: pickCrushEmoji() };
         }
         return grid;
     });
-    const [doomLevel, setDoomLevel] = useState(doomConfig.initialDoomLevel);
-    const [isDoomResolving, setIsDoomResolving] = useState(false);
-    const [doomAnimState, setDoomAnimState] = useState(null);
-    const [doomResolutionResult, setDoomResolutionResult] = useState(null);
-    const [afterDoomAction, setAfterDoomAction] = useState(null); // null | 'end_turn'
+    const [crushLevel, setCrushLevel] = useState(crushConfig.initialDoomLevel);
+    const [isCrushResolving, setIsCrushResolving] = useState(false);
+    const [crushAnimState, setCrushAnimState] = useState(null);
+    const [crushResolutionResult, setCrushResolutionResult] = useState(null);
+    const [afterCrushAction, setAfterCrushAction] = useState(null); // null | 'end_turn'
+
+    // --- Map State ---
+    const [actionCounter, setActionCounter] = useState(0);
+    const [mapState, setMapState] = useState(null); // will be initialized in M2
 
     // --- Inventory State ---
     // inventory = show-only basket (菜篮)
@@ -275,31 +280,31 @@ export const useGameLogic = (config) => {
 
     // --- Derived State ---
     const dangerCount = useMemo(() =>
-        doomGrid.filter(cell => cell.type === 'danger').length,
-        [doomGrid]
+        crushGrid.filter(cell => cell.type === 'danger').length,
+        [crushGrid]
     );
 
     // =============================================
     // TURN FLOW
     // =============================================
 
-    /** Start a new turn: generate grid, give gold */
+    /** Start a new turn: generate grid */
     const startNewTurn = () => {
         const newTurnNumber = turnNumber + 1;
         setTurnNumber(newTurnNumber);
-        setGold(turnConfig.goldPerTurn);
+        // Gold is now persistent across turns — do not reset here.
         setLastDrawResult(null);
-        setDoomResolutionResult(null);
+        setCrushResolutionResult(null);
         setGravityActive(false);
 
-        // Doom accumulation (not on first turn)
+        // Crush accumulation (人挤人危险格增加, not on first turn)
         if (newTurnNumber > 1) {
-            setDoomGrid(prev => {
+            setCrushGrid(prev => {
                 const newGrid = [...prev];
                 let added = 0;
-                for (let i = 0; i < newGrid.length && added < doomConfig.dangerPerTurn; i++) {
+                for (let i = 0; i < newGrid.length && added < crushConfig.dangerPerTurn; i++) {
                     if (newGrid[i].type === 'empty') {
-                        newGrid[i] = { type: 'danger', emoji: pickDoomEmoji() };
+                        newGrid[i] = { type: 'danger', emoji: pickCrushEmoji() };
                         added++;
                     }
                 }
@@ -390,9 +395,9 @@ export const useGameLogic = (config) => {
         startNewTurn();
     }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
 
-    /** End current turn: resolve doom once, then go to between-turns decision */
+    /** End current turn: trigger crush resolution once, then go to between-turns decision */
     const endTurn = () => {
-        resolveDoom('end_turn');
+        triggerCrushResolution('end_turn');
     };
 
     /** Continue to next turn. Per-turn auto refill removed — shelf stays
@@ -571,11 +576,11 @@ export const useGameLogic = (config) => {
 
     const selectRow = (rowIndex) => {
         if (phase !== 'drawing' && phase !== 'drawing_sub') return;
-        if (isDoomResolving || isDrawAnimating) return;
+        if (isCrushResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
 
-        setDoomResolutionResult(null);
+        setCrushResolutionResult(null);
         setFlyingItem(null);
         setLastDrawResult(null);
 
@@ -617,11 +622,11 @@ export const useGameLogic = (config) => {
     /** Select a column — starts scanning animation top-to-bottom, then resolves */
     const selectColumn = (colIndex) => {
         if (phase !== 'drawing' && phase !== 'drawing_sub') return;
-        if (isDoomResolving || isDrawAnimating) return;
+        if (isCrushResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix) return;
 
-        setDoomResolutionResult(null);
+        setCrushResolutionResult(null);
         setFlyingItem(null);
         setLastDrawResult(null);
 
@@ -728,7 +733,7 @@ export const useGameLogic = (config) => {
 
         if (drawnCell.type === 'ingredient' || drawnCell.type === 'out_of_game') {
             obtainedItem = drawnCell;
-        } else if (drawnCell.type === 'doom_resolution') {
+        } else if (drawnCell.type === 'crowd_grabber') {
             doomEffects.resolutions = 1 * mult;
         } else if (drawnCell.type === 'gold') {
             const goldGain = drawnCell.goldAmount * mult;
@@ -742,7 +747,7 @@ export const useGameLogic = (config) => {
             showToast(`📋 ${t('新订单')} +1`, 'info');
         } else if (drawnCell.type === 'heal') {
             const amount = (drawnCell.healAmount || 1) * mult;
-            setHp(prev => Math.min(prev + amount, doomConfig.initialHP));
+            setHp(prev => Math.min(prev + amount, crushConfig.initialHP));
             showToast(`❤️‍🩹 HP +${amount}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'backpack_expand') {
             const amount = (drawnCell.expandAmount || 1) * mult;
@@ -789,7 +794,7 @@ export const useGameLogic = (config) => {
                 }
                 const itemName = mirrorCell.item?.name || mirrorCell.name;
                 showToast(`🪞 ${t('镜像')}: ${mirrorCell.item?.icon || mirrorCell.icon || ''} ${t(itemName)}`, 'success');
-            } else if (mirrorCell.type === 'doom_resolution') {
+            } else if (mirrorCell.type === 'crowd_grabber') {
                 doomEffects.resolutions += 1 * mMult;
             } else if (mirrorCell.type === 'gold') {
                 const g = mirrorCell.goldAmount * mMult;
@@ -800,7 +805,7 @@ export const useGameLogic = (config) => {
                 showToast(`🪞 ${t('镜像')}: 📋 ${t('新订单')} +1`, 'info');
             } else if (mirrorCell.type === 'heal') {
                 const a = (mirrorCell.healAmount || 1) * mMult;
-                setHp(prev => Math.min(prev + a, doomConfig.initialHP));
+                setHp(prev => Math.min(prev + a, crushConfig.initialHP));
                 showToast(`🪞 ${t('镜像')} ❤️‍🩹 HP +${a}`, 'success');
             } else if (mirrorCell.type === 'backpack_expand') {
                 const a = (mirrorCell.expandAmount || 1) * mMult;
@@ -965,21 +970,21 @@ export const useGameLogic = (config) => {
                 }
             }
 
-            // Loudmouth drawn: clear all doom_resolution cells (抢菜人) from the board
+            // Loudmouth drawn: clear all crowd_grabber cells (抢菜人) from the board
             if (drawnCell.type === 'loudmouth') {
                 for (let r = 0; r < newMatrix.length; r++) {
                     for (let c = 0; c < newMatrix[0].length; c++) {
-                        if (newMatrix[r][c]?.type === 'doom_resolution') newMatrix[r][c] = null;
+                        if (newMatrix[r][c]?.type === 'crowd_grabber') newMatrix[r][c] = null;
                     }
                 }
             }
 
-            // Loudmouth board effect: while loudmouth still on board, refill drawn cell with a doom_resolution (抢菜人)
+            // Loudmouth board effect: while loudmouth still on board, refill drawn cell with a crowd_grabber (抢菜人)
             if (currentLevel?.boardEffect === 'loudmouth') {
                 const loudmouthAlive = newMatrix.some(row => row.some(c => c?.type === 'loudmouth'));
                 if (loudmouthAlive) {
                     newMatrix[finalRowIndex][finalColIndex] = {
-                        type: 'doom_resolution',
+                        type: 'crowd_grabber',
                         icon: '🧑',
                         name: '抢菜人',
                         uid: generateUID(),
@@ -1067,7 +1072,7 @@ export const useGameLogic = (config) => {
         }
 
         if (doomEffects.resolutions > 0) {
-            resolveDoom(null, doomEffects.resolutions);
+            triggerCrushResolution(null, doomEffects.resolutions);
         }
 
         setLastDrawResult({
@@ -1352,33 +1357,33 @@ export const useGameLogic = (config) => {
     };
 
     // =============================================
-    // DOOM RESOLUTION
+    // CRUSH RESOLUTION (人挤人结算)
     // =============================================
 
-    /** Start animated doom resolution */
-    const resolveDoom = (action = null, times = 1) => {
-        if (action) setAfterDoomAction(action);
+    /** Start animated crush resolution (人挤人) triggered by landing on 抢菜人 */
+    const triggerCrushResolution = (action = null, times = 1) => {
+        if (action) setAfterCrushAction(action);
 
-        // Pre-calculate final selections (times rounds of doomLevel hits each)
+        // Pre-calculate final selections (times rounds of crushLevel hits each)
         const finalSelections = [];
         let hpLoss = 0;
         for (let t = 0; t < times; t++) {
-            for (let i = 0; i < doomLevel; i++) {
-                const cellIndex = Math.floor(Math.random() * doomConfig.gridSize);
-                const cell = doomGrid[cellIndex];
+            for (let i = 0; i < crushLevel; i++) {
+                const cellIndex = Math.floor(Math.random() * crushConfig.gridSize);
+                const cell = crushGrid[cellIndex];
                 const isHit = cell.type === 'danger';
                 if (isHit) hpLoss++;
-                finalSelections.push({ index: cellIndex, isHit, emoji: cell.emoji || pickDoomEmoji() });
+                finalSelections.push({ index: cellIndex, isHit, emoji: cell.emoji || pickCrushEmoji() });
             }
         }
 
         // Start with random spinning positions
         const spinningPositions = finalSelections.map(() =>
-            Math.floor(Math.random() * doomConfig.gridSize)
+            Math.floor(Math.random() * crushConfig.gridSize)
         );
 
-        setIsDoomResolving(true);
-        setDoomAnimState({
+        setIsCrushResolving(true);
+        setCrushAnimState({
             phase: 'spinning',
             tick: 0,
             totalTicks: 12,
@@ -1388,16 +1393,16 @@ export const useGameLogic = (config) => {
         });
     };
 
-    /** Advance doom animation by one tick (called by GameCore interval) */
-    const tickDoomResolution = () => {
-        setDoomAnimState(prev => {
+    /** Advance crush animation by one tick (called by GameCore interval) */
+    const tickCrushResolution = () => {
+        setCrushAnimState(prev => {
             if (!prev || prev.phase !== 'spinning') return prev;
             const newTick = prev.tick + 1;
 
             const newPositions = prev.spinningPositions.map((pos, i) => {
                 const settleAt = prev.totalTicks - prev.finalSelections.length + i;
                 if (newTick >= settleAt) return prev.finalSelections[i].index;
-                return Math.floor(Math.random() * doomConfig.gridSize);
+                return Math.floor(Math.random() * crushConfig.gridSize);
             });
 
             if (newTick >= prev.totalTicks) {
@@ -1407,33 +1412,33 @@ export const useGameLogic = (config) => {
         });
     };
 
-    /** Apply doom results after animation completes */
-    const completeDoomResolution = () => {
-        if (!doomAnimState) return;
-        const { hpLoss, finalSelections } = doomAnimState;
+    /** Apply crush results after animation completes */
+    const completeCrushResolution = () => {
+        if (!crushAnimState) return;
+        const { hpLoss, finalSelections } = crushAnimState;
 
         if (hpLoss > 0) {
             const newHp = Math.max(0, hp - hpLoss);
             setHp(newHp);
             showToast(t('厄运命中') + ` -${hpLoss} HP`, 'error');
             if (newHp <= 0) {
-                setDoomAnimState(null);
-                setIsDoomResolving(false);
-                setAfterDoomAction(null);
+                setCrushAnimState(null);
+                setIsCrushResolving(false);
+                setAfterCrushAction(null);
                 handleGameOver();
                 return;
             }
         }
 
-        setDoomResolutionResult({
+        setCrushResolutionResult({
             hits: finalSelections.map(s => ({ index: s.index, result: s.isHit ? 'danger' : 'empty' })),
             hpLoss,
         });
-        setDoomAnimState(null);
-        setIsDoomResolving(false);
+        setCrushAnimState(null);
+        setIsCrushResolving(false);
 
-        if (afterDoomAction === 'end_turn') {
-            setAfterDoomAction(null);
+        if (afterCrushAction === 'end_turn') {
+            setAfterCrushAction(null);
             setPhase('between_turns');
             // Leaving a wall always offers a pick-1-of-2 order.
             addBulletinOrder();
@@ -1482,26 +1487,26 @@ export const useGameLogic = (config) => {
      *  so the normal startGame → setup → day loop takes over. */
     const startNextDay = () => {
         setTurnNumber(0);
-        setGold(0);
+        setGold(20);
         setMatrix(null);
         setWallCandidates(null);
         setPendingWallCandidate(null);
         setCurrentWallType(null);
         setCurrentLevel(null);
         setLastDrawDirection(null);
-        setHp(doomConfig.initialHP);
-        setDoomGrid(() => {
-            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
-            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
+        setHp(crushConfig.initialHP);
+        setCrushGrid(() => {
+            const grid = Array(crushConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+            for (let i = 0; i < crushConfig.initialDangerCount; i++) {
+                grid[i] = { type: 'danger', emoji: pickCrushEmoji() };
             }
             return grid;
         });
-        setDoomLevel(doomConfig.initialDoomLevel);
-        setIsDoomResolving(false);
-        setDoomAnimState(null);
-        setDoomResolutionResult(null);
-        setAfterDoomAction(null);
+        setCrushLevel(crushConfig.initialDoomLevel);
+        setIsCrushResolving(false);
+        setCrushAnimState(null);
+        setCrushResolutionResult(null);
+        setAfterCrushAction(null);
         setInventory([]);
         setToast(null);
         setLastDrawResult(null);
@@ -1529,26 +1534,26 @@ export const useGameLogic = (config) => {
 
     const handleReset = () => {
         setTurnNumber(0);
-        setGold(0);
+        setGold(20);
         setPhase('pre_game');
         setMatrix(null);
 
         setCurrentWallType(null);
         setCurrentLevel(null);
         setLastDrawDirection(null);
-        setHp(doomConfig.initialHP);
-        setDoomGrid(() => {
-            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
-            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
+        setHp(crushConfig.initialHP);
+        setCrushGrid(() => {
+            const grid = Array(crushConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+            for (let i = 0; i < crushConfig.initialDangerCount; i++) {
+                grid[i] = { type: 'danger', emoji: pickCrushEmoji() };
             }
             return grid;
         });
-        setDoomLevel(doomConfig.initialDoomLevel);
-        setIsDoomResolving(false);
-        setDoomAnimState(null);
-        setDoomResolutionResult(null);
-        setAfterDoomAction(null);
+        setCrushLevel(crushConfig.initialDoomLevel);
+        setIsCrushResolving(false);
+        setCrushAnimState(null);
+        setCrushResolutionResult(null);
+        setAfterCrushAction(null);
         setInventory([]);
         setFridge([]);
         setBulletinBoard([]);
@@ -1575,25 +1580,25 @@ export const useGameLogic = (config) => {
     /** Reset per-expedition state but keep meta state, return to pre_game */
     const startNextExpedition = () => {
         setTurnNumber(0);
-        setGold(0);
+        setGold(20);
         setMatrix(null);
 
         setCurrentWallType(null);
         setCurrentLevel(null);
         setLastDrawDirection(null);
-        setHp(doomConfig.initialHP);
-        setDoomGrid(() => {
-            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
-            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
-                grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
+        setHp(crushConfig.initialHP);
+        setCrushGrid(() => {
+            const grid = Array(crushConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+            for (let i = 0; i < crushConfig.initialDangerCount; i++) {
+                grid[i] = { type: 'danger', emoji: pickCrushEmoji() };
             }
             return grid;
         });
-        setDoomLevel(doomConfig.initialDoomLevel);
-        setIsDoomResolving(false);
-        setDoomAnimState(null);
-        setDoomResolutionResult(null);
-        setAfterDoomAction(null);
+        setCrushLevel(crushConfig.initialDoomLevel);
+        setIsCrushResolving(false);
+        setCrushAnimState(null);
+        setCrushResolutionResult(null);
+        setAfterCrushAction(null);
         setInventory([]);
         setToast(null);
         setLastDrawResult(null);
@@ -1661,14 +1666,18 @@ export const useGameLogic = (config) => {
         isInSubLevel, wallStack,
         enterSubLevel, exitSubLevel,
 
-        // Doom
+        // Crush (人挤人)
         hp,
-        doomGrid,
-        doomLevel,
+        crushGrid,
+        crushLevel,
         dangerCount,
-        isDoomResolving,
-        doomAnimState,
-        doomResolutionResult,
+        isCrushResolving,
+        crushAnimState,
+        crushResolutionResult,
+
+        // Map
+        actionCounter,
+        mapState,
 
         // Inventory
         inventory,
@@ -1706,8 +1715,8 @@ export const useGameLogic = (config) => {
         startNextDay,
         handleReset,
         startNextExpedition,
-        tickDoomResolution,
-        completeDoomResolution,
+        tickCrushResolution,
+        completeCrushResolution,
         tickDrawAnim,
         completeDrawAnim,
         replaceInventoryItem,

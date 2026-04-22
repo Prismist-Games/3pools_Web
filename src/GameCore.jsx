@@ -86,8 +86,8 @@ const GameCore = () => {
         expeditionNumber, expeditionScores, totalScore, expeditionConfig,
         turnNumber, gold, phase,
         matrix, lastDrawResult, currentWallType, currentLevel, lastDrawDirection,
-        hp, doomGrid, doomLevel, dangerCount,
-        isDoomResolving, doomAnimState, doomResolutionResult,
+        hp, crushGrid, crushLevel, dangerCount,
+        isCrushResolving, crushAnimState, crushResolutionResult,
         inventory, fridge, maxInventorySize, pendingItem, pendingItems,
         toast, clearToast, modalContent,
         flyingItem, setFlyingItem,
@@ -97,7 +97,7 @@ const GameCore = () => {
         handleEvacuate, returnToRestaurant, handleCookResult, startNextDay,
         handleReset, startNextExpedition,
         dayNumber, popularity, lastCookResult,
-        tickDoomResolution, completeDoomResolution,
+        tickCrushResolution, completeCrushResolution,
         tickDrawAnim, completeDrawAnim,
         replaceInventoryItem, discardInventoryItem, synthesizeItems, swapInventoryItems, synthesizeWithPending, discardPendingItem, debugAddItem,
         bulletinBoard, pendingChosenOrder, refreshCharges,
@@ -109,14 +109,14 @@ const GameCore = () => {
         loadTestLevel,
     } = state;
 
-    // --- Doom animation interval ---
+    // --- Crush animation interval (人挤人) ---
     useEffect(() => {
-        if (!doomAnimState || doomAnimState.phase !== 'spinning') return;
-        const progress = doomAnimState.tick / doomAnimState.totalTicks;
+        if (!crushAnimState || crushAnimState.phase !== 'spinning') return;
+        const progress = crushAnimState.tick / crushAnimState.totalTicks;
         const interval = 60 + progress * 120;
-        const timer = setTimeout(tickDoomResolution, interval);
+        const timer = setTimeout(tickCrushResolution, interval);
         return () => clearTimeout(timer);
-    }, [doomAnimState]);
+    }, [crushAnimState]);
 
     // --- Draw scanning animation interval ---
     useEffect(() => {
@@ -148,31 +148,31 @@ const GameCore = () => {
     // modifier/level info upfront, so a post-pick reveal would be redundant.
     // The dish-intro RoundTransition is kept for the opening menu reveal.
 
-    // --- Doom grid cell style (with animation highlights) ---
-    const getDoomCellClass = (cell, cellIndex) => {
+    // --- Crush grid cell style (with animation highlights) ---
+    const getCrushCellClass = (cell, cellIndex) => {
         const base = cell.type === 'danger'
             ? 'bg-[#FFE8E2] border-kitchen-danger text-kitchen-danger-text font-bold'
             : 'bg-[#F5F0E8] border-kitchen-gold-border-muted text-kitchen-text-muted';
 
-        if (!doomAnimState) return base;
+        if (!crushAnimState) return base;
 
-        const cursorCount = doomAnimState.spinningPositions.filter(p => p === cellIndex).length;
+        const cursorCount = crushAnimState.spinningPositions.filter(p => p === cellIndex).length;
         if (cursorCount === 0) return base;
 
-        if (doomAnimState.phase === 'spinning') {
+        if (crushAnimState.phase === 'spinning') {
             return `${base} ring-2 ring-kitchen-gold scale-110 z-10 transition-all duration-75`;
         }
-        const isHit = doomAnimState.finalSelections.some(s => s.index === cellIndex && s.isHit);
+        const isHit = crushAnimState.finalSelections.some(s => s.index === cellIndex && s.isHit);
         if (isHit) {
             return 'bg-[#FFD4C8] border-kitchen-danger-border text-kitchen-danger-text font-bold ring-3 ring-kitchen-danger scale-125 z-10 transition-all duration-300';
         }
         return 'bg-[#D4F0DC] border-kitchen-success-border text-[#408060] font-bold ring-3 ring-kitchen-success scale-125 z-10 transition-all duration-300';
     };
 
-    // --- Cursor count bubble on doom cells ---
-    const getDoomCellCursors = (cellIndex) => {
-        if (!doomAnimState) return 0;
-        return doomAnimState.spinningPositions.filter(p => p === cellIndex).length;
+    // --- Cursor count bubble on crush cells ---
+    const getCrushCellCursors = (cellIndex) => {
+        if (!crushAnimState) return 0;
+        return crushAnimState.spinningPositions.filter(p => p === cellIndex).length;
     };
 
     // --- Compute fly animation position ONCE per flyingItem.id ---
@@ -314,7 +314,7 @@ const GameCore = () => {
                                             gold={gold}
                                             drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
                                             phase={phase}
-                                            disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
+                                            disabled={isCrushResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
                                             drawAnimState={drawAnimState}
                                             wallType={currentWallType}
                                             lastDrawDirection={lastDrawDirection}
@@ -325,7 +325,7 @@ const GameCore = () => {
                                         />
 
                                         {/* Draw result feedback */}
-                                        {lastDrawResult && !isDoomResolving && !isDrawAnimating && (
+                                        {lastDrawResult && !isCrushResolving && !isDrawAnimating && (
                                             <div className={`mt-3 p-2 rounded text-sm ${
                                                 lastDrawResult.obtained
                                                     ? 'bg-green-50 text-green-700'
@@ -358,9 +358,9 @@ const GameCore = () => {
                                             )}
                                             <button
                                                 onClick={phase === 'drawing_sub' ? exitSubLevel : endTurn}
-                                                disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
+                                                disabled={isCrushResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
                                                 className={`w-full px-6 py-2 rounded-lg font-bold transition-colors ${
-                                                    isDoomResolving || isDrawAnimating || pendingItems.length > 0
+                                                    isCrushResolving || isDrawAnimating || pendingItems.length > 0
                                                         ? 'bg-kitchen-card/60 border-2 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
                                                         : phase === 'drawing_sub'
                                                             ? 'bg-kitchen-info border-2 border-kitchen-info-border text-white hover:brightness-95'
@@ -487,21 +487,21 @@ const GameCore = () => {
                             {/* Today's dish (replaces ScoreBoard) */}
                             {currentDish && <DishCard dish={currentDish} />}
 
-                            {/* Doom Grid */}
+                            {/* Crush Grid (人挤人) */}
                             <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
                                 <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between">
                                     <h3 className="text-sm font-bold text-kitchen-text-body">🧑 {t('人群')}</h3>
-                                    <span className="text-[11px] font-bold text-kitchen-danger-text">{dangerCount}LV{doomLevel}</span>
+                                    <span className="text-[11px] font-bold text-kitchen-danger-text">人挤人 {dangerCount}LV{crushLevel}</span>
                                 </div>
                                 <div className="p-2">
                                     <div className="grid grid-cols-5 gap-1">
-                                        {doomGrid.map((cell, i) => {
-                                            const cursors = getDoomCellCursors(i);
+                                        {crushGrid.map((cell, i) => {
+                                            const cursors = getCrushCellCursors(i);
                                             return (
                                                 <div
                                                     key={i}
                                                     className={`w-10 h-10 rounded flex items-center justify-center text-sm border relative
-                                                        ${getDoomCellClass(cell, i)}`}
+                                                        ${getCrushCellClass(cell, i)}`}
                                                 >
                                                     {cell.type === 'danger' ? (cell.emoji || '🧑') : '·'}
                                                     {cursors > 0 && (
@@ -513,21 +513,21 @@ const GameCore = () => {
                                             );
                                         })}
                                     </div>
-                                    {/* Doom animation result + confirm */}
-                                    {doomAnimState?.phase === 'settled' && (
+                                    {/* Crush animation result + confirm */}
+                                    {crushAnimState?.phase === 'settled' && (
                                         <div className="mt-2 pt-2 border-t border-dashed border-kitchen-gold-border/30">
                                             <div className="flex items-center gap-1 mb-2">
-                                                {doomAnimState.finalSelections.map((s, i) => (
+                                                {crushAnimState.finalSelections.map((s, i) => (
                                                     <span key={i} className={`text-lg ${s.isHit ? 'animate-bounce' : ''}`}>
                                                         {s.isHit ? (s.emoji || '🧑') : '✅'}
                                                     </span>
                                                 ))}
-                                                {doomAnimState.hpLoss > 0 && (
-                                                    <span className="text-red-500 font-bold text-xs ml-1">{t('菜篮')} -{doomAnimState.hpLoss} {t('耐久')}</span>
+                                                {crushAnimState.hpLoss > 0 && (
+                                                    <span className="text-red-500 font-bold text-xs ml-1">{t('菜篮')} -{crushAnimState.hpLoss} {t('耐久')}</span>
                                                 )}
                                             </div>
                                             <button
-                                                onClick={completeDoomResolution}
+                                                onClick={completeCrushResolution}
                                                 className="w-full py-1.5 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body font-bold rounded-md text-xs shadow-[0_2px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
                                             >
                                                 {t('确认')}
@@ -872,18 +872,18 @@ const GameCore = () => {
                     </div>
                 )}
 
-                {/* Doom resolution result — only during show phases */}
-                {doomResolutionResult && !isDoomResolving && phase !== 'restaurant' && phase !== 'cook_result' && phase !== 'game_over' && phase !== 'pre_game' && (
+                {/* Crush resolution result — only during show phases */}
+                {crushResolutionResult && !isCrushResolving && phase !== 'restaurant' && phase !== 'cook_result' && phase !== 'game_over' && phase !== 'pre_game' && (
                     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-lg shadow-lg">
                         <div className="text-sm">
                             🧑 {t('抢菜人')}:
-                            {doomResolutionResult.hits.map((hit, i) => (
+                            {crushResolutionResult.hits.map((hit, i) => (
                                 <span key={i} className={`ml-1 ${hit.result === 'danger' ? 'text-red-400' : 'text-gray-400'}`}>
                                     {hit.result === 'danger' ? '💥' : '·'}
                                 </span>
                             ))}
-                            {doomResolutionResult.hpLoss > 0 && (
-                                <span className="text-red-400 ml-2">{t('菜篮')} -{doomResolutionResult.hpLoss} {t('耐久')}</span>
+                            {crushResolutionResult.hpLoss > 0 && (
+                                <span className="text-red-400 ml-2">{t('菜篮')} -{crushResolutionResult.hpLoss} {t('耐久')}</span>
                             )}
                         </div>
                     </div>

@@ -1,4 +1,4 @@
-import { MATRIX_CONFIG, pickDoomEmoji } from '../data/matrixConfig';
+import { MATRIX_CONFIG, pickCrushEmoji } from '../data/matrixConfig';
 import { INGREDIENTS } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 
@@ -88,7 +88,7 @@ export function generateWall(marketIngredients) {
       const bombChance = orderChance + (LIVE_CONFIG.cellSpawn.bomb || 0);
 
       if (roll < doomChance) {
-        grid[row][col] = { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
+        grid[row][col] = { type: 'crowd_grabber', icon: pickCrushEmoji(), name: doomCells.resolution.name, uid: generateUID() };
         doomCellCount.resolution++;
         continue;
       }
@@ -202,7 +202,7 @@ export function fillDoomAndSpecials(grid, gridSize) {
       } else if (roll < bombChance) {
         grid[row][col] = { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
       } else if (roll < doomResChance) {
-        grid[row][col] = { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
+        grid[row][col] = { type: 'crowd_grabber', icon: pickCrushEmoji(), name: doomCells.resolution.name, uid: generateUID() };
         doomCellCount.resolution++;
       }
     }
