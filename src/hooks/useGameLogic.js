@@ -352,7 +352,7 @@ export const useGameLogic = (config) => {
         setPhase('map');
     }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
 
-/** End current turn: trigger crush resolution once, then go to between-turns decision */
+/** End current turn (dev-tool path via loadTestLevel): trigger crush resolution, then return to map. */
     const endTurn = () => {
         triggerCrushResolution('end_turn');
     };

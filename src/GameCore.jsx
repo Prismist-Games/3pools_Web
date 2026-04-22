@@ -147,9 +147,6 @@ const GameCore = () => {
         return () => clearTimeout(timer);
     }, [flyingItem]);
 
-    // Per-turn modifier reveal overlay removed — WallPicker now shows
-    // modifier/level info upfront, so a post-pick reveal would be redundant.
-    // The dish-intro RoundTransition is kept for the opening menu reveal.
 
     // --- Crush grid cell style (with animation highlights) ---
     const getCrushCellClass = (cell, cellIndex) => {

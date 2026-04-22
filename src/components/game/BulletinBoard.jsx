@@ -162,8 +162,6 @@ const BulletinBoard = ({
             </div>
 
             <div className="p-2">
-                {/* Inline incoming picker removed — new orders are now chosen
-                    via the centered picker in GameCore's between_turns view. */}
 
                 {/* Replace mode hint (shelf full, player chose an incoming candidate) */}
                 {isReplacing && (
