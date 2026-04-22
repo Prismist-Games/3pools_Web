@@ -52,23 +52,27 @@ React 18 + Vite 6 + Tailwind CSS 3 browser-based game "幸运之墙 Wall of Fort
 - **Config-driven**: Game balance, items, skills — all defined in `src/data/constants.js`. Edit config values, not logic.
 - **i18n**: Chinese is the source language. Wrap all UI strings with `t()` from `useLanguage()`. Add English translations to `src/utils/translations.js`. Never hardcode English in components.
 
-### Game Concepts (Turn-Based Prototype v2.3)
+### Game Concepts (branch: ingredient-trade-flex-io)
 
-- **Setting**: TV game show. Player faces a Prize Wall (奖品墙) each turn.
-- **Game Structure**: 3 expeditions per game. Each expedition: multiple turns of drawing → evacuate. Victory: ≥30 points across 3 evacuations.
-- **Turn Structure**: Prize Wall ready → draw using gold (5/turn default, configurable per level) → doom accumulates → bulletin board adds order → 3-choose-1 next wall → continue or evacuate.
-- **Prize Wall**: 4×4 wall, player selects row OR column, random draw 1 cell. Every cell is an independent 1×1 entity (no polyomino / group system). Cell types: stickers (main), export items (1/2/3/5 pt tiers), order cells, gold cells, 💣 bomb, ❤️‍🩹 heal, 🎒 backpack expand, ⬇️ gravity switch, 🚪 sub-level entrance, ⬜ empty (structural). 💀 doom resolution and ⬆️ doom upgrade cells exist in code but are no longer placed on random walls.
-- **Stickers**: 8 types of local-only materials (⭐🌸⚡🔥🌙🍀🎵🦋). Each wall has configurable types (stickerTypeRange). Consumed when submitting orders.
-- **Orders**: Bulletin board shows 5 orders (reward + difficulty only). Accept to reveal requirements. Max 3 held. Orders need specific sticker types/quantities. Submit anytime, no cost.
-- **Export Items**: Score items from completing orders (1/2/3/5 pts, 3 items per tier). Also rarely appear on wall. Evacuate to convert to score.
-- **Doom System**: 10-cell Doom Grid, +1 danger/turn. 💀 triggers resolution (cursor hits N cells, N = doom level). ⬆️ increases doom level. HP = 5; at 0 = lose entire backpack, forced evacuation.
-- **Backpack**: 15 base slots (expandable via 🎒 cells) shared by stickers and export items.
-- **Wall Selection**: 3-choose-1 per turn. Each candidate is EITHER a modifier (procedural) OR a hand-crafted level (no modifier). Mutually exclusive.
-- **Wall Modifiers**: Basic, Hidden, Drift, Multiplier, Alternating. Only apply to procedural walls.
-- **Level System**: Hand-crafted levels stored as JSON in `src/data/levels/`. Main levels appear in 3-choose-1. Sub-levels entered via 🚪 entrance cells (push/pop wall state, independent gold, shared backpack/doom). Level editor at `/editor`, management at `/levels`.
-- **Gravity**: ⬇️ gravity switch activates persistent downward gravity for the rest of the turn. Polyominos fall as units.
-- **Localization**: Chinese source, English via `name_en`/`description_en` in level JSON + `translations.js` for UI strings.
-- **Planned systems (not in prototype)**: Sticker exchange system, functional wall types (shop), item abilities, doom expansion, evacuation expansion.
+- **Setting**: Dawn 菜市场. Protagonist's restaurant is on the brink — each day they rush the morning market to grab scarce ingredients, fight off rival 抢菜人, then cook a named dish back home to defend popularity. See `design_docs/game_rules.md` for authoritative rules and `design_docs/setting-current-state.md` for narrative.
+- **Day Loop**: Dish reveal → bulletin auto-fills with 4 orders → enter market (draw, fill orders, dodge 抢菜人) → evacuate → cook (slot-based scoring) → popularity delta → next day. `phase` state machine: `pre_game → setup → wall_choice → drawing → between_turns → restaurant → cook_result`.
+- **Victory**: Current prototype — 3 days, cumulative score ≥ 30. Final "评审 Boss" planned, not implemented.
+- **Market (奖品墙)**: 4×4 grid. Each turn the player picks a row OR column; one random cell in it is drawn and removed. Default 3 draws per market (was "gold", now 抽数).
+- **Market Types**: 5 stall types, each supplying one food category — 🦐 海鲜市场, 🍖 肉铺, 🍚 粮食店, 🥬 蔬菜店, 🧀 乳品店. The wall's 抽数/doom/cell distribution is shared; the type only gates which ingredients can appear.
+- **Wall Selection**: Currently **3-choose-1 from the 5 market types** (equal weight, no repeats) with type/description/subcategories fully visible — no hidden reveal step. **Under active redesign**: design direction is to replace 3-choose-1 with a market map where stalls are spatial nodes; see `setting-current-state.md` 当前思考链.
+- **Ingredients**: 80 total, organized 5 大类 × 4 小类 × 4 items (肉 / 海鲜 / 蔬菜 / 主食 / 蛋奶). Each has `tags: [大类, 小类]`. Quality is **not** stored on the cell — it's rolled at draw time.
+- **Quality Tiers**: 5 levels — 普通★(1pt, 40%) / 精选★★(2pt, 30%) / 优质★★★(3pt, 18%) / 顶级★★★★(5pt, 8%) / 传说★★★★★(8pt, 4%). Used for order matching (≥ requirement) and cooking score.
+- **Polyomino Cells**: Ingredient cells generate as 1-cell (60%) / 2-cell domino (30%) / 3-cell tromino (10%) shapes. All cells in a group share ingredient id + `groupId`; drawing removes only the one cell hit, siblings remain.
+- **Procedural Cell Types & Per-Cell Rates**: 🧑 抢菜人 (doom resolution) 15%, 📋 order cell 7%, 💣 bomb (destroys 8-neighborhood) 5%, 🎫 抽数 cell (+1–2 draws) 3%, ingredient cell ~70%. 🎒 backpack-expand, ❤️‍🩹 heal, ⬇️ gravity, 🚪 sub-level, ⬜ empty, ⬆️ doom-upgrade — **no longer placed on procedural walls** (⬆️ fully removed; rest are dormant code paths).
+- **Orders**: Bulletin board of **4, always full**. Templates roll by weighted difficulty — easy:medium:hard:extreme = 30:40:20:10 — each specifying requirement slots (`tag2` subcategory + quality threshold + count) and one reward slot (tag2 + fixed quality). Submitting consumes matching ingredients; player picks which specific ingredient to consume and which specific item to receive as reward. Refresh sources: initial 4 at day start (auto), 1 on each completion (auto), 1 per 📋 cell, 1 per manual refresh. All refreshes funnel through a FIFO `incomingQueue` that becomes 2-choose-1 events when the shelf is full. Initial refresh charges = 0.
+- **Synthesis**: Any 2 items with same id + same quality can combine into 1 item at quality +1 (cap = 传说 5).
+- **Doom System**: 10-cell doom grid, +1 danger/turn. 🧑 triggers resolution — cursor lands N times (N = doom level, currently **fixed at 1** since the upgrade path was removed). Each landing on a danger cell = −1 HP. HP starts at 5/day; at 0 the whole backpack is lost and evacuation is forced. **Doom-level upgrade mechanic is intentionally missing — pending redesign.**
+- **Backpack**: 10 shared slots (`INITIAL_STAGE_CONFIG[0].inventorySize`). Overflow drops into a `pendingItems` queue that the player resolves one-by-one (replace / discard). No in-game expansion currently.
+- **Cooking (restaurant phase)**: Each day has a target dish with slots; each slot has `rules[]` of `{ match: {tag|id}, multiplier }` plus optional `trigger` (dynamic slot spawn on matching tag) and `crossBonus` (another slot's content boosts this slot's multiplier). Score = Σ(ingredient.scoreValue × slot multiplier × crossBonus) + dish `baseline`.
+- **Dispatch 5-axis scoring**: 健康 / 香气 / 口感 / 味道 / 外观 pentagon overlap with a bouncing-ball animation. Exists as a standalone tool page; **not yet wired into cooking flow**.
+- **Popularity**: HP + economy engine (rises/falls on daily cook rating; 0 = lose). Formula and initial value still TBD — `popularity` state field exists but is placeholder.
+- **i18n**: Chinese is source. Wrap UI strings with `t()` from `useLanguage()`; English strings live in `src/utils/translations.js`. Ingredient/dish data carries `nameEn` inline.
+- **Legacy / frozen in code** (do not reason about as active): original 9 modifiers (镜花水月 / 爆裂愈合 / 传送带 / …) and the later 5 modifiers (Basic / Hidden / Drift / Multiplier / Alternating) — logic remains in `useGameLogic.js` but `currentWallType` now stores market-type ids, so nothing triggers. Export-item system, hand-crafted levels (`src/data/levels/`, `/editor`, `/levels`), sub-level 🚪 push/pop, gravity polyomino drop, cluster-elimination helpers (`getClusterMembers` marked `@deprecated`), v1 stage/skill/affix/tool/pool configs in `constants.js` — all dormant.
 
 ### Workflow Rules
 

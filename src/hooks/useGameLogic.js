@@ -242,7 +242,6 @@ export const useGameLogic = (config) => {
     const [afterCrushAction, setAfterCrushAction] = useState(null); // null | 'end_turn'
 
     // --- Map State ---
-    const [actionCounter, setActionCounter] = useState(0);
     const [mapState, setMapState] = useState(null); // initialized on each day start via buildInitialMapState()
 
     // --- Inventory State ---
@@ -301,7 +300,8 @@ export const useGameLogic = (config) => {
     // TURN FLOW
     // =============================================
 
-    /** Start a new turn: generate grid */
+    /** Start a new turn: generate grid
+     *  TODO M9: This function manages the old wall_choice→drawing flow. Will be replaced by map navigation in M9. */
     const startNewTurn = () => {
         const newTurnNumber = turnNumber + 1;
         setTurnNumber(newTurnNumber);
@@ -1693,7 +1693,6 @@ export const useGameLogic = (config) => {
         crushResolutionResult,
 
         // Map
-        actionCounter,
         mapState,
         setMapState,
 
