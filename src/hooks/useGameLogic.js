@@ -8,6 +8,8 @@ import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEI
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 import { pickCrushEmoji } from '../data/matrixConfig';
 import { MAP_V1_NODES, MAP_V1_EDGES } from '../data/maps/map_v1';
+import { MAP_CONFIG } from '../data/mapConfig';
+import { nodeBehaviors } from './useNodeBehaviors';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -243,6 +245,8 @@ export const useGameLogic = (config) => {
 
     // --- Map State ---
     const [mapState, setMapState] = useState(null); // initialized on each day start via buildInitialMapState()
+    const [activeStallNodeId, setActiveStallNodeId] = useState(null);
+    const [evacuationPending, setEvacuationPending] = useState(false);
 
     // --- Inventory State ---
     // inventory = show-only basket (菜篮)
@@ -398,15 +402,14 @@ export const useGameLogic = (config) => {
         setBulletinBoard(initial);
     };
 
-    // When the setup queue drains (after the 5 initial picks), auto-start
-    // the first wall. Gated on dishIntro being dismissed so we don't fire
-    // while the queue is still empty waiting for the intro.
+    // When the setup queue drains (after the initial dish intro dismissal), transition to 'map'.
+    // Gated on dishIntro being dismissed so we don't fire while still in dish intro.
     useEffect(() => {
         if (phase !== 'setup') return;
         if (dishIntroPending) return;
         if (incomingQueue.length > 0) return;
         if (pendingChosenOrder) return;
-        startNewTurn();
+        setPhase('map');
     }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
 
     /** End current turn: trigger crush resolution once, then go to between-turns decision */
@@ -1371,6 +1374,159 @@ export const useGameLogic = (config) => {
     };
 
     // =============================================
+    // MAP NAVIGATION
+    // =============================================
+
+    /** Internal: increment action counter; every N actions trigger a clock tick
+     *  which adds 1 danger cell to the crush grid. */
+    const performAction = () => {
+        if (!mapState) return;
+        const newCounter = mapState.actionCounter + 1;
+        const didTick = newCounter % MAP_CONFIG.clock.actionsPerTick === 0;
+        setMapState(prev => {
+            if (!prev) return prev;
+            return { ...prev, actionCounter: newCounter, clockTicks: prev.clockTicks + (didTick ? 1 : 0) };
+        });
+        if (didTick) {
+            setCrushGrid(prevGrid => {
+                const newGrid = [...prevGrid];
+                for (let i = 0; i < newGrid.length; i++) {
+                    if (newGrid[i].type === 'empty') {
+                        newGrid[i] = { type: 'danger', emoji: pickCrushEmoji() };
+                        break;
+                    }
+                }
+                return newGrid;
+            });
+        }
+    };
+
+    /** Find an edge between two adjacent positions (either direction). */
+    const findEdge = (edges, pos1, pos2) => {
+        return edges.find(e =>
+            (e.from.x === pos1.x && e.from.y === pos1.y && e.to.x === pos2.x && e.to.y === pos2.y) ||
+            (e.from.x === pos2.x && e.from.y === pos2.y && e.to.x === pos1.x && e.to.y === pos1.y)
+        );
+    };
+
+    /** Move the player to (targetX, targetY).
+     *  Valid: same row (dx≤2, dy=0) or same col (dx=0, dy≤2), within 0-3. */
+    const movePlayer = (targetX, targetY) => {
+        if (!mapState) return;
+        const { playerPosition, edges } = mapState;
+        const dx = Math.abs(targetX - playerPosition.x);
+        const dy = Math.abs(targetY - playerPosition.y);
+
+        // Must move, must be on same row or column, max 2 steps
+        const isValidMove = (dx === 0 && dy === 0)
+            ? false
+            : (dy === 0 && dx >= 1 && dx <= 2) || (dx === 0 && dy >= 1 && dy <= 2);
+
+        if (!isValidMove) {
+            showToast('不能移动到那里', 'warning');
+            return;
+        }
+
+        // Compute traversed edges
+        const traversedEdges = [];
+        if (dx === 2) {
+            // 2-cell horizontal: current→mid→target
+            const midX = (playerPosition.x + targetX) / 2;
+            const e1 = findEdge(edges, playerPosition, { x: midX, y: playerPosition.y });
+            const e2 = findEdge(edges, { x: midX, y: playerPosition.y }, { x: targetX, y: targetY });
+            if (e1) traversedEdges.push(e1);
+            if (e2) traversedEdges.push(e2);
+        } else if (dy === 2) {
+            // 2-cell vertical: current→mid→target
+            const midY = (playerPosition.y + targetY) / 2;
+            const e1 = findEdge(edges, playerPosition, { x: playerPosition.x, y: midY });
+            const e2 = findEdge(edges, { x: playerPosition.x, y: midY }, { x: targetX, y: targetY });
+            if (e1) traversedEdges.push(e1);
+            if (e2) traversedEdges.push(e2);
+        } else {
+            // 1-cell move
+            const e = findEdge(edges, playerPosition, { x: targetX, y: targetY });
+            if (e) traversedEdges.push(e);
+        }
+
+        // Trigger crush resolution for each grabber edge
+        for (const edge of traversedEdges) {
+            if (edge.hasGrabber) {
+                triggerCrushResolution(null, 1);
+            }
+        }
+
+        // Update player position
+        setMapState(prev => ({
+            ...prev,
+            playerPosition: { x: targetX, y: targetY },
+        }));
+
+        performAction();
+    };
+
+    /** Handle the result returned by a node's onEnter behavior. */
+    const handleNodeEnterResult = (result, node) => {
+        if (!result) return;
+        switch (result.type) {
+            case 'OPEN_STALL':
+                setActiveStallNodeId(node.id);
+                setPhase('stall_drawing');
+                break;
+            case 'OPEN_ORDER_REGION':
+                showToast(`订单区 ${(result.regionId || '').toUpperCase()} — 即将到来`, 'info');
+                break;
+            case 'OPEN_GOLD_VARIETY':
+                showToast('大排档 — 即将到来', 'info');
+                break;
+            case 'OPEN_GOLD_QUALITY':
+                showToast('酒楼 — 即将到来', 'info');
+                break;
+            case 'CLAIM_POCKET_MONEY':
+                setGold(prev => prev + result.amount);
+                setMapState(prev => ({
+                    ...prev,
+                    nodes: prev.nodes.map(n =>
+                        n.id === node.id ? { ...n, state: { ...n.state, claimed: true } } : n
+                    ),
+                }));
+                performAction();
+                showToast(`💰 零花钱 +${result.amount}g`, 'success');
+                break;
+            case 'ALREADY_CLAIMED':
+                showToast('今天已经领过了', 'info');
+                break;
+            case 'CONFIRM_EVACUATION':
+                setEvacuationPending(true);
+                break;
+            case 'PASSAGE':
+                // Do nothing
+                break;
+            default:
+                break;
+        }
+    };
+
+    /** Enter the current node — calls its onEnter behavior and dispatches the result. */
+    const enterCurrentNode = () => {
+        if (!mapState) return;
+        const node = mapState.nodes.find(
+            n => n.position.x === mapState.playerPosition.x && n.position.y === mapState.playerPosition.y
+        );
+        if (!node) return;
+        const behavior = nodeBehaviors[node.type];
+        if (!behavior) return;
+        const result = behavior.onEnter(node, { gold, inventory, bulletinBoard, crushGrid, hp });
+        handleNodeEnterResult(result, node);
+    };
+
+    /** Leave a stall and return to the map. */
+    const leaveStall = () => {
+        setActiveStallNodeId(null);
+        setPhase('map');
+    };
+
+    // =============================================
     // CRUSH RESOLUTION (人挤人结算)
     // =============================================
 
@@ -1535,6 +1691,7 @@ export const useGameLogic = (config) => {
         setDishIntroPending(false);
         setCurrentDish(null);
         setLastCookResult(null);
+        setEvacuationPending(false);
         setMapState(buildInitialMapState());
         setPhase('pre_game');
     };
@@ -1590,6 +1747,7 @@ export const useGameLogic = (config) => {
         setLastCookResult(null);
         setExpeditionScores([]);
         setTotalScore(0);
+        setEvacuationPending(false);
         setMapState(buildInitialMapState());
     };
 
@@ -1630,6 +1788,7 @@ export const useGameLogic = (config) => {
         setCurrentDish(null);
         setWallCandidates(null);
         setPendingWallCandidate(null);
+        setEvacuationPending(false);
         setMapState(buildInitialMapState());
         setPhase('pre_game');
     };
@@ -1695,6 +1854,12 @@ export const useGameLogic = (config) => {
         // Map
         mapState,
         setMapState,
+        activeStallNodeId,
+        evacuationPending,
+        setEvacuationPending,
+        movePlayer,
+        enterCurrentNode,
+        leaveStall,
 
         // Inventory
         inventory,

@@ -255,23 +255,19 @@ const passageBehavior = {
 };
 
 // ---------------------------------------------------------------------------
-// Hook
+// Plain constant (no hook calls — safe to import anywhere)
 // ---------------------------------------------------------------------------
-export function useNodeBehaviors() {
-    const nodeBehaviors = {
-        stall_seafood:   makeStallBehavior('stall_seafood'),
-        stall_meat:      makeStallBehavior('stall_meat'),
-        stall_vegetable: makeStallBehavior('stall_vegetable'),
-        stall_grain:     makeStallBehavior('stall_grain'),
-        stall_dairy:     makeStallBehavior('stall_dairy'),
-        order_region_a:  orderRegionBehavior,
-        order_region_b:  orderRegionBehavior,
-        gold_variety:    goldVarietyBehavior,
-        gold_quality:    goldQualityBehavior,
-        pocket_money:    pocketMoneyBehavior,
-        entry_exit:      entryExitBehavior,
-        passage:         passageBehavior,
-    };
-
-    return { nodeBehaviors };
-}
+export const nodeBehaviors = {
+    stall_seafood:   makeStallBehavior('stall_seafood'),
+    stall_meat:      makeStallBehavior('stall_meat'),
+    stall_vegetable: makeStallBehavior('stall_vegetable'),
+    stall_grain:     makeStallBehavior('stall_grain'),
+    stall_dairy:     makeStallBehavior('stall_dairy'),
+    order_region_a:  orderRegionBehavior,
+    order_region_b:  orderRegionBehavior,
+    gold_variety:    goldVarietyBehavior,
+    gold_quality:    goldQualityBehavior,
+    pocket_money:    pocketMoneyBehavior,
+    entry_exit:      entryExitBehavior,
+    passage:         passageBehavior,
+};
