@@ -1540,17 +1540,21 @@ export const useGameLogic = (config) => {
 
     /** Grant a tool. If toolbar has room add it AND enqueue for grant popup;
      *  otherwise route to the overflow modal (which doubles as the grant
-     *  notification for the overflow path). */
+     *  notification for the overflow path).
+     *
+     *  IMPORTANT: Side-effect setters (setToolGrantQueue / setPendingToolGrant)
+     *  live OUTSIDE the setTools updater. React.StrictMode double-invokes
+     *  state updater functions in dev to catch impure logic — any setter
+     *  called inside an updater would fire twice, causing ghost grant popups
+     *  and double-counted overflow events. */
     const addTool = (tool) => {
-        setTools(prev => {
-            if (prev.length < TOOL_CONFIG.capacity) {
-                // Room available — enqueue for grant popup
-                setToolGrantQueue(curr => [...curr, tool]);
-                return [...prev, tool];
-            }
+        const hasRoom = tools.length < TOOL_CONFIG.capacity;
+        if (hasRoom) {
+            setTools(prev => prev.length < TOOL_CONFIG.capacity ? [...prev, tool] : prev);
+            setToolGrantQueue(prev => [...prev, tool]);
+        } else {
             setPendingToolGrant(tool);
-            return prev;
-        });
+        }
     };
 
     /** Dismiss the grant popup — clears all currently queued tools. */
@@ -1585,14 +1589,15 @@ export const useGameLogic = (config) => {
     /** Cancel the currently active tool (no consumption). */
     const cancelUseTool = () => setActiveTool(null);
 
-    /** Remove the active tool from toolbar and clear active mode. */
+    /** Remove the active tool from toolbar and clear active mode. Side-effect
+     *  setters (setTools) kept outside the setActiveTool updater so StrictMode
+     *  doesn't fire them twice. */
     const consumeActiveTool = () => {
-        setActiveTool(curr => {
-            if (curr?.uid) {
-                setTools(prev => prev.filter(tool => tool.uid !== curr.uid));
-            }
-            return null;
-        });
+        const uid = activeTool?.uid;
+        setActiveTool(null);
+        if (uid) {
+            setTools(prev => prev.filter(tool => tool.uid !== uid));
+        }
     };
 
     // --- Tool effect handlers ---
