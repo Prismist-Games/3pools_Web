@@ -617,9 +617,11 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'order_cell') {
             // Order cells queue an additional pick-1-of-2 for the end of
             // this wall (resolved in between_turns along with the default
-            // one from endTurn).
-            addBulletinOrder();
-            showToast(`📋 ${t('新订单')} +1`, 'info');
+            // one from endTurn). 立牌放大：入 mult 个订单事件。
+            for (let i = 0; i < mult; i++) {
+                addBulletinOrder();
+            }
+            showToast(`📋 ${t('新订单')} +${mult}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'info');
         } else if (drawnCell.type === 'heal') {
             const amount = (drawnCell.healAmount || 1) * mult;
             setHp(prev => Math.min(prev + amount, doomConfig.initialHP));
@@ -925,8 +927,7 @@ export const useGameLogic = (config) => {
         });
 
         if (obtainedItem) {
-            // 一摊永远产出 1 个 —— buff field 是正向增益，不该放大负面占位物
-            const yieldCount = obtainedItem.type === 'slime' ? 1 : mult;
+            const yieldCount = mult;
             const flyId = Date.now();
             console.log('[FLY-DIAG] setFlyingItem called, id =', flyId, 'yieldCount =', yieldCount);
             setFlyingItem({
@@ -1361,13 +1362,14 @@ export const useGameLogic = (config) => {
      *  kitchen. Transfers out-of-game items from the basket (inventory)
      *  into the home fridge (persistent across days), then clears them
      *  out of the basket. Stickers stay in the inventory until startNextDay
-     *  resets it (they don't belong in the fridge). */
+     *  resets it (they don't belong in the fridge).
+     *  黏糊糊的一摊/一坨：不入冰箱，撤离时直接扔掉——它不是食材，不该进菜。 */
     const returnToRestaurant = () => {
-        const outOfGame = inventory.filter(i => i.isOutOfGame);
-        if (outOfGame.length > 0) {
-            setFridge(prev => [...prev, ...outOfGame]);
-            setInventory(prev => prev.filter(i => !i.isOutOfGame));
+        const toFridge = inventory.filter(i => i.isOutOfGame && !i.isSlime);
+        if (toFridge.length > 0) {
+            setFridge(prev => [...prev, ...toFridge]);
         }
+        setInventory(prev => prev.filter(i => !i.isOutOfGame));
         setPhase('restaurant');
     };
 
