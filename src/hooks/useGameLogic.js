@@ -7,6 +7,7 @@ import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 import { pickCrushEmoji } from '../data/matrixConfig';
+import { MAP_V1_NODES, MAP_V1_EDGES } from '../data/maps/map_v1';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -159,6 +160,18 @@ function generateOrder() {
     return { id: generateUID(), difficulty: template.difficulty, rewards: [finalReward], totalScore: finalReward.score, requirements };
 }
 
+/** Build a fresh mapState from the v1 map definition. Deep-cloned so each
+ *  day starts with independent mutable node/edge objects. */
+function buildInitialMapState() {
+    return {
+        nodes: JSON.parse(JSON.stringify(MAP_V1_NODES)),
+        edges: JSON.parse(JSON.stringify(MAP_V1_EDGES)),
+        playerPosition: { x: 0, y: 0 },
+        actionCounter: 0,
+        clockTicks: 0,
+    };
+}
+
 export const useGameLogic = (config) => {
     const { t, language } = useLanguage();
 
@@ -230,7 +243,7 @@ export const useGameLogic = (config) => {
 
     // --- Map State ---
     const [actionCounter, setActionCounter] = useState(0);
-    const [mapState, setMapState] = useState(null); // will be initialized in M2
+    const [mapState, setMapState] = useState(null); // initialized on each day start via buildInitialMapState()
 
     // --- Inventory State ---
     // inventory = show-only basket (菜篮)
@@ -367,6 +380,7 @@ export const useGameLogic = (config) => {
 
         setBulletinBoard([]);
         setPendingChosenOrder(null);
+        setMapState(buildInitialMapState());
         setPhase('setup');
         // Queue will be filled once the player dismisses the dish intro
         // (see dismissDishIntro below).
@@ -1521,6 +1535,7 @@ export const useGameLogic = (config) => {
         setDishIntroPending(false);
         setCurrentDish(null);
         setLastCookResult(null);
+        setMapState(buildInitialMapState());
         setPhase('pre_game');
     };
 
@@ -1575,6 +1590,7 @@ export const useGameLogic = (config) => {
         setLastCookResult(null);
         setExpeditionScores([]);
         setTotalScore(0);
+        setMapState(buildInitialMapState());
     };
 
     /** Reset per-expedition state but keep meta state, return to pre_game */
@@ -1614,6 +1630,7 @@ export const useGameLogic = (config) => {
         setCurrentDish(null);
         setWallCandidates(null);
         setPendingWallCandidate(null);
+        setMapState(buildInitialMapState());
         setPhase('pre_game');
     };
 
@@ -1678,6 +1695,7 @@ export const useGameLogic = (config) => {
         // Map
         actionCounter,
         mapState,
+        setMapState,
 
         // Inventory
         inventory,
