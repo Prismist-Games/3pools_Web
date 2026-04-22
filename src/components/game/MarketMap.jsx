@@ -1,7 +1,8 @@
 // MarketMap.jsx — 4×4 market map UI for the 'map' phase.
 // Player can see the grid, click valid nodes to move, and click current node to enter.
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 // Short display labels for each node type
 const NODE_LABELS = {
@@ -10,8 +11,8 @@ const NODE_LABELS = {
     stall_vegetable: '蔬菜店',
     stall_grain:     '粮食店',
     stall_dairy:     '乳品店',
-    order_region_a:  '订单 A',
-    order_region_b:  '订单 B',
+    order_region_a:  '食材交换区 A',
+    order_region_b:  '食材交换区 B',
     gold_variety:    '大排档',
     gold_quality:    '酒楼',
     pocket_money:    '零钱袋',
@@ -33,6 +34,22 @@ const NODE_ICONS = {
     pocket_money:    '💰',
     entry_exit:      '🚪',
     passage:         '·',
+};
+
+// Tooltip descriptions for each node type
+const NODE_DESCRIPTIONS = {
+    stall_seafood:   '供应海鲜类食材（虾、贝、鱼等）。进入后从奖品墙抽取。',
+    stall_meat:      '供应肉类食材（猪、牛、羊等）。进入后从奖品墙抽取。',
+    stall_vegetable: '供应蔬菜类食材（叶菜、根茎、瓜果等）。进入后从奖品墙抽取。',
+    stall_grain:     '供应粮食类食材（米、面、豆等）。进入后从奖品墙抽取。',
+    stall_dairy:     '供应蛋奶类食材（鸡蛋、牛奶、乳酪等）。进入后从奖品墙抽取。',
+    order_region_a:  '用背包中的食材完成订单，换取指定奖励食材。',
+    order_region_b:  '用背包中的食材完成订单，换取指定奖励食材。',
+    gold_variety:    '根据携带食材的种类多样性，获得金币奖励。',
+    gold_quality:    '根据携带食材的品质等级，获得金币奖励。',
+    pocket_money:    '随机获得少量金币。',
+    entry_exit:      '菜市场出入口。回到这里后点击可收摊回家。',
+    passage:         '普通过道，可自由通行，无特殊功能。',
 };
 
 // Background color classes by node type category
@@ -86,7 +103,22 @@ const MarketMap = ({
     evacuationPending,
     onConfirmEvacuation,
     onCancelEvacuation,
+    isMoving,
 }) => {
+    const [tooltip, setTooltip] = useState(null);
+
+    const onNodeMouseEnter = useCallback((e, nodeType) => {
+        const desc = NODE_DESCRIPTIONS[nodeType];
+        if (!desc) return;
+        setTooltip({ title: NODE_LABELS[nodeType] || nodeType, content: desc, x: e.clientX, y: e.clientY });
+    }, []);
+
+    const onNodeMouseMove = useCallback((e) => {
+        setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : prev);
+    }, []);
+
+    const onNodeMouseLeave = useCallback(() => setTooltip(null), []);
+
     if (!mapState) return null;
 
     const { nodes, edges, playerPosition } = mapState;
@@ -126,7 +158,7 @@ const MarketMap = ({
             let ringClass = '';
             if (isCurrent) {
                 ringClass = 'ring-2 ring-kitchen-gold ring-offset-1';
-            } else if (isTarget) {
+            } else if (isTarget && !isMoving) {
                 ringClass = 'ring-2 ring-blue-400 ring-offset-1 cursor-pointer hover:ring-blue-500 hover:brightness-95';
             }
 
@@ -144,7 +176,11 @@ const MarketMap = ({
                 <div
                     key={`node_${x}_${y}`}
                     style={{ gridColumn: col, gridRow: row }}
+                    onMouseEnter={(e) => onNodeMouseEnter(e, node.type)}
+                    onMouseMove={onNodeMouseMove}
+                    onMouseLeave={onNodeMouseLeave}
                     onClick={() => {
+                        if (isMoving) return;
                         if (isCurrent) {
                             onEnterNode();
                         } else if (isTarget) {
@@ -155,7 +191,7 @@ const MarketMap = ({
                         w-20 h-20 rounded-lg border-2 flex flex-col items-center justify-center
                         relative select-none transition-all duration-150
                         ${bgClass} ${ringClass}
-                        ${isCurrent ? 'cursor-pointer' : isTarget ? 'cursor-pointer' : 'cursor-default'}
+                        ${isMoving ? 'cursor-not-allowed' : isCurrent ? 'cursor-pointer' : isTarget ? 'cursor-pointer' : 'cursor-default'}
                         ${isClaimed ? 'opacity-50' : ''}
                     `}
                 >
@@ -235,6 +271,16 @@ const MarketMap = ({
 
     return (
         <div className="flex flex-col items-center gap-4">
+            {tooltip && createPortal(
+                <div
+                    style={{ position: 'fixed', top: tooltip.y + 18, left: tooltip.x + 14 }}
+                    className="max-w-[180px] px-3 py-2 bg-gray-900/95 text-white text-xs rounded-lg z-[9999] pointer-events-none shadow-xl border border-gray-700/50 leading-snug"
+                >
+                    <div className="font-bold text-white mb-1">{tooltip.title}</div>
+                    <div className="text-gray-300">{tooltip.content}</div>
+                </div>,
+                document.body
+            )}
             {/* Status bar */}
             <div className="flex items-center gap-4 px-4 py-2 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] rounded-xl border-2 border-kitchen-gold-border shadow-[0_2px_0_#D4B896] text-sm font-bold">
                 <span className="text-kitchen-gold-deep">💰 {gold}g</span>

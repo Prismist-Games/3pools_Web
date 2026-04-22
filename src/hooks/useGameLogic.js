@@ -242,6 +242,11 @@ export const useGameLogic = (config) => {
     const [evacuationPending, setEvacuationPending] = useState(false);
     const [goldModalType, setGoldModalType] = useState(null); // null | 'variety' | 'quality'
     const [orderRegionOpen, setOrderRegionOpen] = useState(null); // null | 'a' | 'b'
+    const [isMoving, setIsMoving] = useState(false);
+    const mapStateRef = useRef(null);
+    mapStateRef.current = mapState; // always-current mirror for async callbacks
+    const movePathRef = useRef(null); // { path: [{x,y}], step: number } | null
+    const advanceMoveStepRef = useRef(null);
 
     // --- Inventory State ---
     // inventory = show-only basket (菜篮)
@@ -1378,68 +1383,83 @@ export const useGameLogic = (config) => {
         );
     };
 
-    /** Move the player to (targetX, targetY).
-     *  Straight: same row/col, 1–2 steps. Diagonal: dx=1 dy=1, L-path (horizontal first). */
-    const movePlayer = (targetX, targetY) => {
-        if (!mapState) return;
-        const { playerPosition, edges } = mapState;
-        const rawDx = targetX - playerPosition.x;
-        const rawDy = targetY - playerPosition.y;
-        const dx = Math.abs(rawDx);
-        const dy = Math.abs(rawDy);
+    /** Build the waypoint path from `from` to `to`.
+     *  Returns [{x,y}, ...] including both endpoints, or null if invalid. */
+    const buildMovePath = (from, to) => {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        if (absDx === 0 && absDy === 0) return null;
+        if (absDy === 0 && absDx >= 1 && absDx <= 2) {
+            if (absDx === 1) return [from, to];
+            return [from, { x: from.x + dx / 2, y: from.y }, to];
+        }
+        if (absDx === 0 && absDy >= 1 && absDy <= 2) {
+            if (absDy === 1) return [from, to];
+            return [from, { x: from.x, y: from.y + dy / 2 }, to];
+        }
+        if (absDx === 1 && absDy === 1) {
+            // L-path: horizontal first
+            return [from, { x: to.x, y: from.y }, to];
+        }
+        return null;
+    };
 
-        const isValidMove = (dx === 0 && dy === 0)
-            ? false
-            : (dy === 0 && dx >= 1 && dx <= 2) || (dx === 0 && dy >= 1 && dy <= 2) || (dx === 1 && dy === 1);
+    /** Advance one step along the in-progress move path.
+     *  Called initially from movePlayer, then from setTimeout or completeCrushResolution. */
+    const advanceMoveStep = () => {
+        const mv = movePathRef.current;
+        if (!mv) return;
+        const { path, step } = mv;
+        const nextStep = step + 1;
 
-        if (!isValidMove) {
-            showToast('不能移动到那里', 'warning');
+        if (nextStep >= path.length) {
+            movePathRef.current = null;
+            setIsMoving(false);
+            performAction();
             return;
         }
 
-        // Compute traversed edges
-        const traversedEdges = [];
-        if (dx === 2) {
-            // 2-cell horizontal: current→mid→target
-            const midX = (playerPosition.x + targetX) / 2;
-            const e1 = findEdge(edges, playerPosition, { x: midX, y: playerPosition.y });
-            const e2 = findEdge(edges, { x: midX, y: playerPosition.y }, { x: targetX, y: targetY });
-            if (e1) traversedEdges.push(e1);
-            if (e2) traversedEdges.push(e2);
-        } else if (dy === 2) {
-            // 2-cell vertical: current→mid→target
-            const midY = (playerPosition.y + targetY) / 2;
-            const e1 = findEdge(edges, playerPosition, { x: playerPosition.x, y: midY });
-            const e2 = findEdge(edges, { x: playerPosition.x, y: midY }, { x: targetX, y: targetY });
-            if (e1) traversedEdges.push(e1);
-            if (e2) traversedEdges.push(e2);
-        } else if (dx === 1 && dy === 1) {
-            // Diagonal: L-path horizontal-first (current→hMid→target)
-            const hMid = { x: targetX, y: playerPosition.y };
-            const e1 = findEdge(edges, playerPosition, hMid);
-            const e2 = findEdge(edges, hMid, { x: targetX, y: targetY });
-            if (e1) traversedEdges.push(e1);
-            if (e2) traversedEdges.push(e2);
+        const from = path[step];
+        const to = path[nextStep];
+        movePathRef.current = { path, step: nextStep };
+
+        const currentEdges = mapStateRef.current?.edges ?? [];
+        const edge = findEdge(currentEdges, from, to);
+        const hadGrabber = edge?.hasGrabber ?? false;
+
+        // Move player AND clear traversed edge grabber atomically
+        setMapState(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                playerPosition: { ...to },
+                edges: hadGrabber
+                    ? prev.edges.map(e => e.id === edge.id ? { ...e, hasGrabber: false } : e)
+                    : prev.edges,
+            };
+        });
+
+        if (hadGrabber) {
+            triggerCrushResolution('move_step');
         } else {
-            // 1-cell straight move
-            const e = findEdge(edges, playerPosition, { x: targetX, y: targetY });
-            if (e) traversedEdges.push(e);
+            setTimeout(() => advanceMoveStepRef.current?.(), 280);
         }
+    };
+    advanceMoveStepRef.current = advanceMoveStep;
 
-        // Trigger crush resolution for each grabber edge
-        for (const edge of traversedEdges) {
-            if (edge.hasGrabber) {
-                triggerCrushResolution(null, 1);
-            }
+    /** Move the player to (targetX, targetY) — animated step-by-step. */
+    const movePlayer = (targetX, targetY) => {
+        if (!mapState || isMoving) return;
+        const path = buildMovePath(mapState.playerPosition, { x: targetX, y: targetY });
+        if (!path) {
+            showToast('不能移动到那里', 'warning');
+            return;
         }
-
-        // Update player position
-        setMapState(prev => ({
-            ...prev,
-            playerPosition: { x: targetX, y: targetY },
-        }));
-
-        performAction();
+        setIsMoving(true);
+        movePathRef.current = { path, step: 0 };
+        advanceMoveStepRef.current?.();
     };
 
     /** Handle the result returned by a node's onEnter behavior. */
@@ -1627,6 +1647,8 @@ export const useGameLogic = (config) => {
             setHp(newHp);
             showToast(t('人挤人命中') + ` -${hpLoss} HP`, 'error');
             if (newHp <= 0) {
+                movePathRef.current = null;
+                setIsMoving(false);
                 setCrushAnimState(null);
                 setIsCrushResolving(false);
                 setAfterCrushAction(null);
@@ -1645,6 +1667,9 @@ export const useGameLogic = (config) => {
         if (afterCrushAction === 'end_turn') {
             setAfterCrushAction(null);
             setPhase('map');
+        } else if (afterCrushAction === 'move_step') {
+            setAfterCrushAction(null);
+            setTimeout(() => advanceMoveStepRef.current?.(), 350);
         }
     };
 
@@ -1938,6 +1963,7 @@ export const useGameLogic = (config) => {
         activeStallNodeId,
         evacuationPending,
         setEvacuationPending,
+        isMoving,
         movePlayer,
         enterCurrentNode,
         leaveStall,

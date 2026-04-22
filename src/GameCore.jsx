@@ -107,7 +107,7 @@ const GameCore = () => {
         enterSubLevel, exitSubLevel,
         loadTestLevel,
         mapState, movePlayer, enterCurrentNode, leaveStall,
-        activeStallNodeId, evacuationPending, setEvacuationPending,
+        activeStallNodeId, evacuationPending, setEvacuationPending, isMoving,
         goldModalType, setGoldModalType, sellToGoldVariety, sellToGoldQuality,
         orderRegionOpen, closeOrderRegion,
     } = state;
@@ -380,6 +380,7 @@ const GameCore = () => {
                                     evacuationPending={evacuationPending}
                                     onConfirmEvacuation={returnToRestaurant}
                                     onCancelEvacuation={() => setEvacuationPending(false)}
+                                    isMoving={isMoving}
                                 />
                             )}
 
