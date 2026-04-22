@@ -107,13 +107,16 @@ const GameCore = () => {
         enterSubLevel, exitSubLevel,
         loadTestLevel,
         mapState, movePlayer, enterCurrentNode, leaveStall,
-        activeStallNodeId, evacuationPending, setEvacuationPending, isMoving,
+        activeStallNodeId, remainingStallDraws, evacuationPending, setEvacuationPending, isMoving,
         goldModalType, setGoldModalType, sellToGoldVariety, sellToGoldQuality,
         currentOrderRegion,
     } = state;
 
     // Auto-start game on mount — skip the pre_game screen
     useEffect(() => { startGame(); }, []);
+
+    // Auto-dismiss dish intro — skip the setup screen
+    useEffect(() => { if (dishIntroPending) dismissDishIntro(); }, [dishIntroPending]);
 
     // --- Crush animation interval (人挤人) ---
     useEffect(() => {
@@ -412,6 +415,9 @@ const GameCore = () => {
                                         <span className="text-kitchen-danger-text">
                                             {Array.from({ length: 5 }).map((_, i) => i < hp ? '❤️' : '🤍').join('')}
                                         </span>
+                                        <span className={`text-xs font-bold ${remainingStallDraws === 0 ? 'text-gray-400' : 'text-kitchen-text-body'}`}>
+                                            🎯 剩余 {remainingStallDraws} 次
+                                        </span>
                                         {mapState && (
                                             <span className="text-kitchen-text-muted text-xs">
                                                 行动: {mapState.actionCounter} | 时钟: {mapState.clockTicks}
@@ -425,7 +431,7 @@ const GameCore = () => {
                                         gold={gold}
                                         drawCost={currentDrawCost}
                                         phase={phase}
-                                        disabled={isCrushResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
+                                        disabled={isCrushResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder || remainingStallDraws <= 0}
                                         drawAnimState={drawAnimState}
                                         wallType={currentWallType}
                                         lastDrawDirection={lastDrawDirection}
