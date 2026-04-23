@@ -50,7 +50,9 @@ function scoreDish(dish, effectiveSlots, placements) {
     const slotScores = effectiveSlots.map((slot, i) => {
         const ing = placements[i];
         if (!ing) return { score: 0, empty: true, required: slot.required, crossBonus: 0 };
-        const base = ing.quality || 1;
+        // FIX: rarity 必须用 scoreValue（1/2/3/5/8 非线性），不能用 quality id（1-5 线性）。
+        // 之前 base = ing.quality 在 Q4 顶级时给 4 分而非 5 分，与 game_rules 不一致。
+        const base = ing.score ?? ing.quality ?? 1;
         const { multiplier, matchLevel } = getSlotMatch(ing, slot);
         return { score: base * multiplier, matchLevel, empty: false, required: slot.required, crossBonus: 0 };
     });
