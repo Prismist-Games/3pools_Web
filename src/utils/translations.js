@@ -1,4 +1,20 @@
 export const EN_TRANSLATIONS = {
+    // --- Tutorial controls (剧情台词暂保留中文 fallback)---
+    "跳过教程": "Skip Tutorial",
+    "继续": "Continue",
+    "确认跳过": "Confirm",
+    "取消": "Cancel",
+    "将跳过开场与新手教程，直接从第二天开始。": "This will skip the prologue and tutorial, starting Day 2 directly.",
+    "我知道了": "Got it",
+    "上灶": "To the kitchen",
+    "开始第 2 天": "Start Day 2",
+    "提示": "Hint",
+    "主角": "You",
+    "变故": "Twist",
+    "老妈的餐厅，交给你了": "Mom's restaurant — yours now",
+    "先把挂面合成到 Q3 再走": "Synthesize the noodles to Q3 before leaving",
+    "回到餐厅": "Back to Restaurant",
+
     // --- Kitchen system ---
     "厨房": "Kitchen",
     "冰箱": "Fridge",

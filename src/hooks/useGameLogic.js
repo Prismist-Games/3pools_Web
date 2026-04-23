@@ -677,9 +677,14 @@ export const useGameLogic = (config) => {
         if (dishIntroPending) return;
         if (incomingQueue.length > 0) return;
         if (pendingChosenOrder) return;
-        // 教程 scene_1_5_dishcard 阶段由 emit start_day_clicked → 推进到 intermission_market
-        // → 再到 scene_2_grainstore → useEffect 直接进 drawing。这里跳过 startNewTurn 避免抢跑。
-        if (tutorialMode && currentTutorialStep?.id === 'scene_1_5_dishcard') return;
+        // 教程态：scene_1_5_dishcard / intermission_market / scene_2_grainstore 阶段都不能让
+        // 这个 useEffect 抢跑——它们各自的 phase 转换由 dismissDishIntro 的 emit + tutorialStepIndex
+        // useEffect 直接驱动。
+        if (tutorialMode && [
+            'scene_1_5_dishcard',
+            'intermission_market',
+            'scene_2_grainstore',
+        ].includes(currentTutorialStep?.id)) return;
         startNewTurn();
     }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
 

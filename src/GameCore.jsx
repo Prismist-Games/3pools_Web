@@ -504,13 +504,24 @@ const GameCore = () => {
                                     )}
 
                                     <div className={`flex justify-center ${incomingOrder ? 'opacity-40 pointer-events-none' : ''}`}>
-                                        <button
-                                            onClick={continueToNextTurn}
-                                            disabled={!!incomingOrder}
-                                            className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
-                                        >
-                                            {t('继续')}
-                                        </button>
+                                        {/* Tutorial 场景 6：在 between_turns 把"继续"按钮临时改为"回到餐厅"，触发 returnToRestaurant */}
+                                        {isInStep('scene_6_evacuate') ? (
+                                            <button
+                                                onClick={returnToRestaurant}
+                                                disabled={!!incomingOrder}
+                                                className="px-8 py-3 bg-gradient-to-b from-kitchen-wood-light to-kitchen-wood-dark border-2 border-kitchen-wood-border text-kitchen-text-title font-bold rounded-xl shadow-[0_3px_0_#C8A880] hover:brightness-105 transition-colors"
+                                            >
+                                                🏪 {t('回到餐厅')}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={continueToNextTurn}
+                                                disabled={!!incomingOrder}
+                                                className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
+                                            >
+                                                {t('继续')}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             )}
