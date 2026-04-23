@@ -7,6 +7,7 @@ import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES, TOOLS, TOOL_CONFIG } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 import { pickDoomEmoji } from '../data/matrixConfig';
+import { TUTORIAL_STEPS } from '../data/tutorialScript';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -277,6 +278,17 @@ export const useGameLogic = (config) => {
     const [dishIntroPending, setDishIntroPending] = useState(false);
     const [currentDish, setCurrentDish] = useState(null);
 
+    // --- Tutorial State ---
+    // 新游戏默认启用教程；玩家点跳过或自然走完最后一步后置 false。
+    // 不持久化——刷新页面回到初始值。
+    const [tutorialMode, setTutorialMode] = useState(true);
+    const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
+    // 当前 step 内已完成的抽取次数（场景 2/4 用 drawResults 序列时累计）。
+    // step 切换时由 advanceTutorial 重置。
+    const [tutorialDrawCount, setTutorialDrawCount] = useState(0);
+    // 主角的临时台词（场景失败 / off-path / onExit 等触发的 transient line）
+    const [tutorialHeroLine, setTutorialHeroLine] = useState(null);
+
     // --- UI State ---
     const [toast, setToast] = useState(null);
     const [lastDrawResult, setLastDrawResult] = useState(null);
@@ -290,6 +302,50 @@ export const useGameLogic = (config) => {
         doomGrid.filter(cell => cell.type === 'danger').length,
         [doomGrid]
     );
+
+    // --- Tutorial Derived ---
+    const currentTutorialStep = tutorialMode
+        ? (TUTORIAL_STEPS[tutorialStepIndex] ?? null)
+        : null;
+    const tutorialOverrides = currentTutorialStep?.overrides ?? null;
+
+    /** 当前是否在教程的某个具体 step（按 id 匹配）。 */
+    const isInStep = (stepId) => tutorialMode && currentTutorialStep?.id === stepId;
+
+    /** 推进到下一步教程；若已是最后一步则关闭教程模式。 */
+    const advanceTutorial = () => {
+        setTutorialStepIndex(i => {
+            const next = i + 1;
+            if (next >= TUTORIAL_STEPS.length) {
+                setTutorialMode(false);
+                return i;
+            }
+            return next;
+        });
+        setTutorialDrawCount(0);
+        setTutorialHeroLine(null);
+    };
+
+    /** 跳过整个教程，直接到 Day 2 海洋线条干净开局。
+     *  T7 完整化此实现；现在只是状态切换。 */
+    const skipTutorial = () => {
+        setTutorialMode(false);
+        setTutorialStepIndex(TUTORIAL_STEPS.length - 1);
+        setTutorialDrawCount(0);
+        setTutorialHeroLine(null);
+        // 真正切到 Day 2 开局的 game state 重置在 T7 实装
+    };
+
+    /** 教程事件分发：根据当前 step.completion.event + guard 决定是否推进。
+     *  各场景的关键完成点（cook_result / wall_selected / order_submitted ...）
+     *  调这个函数 emit 自己的事件名，匹配则推进。 */
+    const emitTutorialEvent = (eventName, ctx = {}) => {
+        if (!tutorialMode || !currentTutorialStep) return;
+        const completion = currentTutorialStep.completion;
+        if (completion?.event !== eventName) return;
+        if (completion.guard && !completion.guard(ctx)) return;
+        advanceTutorial();
+    };
 
     // =============================================
     // TURN FLOW
@@ -1869,5 +1925,17 @@ export const useGameLogic = (config) => {
         applyDisperseTarget,
         applyBombWallTarget,
         applyClearInventoryTarget,
+
+        // Tutorial
+        tutorialMode,
+        tutorialStepIndex,
+        currentTutorialStep,
+        tutorialOverrides,
+        tutorialHeroLine,
+        setTutorialHeroLine,
+        isInStep,
+        advanceTutorial,
+        skipTutorial,
+        emitTutorialEvent,
     };
 };
