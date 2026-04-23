@@ -174,8 +174,8 @@ export const TUTORIAL_STEPS = [
                 { when: 'dialog_done',     targetSelector: '[data-tutorial="row-1"], [data-tutorial="col-1"]', label: '点击抽取这一行或这一列抽取鸡蛋面' },
                 { when: 'first_draw_done', targetSelector: '[data-tutorial="basket-slot-0"]',                  label: '抽到的食材是这一行（或列）4 格里随机选 1 个；\n品质也是抽到之后才随机决定。' },
                 { when: 'draws_done',      targetSelector: '[data-tutorial="basket-area"]',                    label: '相同品质的同名食材可以合成，尝试合成到三星挂面' },
-                { when: 'synth_done',      targetSelector: '[data-tutorial="evacuate-button"]',                label: '点击此处挤出店铺' },
-                { when: 'synth_done',      targetSelector: '[data-tutorial="doom-grid"]',                      label: '挤出店铺需要穿越人群，运气不好的话，菜篮可能会被挤到' },
+                { when: 'synth_done',      targetSelector: '[data-tutorial="evacuate-button"]',                label: '点击此处穿过人潮' },
+                { when: 'synth_done',      targetSelector: '[data-tutorial="doom-grid"]',                      label: '穿过人潮时运气不好的话，菜篮可能会被挤到' },
             ],
         },
         overrides: {
@@ -192,7 +192,7 @@ export const TUTORIAL_STEPS = [
         },
         completion: { event: 'doom_resolved_after_endturn' },
         onAllDrawsDone: { heroLine: '怎么只有挂面啊？算了，也能凑合凑合。' },
-        onSynthDone: { heroLine: '好了，现在该挤出这拥挤的人潮了。' },
+        onSynthDone: { heroLine: '好了，现在该穿过这拥挤的人潮了。' },
         onExit: { heroLine: '……抢个菜也这么费劲。' },
     },
     // —— 7：场景 3 · 市场 3 选 1 ——
@@ -243,7 +243,6 @@ export const TUTORIAL_STEPS = [
             lockEvacuateUntilDrawsExhausted: { reason: '把抽数用完再走' },
         },
         completion: { event: 'doom_resolved_after_endturn' },
-        onExit: { heroLine: '面也没抢到，虾也没抢到。' },
     },
     // —— 9：场景 5 · 交换区登场 + 固定订单 ——
     {
@@ -252,6 +251,7 @@ export const TUTORIAL_STEPS = [
             bottomDialog: {
                 speaker: '主角', emoji: '🧑‍🍳',
                 lines: [
+                    '面也没抢到，虾也没抢到。',
                     '……原来不止我一个没抢到想要的。',
                     '我手上这些，说不定正好是别人缺的。',
                 ],
@@ -308,7 +308,7 @@ export const TUTORIAL_STEPS = [
                 ],
             },
             coachmarks: [
-                { when: 'dialog_done', targetSelector: '[data-tutorial^="kitchen-slot-"]', label: '凑一顿出来' },
+                { when: 'dialog_done', targetSelector: '[data-tutorial^="kitchen-slot-"]', label: '凑一顿出来\n没有完全匹配的食材，靠匹配度和品质也能拿分\n未标"必填"的槽位可以留空' },
             ],
         },
         overrides: {

@@ -1715,9 +1715,18 @@ export const useGameLogic = (config) => {
             }
             // Tutorial 场景 2 / 4 完成事件：挤出店铺 + 人挤人结算完成
             // onExit heroLine 也在此触发（让玩家能看到那句话再推进）
+            //
+            // 关键：emitTutorialEvent → advanceTutorial 会同步 setTutorialHeroLine(null)。
+            // 若 setHeroLine 和 advance 放在同一 React batch 里，React 只会 commit 最后
+            // 一次调用（=null），heroLine 永远显示不出来。用 setTimeout 把 advance 推到
+            // 下一 tick，保证 heroLine 先渲染出来再被清掉（靠 3s auto-dismiss 超时）。
             const onExitLine = currentTutorialStep?.onExit?.heroLine;
-            if (onExitLine) setTutorialHeroLine(onExitLine);
-            emitTutorialEvent('doom_resolved_after_endturn');
+            if (onExitLine) {
+                setTutorialHeroLine(onExitLine);
+                setTimeout(() => emitTutorialEvent('doom_resolved_after_endturn'), 1500);
+            } else {
+                emitTutorialEvent('doom_resolved_after_endturn');
+            }
         }
     };
 
@@ -1790,6 +1799,18 @@ export const useGameLogic = (config) => {
         // Tutorial 场景 1 惊艳路径：跳过日重置，直接推进到 scene_1_5_dishcard
         // Tutorial 场景 7：跳过日重置，推进到 day2_handoff（卡片自己负责后续 Day 2 起手）
         if (tutorialMode && (isInStep('scene_1_cooking') || isInStep('scene_7_cooking'))) {
+            // onComplete.heroLines：依次播放角色独白后再推进。
+            // 脚本里这个字段原来没有消费方，台词永远不会显示——scene_7 结尾
+            // 的两句"……嗯，起码能吃。"/"明天再来一遍……"就是因此被漏掉。
+            const heroLines = currentTutorialStep?.onComplete?.heroLines;
+            if (heroLines && heroLines.length > 0) {
+                const LINE_DURATION_MS = 2500;
+                heroLines.forEach((line, idx) => {
+                    setTimeout(() => setTutorialHeroLine(line), idx * LINE_DURATION_MS);
+                });
+                setTimeout(() => advanceTutorial(), heroLines.length * LINE_DURATION_MS);
+                return;
+            }
             advanceTutorial();
             return;
         }
