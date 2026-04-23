@@ -235,6 +235,43 @@ export const DISHES = [
             },
         ],
     },
+    // —— 教程专属：妈妈的家常汤面（3 槽 required，default 0，无 trigger / crossBonus / exclude）——
+    {
+        id: 'moms_noodle_soup',
+        name: '妈妈的家常汤面',
+        nameEn: "Mom's Noodle Soup",
+        icon: '🍜',
+        baseline: 10,
+        slots: [
+            {
+                name: '面条', required: true,
+                rules: [
+                    { match: { tag: '主食' }, multiplier: 0.5 },
+                    { match: { tag: '面' }, multiplier: 1 },
+                    { match: { id: 'dried_noodles' }, multiplier: 2 },
+                ],
+                defaultMultiplier: 0,
+            },
+            {
+                name: '主料', required: true,
+                rules: [
+                    { match: { tag: '肉类' }, multiplier: 0.5 },
+                    { match: { tag: '鸡' }, multiplier: 1 },
+                    { match: { id: 'chicken_breast' }, multiplier: 2 },
+                ],
+                defaultMultiplier: 0,
+            },
+            {
+                name: '青菜', required: true,
+                rules: [
+                    { match: { tag: '蔬菜' }, multiplier: 0.5 },
+                    { match: { tag: '青菜' }, multiplier: 1 },
+                    { match: { id: 'cabbage' }, multiplier: 2 },
+                ],
+                defaultMultiplier: 0,
+            },
+        ],
+    },
 ];
 
 // --- 订单模板 ---
