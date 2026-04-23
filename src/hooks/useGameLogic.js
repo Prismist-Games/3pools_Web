@@ -4,7 +4,7 @@ import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES, TOOLS, TOOL_CONFIG } from '../data/v2Config';
+import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES, TUTORIAL_DISHES, TOOLS, TOOL_CONFIG } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 import { pickDoomEmoji } from '../data/matrixConfig';
 import { TUTORIAL_STEPS } from '../data/tutorialScript';
@@ -463,8 +463,10 @@ export const useGameLogic = (config) => {
         const stepId = currentTutorialStep.id;
 
         // === 应用 dish 覆盖（任何指定 dish 的 step）===
+        // 教程可能引用正式菜品（DISHES）或教程专属菜（TUTORIAL_DISHES），合并查找。
         if (o.dish) {
-            const dish = DISHES.find(d => d.id === o.dish);
+            const dish = DISHES.find(d => d.id === o.dish)
+                ?? TUTORIAL_DISHES.find(d => d.id === o.dish);
             if (dish) setCurrentDish(dish);
         }
 

@@ -1209,6 +1209,7 @@ const GameCore = ({ playerInfo }) => {
                 onAdvance={advanceTutorial}
                 tutorialHeroLine={tutorialHeroLine}
                 onClearHeroLine={() => setTutorialHeroLine(null)}
+                playerInfo={playerInfo}
                 tutorialDrawCount={tutorialDrawCount}
                 allDrawsDone={tutorialAllDrawsDone}
                 synthDone={tutorialSynthDone}

@@ -235,7 +235,13 @@ export const DISHES = [
             },
         ],
     },
-    // —— 教程专属：妈妈的家常汤面（3 槽 required，default 0，无 trigger / crossBonus / exclude）——
+];
+
+// --- 教程专属菜品（不参与正式游戏的日循环）---
+// 仅由 tutorialScript 通过 id 引用（useGameLogic 的 tutorial dish override 会从这里查找）。
+// 切勿合并进 DISHES —— startGame() 按 (day-1) % DISHES.length 轮选，会让教程菜误入正式关卡。
+export const TUTORIAL_DISHES = [
+    // —— 妈妈的家常汤面（3 槽 required，default 0，无 trigger / crossBonus / exclude）——
     {
         id: 'moms_noodle_soup',
         name: '妈妈的家常汤面',

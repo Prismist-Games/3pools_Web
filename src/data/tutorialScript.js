@@ -281,7 +281,7 @@ export const TUTORIAL_STEPS = [
             postDialogModal: {
                 emoji: '❤️🧺',
                 title: '提示',
-                body: '菜篮耐久度（❤️）归零 = 菜篮丢失、被迫结束一天。\n今天你还有满血，可以放心做菜。',
+                body: '菜篮耐久度（❤️）归零 = 失去菜篮内的所有食材、被迫结束一天。\n你的菜篮还结实，按理说还能够再抢点食材，但今天先到这里吧。',
                 buttonText: '我知道了',
             },
             coachmarks: [
