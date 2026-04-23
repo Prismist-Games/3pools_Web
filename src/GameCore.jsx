@@ -116,7 +116,7 @@ const GameCore = ({ playerInfo }) => {
         applySwapTarget, applyDisperseTarget, applyBombWallTarget, applyClearInventoryTarget,
         // Tutorial
         tutorialMode, currentTutorialStep, tutorialOverrides, tutorialHeroLine, setTutorialHeroLine,
-        tutorialResetCounter,
+        tutorialResetCounter, tutorialDrawCount,
         isInStep, advanceTutorial, skipTutorial,
     } = state;
 
@@ -221,6 +221,37 @@ const GameCore = ({ playerInfo }) => {
             pointerEvents: 'none',
         });
     }, [flyingItem?.id]);
+
+    // === 教程派生信号 + 一次性 hero line 触发 ===
+    const tutorialAllDrawsDone = !!(
+        tutorialOverrides?.drawResults
+        && tutorialDrawCount >= tutorialOverrides.drawResults.length
+    );
+    const tutorialSynthDone = inventory.some(i => i?.id === 'dried_noodles' && i?.quality >= 3);
+
+    // 各 step 切换时复位 ref，避免上一 step 已 fire 过的 transition 影响下一 step
+    const allDrawsFiredRef = useRef(false);
+    const synthFiredRef = useRef(false);
+    useEffect(() => {
+        allDrawsFiredRef.current = false;
+        synthFiredRef.current = false;
+    }, [currentTutorialStep?.id]);
+
+    useEffect(() => {
+        if (tutorialAllDrawsDone && !allDrawsFiredRef.current) {
+            allDrawsFiredRef.current = true;
+            const line = currentTutorialStep?.onAllDrawsDone?.heroLine;
+            if (line) setTutorialHeroLine(line);
+        }
+    }, [tutorialAllDrawsDone, currentTutorialStep, setTutorialHeroLine]);
+
+    useEffect(() => {
+        if (tutorialSynthDone && !synthFiredRef.current) {
+            synthFiredRef.current = true;
+            const line = currentTutorialStep?.onSynthDone?.heroLine;
+            if (line) setTutorialHeroLine(line);
+        }
+    }, [tutorialSynthDone, currentTutorialStep, setTutorialHeroLine]);
 
     return (
         <div className="min-h-screen p-4">
@@ -327,7 +358,14 @@ const GameCore = ({ playerInfo }) => {
                         <div className="flex-1 min-w-0">
                             {/* Wall choice phase — 3-choose-1 */}
                             {phase === 'wall_choice' && wallCandidates && (
-                                <WallPicker candidates={wallCandidates} onSelect={selectWall} onHoverIngredientIds={setHoveredIngredientIds} onReturnToRestaurant={handleEvacuate} />
+                                <WallPicker
+                                    candidates={wallCandidates}
+                                    onSelect={selectWall}
+                                    onHoverIngredientIds={setHoveredIngredientIds}
+                                    onReturnToRestaurant={handleEvacuate}
+                                    returnLockReason={tutorialOverrides?.lockReturnRestaurant?.reason}
+                                    candidatesLockReason={tutorialOverrides?.lockMarketCandidates?.reason}
+                                />
                             )}
 
                             {/* Drawing phase */}
@@ -413,13 +451,22 @@ const GameCore = ({ playerInfo }) => {
                                                 // 判定标准：菜篮里有 Q3 挂面（玩家完成了 Q1+Q1→Q2，再 Q2+Q2→Q3）
                                                 const lockedBySynth = !!tutorialOverrides?.lockEvacuateUntilSynth
                                                     && !inventory.some(i => i?.id === 'dried_noodles' && i?.quality >= 3);
+                                                // 教程场景 4 lockEvacuateUntilDrawsExhausted：抽数没用完不让走
+                                                const drawsLockCfg = tutorialOverrides?.lockEvacuateUntilDrawsExhausted;
+                                                const lockedByDraws = !!drawsLockCfg && gold > 0;
                                                 const baseDisabled = isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder;
-                                                const isDisabled = baseDisabled || lockedBySynth;
+                                                const isDisabled = baseDisabled || lockedBySynth || lockedByDraws;
+                                                const titleText = lockedBySynth
+                                                    ? t('先把挂面合成到 Q3 再走')
+                                                    : lockedByDraws
+                                                        ? t(drawsLockCfg?.reason || '把抽数用完再走')
+                                                        : undefined;
                                                 return (
                                                     <button
+                                                        data-tutorial="evacuate-button"
                                                         onClick={phase === 'drawing_sub' ? exitSubLevel : endTurn}
                                                         disabled={isDisabled}
-                                                        title={lockedBySynth ? t('先把挂面合成到 Q3 再走') : undefined}
+                                                        title={titleText}
                                                         className={`w-full px-6 py-2 rounded-lg font-bold transition-colors ${
                                                             isDisabled
                                                                 ? 'bg-kitchen-card/60 border-2 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
@@ -555,7 +602,7 @@ const GameCore = ({ playerInfo }) => {
                             {currentDish && <DishCard dish={currentDish} />}
 
                             {/* Doom Grid */}
-                            <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
+                            <div data-tutorial="doom-grid" className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
                                 <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between">
                                     <h3 className="text-sm font-bold text-kitchen-text-body">🧑 {t('人群')}</h3>
                                     <span className="text-[11px] font-bold text-kitchen-danger-text">{dangerCount}LV{doomLevel}</span>
@@ -605,7 +652,7 @@ const GameCore = ({ playerInfo }) => {
                             </div>
 
                             {/* Inventory */}
-                            <div ref={inventoryRef} className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
+                            <div data-tutorial="basket-area" ref={inventoryRef} className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
                                 <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between gap-2">
                                     <h3 className="text-sm font-bold text-kitchen-text-body">🧺 {t('菜篮')}</h3>
                                     <div className="flex items-center gap-1.5">
@@ -667,7 +714,13 @@ const GameCore = ({ playerInfo }) => {
                                                 <button
                                                     onMouseEnter={() => setActionHint('recycle')}
                                                     onClick={() => { setRecycleMode(true); setRecycleSelected(new Set()); setSynthesizeMode(false); setSynthesizeSelected(new Set()); }}
-                                                    className="text-[10px] px-2 py-1 rounded-md font-bold text-kitchen-text-body bg-[#FFF3E0] border border-kitchen-gold-border hover:bg-[#FFF0EE] hover:text-kitchen-danger-text transition-colors">{t('丢弃')}</button>
+                                                    disabled={tutorialMode}
+                                                    title={tutorialMode ? t('教程期间不能丢弃食材') : undefined}
+                                                    className={`text-[10px] px-2 py-1 rounded-md font-bold border transition-colors ${
+                                                        tutorialMode
+                                                            ? 'bg-kitchen-card border-kitchen-gold-border-muted text-kitchen-text-muted opacity-60 cursor-not-allowed'
+                                                            : 'text-kitchen-text-body bg-[#FFF3E0] border-kitchen-gold-border hover:bg-[#FFF0EE] hover:text-kitchen-danger-text'
+                                                    }`}>{t('丢弃')}</button>
                                                 <button
                                                     onMouseEnter={() => setActionHint('synthesize')}
                                                     onClick={() => { setSynthesizeMode(true); setSynthesizeSelected(new Set()); setRecycleMode(false); setRecycleSelected(new Set()); }}
@@ -718,6 +771,7 @@ const GameCore = ({ playerInfo }) => {
                                             const sc = item?.isOutOfGame ? (SCORE_STYLE[item.quality || item.rarity || item.score] || SCORE_STYLE[1]) : null;
                                             const cell = (
                                                 <div
+                                                    data-tutorial={`basket-slot-${i}`}
                                                     onClick={() => {
                                                         // Clear-inventory tool takes priority when active — click to discard + gain 1 draw.
                                                         if (activeTool?.id === 'clear_inventory') {
@@ -824,6 +878,10 @@ const GameCore = ({ playerInfo }) => {
                         onCook={(result, usedUids) => handleCookResult(result, usedUids)}
                         onClose={() => {}}
                         isRestaurantPhase={true}
+                        onAllRequiredFilled={() => {
+                            const line = currentTutorialStep?.onPlacementsReady?.heroLine;
+                            if (line) setTutorialHeroLine(line);
+                        }}
                     />
                 )}
 
@@ -1151,6 +1209,10 @@ const GameCore = ({ playerInfo }) => {
                 onAdvance={advanceTutorial}
                 tutorialHeroLine={tutorialHeroLine}
                 onClearHeroLine={() => setTutorialHeroLine(null)}
+                tutorialDrawCount={tutorialDrawCount}
+                allDrawsDone={tutorialAllDrawsDone}
+                synthDone={tutorialSynthDone}
+                peekUsed={!!matrix?.some(row => row?.some(c => c?.item?.qualityPeeked))}
             />
         </div>
     );

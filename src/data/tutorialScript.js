@@ -37,17 +37,19 @@ const TUTORIAL_DISH_FRIDGE = [
     { id: 'cabbage', quality: 4 },
 ];
 
-// 教程固定订单：消耗扇贝Q2 + 梭子蟹Q2，奖励香菇Q3
+// 教程固定订单：消耗任一 贝Q2 + 任一 蟹Q2（玩家手上正好是扇贝Q2 + 梭子蟹Q2），奖励 菌菇Q3
+// 字段结构对齐 useGameLogic.js 的 generateOrder 输出，使 BulletinBoard / OrderCard 能正常渲染。
 const TUTORIAL_FIXED_ORDER = {
     id: 'tutorial_order',
-    difficulty: 'medium',  // 借现有 difficulty 视觉
+    difficulty: 'medium',
     requirements: [
-        { tag2: '贝', count: 1, quality: 2, ingredientIds: ['scallop'] },
-        { tag2: '蟹', count: 1, quality: 2, ingredientIds: ['swimming_crab'] },
+        { tag2: '贝',   categoryTag: '海鲜', icon: '🐚', name: '贝',   tags: ['海鲜', '贝'],   quality: 2, count: 1 },
+        { tag2: '蟹',   categoryTag: '海鲜', icon: '🦀', name: '蟹',   tags: ['海鲜', '蟹'],   quality: 2, count: 1 },
     ],
     rewards: [
-        { tag2: '菌菇', count: 1, quality: 3, ingredientIds: ['shiitake'] },
+        { tag2: '菌菇', categoryTag: '蔬菜', icon: '🍄', name: '菌菇', tags: ['蔬菜', '菌菇'], quality: 3, score: 3, isOutOfGame: true },
     ],
+    totalScore: 3,
 };
 
 // 默认 disableUI 列表：教程期间隐藏所有 debug 入口
@@ -63,7 +65,7 @@ export const TUTORIAL_STEPS = [
         ui: {
             fullScreenCard: {
                 emoji: '👩‍🍳🍽️',
-                body: '老妈是某家餐厅的主厨。在她的坚持和对料理的追求下，餐厅经营得蒸蒸日上，在美食界小有名气。',
+                body: '从我记事起，妈妈就是这家餐厅的主厨。她对料理的执着，让这家不大的小店在街坊间小有名气。',
                 buttonText: '继续',
             },
         },
@@ -89,8 +91,7 @@ export const TUTORIAL_STEPS = [
         ui: {
             fullScreenCard: {
                 emoji: '🏥🛏️',
-                title: '变故',
-                body: '世事无常——老妈病倒了。\n尚未准备好的你，不得不匆匆接过她的大旗，承担起经营家族餐厅的任务。',
+                body: '可世事无常，老妈突然病倒了。\n尚未准备好的你，不得不匆匆接过她的大旗，承担起经营家族餐厅的任务。',
                 buttonText: '上灶',
             },
         },
@@ -105,7 +106,11 @@ export const TUTORIAL_STEPS = [
                 speaker: '主角', emoji: '🧑‍🍳',
                 lines: ['这道菜老妈做了多少遍，我闭着眼都记得料该怎么摆。——先开冰箱。'],
             },
+            coachmarks: [
+                { when: 'dialog_done', targetSelector: '[data-tutorial^="kitchen-slot-"]', label: '把食材放进对应槽位' },
+            ],
         },
+        onPlacementsReady: { heroLine: '——成了。这下就跟老妈做的一个味儿。' },
         overrides: {
             dish: 'moms_noodle_soup',
             fridgePreload: TUTORIAL_DISH_FRIDGE,
@@ -132,6 +137,9 @@ export const TUTORIAL_STEPS = [
                     '……冰箱见底了。老妈平常是上哪儿采买来着？',
                 ],
             },
+            coachmarks: [
+                { when: 'dialog_done', targetSelector: '[data-tutorial="start-day-button"]', label: '点击前往菜市场' },
+            ],
         },
         overrides: {
             dish: 'ocean_threads',
@@ -159,8 +167,16 @@ export const TUTORIAL_STEPS = [
                 lines: [
                     '这就是老妈常念叨的菜市场？——人怎么这么多。',
                     '老板！鸡蛋面有没有？今晚的海洋线条等着下锅呢！',
+                    { speaker: '老板', emoji: '👨', text: '自己找去！这边都忙不过来！' },
                 ],
             },
+            coachmarks: [
+                { when: 'dialog_done',     targetSelector: '[data-tutorial="row-1"], [data-tutorial="col-1"]', label: '点击抽取这一行或这一列抽取鸡蛋面' },
+                { when: 'first_draw_done', targetSelector: '[data-tutorial="basket-slot-0"]',                  label: '抽到的食材是这一行（或列）4 格里随机选 1 个；\n品质也是抽到之后才随机决定。' },
+                { when: 'draws_done',      targetSelector: '[data-tutorial="basket-area"]',                    label: '相同品质的同名食材可以合成，尝试合成到三星挂面' },
+                { when: 'synth_done',      targetSelector: '[data-tutorial="evacuate-button"]',                label: '点击此处挤出店铺' },
+                { when: 'synth_done',      targetSelector: '[data-tutorial="doom-grid"]',                      label: '挤出店铺需要穿越人群，运气不好的话，菜篮可能会被挤到' },
+            ],
         },
         overrides: {
             forceMarket: 'grain_store',
@@ -175,6 +191,8 @@ export const TUTORIAL_STEPS = [
             lockEvacuateUntilSynth: true,
         },
         completion: { event: 'doom_resolved_after_endturn' },
+        onAllDrawsDone: { heroLine: '怎么只有挂面啊？算了，也能凑合凑合。' },
+        onSynthDone: { heroLine: '好了，现在该挤出这拥挤的人潮了。' },
         onExit: { heroLine: '……抢个菜也这么费劲。' },
     },
     // —— 7：场景 3 · 市场 3 选 1 ——
@@ -185,12 +203,16 @@ export const TUTORIAL_STEPS = [
                 speaker: '主角', emoji: '🧑‍🍳',
                 lines: ['算了。先去海鲜店碰碰运气——明虾说不定还剩几只。'],
             },
+            coachmarks: [
+                { when: 'dialog_done', targetSelector: '[data-tutorial="market-card-seafood_market"]', label: '去海鲜店' },
+            ],
         },
         overrides: {
             forceCandidatesInclude: ['seafood_market'],
             hideBulletin: true,
             disableUI: DEFAULT_DISABLE_UI,
             forbidIncomingOrders: true,
+            lockReturnRestaurant: { reason: '要先去买明虾' },
         },
         completion: {
             event: 'wall_selected',
@@ -201,7 +223,12 @@ export const TUTORIAL_STEPS = [
     // —— 8：场景 4 · 海鲜店 + 透视 ——
     {
         id: 'scene_4_seafood',
-        ui: {},
+        ui: {
+            coachmarks: [
+                { when: 'dialog_done', targetSelector: '[data-tutorial="tool-peek"]',                       label: '先用透视看品质' },
+                { when: 'peek_used',   targetSelector: '[data-tutorial="row-1"], [data-tutorial="col-1"]',  label: '点击抽取这一行或这一列抽取明虾' },
+            ],
+        },
         overrides: {
             wallLayout: SEAFOOD_WALL,
             selectableAxes: ['row_1', 'col_1'],
@@ -213,9 +240,10 @@ export const TUTORIAL_STEPS = [
             hideBulletin: true,
             disableUI: DEFAULT_DISABLE_UI,
             forbidIncomingOrders: true,
+            lockEvacuateUntilDrawsExhausted: { reason: '把抽数用完再走' },
         },
         completion: { event: 'doom_resolved_after_endturn' },
-        onExit: { heroLine: '……一样都没抢到。这可怎么办啊。' },
+        onExit: { heroLine: '面也没抢到，虾也没抢到。' },
     },
     // —— 9：场景 5 · 交换区登场 + 固定订单 ——
     {
@@ -228,12 +256,17 @@ export const TUTORIAL_STEPS = [
                     '我手上这些，说不定正好是别人缺的。',
                 ],
             },
+            coachmarks: [
+                { when: 'dialog_done', targetSelector: '[data-tutorial="order-submit-tutorial_order"]', label: '点击此处进行食材交换' },
+            ],
         },
         overrides: {
             hideBulletin: false,
             fixedOrder: TUTORIAL_FIXED_ORDER,
             disableUI: DEFAULT_DISABLE_UI,
             forbidIncomingOrders: true,
+            lockReturnRestaurant: { reason: '先把订单提交了再走' },
+            lockMarketCandidates: { reason: '先把订单提交了再走' },
         },
         completion: { event: 'order_submitted' },
     },
@@ -251,11 +284,15 @@ export const TUTORIAL_STEPS = [
                 body: '菜篮耐久度（❤️）归零 = 菜篮丢失、被迫结束一天。\n今天你还有满血，可以放心做菜。',
                 buttonText: '我知道了',
             },
+            coachmarks: [
+                { when: 'dialog_done', targetSelector: '[data-tutorial="return-restaurant"]', label: '回餐厅' },
+            ],
         },
         overrides: {
             hideBulletin: false,
             disableUI: DEFAULT_DISABLE_UI,
             forbidIncomingOrders: true,
+            lockMarketCandidates: { reason: '今天先回餐厅' },
         },
         completion: { event: 'evacuate_clicked' },
     },
@@ -270,6 +307,9 @@ export const TUTORIAL_STEPS = [
                     '手上这几样……就凑合着来一顿吧。',
                 ],
             },
+            coachmarks: [
+                { when: 'dialog_done', targetSelector: '[data-tutorial^="kitchen-slot-"]', label: '凑一顿出来' },
+            ],
         },
         overrides: {
             disableUI: DEFAULT_DISABLE_UI,

@@ -333,27 +333,57 @@ export const useGameLogic = (config) => {
     };
 
     /** 自然走完教程：进入 Day 2 海洋线条开局。
-     *  保留：popularity / hp / fridge（前一晚做过菜的状态）
-     *  重置：dayNumber → 2；菜谱 → 海洋线条；发 3 道具；开局正常 setup */
+     *  保留：popularity / fridge（前一晚做菜的成果）
+     *  重置：所有 per-day 临时状态（hp / doom grid / 抽数 / 墙 / 菜篮 / 道具效果 ...） */
     const handleTutorialNaturalComplete = () => {
+        // —— Day 2 起点配置 ——
         setExpeditionNumber(2);
         const ocean = DISHES.find(d => d.id === 'ocean_threads');
         if (ocean) setCurrentDish(ocean);
         setDishIntroPending(true);
+
+        // —— 抽取/墙状态 ——
         setTurnNumber(0);
         setGold(0);
         setMatrix(null);
         setWallCandidates(null);
+        setPendingWallCandidate(null);
+        setCurrentWallType(null);
+        setCurrentLevel(null);
+        setLastDrawDirection(null);
+        setLastDrawResult(null);
+        setLastCookResult(null);
+
+        // —— HP / doom grid 重置（教程残留：玩家可能 off-path 扣过血/积过人群）——
+        setHp(doomConfig.initialHP);
+        setDoomGrid(() => {
+            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
+                grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
+            }
+            return grid;
+        });
+        setDoomLevel(doomConfig.initialDoomLevel);
+        setIsDoomResolving(false);
+        setDoomAnimState(null);
+        setDoomResolutionResult(null);
+        setAfterDoomAction(null);
+
+        // —— 菜篮 / 订单 / 抽取临时态 ——
+        setInventory([]);
+        setPendingItems([]);
         setBulletinBoard([]);
         setIncomingQueue([]);
         setPendingChosenOrder(null);
-        setLastDrawResult(null);
-        setLastCookResult(null);
-        // 道具：发 3 个互不相同
+        setRefreshCharges(REFRESH_INITIAL_CHARGES);
+
+        // —— 道具：发 3 个互不相同 ——
         setTools([]);
         setActiveTool(null);
+        setPendingToolGrant(null);
         setToolGrantQueue([]);
         pickDistinctToolsFromPool(TOOL_CONFIG.dayStartCount).forEach(addTool);
+
         setPhase('setup');
     };
 
@@ -1742,8 +1772,10 @@ export const useGameLogic = (config) => {
         setLastCookResult(result);
         setPhase('cook_result');
 
-        // Tutorial 场景 1（惊艳路径）/ 场景 7：emit cook_result
-        emitTutorialEvent('cook_result', { rating: result?.rating });
+        // 场景 1 / 场景 7 都不在这里推进——让玩家先看到结果画面，等点"继续下一天"再在 startNextDay 推进
+        if (!isInStep('scene_1_cooking') && !isInStep('scene_7_cooking')) {
+            emitTutorialEvent('cook_result', { rating: result?.rating });
+        }
     };
 
     /** Player clicks past the cook result screen to start the next day.
@@ -1751,6 +1783,12 @@ export const useGameLogic = (config) => {
      *  but keeps dayNumber, popularity. Returns to pre_game
      *  so the normal startGame → setup → day loop takes over. */
     const startNextDay = () => {
+        // Tutorial 场景 1 惊艳路径：跳过日重置，直接推进到 scene_1_5_dishcard
+        // Tutorial 场景 7：跳过日重置，推进到 day2_handoff（卡片自己负责后续 Day 2 起手）
+        if (tutorialMode && (isInStep('scene_1_cooking') || isInStep('scene_7_cooking'))) {
+            advanceTutorial();
+            return;
+        }
         setTurnNumber(0);
         setGold(0);
         setMatrix(null);
@@ -2271,6 +2309,7 @@ export const useGameLogic = (config) => {
         tutorialHeroLine,
         setTutorialHeroLine,
         tutorialResetCounter,
+        tutorialDrawCount,
         isInStep,
         advanceTutorial,
         skipTutorial,
