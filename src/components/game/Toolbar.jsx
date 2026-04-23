@@ -37,6 +37,7 @@ const Toolbar = ({ tools, capacity, activeTool, onUseTool, enabled }) => {
                     return (
                         <button
                             key={tool.uid}
+                            data-tutorial={tool.id ? `tool-${tool.id}` : undefined}
                             onClick={() => onUseTool(tool.uid)}
                             disabled={disabled && !isActive}
                             title={displayDesc}

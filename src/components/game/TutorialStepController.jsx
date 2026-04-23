@@ -8,21 +8,47 @@ import TutorialCoachmark from './TutorialCoachmark';
  * Tutorial 顶层 orchestrator：根据 currentStep.ui 渲染对应组件，
  * 把组件的 onComplete 接到 onAdvance 上（或仅推进对话进度）。
  *
- * 推进语义：
- * - intermission：autoAdvanceMs 后自动 advance
- * - fullScreenCard：点继续 advance
- * - bottomDialog：所有台词读完后**不一定** advance——许多场景靠玩家做完游戏操作触发 emitTutorialEvent；
- *   但若该 step 没有 fullScreenCard/intermission 等"非交互完成手段"，且 completion.event === 'continue_clicked'，
- *   则 dialog 完成时 advance。
- * - postDialogModal：bottomDialog 完成后弹出，关闭后不 advance（仍等 completion 事件）
+ * Coachmark 推进：
+ * - 旧 schema: ui.coachmark = { targetSelector, label } (单个，dialog 完成后显示)
+ * - 新 schema: ui.coachmarks = [{ when, targetSelector, label }, ...]
+ *   - when ∈ { 'dialog_done', 'placements_done', 'draws_done', 'synth_done', 'peek_used' }
+ *   - 算法：遍历数组 + 评估各 when 的谓词；找到"最后一个谓词为 true 的 when"作为当前 active 阶段；
+ *     渲染所有 when 等于该值的 coachmark（支持同阶段多 highlight）
  *
- * 还会渲染主角 transient 台词 (tutorialHeroLine) 作为漂浮提示。
+ * 谓词依赖外部传入的 tutorialState（drawCount / synthDone / peekUsed / placementsDone）
  */
+
+const PHASE_PREDICATES = {
+    'dialog_done':     (s) => s.dialogDone,
+    'placements_done': (s) => s.dialogDone && s.placementsDone,
+    'first_draw_done': (s) => s.dialogDone && s.tutorialDrawCount >= 1,
+    'draws_done':      (s) => s.dialogDone && s.allDrawsDone,
+    'synth_done':      (s) => s.dialogDone && s.synthDone,
+    'peek_used':       (s) => s.dialogDone && s.peekUsed,
+};
+
+function pickActiveCoachmarks(coachmarks, state) {
+    if (!Array.isArray(coachmarks) || coachmarks.length === 0) return [];
+    let activeWhen = null;
+    for (const cm of coachmarks) {
+        const pred = PHASE_PREDICATES[cm.when];
+        if (pred && pred(state)) activeWhen = cm.when;
+    }
+    if (!activeWhen) return [];
+    return coachmarks.filter(cm => cm.when === activeWhen);
+}
+
 export default function TutorialStepController({
     currentStep,
     onAdvance,
     tutorialHeroLine,
     onClearHeroLine,
+    // 派生状态：用于 coachmark 阶段判定
+    tutorialDrawCount = 0,
+    synthDone = false,
+    peekUsed = false,
+    placementsDone = false,
+    allDrawsDone = false,
 }) {
     const [dialogDone, setDialogDone] = useState(false);
     const [showPostModal, setShowPostModal] = useState(false);
@@ -48,12 +74,27 @@ export default function TutorialStepController({
     }
 
     const ui = currentStep.ui ?? {};
-    const { intermission, fullScreenCard, bottomDialog, coachmark, postDialogModal } = ui;
+    const { intermission, fullScreenCard, bottomDialog, coachmark, coachmarks, postDialogModal } = ui;
 
     // 判定 dialog 完成是否触发 advance：仅当 step 没有其它非交互推进手段、且 completion.event 是 continue_clicked
     const dialogShouldAdvance =
         currentStep.completion?.event === 'continue_clicked'
         && !fullScreenCard && !intermission;
+
+    // 没有 dialog 时视为 dialogDone=true（无需等待）
+    const effectiveDialogDone = bottomDialog ? dialogDone : true;
+
+    // 兼容旧 coachmark 单字段：等价于 [{ when: 'dialog_done', ... }]
+    const coachmarkList = coachmarks
+        ?? (coachmark ? [{ when: 'dialog_done', ...coachmark }] : []);
+    const activeCoachmarks = pickActiveCoachmarks(coachmarkList, {
+        dialogDone: effectiveDialogDone,
+        tutorialDrawCount,
+        allDrawsDone,
+        synthDone,
+        peekUsed,
+        placementsDone,
+    });
 
     return (
         <>
@@ -85,9 +126,13 @@ export default function TutorialStepController({
                     onComplete={() => setShowPostModal(false)}
                 />
             )}
-            {coachmark && (
-                <TutorialCoachmark {...coachmark} />
-            )}
+            {activeCoachmarks.map((cm, i) => (
+                <TutorialCoachmark
+                    key={`${cm.when}-${i}-${cm.targetSelector}`}
+                    targetSelector={cm.targetSelector}
+                    label={cm.label}
+                />
+            ))}
             {tutorialHeroLine && <FloatingHeroLine line={tutorialHeroLine} />}
         </>
     );

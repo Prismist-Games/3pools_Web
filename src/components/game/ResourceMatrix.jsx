@@ -502,6 +502,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                     return (
                         <button
                             key={colIndex}
+                            data-tutorial={`col-${colIndex}`}
                             onClick={() => colClickable && onSelectColumn(colIndex)}
                             onMouseEnter={() => { if (colClickable) { setHoveredCol(colIndex); reportHover(null, colIndex); } }}
                             onMouseLeave={() => { setHoveredCol(null); reportHover(null, null); }}
@@ -534,6 +535,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                         return (
                             <button
                                 key={rowIndex}
+                                data-tutorial={`row-${rowIndex}`}
                                 onClick={() => rowClickable && onSelectRow(rowIndex)}
                                 onMouseEnter={() => { if (rowClickable) { setHoveredRow(rowIndex); reportHover(rowIndex, null); } }}
                                 onMouseLeave={() => { setHoveredRow(null); reportHover(null, null); }}

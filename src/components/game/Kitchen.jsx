@@ -125,13 +125,15 @@ const TagBadge = ({ tag, className = '' }) => {
 
 // ── Slot Card ──
 
-const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, onRemove }) => {
+const SlotCard = ({ slot, placed, slotResult, isTargeted, isSpawned, onPlace, onRemove, tutorialAnchor }) => {
     const { t, language } = useLanguage();
     const matchStyle = placed ? (MATCH_BORDER[slotResult.matchLevel] || MATCH_BORDER.none) : '';
     const placedName = placed ? (language === 'en' && placed.nameEn ? placed.nameEn : t(placed.name)) : '';
 
     return (
-        <div className={`flex flex-col bg-kitchen-card rounded-xl border-2 shadow-[0_2px_0_#D4B896] overflow-hidden min-w-[140px]
+        <div
+            data-tutorial={tutorialAnchor}
+            className={`flex flex-col bg-kitchen-card rounded-xl border-2 shadow-[0_2px_0_#D4B896] overflow-hidden min-w-[140px]
             ${isSpawned ? 'border-kitchen-info-border ring-1 ring-kitchen-info/40' : 'border-kitchen-gold-border-muted'}`}>
             {/* Header */}
             <div className={`px-3 py-1.5 border-b border-dashed flex items-center justify-between
@@ -334,7 +336,7 @@ const KitchenScene = ({ dish }) => (
 
 // ── Kitchen Component ──
 
-const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantPhase = false, viewOnly = false, viewOnlyAction }) => {
+const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantPhase = false, viewOnly = false, viewOnlyAction, onAllRequiredFilled }) => {
     const { t, language } = useLanguage();
     const dish = dishOverride || DISHES[0];
 
@@ -455,6 +457,16 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
         ? missingRequired.length === 0
         : mergedPlacements.some(p => p);
 
+    // 教程钩子：所有 required 槽位首次填满时通知一次（同次 mount 内不重复）
+    const firedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!isRestaurantPhase || !onAllRequiredFilled) return;
+        if (missingRequired.length === 0 && !firedRef.current) {
+            firedRef.current = true;
+            onAllRequiredFilled();
+        }
+    }, [missingRequired.length, isRestaurantPhase, onAllRequiredFilled]);
+
     const clearAll = () => {
         setPlacements(dish.slots.map(() => null));
         setSpawnedPlacements({});
@@ -507,6 +519,7 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                                 isSpawned={spawnedFlags[i]}
                                 onPlace={() => placeIngredient(i)}
                                 onRemove={() => removeFromSlot(i)}
+                                tutorialAnchor={`kitchen-slot-${i}`}
                             />
                         ))}
                     </div>
@@ -566,7 +579,7 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                     {/* Actions */}
                     <div className="flex gap-3 mt-6">
                         {viewOnly ? (
-                            <button onClick={viewOnlyAction?.onClick}
+                            <button data-tutorial="start-day-button" onClick={viewOnlyAction?.onClick}
                                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-sm font-bold text-kitchen-text-body hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-all flex items-center justify-center gap-1.5 shadow-[0_3px_0_#D4952A]">
                                 <ChefHat size={15} /> {viewOnlyAction?.label || t('开始今天')}
                             </button>

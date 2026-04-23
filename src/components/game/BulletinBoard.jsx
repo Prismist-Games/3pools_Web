@@ -227,6 +227,7 @@ const BulletinBoard = ({
                                         </div>
                                         {!isReplacing && (
                                             <button
+                                                data-tutorial={`order-submit-${order.id}`}
                                                 onClick={() => onSubmit(order.id)}
                                                 disabled={!submittable}
                                                 className={`text-[10px] px-2 py-0.5 rounded-md font-bold transition-colors

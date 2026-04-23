@@ -1,7 +1,14 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
-const WallPicker = ({ candidates, onSelect, onHoverIngredientIds, onReturnToRestaurant }) => {
+const WallPicker = ({
+    candidates,
+    onSelect,
+    onHoverIngredientIds,
+    onReturnToRestaurant,
+    returnLockReason,        // 教程态：传入 reason 字符串则禁用"回到餐厅"，hover 显示 reason
+    candidatesLockReason,    // 教程态：传入 reason 字符串则禁用所有市场候选卡，hover 显示 reason
+}) => {
     const { t } = useLanguage();
 
     // Hovering a market card reports that market's full ingredient id set up
@@ -26,11 +33,17 @@ const WallPicker = ({ candidates, onSelect, onHoverIngredientIds, onReturnToRest
                     return (
                         <button
                             key={idx}
+                            data-tutorial={wall.wallType?.id ? `market-card-${wall.wallType.id}` : undefined}
                             onClick={() => onSelect(idx)}
                             onMouseEnter={() => reportHover(wall)}
                             onMouseLeave={() => reportHover(null)}
-                            className="w-48 p-4 bg-white rounded-xl shadow-md border-2 border-gray-200
-                                hover:border-blue-400 hover:shadow-lg transition-all duration-150 text-left"
+                            disabled={!!candidatesLockReason}
+                            title={candidatesLockReason ? t(candidatesLockReason) : undefined}
+                            className={`w-48 p-4 bg-white rounded-xl shadow-md border-2 border-gray-200
+                                ${candidatesLockReason
+                                    ? 'opacity-60 cursor-not-allowed'
+                                    : 'hover:border-blue-400 hover:shadow-lg'}
+                                transition-all duration-150 text-left`}
                         >
                             <div className="text-sm font-bold mb-1">{wall.wallType.icon} {t(wall.wallType.name)}</div>
                             <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">{wall.wallType.desc}</p>
@@ -53,8 +66,15 @@ const WallPicker = ({ candidates, onSelect, onHoverIngredientIds, onReturnToRest
             {onReturnToRestaurant && (
                 <div className="mt-6 flex justify-center">
                     <button
+                        data-tutorial="return-restaurant"
                         onClick={onReturnToRestaurant}
-                        className="px-8 py-3 bg-kitchen-success border-2 border-kitchen-success-border text-white font-bold rounded-xl shadow-[0_3px_0_rgba(96,160,112,0.5)] hover:brightness-95 transition-colors"
+                        disabled={!!returnLockReason}
+                        title={returnLockReason ? t(returnLockReason) : undefined}
+                        className={`px-8 py-3 border-2 font-bold rounded-xl transition-colors ${
+                            returnLockReason
+                                ? 'bg-kitchen-card border-kitchen-gold-border-muted text-kitchen-text-muted opacity-60 cursor-not-allowed'
+                                : 'bg-kitchen-success border-kitchen-success-border text-white shadow-[0_3px_0_rgba(96,160,112,0.5)] hover:brightness-95'
+                        }`}
                     >
                         {t('回到餐厅')}
                     </button>
