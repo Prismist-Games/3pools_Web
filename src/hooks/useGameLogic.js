@@ -288,6 +288,9 @@ export const useGameLogic = (config) => {
     const [tutorialDrawCount, setTutorialDrawCount] = useState(0);
     // 主角的临时台词（场景失败 / off-path / onExit 等触发的 transient line）
     const [tutorialHeroLine, setTutorialHeroLine] = useState(null);
+    // 教程软重置计数器：每次 soft-fail reset 时 +1。GameCore 用它做 Kitchen 的 key，
+    // 以强制 Kitchen 组件卸载重建 → 本地 placements 状态清空。
+    const [tutorialResetCounter, setTutorialResetCounter] = useState(0);
 
     // --- UI State ---
     const [toast, setToast] = useState(null);
@@ -1717,15 +1720,16 @@ export const useGameLogic = (config) => {
         if (isInStep('scene_1_cooking') && result?.rating !== '惊艳') {
             const onFail = currentTutorialStep?.onFail;
             if (onFail?.heroLine) setTutorialHeroLine(onFail.heroLine);
-            // 软重置冰箱（教程菜消耗的食材回到 fridgePreload 状态）
+            // 软重置：把冰箱还原为 preload 状态（新 uid）
             const preload = currentTutorialStep?.overrides?.fridgePreload ?? [];
             const restored = preload.map(p => {
                 const ing = INGREDIENTS.find(i => i.id === p.id);
                 const qDef = QUALITY_CONFIG.find(q => q.id === p.quality) || QUALITY_CONFIG[0];
-                return ing ? { ...ing, quality: p.quality, score: qDef.scoreValue, uid: generateUID() } : null;
+                return ing ? { ...ing, quality: p.quality, score: qDef.scoreValue, isOutOfGame: true, uid: generateUID() } : null;
             }).filter(Boolean);
-            setInventory(restored);
-            setFridge([]);
+            setFridge(restored);  // Kitchen 读 fridge，不是 inventory
+            // resetCounter++ 触发 Kitchen 组件 remount → 清空本地 placements
+            setTutorialResetCounter(c => c + 1);
             // 不进 cook_result，不扣人气，留在 restaurant 让玩家重做
             return;
         }
@@ -2266,6 +2270,7 @@ export const useGameLogic = (config) => {
         tutorialOverrides,
         tutorialHeroLine,
         setTutorialHeroLine,
+        tutorialResetCounter,
         isInStep,
         advanceTutorial,
         skipTutorial,
