@@ -312,12 +312,15 @@ export const useGameLogic = (config) => {
     /** 当前是否在教程的某个具体 step（按 id 匹配）。 */
     const isInStep = (stepId) => tutorialMode && currentTutorialStep?.id === stepId;
 
-    /** 推进到下一步教程；若已是最后一步则关闭教程模式。 */
+    /** 推进到下一步教程；若已是最后一步（day2_handoff 完成）则关闭教程模式 + 切到 Day 2 正常开局。 */
     const advanceTutorial = () => {
         setTutorialStepIndex(i => {
             const next = i + 1;
             if (next >= TUTORIAL_STEPS.length) {
+                // 自然走完最后一步：保留玩家手上 hp / popularity 等，
+                // 仅切到 Day 2 + 锁海洋线条 + 发 3 道具
                 setTutorialMode(false);
+                handleTutorialNaturalComplete();
                 return i;
             }
             return next;
@@ -326,14 +329,85 @@ export const useGameLogic = (config) => {
         setTutorialHeroLine(null);
     };
 
-    /** 跳过整个教程，直接到 Day 2 海洋线条干净开局。
-     *  T7 完整化此实现；现在只是状态切换。 */
+    /** 自然走完教程：进入 Day 2 海洋线条开局。
+     *  保留：popularity / hp / fridge（前一晚做过菜的状态）
+     *  重置：dayNumber → 2；菜谱 → 海洋线条；发 3 道具；开局正常 setup */
+    const handleTutorialNaturalComplete = () => {
+        setExpeditionNumber(2);
+        const ocean = DISHES.find(d => d.id === 'ocean_threads');
+        if (ocean) setCurrentDish(ocean);
+        setDishIntroPending(true);
+        setTurnNumber(0);
+        setGold(0);
+        setMatrix(null);
+        setWallCandidates(null);
+        setBulletinBoard([]);
+        setIncomingQueue([]);
+        setPendingChosenOrder(null);
+        setLastDrawResult(null);
+        setLastCookResult(null);
+        // 道具：发 3 个互不相同
+        setTools([]);
+        setActiveTool(null);
+        setToolGrantQueue([]);
+        pickDistinctToolsFromPool(TOOL_CONFIG.dayStartCount).forEach(addTool);
+        setPhase('setup');
+    };
+
+    /** 跳过整个教程：直接到 Day 2 海洋线条干净开局，state 全部重置。 */
     const skipTutorial = () => {
         setTutorialMode(false);
         setTutorialStepIndex(TUTORIAL_STEPS.length - 1);
         setTutorialDrawCount(0);
         setTutorialHeroLine(null);
-        // 真正切到 Day 2 开局的 game state 重置在 T7 实装
+
+        // === 全量重置游戏 state 到 Day 2 干净开局 ===
+        setExpeditionNumber(2);
+        const ocean = DISHES.find(d => d.id === 'ocean_threads');
+        if (ocean) setCurrentDish(ocean);
+        setDishIntroPending(true);
+        setPopularity(10);
+        setTurnNumber(0);
+        setGold(0);
+        setMatrix(null);
+        setWallCandidates(null);
+        setPendingWallCandidate(null);
+        setCurrentWallType(null);
+        setCurrentLevel(null);
+        setLastDrawDirection(null);
+        setHp(doomConfig.initialHP);
+        setDoomGrid(() => {
+            const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+            for (let i = 0; i < doomConfig.initialDangerCount; i++) {
+                grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
+            }
+            return grid;
+        });
+        setDoomLevel(doomConfig.initialDoomLevel);
+        setIsDoomResolving(false);
+        setDoomAnimState(null);
+        setDoomResolutionResult(null);
+        setAfterDoomAction(null);
+        setInventory([]);
+        setFridge([]);
+        setPendingItems([]);
+        setBulletinBoard([]);
+        setPendingChosenOrder(null);
+        setRefreshCharges(REFRESH_INITIAL_CHARGES);
+        setIncomingQueue([]);
+        setLastCookResult(null);
+        setLastDrawResult(null);
+        setToast(null);
+        setModalContent(null);
+        setFlyingItem(null);
+        setDrawAnimState(null);
+        // 道具：发 3 个互不相同
+        setTools([]);
+        setPendingToolGrant(null);
+        setActiveTool(null);
+        setToolGrantQueue([]);
+        pickDistinctToolsFromPool(TOOL_CONFIG.dayStartCount).forEach(addTool);
+        setPhase('setup');
     };
 
     /** 教程事件分发：根据当前 step.completion.event + guard 决定是否推进。
