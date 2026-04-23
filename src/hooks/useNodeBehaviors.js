@@ -22,10 +22,8 @@ function makeStallBehavior(stallType) {
 
         getPeekInfo(node, _gameState) {
             const crushCount = node.state?.crushCount ?? 0;
-            const drawCost = Math.max(
-                MAP_CONFIG.stall.drawCostMin,
-                MAP_CONFIG.gold.drawBaseCost - crushCount
-            );
+            const entryPrice = node.state?.price ?? MAP_CONFIG.gold.drawBaseCost;
+            const draws = MAP_CONFIG.stall.drawsPerVisit;
             const gridCellsRemaining = node.state?.grid
                 ? node.state.grid.flat().filter(Boolean).length
                 : '?';
@@ -35,8 +33,9 @@ function makeStallBehavior(stallType) {
                 icon: marketType.icon || '🏪',
                 description: marketType.desc || '',
                 details: [
+                    `入场费: ${entryPrice}g`,
+                    `${draws}次抽取`,
                     `抢菜人: ${crushCount}个`,
-                    `每抽 ${drawCost}g`,
                     `剩余 ${gridCellsRemaining}格`,
                 ],
             };
@@ -166,19 +165,16 @@ const pocketMoneyBehavior = {
     },
 
     getPeekInfo(node, _gameState) {
-        const claimed = node.state?.claimed ?? false;
+        const needsLeave = node.state?.needsLeave ?? false;
         return {
             label: '零花钱',
             icon: '💰',
-            description: claimed ? '已领取' : `+${MAP_CONFIG.gold.pocketMoneyBonus}g`,
-            details: claimed ? ['今日已领取'] : [`领取 ${MAP_CONFIG.gold.pocketMoneyBonus}g`],
+            description: needsLeave ? '已领取（离开后可再领）' : `+${MAP_CONFIG.gold.pocketMoneyBonus}g`,
+            details: needsLeave ? ['离开后可再次领取'] : [`领取 ${MAP_CONFIG.gold.pocketMoneyBonus}g`],
         };
     },
 
-    onEnter(node, _gameState) {
-        if (node.state?.claimed) {
-            return { type: 'ALREADY_CLAIMED' };
-        }
+    onEnter(_node, _gameState) {
         return {
             type: 'CLAIM_POCKET_MONEY',
             amount: MAP_CONFIG.gold.pocketMoneyBonus,

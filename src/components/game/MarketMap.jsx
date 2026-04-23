@@ -17,7 +17,7 @@ const NODE_LABELS = {
     gold_variety:    '大排档',
     gold_quality:    '酒楼',
     pocket_money:    'ATM',
-    entry_exit:      '入口',
+    entry_exit:      '入口/出口',
     passage:         '过道',
 };
 
@@ -50,17 +50,17 @@ const NODE_DESCRIPTIONS = {
         <span>
             根据提交食材的子类多样性定价，同批次越多样越值钱。
             <br />
-            <span className="text-yellow-300 font-bold">1种→1g · 2种→2g · 3种→3g · 4种→5g · 5种+→8g</span>（每件）
+            <span className="text-yellow-300 font-bold">1种→0g · 2种→2g · 3种→4g · 4种→6g · 5种+→8g</span>（组合总价）
         </span>
     ),
     gold_quality: (
         <span>
             根据提交食材的品质逐件结算，品质越高单价越高。
             <br />
-            <span className="text-yellow-300 font-bold">★→1g · ★★→2g · ★★★→3g · ★★★★→5g · ★★★★★→8g</span>
+            <span className="text-yellow-300 font-bold">★→0g · ★★→1g · ★★★→3g · ★★★★→5g · ★★★★★→7g</span>
         </span>
     ),
-    pocket_money:    '取出少量现金备用。',
+    pocket_money:    '取出现金，固定获得 1g。',
     entry_exit:      '菜市场出入口。回到这里后点击可收摊回家。',
     passage:         '普通过道，可自由通行，无特殊功能。',
 };
@@ -270,26 +270,24 @@ const MarketMap = ({
                             <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded px-1 leading-tight">
                                 💰{node.state?.price ?? MAP_CONFIG.gold.drawBaseCost}g
                             </span>
-                            {(node.state?.crushCount ?? 0) > 0 && (
-                                <span className="text-[9px] font-bold text-red-700 bg-red-100 border border-red-300 rounded px-1 leading-tight">
-                                    🧑{node.state.crushCount}
-                                </span>
-                            )}
+                            <span className="text-[9px] font-bold text-red-700 bg-red-100 border border-red-300 rounded px-1 leading-tight">
+                                🧑{node.state?.crushCount ?? 0}
+                            </span>
                         </div>
-                    )}
-                    {node.type === 'passage' && (node.state?.grabberCount ?? 0) > 0 && (
-                        <span className="text-[9px] font-bold text-red-700 bg-red-100 border border-red-300 rounded px-1 mt-0.5 leading-tight">
-                            🧑{node.state.grabberCount}
-                        </span>
                     )}
                     {(node.type === 'gold_variety') && (
                         <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded px-1 mt-0.5 leading-tight">
-                            多样性 1~8g/件
+                            多样性 0~8g/件
                         </span>
                     )}
                     {(node.type === 'gold_quality') && (
                         <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded px-1 mt-0.5 leading-tight">
-                            品质 1~8g/件
+                            品质 0~7g/件
+                        </span>
+                    )}
+                    {(node.type === 'pocket_money') && (
+                        <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded px-1 mt-0.5 leading-tight">
+                            +{MAP_CONFIG.gold.pocketMoneyBonus}g
                         </span>
                     )}
 
@@ -372,9 +370,6 @@ const MarketMap = ({
                 <span className="text-kitchen-gold-deep">💰 {gold}g</span>
                 <span className="text-kitchen-danger-text">
                     {Array.from({ length: 5 }).map((_, i) => i < hp ? '❤️' : '🤍').join('')}
-                </span>
-                <span className="text-kitchen-text-muted text-xs">
-                    行动: {mapState.actionCounter} | 时钟: {mapState.clockTicks}
                 </span>
             </div>
 

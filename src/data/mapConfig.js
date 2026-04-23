@@ -8,8 +8,7 @@ export const MAP_CONFIG = {
     },
     stall: {
         drawCostMin: 1,
-        priceMin: 1,
-        priceMax: 5,
+        priceTable: [1, 2, 3, 3, 4],  // weighted random: 1×1, 1×2, 2×3, 1×4
         grabberMin: 0,
         grabberMax: 4,
         drawsPerVisit: 3,
@@ -23,7 +22,7 @@ export const MAP_CONFIG = {
         priceByQuality: [0, 0, 1, 3, 5, 7],  // ★→0g, ★★→1g, ★★★→3g, ★★★★→5g, ★★★★★→7g
     },
     clock: {
-        actionsPerTick: 3,        // every N actions, clock advances 1 tick
+        actionsPerTick: 10,       // every N actions, clock advances 1 tick
     },
     map: {
         rows: 4,

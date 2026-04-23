@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { generateWall, pickMarketIngredients } from '../utils/matrixHelpers';
+import { pickMarketIngredients, generateWall } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { CRUSH_CONFIG, TURN_CONFIG } from '../data/constants';
@@ -172,10 +172,13 @@ function buildInitialMapState() {
         const edge = edges.find(e => e.id === shuffled[i].id);
         if (edge) edge.hasGrabber = true;
     }
+    const nodes = generateMapNodes();
+    const entryNode = nodes.find(n => n.type === 'entry_exit');
+    const playerPosition = entryNode ? { ...entryNode.position } : { x: 0, y: 0 };
     return {
-        nodes: generateMapNodes(),
+        nodes,
         edges,
-        playerPosition: { x: 0, y: 0 },
+        playerPosition,
         actionCounter: 0,
         clockTicks: 0,
     };
@@ -208,7 +211,7 @@ export const useGameLogic = (config) => {
 
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
-    const [gold, setGold] = useState(20);
+    const [gold, setGold] = useState(MAP_CONFIG.gold.startingAmount);
     const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'setup' | 'map' | 'stall_drawing' | 'drawing' | 'restaurant' | 'cook_result' | 'game_over'
 
     // --- Grid State ---
@@ -346,14 +349,14 @@ export const useGameLogic = (config) => {
         const nextDay = expeditionNumber + 1;
         const dish = DISHES[(nextDay - 1) % DISHES.length];
         setCurrentDish(dish);
-        setDishIntroPending(false);
+        setDishIntroPending(true);
 
-        const ordersA = [{ ...generateOrder(), regionId: 'a' }, { ...generateOrder(), regionId: 'a' }];
-        const ordersB = [{ ...generateOrder(), regionId: 'b' }, { ...generateOrder(), regionId: 'b' }];
-        setBulletinBoard([...ordersA, ...ordersB]);
+        setBulletinBoard([]);
         setPendingChosenOrder(null);
         setMapState(buildInitialMapState());
-        setPhase('map');
+        setPhase('setup');
+        // Queue will be filled once the player dismisses the dish intro
+        // (see dismissDishIntro below).
     };
 
     /** Player dismisses the "today's dish" overlay — auto-fill the shelf
@@ -1070,25 +1073,6 @@ export const useGameLogic = (config) => {
             applyQualityUpgrade(finalRowIndex, finalColIndex);
         }
 
-        // Randomize stall price and competition level after each draw
-        if (phase === 'stall_drawing' && activeStallNodeId) {
-            const { priceMin, priceMax, grabberMin, grabberMax } = MAP_CONFIG.stall;
-            setMapState(prev => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    nodes: prev.nodes.map(n => {
-                        if (n.id !== activeStallNodeId) return n;
-                        const curPrice = n.state.price ?? MAP_CONFIG.gold.drawBaseCost;
-                        const curGrabbers = n.state.crushCount ?? 0;
-                        const newPrice = Math.max(priceMin, Math.min(priceMax, curPrice + (Math.random() < 0.5 ? 1 : -1)));
-                        const newGrabbers = Math.max(grabberMin, Math.min(grabberMax, curGrabbers + (Math.random() < 0.5 ? 1 : -1)));
-                        return { ...n, state: { ...n.state, price: newPrice, crushCount: newGrabbers } };
-                    }),
-                };
-            });
-        }
-
     };
 
     // =============================================
@@ -1292,7 +1276,6 @@ export const useGameLogic = (config) => {
     const canSubmitOrder = (orderId) => {
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return false;
-        if (currentOrderRegion !== order.regionId) return false;
         const used = new Set();
         for (const req of order.requirements) {
             let allocated = 0;
@@ -1488,6 +1471,13 @@ export const useGameLogic = (config) => {
         if (nextStep >= path.length) {
             movePathRef.current = null;
             setIsMoving(false);
+            // Player stopped (not passed through) at this node — trigger order-region effect
+            const finalPos = path[path.length - 1];
+            const arrivedNode = mapStateRef.current?.nodes.find(n =>
+                n.position.x === finalPos.x && n.position.y === finalPos.y
+            );
+            if (arrivedNode?.type === 'order_region_a') addBulletinOrder('a');
+            else if (arrivedNode?.type === 'order_region_b') addBulletinOrder('b');
             performAction();
             return;
         }
@@ -1558,35 +1548,10 @@ export const useGameLogic = (config) => {
                 const marketType = MARKET_TYPES.find(m => m.id === marketTypeId);
                 if (!marketType) break;
 
-                let stallGrid, initialCrushCount;
-
-                if (node.state.grid) {
-                    // Revisiting — use saved grid
-                    stallGrid = node.state.grid;
-                    initialCrushCount = node.state.crushCount ?? 0;
-                } else {
-                    // First visit — generate new wall
-                    const marketIngredients = pickMarketIngredients(marketType);
-                    const { grid: newGrid, doomCellCount } = generateWall(marketIngredients);
-                    stallGrid = newGrid;
-                    initialCrushCount = doomCellCount.resolution;
-                }
-
+                const stallGrid = node.state.grid;
                 setCurrentWallType(marketType);
                 setMatrix(stallGrid.map(r => r.map(c => c ? { ...c } : null)));
                 setActiveStallNodeId(node.id);
-
-                setMapState(prev => {
-                    if (!prev) return prev;
-                    return {
-                        ...prev,
-                        nodes: prev.nodes.map(n =>
-                            n.id === node.id
-                                ? { ...n, state: { ...n.state, crushCount: initialCrushCount } }
-                                : n
-                        ),
-                    };
-                });
 
                 setGold(prev => prev - entryPrice);
                 setRemainingStallDraws(MAP_CONFIG.stall.drawsPerVisit);
@@ -1608,7 +1573,7 @@ export const useGameLogic = (config) => {
                 setMapState(prev => ({
                     ...prev,
                     nodes: prev.nodes.map(n =>
-                        n.id === node.id ? { ...n, state: { ...n.state, claimed: true, needsLeave: true } } : n
+                        n.id === node.id ? { ...n, state: { ...n.state, needsLeave: true } } : n
                     ),
                 }));
                 performAction();
@@ -1645,24 +1610,30 @@ export const useGameLogic = (config) => {
         handleNodeEnterResult(result, node);
     };
 
-    /** Leave a stall and return to the map. */
+    /** Leave a stall and return to the map. Regenerates all stall walls. */
     const leaveStall = () => {
-        // Save current matrix grid to stall node state (for return visits)
-        if (activeStallNodeId) {
-            setMapState(prev => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    nodes: prev.nodes.map(n => {
-                        if (n.id !== activeStallNodeId) return n;
-                        const savedGrid = matrix
-                            ? matrix.map(r => r.map(c => c ? { ...c } : null))
-                            : n.state?.grid;
-                        return { ...n, state: { ...n.state, grid: savedGrid, needsLeave: true } };
-                    }),
-                };
-            });
-        }
+        const stallTypes = new Set(Object.keys(STALL_MARKET_TYPES));
+        const { priceTable } = MAP_CONFIG.stall;
+        const shuffledPrices = [...priceTable].sort(() => Math.random() - 0.5);
+        let priceIdx = 0;
+
+        setMapState(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                nodes: prev.nodes.map(n => {
+                    if (!stallTypes.has(n.type)) return n;
+                    const newPrice = shuffledPrices[priceIdx++];
+                    const marketTypeId = STALL_MARKET_TYPES[n.type];
+                    const marketType = MARKET_TYPES.find(m => m.id === marketTypeId);
+                    const marketIngredients = pickMarketIngredients(marketType);
+                    const { grid: newGrid, doomCellCount } = generateWall(marketIngredients);
+                    const isCurrentStall = n.id === activeStallNodeId;
+                    return { ...n, state: { ...n.state, grid: newGrid, crushCount: doomCellCount.resolution, drawsMadeToday: 0, price: newPrice, needsLeave: isCurrentStall } };
+                }),
+            };
+        });
+
         setMatrix(null);
         setCurrentWallType(null);
         setActiveStallNodeId(null);
@@ -1852,7 +1823,7 @@ export const useGameLogic = (config) => {
 
     const handleReset = () => {
         setTurnNumber(0);
-        setGold(20);
+        setGold(MAP_CONFIG.gold.startingAmount);
         setPhase('pre_game');
         setMatrix(null);
 

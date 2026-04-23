@@ -115,9 +115,6 @@ const GameCore = () => {
     // Auto-start game on mount — skip the pre_game screen
     useEffect(() => { startGame(); }, []);
 
-    // Auto-dismiss dish intro — skip the setup/dish screen
-    useEffect(() => { if (dishIntroPending) dismissDishIntro(); }, [dishIntroPending]);
-
     // --- Crush animation interval (人挤人) ---
     useEffect(() => {
         if (!crushAnimState || crushAnimState.phase !== 'spinning') return;
@@ -276,9 +273,11 @@ const GameCore = () => {
                                     <div key={region} className={`rounded-xl border-2 transition-colors ${isActive ? 'border-kitchen-gold shadow-[0_2px_0_#D4B896]' : 'border-kitchen-gold-border-muted opacity-80'}`}>
                                         <div className={`px-3 py-1.5 flex items-center justify-between rounded-t-xl border-b ${isActive ? 'bg-kitchen-gold/10 border-kitchen-gold-border' : 'bg-kitchen-card border-kitchen-gold-border-muted/40'}`}>
                                             <span className="text-xs font-bold text-kitchen-text-body">📋 {regionLabel}</span>
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isActive ? 'bg-kitchen-gold text-white' : 'bg-gray-200 text-gray-500'}`}>
-                                                {isActive ? '✓ 在此' : '需前往'}
-                                            </span>
+                                            {isActive && (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-kitchen-gold text-white">
+                                                    ✓ 在此
+                                                </span>
+                                            )}
                                         </div>
                                         <BulletinBoard
                                             orders={regionOrders}
@@ -418,11 +417,6 @@ const GameCore = () => {
                                         <span className={`text-xs font-bold ${remainingStallDraws === 0 ? 'text-gray-400' : 'text-kitchen-text-body'}`}>
                                             🎯 剩余 {remainingStallDraws} 次
                                         </span>
-                                        {mapState && (
-                                            <span className="text-kitchen-text-muted text-xs">
-                                                行动: {mapState.actionCounter} | 时钟: {mapState.clockTicks}
-                                            </span>
-                                        )}
                                     </div>
                                     <ResourceMatrix
                                         matrix={matrix}
@@ -468,7 +462,7 @@ const GameCore = () => {
                             {/* Crush Grid (人挤人) */}
                             <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border shadow-[0_3px_0_#D4B896]">
                                 <div className="px-3 py-2 border-b border-dashed border-kitchen-gold-border/30 flex items-center justify-between">
-                                    <h3 className="text-sm font-bold text-kitchen-text-body">🧑 {t('人群')}</h3>
+                                    <h3 className="text-sm font-bold text-kitchen-text-body">🧑 {t('人群')}<span className="text-[10px] font-normal text-kitchen-text-muted ml-1">（会随时间增加）</span></h3>
                                     <span className="text-[11px] font-bold text-kitchen-danger-text">人挤人 {dangerCount}LV{crushLevel}</span>
                                 </div>
                                 <div className="p-2">

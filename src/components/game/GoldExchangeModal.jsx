@@ -31,11 +31,9 @@ export default function GoldExchangeModal({ mode, inventory, gold, onSell, onClo
         if (mode === 'variety') {
             const tags2 = new Set(items.map(item => item.tags?.[1] ?? item.id));
             const varietyCount = Math.min(tags2.size, 5);
-            const pricePerItem = MAP_CONFIG.goldVariety.priceByVariety[varietyCount];
-            const total = pricePerItem * items.length;
+            const total = MAP_CONFIG.goldVariety.priceByVariety[varietyCount];
             return {
                 total,
-                pricePerItem,
                 varietyCount,
                 varieties: [...tags2],
             };
@@ -53,7 +51,7 @@ export default function GoldExchangeModal({ mode, inventory, gold, onSell, onClo
 
     const isVariety = mode === 'variety';
     const title = isVariety ? '🍱 大排档' : '🏮 酒楼';
-    const desc = isVariety ? '食材种类越多，每件越值钱' : '品质越高，卖价越贵';
+    const desc = isVariety ? '批次子类数≥2才有收益，种类越多每件越值钱' : '★★及以上才有收益，品质越高单价越高';
 
     return (
         <div
@@ -110,9 +108,8 @@ export default function GoldExchangeModal({ mode, inventory, gold, onSell, onClo
                                 子类数: <b>{priceInfo.varietyCount} 种</b>
                                 <span className="text-gray-500 ml-1">({priceInfo.varieties?.join('、')})</span>
                             </div>
-                            <div>每件: <b>{priceInfo.pricePerItem}g</b></div>
                             <div className="text-base font-bold text-yellow-600 pt-1">
-                                总计 +{priceInfo.total}g
+                                组合奖励 +{priceInfo.total}g
                             </div>
                         </div>
                     ) : (
