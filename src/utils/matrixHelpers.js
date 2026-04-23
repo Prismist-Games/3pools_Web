@@ -75,8 +75,25 @@ export function rollSingleCell(marketIngredients) {
  * Each ingredient cell is a standalone 1×1 entity.
  *
  * @param {Array} marketIngredients — ingredient objects filtered by market category
+ * @param {Object} [options]
+ * @param {Array<Array<Object|null>>} [options.tutorialLayout] — 教程手作 layout 直接注入；
+ *   每个 cell 形如 `{ type, item?, ... }`（uid 由本函数填充）。提供时直接返回该 layout 的深拷贝，跳过随机生成。
  */
-export function generateWall(marketIngredients) {
+export function generateWall(marketIngredients, options = {}) {
+  // 教程手作 layout 注入：直接深拷贝并补 uid，跳过随机 phase
+  if (options.tutorialLayout) {
+    const grid = options.tutorialLayout.map(row => row.map(c => {
+      if (!c) return null;
+      const baseUid = generateUID();
+      if (c.type === 'ingredient') {
+        return { type: 'ingredient', item: { ...c.item }, uid: baseUid };
+      }
+      return { ...c, uid: baseUid };
+    }));
+    const doomCellCount = { resolution: grid.flat().filter(c => c?.type === 'doom_resolution').length };
+    return { grid, doomCellCount };
+  }
+
   if (!marketIngredients?.length) {
     throw new Error('generateWall: marketIngredients is empty or undefined');
   }

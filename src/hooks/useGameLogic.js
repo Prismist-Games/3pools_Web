@@ -347,6 +347,29 @@ export const useGameLogic = (config) => {
         advanceTutorial();
     };
 
+    /** Tutorial step 切换时的 onEnter 副作用：fixedOrder / toolsGranted 等需要在
+     *  step 切到新状态时生效。注意 startGame 已单独处理 dish + fridgePreload + 初始 toolsGranted。
+     *  这个 effect 只处理"步骤推进过程中"才生效的覆盖。 */
+    useEffect(() => {
+        if (!tutorialMode || !currentTutorialStep) return;
+        const o = currentTutorialStep.overrides;
+        if (!o) return;
+
+        // fixedOrder：场景 5 直接把固定订单写到 bulletinBoard
+        if (o.fixedOrder) {
+            setBulletinBoard([o.fixedOrder]);
+        }
+
+        // toolsGranted：在 step 进入时（非 startGame 阶段）发放道具
+        // scene_1_cooking 等开局 step 的 tools 已由 startGame 处理；这里只为中途解锁的 step（如场景 4 海鲜店）
+        if (o.toolsGranted && phase !== 'pre_game' && phase !== 'setup') {
+            o.toolsGranted.forEach(toolId => {
+                const tool = TOOLS.find(t => t.id === toolId);
+                if (tool) addTool({ ...tool, uid: generateUID() });
+            });
+        }
+    }, [tutorialStepIndex]);  // 仅 step index 变化时触发
+
     // =============================================
     // TURN FLOW
     // =============================================
@@ -378,10 +401,38 @@ export const useGameLogic = (config) => {
         // Reset draw direction for alternating wall
         setLastDrawDirection(null);
 
+        // === Tutorial forceMarket：单一候选 + 手作 layout，跳过 3 选 1 直接进 drawing ===
+        if (tutorialOverrides?.forceMarket && tutorialOverrides?.wallLayout) {
+            const marketType = MARKET_TYPES.find(m => m.id === tutorialOverrides.forceMarket);
+            if (marketType) {
+                const marketIngredients = pickMarketIngredients(marketType);
+                const { grid, doomCellCount } = generateWall(marketIngredients, { tutorialLayout: tutorialOverrides.wallLayout });
+                setCurrentWallType(marketType);
+                setMatrix(grid);
+                setWallCandidates(null);
+                setPhase('drawing');
+                return;
+            }
+        }
+
         // Generate up to 3 unique market candidates (capped at available types to prevent infinite loop).
         const maxCandidates = Math.min(3, MARKET_TYPES.length);
         const candidates = [];
         const usedTypeIds = new Set();
+
+        // === Tutorial forceCandidatesInclude：先把指定市场塞进候选 ===
+        if (tutorialOverrides?.forceCandidatesInclude) {
+            for (const forcedId of tutorialOverrides.forceCandidatesInclude) {
+                const marketType = MARKET_TYPES.find(m => m.id === forcedId);
+                if (marketType && !usedTypeIds.has(marketType.id)) {
+                    usedTypeIds.add(marketType.id);
+                    const marketIngredients = pickMarketIngredients(marketType);
+                    const { grid, doomCellCount } = generateWall(marketIngredients);
+                    candidates.push({ marketIngredients, grid, doomCellCount, wallType: marketType });
+                }
+            }
+        }
+
         while (candidates.length < maxCandidates) {
             const marketType = pickMarketType();
             if (usedTypeIds.has(marketType.id)) continue;
@@ -398,10 +449,33 @@ export const useGameLogic = (config) => {
     const selectWall = (index) => {
         if (!wallCandidates || !wallCandidates[index]) return;
         const chosen = wallCandidates[index];
+
+        // Tutorial onWrongMarket：guard 不通过则展示主角台词，阻止推进
+        if (currentTutorialStep?.completion?.event === 'wall_selected'
+            && currentTutorialStep.completion.guard
+            && !currentTutorialStep.completion.guard({ selectedMarketId: chosen.wallType?.id })) {
+            if (currentTutorialStep.onWrongMarket?.heroLine) {
+                setTutorialHeroLine(currentTutorialStep.onWrongMarket.heroLine);
+            }
+            return;
+        }
+
         setCurrentWallType(chosen.wallType);
-        setMatrix(chosen.grid.map(r => r.map(c => c ? { ...c } : null)));
+
+        // 如果下一个 step 有 wallLayout（场景 4 进店），用手作 layout 替换矩阵
+        const nextStep = tutorialMode ? TUTORIAL_STEPS[tutorialStepIndex + 1] : null;
+        if (nextStep?.overrides?.wallLayout) {
+            const marketIngredients = pickMarketIngredients(chosen.wallType);
+            const { grid } = generateWall(marketIngredients, { tutorialLayout: nextStep.overrides.wallLayout });
+            setMatrix(grid);
+        } else {
+            setMatrix(chosen.grid.map(r => r.map(c => c ? { ...c } : null)));
+        }
         setWallCandidates(null);
         setPhase('drawing');
+
+        // emit wall_selected → guard 已通过则推进；下一步 onEnter 在 StepController 处理 toolsGranted 等
+        emitTutorialEvent('wall_selected', { selectedMarketId: chosen.wallType?.id });
     };
 
     /** Player clicks past the reveal — apply the chosen candidate. */
@@ -420,25 +494,48 @@ export const useGameLogic = (config) => {
     const startGame = () => {
         setExpeditionNumber(prev => prev + 1);
 
-        // Pick today's dish — fixed order by day. Day 1 → DISHES[0],
-        // Day 2 → DISHES[1], cycles afterwards.
-        const nextDay = expeditionNumber + 1;
-        const dish = DISHES[(nextDay - 1) % DISHES.length];
+        // === Tutorial dish + fridgePreload override ===
+        // 教程 step 指定了菜谱就用它，否则按原 day-by-day 轮转
+        let dish;
+        if (tutorialOverrides?.dish) {
+            dish = DISHES.find(d => d.id === tutorialOverrides.dish) || DISHES[0];
+        } else {
+            const nextDay = expeditionNumber + 1;
+            dish = DISHES[(nextDay - 1) % DISHES.length];
+        }
         setCurrentDish(dish);
         setDishIntroPending(true);
+
+        // 教程冰箱预发：转换 { id, quality } 列表为带 score / uid 的 inventory items
+        if (tutorialOverrides?.fridgePreload) {
+            const preloaded = tutorialOverrides.fridgePreload.map(p => {
+                const ing = INGREDIENTS.find(i => i.id === p.id);
+                const qDef = QUALITY_CONFIG.find(q => q.id === p.quality) || QUALITY_CONFIG[0];
+                return ing ? { ...ing, quality: p.quality, score: qDef.scoreValue, uid: generateUID() } : null;
+            }).filter(Boolean);
+            setInventory(preloaded);
+        }
 
         setBulletinBoard([]);
         setPendingChosenOrder(null);
         setPhase('setup');
 
-        // Grant the opening toolbar — N distinct tools via addTool so the
-        // grant popup batches them. Toolbar capacity > dayStartCount avoids
-        // overflow.
+        // Grant the opening toolbar — 教程态下用 toolsGranted override 控制；否则正常发 dayStartCount
         setTools([]);
         setPendingToolGrant(null);
         setActiveTool(null);
         setToolGrantQueue([]);
-        pickDistinctToolsFromPool(TOOL_CONFIG.dayStartCount).forEach(addTool);
+        if (tutorialOverrides?.toolsGranted) {
+            // 教程指定的几个 tool（按 id）依次发放
+            tutorialOverrides.toolsGranted.forEach(toolId => {
+                const tool = TOOLS.find(t => t.id === toolId);
+                if (tool) addTool({ ...tool, uid: generateUID() });
+            });
+        } else if (!tutorialMode) {
+            // 非教程态：正常发 dayStartCount 个互不相同
+            pickDistinctToolsFromPool(TOOL_CONFIG.dayStartCount).forEach(addTool);
+        }
+        // 教程态但当前 step 没指定 toolsGranted（如开场叙事 / 场景 1）→ 不发，等海鲜店 step 才发
         // Queue will be filled once the player dismisses the dish intro
         // (see dismissDishIntro below).
     };
@@ -448,6 +545,11 @@ export const useGameLogic = (config) => {
     const dismissDishIntro = () => {
         if (!dishIntroPending) return;
         setDishIntroPending(false);
+        // 教程态：交换区强制清空，订单由 fixedOrder（场景 5）单独注入
+        if (tutorialMode) {
+            setBulletinBoard([]);
+            return;
+        }
         const initial = [];
         for (let i = 0; i < 4; i++) {
             initial.push(generateOrder());
@@ -565,6 +667,11 @@ export const useGameLogic = (config) => {
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix || !matrix[rowIndex]) return;
+        // Tutorial selectableAxes guard：教程态下只允许指定的行
+        if (tutorialOverrides?.selectableAxes
+            && !tutorialOverrides.selectableAxes.includes(`row_${rowIndex}`)) {
+            return;
+        }
 
         setDoomResolutionResult(null);
         setFlyingItem(null);
@@ -579,9 +686,33 @@ export const useGameLogic = (config) => {
 
         setGold(prev => prev - turnConfig.drawCost);
 
-        // Pre-determine result
-        const finalColIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
-        const drawnCell = row[finalColIndex];
+        // === Tutorial drawResults override ===
+        // 优先按脚本序列命中：从 row 内 type=ingredient + 匹配 forced.id + 不在 protected 的 cell 中随机一个
+        let finalColIndex;
+        let drawnCell;
+        const forced = (tutorialOverrides?.drawResults && tutorialDrawCount < tutorialOverrides.drawResults.length)
+            ? tutorialOverrides.drawResults[tutorialDrawCount]
+            : null;
+        const protectedCells = new Set(tutorialOverrides?.protectedCells ?? []);
+        if (forced) {
+            const candidates = activeCols.filter(c => {
+                const key = `${rowIndex},${c}`;
+                const cell = row[c];
+                return !protectedCells.has(key)
+                    && cell?.type === 'ingredient'
+                    && cell.item?.id === forced.id;
+            });
+            if (candidates.length > 0) {
+                finalColIndex = candidates[Math.floor(Math.random() * candidates.length)];
+                const baseCell = row[finalColIndex];
+                drawnCell = { ...baseCell, item: { ...baseCell.item, quality: forced.quality } };
+            }
+        }
+        if (drawnCell === undefined) {
+            // 无 override 或没有匹配候选 → 兜底走原 random 落点
+            finalColIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
+            drawnCell = row[finalColIndex];
+        }
 
         // Calculate total ticks: cycle through active cells multiple times, end on finalColIndex
         const finalIdx = activeCols.indexOf(finalColIndex);
@@ -615,6 +746,11 @@ export const useGameLogic = (config) => {
         if (isDoomResolving || isDrawAnimating) return;
         if (gold < turnConfig.drawCost) return;
         if (!matrix) return;
+        // Tutorial selectableAxes guard
+        if (tutorialOverrides?.selectableAxes
+            && !tutorialOverrides.selectableAxes.includes(`col_${colIndex}`)) {
+            return;
+        }
 
         setDoomResolutionResult(null);
         setFlyingItem(null);
@@ -629,9 +765,31 @@ export const useGameLogic = (config) => {
 
         setGold(prev => prev - turnConfig.drawCost);
 
-        // Pre-determine result: pick a random row from active rows
-        const finalRowIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
-        const drawnCell = matrix[finalRowIndex][colIndex];
+        // === Tutorial drawResults override（同 selectRow，按列匹配）===
+        let finalRowIndex;
+        let drawnCell;
+        const forced = (tutorialOverrides?.drawResults && tutorialDrawCount < tutorialOverrides.drawResults.length)
+            ? tutorialOverrides.drawResults[tutorialDrawCount]
+            : null;
+        const protectedCells = new Set(tutorialOverrides?.protectedCells ?? []);
+        if (forced) {
+            const candidates = activeCols.filter(r => {
+                const key = `${r},${colIndex}`;
+                const cell = matrix[r][colIndex];
+                return !protectedCells.has(key)
+                    && cell?.type === 'ingredient'
+                    && cell.item?.id === forced.id;
+            });
+            if (candidates.length > 0) {
+                finalRowIndex = candidates[Math.floor(Math.random() * candidates.length)];
+                const baseCell = matrix[finalRowIndex][colIndex];
+                drawnCell = { ...baseCell, item: { ...baseCell.item, quality: forced.quality } };
+            }
+        }
+        if (drawnCell === undefined) {
+            finalRowIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
+            drawnCell = matrix[finalRowIndex][colIndex];
+        }
 
         // Calculate total ticks: 1 full pass + landing on finalRowIndex
         const finalIdx = activeCols.indexOf(finalRowIndex);
@@ -1019,6 +1177,11 @@ export const useGameLogic = (config) => {
             doomEffects,
         });
         setDrawAnimState(null);
+
+        // Tutorial: 一次抽取完成 → drawCount++（用于 drawResults 序列推进）
+        if (tutorialOverrides?.drawResults) {
+            setTutorialDrawCount(c => c + 1);
+        }
     };
 
     // =============================================
@@ -1156,6 +1319,8 @@ export const useGameLogic = (config) => {
 
     /** Push a new 2-candidate incoming event to the back of the queue. */
     const addBulletinOrder = () => {
+        // 教程态：当前 step 禁止 incoming → 跳过
+        if (tutorialOverrides?.forbidIncomingOrders) return;
         setIncomingQueue(prev => [...prev, {
             id: generateUID(),
             candidates: [generateOrder(), generateOrder()],
@@ -1294,12 +1459,23 @@ export const useGameLogic = (config) => {
     const resolveDoom = (action = null, times = 1) => {
         if (action) setAfterDoomAction(action);
 
+        // Tutorial safeDoomLanding：所有落点强制 hit empty，不扣 HP
+        const safeLanding = tutorialOverrides?.safeDoomLanding;
+        const emptyIndexes = doomGrid
+            .map((c, i) => c.type === 'empty' ? i : -1)
+            .filter(i => i >= 0);
+
         // Pre-calculate final selections (times rounds of doomLevel hits each)
         const finalSelections = [];
         let hpLoss = 0;
         for (let t = 0; t < times; t++) {
             for (let i = 0; i < doomLevel; i++) {
-                const cellIndex = Math.floor(Math.random() * doomConfig.gridSize);
+                let cellIndex;
+                if (safeLanding && emptyIndexes.length > 0) {
+                    cellIndex = emptyIndexes[Math.floor(Math.random() * emptyIndexes.length)];
+                } else {
+                    cellIndex = Math.floor(Math.random() * doomConfig.gridSize);
+                }
                 const cell = doomGrid[cellIndex];
                 const isHit = cell.type === 'danger';
                 if (isHit) hpLoss++;
@@ -1372,9 +1548,11 @@ export const useGameLogic = (config) => {
             setPhase('between_turns');
             // Leaving a wall always offers a pick-1-of-2 order.
             addBulletinOrder();
-            // Grant +1 random tool on wall exit (overflow handled by addTool).
-            for (let i = 0; i < TOOL_CONFIG.perWallExitCount; i++) {
-                addTool(pickRandomToolFromPool());
+            // 教程态：跳过 per-wall-exit 道具发放，由 step.overrides.toolsGranted 控制
+            if (!tutorialMode) {
+                for (let i = 0; i < TOOL_CONFIG.perWallExitCount; i++) {
+                    addTool(pickRandomToolFromPool());
+                }
             }
         }
     };
@@ -1688,14 +1866,20 @@ export const useGameLogic = (config) => {
                 setMatrix(prev => {
                     if (!prev) return prev;
                     const next = prev.map(row => row.map(c => c ? { ...c, item: c.item ? { ...c.item } : null } : null));
-                    const reveal = (cell) => {
+                    // 教程 peekQualityMap：cell 有手作品质就用它，没有就 roll
+                    const peekMap = tutorialOverrides?.peekQualityMap ?? null;
+                    const reveal = (cell, r, c) => {
                         if (cell?.type === 'ingredient' && cell.item && cell.item.quality === undefined) {
-                            cell.item.quality = rollQuality();
+                            const forced = peekMap?.[`${r},${c}`];
+                            cell.item.quality = forced ?? rollQuality();
                             cell.item.qualityPeeked = true;
                         }
                     };
-                    if (direction === 'row') next[index]?.forEach(reveal);
-                    else for (let r = 0; r < next.length; r++) reveal(next[r][index]);
+                    if (direction === 'row') {
+                        next[index]?.forEach((cell, c) => reveal(cell, index, c));
+                    } else {
+                        for (let r = 0; r < next.length; r++) reveal(next[r][index], r, index);
+                    }
                     return next;
                 });
                 showToast(`👁 ${t('透视')}`, 'success');
