@@ -26,6 +26,8 @@ export const EN_TRANSLATIONS = {
     "回餐厅": "Back to the restaurant",
     "凑一顿出来\n没有完全匹配的食材，靠匹配度和品质也能拿分\n未标\"必填\"的槽位可以留空":
         "Put together what you've got\nNo perfect match? Tag-match + quality still score points\nSlots without \"Required\" can stay empty",
+    "冰箱里没用完的食材，会保留到后面的天数":
+        "Ingredients left in the fridge carry over to the next days",
     "——成了。这下就跟老妈做的一个味儿。": "— There. Tastes just like Mom's now.",
     "要先去买明虾": "Grab the tiger prawn first",
     "把抽数用完再走": "Use all your draws first",
@@ -69,6 +71,9 @@ export const EN_TRANSLATIONS = {
         "Fine. Try my luck at the seafood market — maybe a few tiger prawns are still left.",
     "明虾得先买到手，别的回头再说。":
         "Get the tiger prawn first — everything else can wait.",
+    // 软锁行列（onWrongAxis）
+    "我得先搞到鸡蛋面。": "I need to grab the egg noodles first.",
+    "先搞到明虾。": "Tiger prawn first.",
     // 场景 5 · 交换区登场
     "……原来不止我一个没抢到想要的。":
         "...Turns out I'm not the only one who came up short today.",

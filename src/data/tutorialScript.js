@@ -19,6 +19,7 @@
  *     completion: { event, guard?, autoAdvanceMs? },
  *     onFail?: { heroLine, action },
  *     onWrongMarket?: { heroLine },
+ *     onWrongAxis?: { heroLine },    // 教程态下点击非 selectableAxes 允许的行/列时触发
  *     onExit?: { heroLine },
  *     onComplete?: { heroLines?, action? },
  * }
@@ -193,7 +194,7 @@ export const TUTORIAL_STEPS = [
         completion: { event: 'doom_resolved_after_endturn' },
         onAllDrawsDone: { heroLine: '怎么只有挂面啊？算了，也能凑合凑合。' },
         onSynthDone: { heroLine: '好了，现在该穿过这拥挤的人潮了。' },
-        onExit: { heroLine: '……抢个菜也这么费劲。' },
+        onWrongAxis: { heroLine: '我得先搞到鸡蛋面。' },
     },
     // —— 7：场景 3 · 市场 3 选 1 ——
     {
@@ -201,7 +202,10 @@ export const TUTORIAL_STEPS = [
         ui: {
             bottomDialog: {
                 speaker: '主角', emoji: '🧑‍🍳',
-                lines: ['算了。先去海鲜店碰碰运气——明虾说不定还剩几只。'],
+                lines: [
+                    '……抢个菜也这么费劲。',
+                    '算了。先去海鲜店碰碰运气——明虾说不定还剩几只。',
+                ],
             },
             coachmarks: [
                 { when: 'dialog_done', targetSelector: '[data-tutorial="market-card-seafood_market"]', label: '去海鲜店' },
@@ -243,6 +247,7 @@ export const TUTORIAL_STEPS = [
             lockEvacuateUntilDrawsExhausted: { reason: '把抽数用完再走' },
         },
         completion: { event: 'doom_resolved_after_endturn' },
+        onWrongAxis: { heroLine: '先搞到明虾再说。' },
     },
     // —— 9：场景 5 · 交换区登场 + 固定订单 ——
     {
@@ -309,6 +314,7 @@ export const TUTORIAL_STEPS = [
             },
             coachmarks: [
                 { when: 'dialog_done', targetSelector: '[data-tutorial^="kitchen-slot-"]', label: '凑一顿出来\n没有完全匹配的食材，靠匹配度和品质也能拿分\n未标"必填"的槽位可以留空' },
+                { when: 'dialog_done', targetSelector: '[data-tutorial="fridge-area"]',    label: '冰箱里没用完的食材，会保留到后面的天数' },
             ],
         },
         overrides: {

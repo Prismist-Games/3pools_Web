@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { generateWall, pickMarketIngredients, rollSingleCell } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { LEVEL_TEMPLATES } from '../data/levelTemplates';
@@ -291,6 +291,10 @@ export const useGameLogic = (config) => {
     // 教程软重置计数器：每次 soft-fail reset 时 +1。GameCore 用它做 Kitchen 的 key，
     // 以强制 Kitchen 组件卸载重建 → 本地 placements 状态清空。
     const [tutorialResetCounter, setTutorialResetCounter] = useState(0);
+    // startNextDay re-entry guard：教程 scene_1 / scene_7 结尾"继续下一天"按钮会触发
+    // 延迟 heroLines 序列。在序列完成前玩家反复点击会叠加 setTimeout 导致 advanceTutorial
+    // 被多次调用，step index 失控。用 ref 做防抖——点过一次就忽略后续点击。
+    const nextDayAdvancingRef = useRef(false);
 
     // --- UI State ---
     const [toast, setToast] = useState(null);
@@ -330,10 +334,13 @@ export const useGameLogic = (config) => {
         });
         setTutorialDrawCount(0);
         setTutorialHeroLine(null);
+        // 进入下一 step 后重置 startNextDay 防抖——下一个 cooking step 的"继续"属于新一次点击
+        nextDayAdvancingRef.current = false;
     };
 
     /** 自然走完教程：进入 Day 2 海洋线条开局。
-     *  保留：popularity / fridge（前一晚做菜的成果）
+     *  保留：fridge（前一晚做菜的成果）
+     *  重置：popularity（归 10，教程里做"妈妈的家常汤面" +2 等增量不带入正式流程）
      *  重置：所有 per-day 临时状态（hp / doom grid / 抽数 / 墙 / 菜篮 / 道具效果 ...） */
     const handleTutorialNaturalComplete = () => {
         // —— Day 2 起点配置 ——
@@ -341,6 +348,7 @@ export const useGameLogic = (config) => {
         const ocean = DISHES.find(d => d.id === 'ocean_threads');
         if (ocean) setCurrentDish(ocean);
         setDishIntroPending(true);
+        setPopularity(10);
 
         // —— 抽取/墙状态 ——
         setTurnNumber(0);
@@ -393,6 +401,7 @@ export const useGameLogic = (config) => {
         setTutorialStepIndex(TUTORIAL_STEPS.length - 1);
         setTutorialDrawCount(0);
         setTutorialHeroLine(null);
+        nextDayAdvancingRef.current = false;
 
         // === 全量重置游戏 state 到 Day 2 干净开局 ===
         setExpeditionNumber(2);
@@ -825,6 +834,8 @@ export const useGameLogic = (config) => {
         // Tutorial selectableAxes guard：教程态下只允许指定的行
         if (tutorialOverrides?.selectableAxes
             && !tutorialOverrides.selectableAxes.includes(`row_${rowIndex}`)) {
+            const wrongAxisLine = currentTutorialStep?.onWrongAxis?.heroLine;
+            if (wrongAxisLine) setTutorialHeroLine(wrongAxisLine);
             return;
         }
 
@@ -904,6 +915,8 @@ export const useGameLogic = (config) => {
         // Tutorial selectableAxes guard
         if (tutorialOverrides?.selectableAxes
             && !tutorialOverrides.selectableAxes.includes(`col_${colIndex}`)) {
+            const wrongAxisLine = currentTutorialStep?.onWrongAxis?.heroLine;
+            if (wrongAxisLine) setTutorialHeroLine(wrongAxisLine);
             return;
         }
 
@@ -1799,6 +1812,11 @@ export const useGameLogic = (config) => {
         // Tutorial 场景 1 惊艳路径：跳过日重置，直接推进到 scene_1_5_dishcard
         // Tutorial 场景 7：跳过日重置，推进到 day2_handoff（卡片自己负责后续 Day 2 起手）
         if (tutorialMode && (isInStep('scene_1_cooking') || isInStep('scene_7_cooking'))) {
+            // 防抖：点过一次后忽略所有后续点击，直到 advanceTutorial 完成
+            // （ref 在 advanceTutorial 里重置——新 step 的"继续"按钮属于另一次点击）
+            if (nextDayAdvancingRef.current) return;
+            nextDayAdvancingRef.current = true;
+
             // onComplete.heroLines：依次播放角色独白后再推进。
             // 脚本里这个字段原来没有消费方，台词永远不会显示——scene_7 结尾
             // 的两句"……嗯，起码能吃。"/"明天再来一遍……"就是因此被漏掉。

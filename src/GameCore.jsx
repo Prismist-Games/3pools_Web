@@ -254,6 +254,16 @@ const GameCore = ({ playerInfo }) => {
         }
     }, [tutorialSynthDone, currentTutorialStep, setTutorialHeroLine]);
 
+    // Tutorial scene 7 结尾 auto-advance：cook_result 进入后短延迟自动触发 startNextDay，
+    // 不依赖玩家点击"继续下一天"。按钮本身也会在此场景下隐藏（见下方 cook_result 区块）。
+    // 防止玩家在 onComplete.heroLines 序列期间反复点击按钮导致 advanceTutorial 叠加。
+    useEffect(() => {
+        if (!(tutorialMode && currentTutorialStep?.id === 'scene_7_cooking')) return;
+        if (phase !== 'cook_result') return;
+        const timer = setTimeout(() => startNextDay(), 1500);
+        return () => clearTimeout(timer);
+    }, [phase, tutorialMode, currentTutorialStep, startNextDay]);
+
     return (
         <div className="min-h-screen p-4">
             <div className="max-w-6xl mx-auto">
@@ -925,14 +935,17 @@ const GameCore = ({ playerInfo }) => {
                             </div>
                         </div>
 
-                        <div>
-                            <button
-                                onClick={startNextDay}
-                                className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body text-lg font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
-                            >
-                                {t('继续下一天')}
-                            </button>
-                        </div>
+                        {/* 教程 scene 7 结尾自动推进（见上方 useEffect），不显示按钮 */}
+                        {!(tutorialMode && currentTutorialStep?.id === 'scene_7_cooking') && (
+                            <div>
+                                <button
+                                    onClick={startNextDay}
+                                    className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body text-lg font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
+                                >
+                                    {t('继续下一天')}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 
