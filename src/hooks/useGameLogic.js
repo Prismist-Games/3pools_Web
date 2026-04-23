@@ -1,12 +1,13 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useSyncExternalStore } from 'react';
 import { generateWall, pickMarketIngredients, rollSingleCell } from '../utils/matrixHelpers';
 import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
 import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES, TOOLS, TOOL_CONFIG } from '../data/v2Config';
-import { LIVE_CONFIG } from '../data/runtimeConfig';
+import { LIVE_CONFIG, subscribeConfig, getConfigVersion } from '../data/runtimeConfig';
 import { pickDoomEmoji } from '../data/matrixConfig';
+import { getActiveIngredients, getActiveMarketTypes } from '../utils/activePool';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -82,21 +83,24 @@ function assignQualitiesFromBudget(reqBudget, slotCount) {
 }
 
 function pickMarketType() {
-    const total = MARKET_TYPES.reduce((s, t) => s + t.weight, 0);
+    const active = getActiveMarketTypes();
+    if (active.length === 0) return null;
+    const total = active.reduce((s, t) => s + t.weight, 0);
     let roll = Math.random() * total;
-    for (const t of MARKET_TYPES) {
+    for (const t of active) {
         roll -= t.weight;
         if (roll <= 0) return t;
     }
-    return MARKET_TYPES[0];
+    return active[0];
 }
 
-// Index ingredients by 二级 tag (tags[1]). Each entry collects the tag's shared
-// icon, its 大类, and the list of concrete ingredient ids that belong to it —
-// used by order generation (pick tag) and reward resolution (pick concrete).
-const TAG2_INDEX = (() => {
+/**
+ * Build the TAG2_INDEX (Map) and TAG2_ENTRIES (Array) from a given ingredient
+ * list. Called at hook init and whenever the active pool changes.
+ */
+function buildTag2Index(ingredients) {
     const map = new Map();
-    for (const ing of INGREDIENTS) {
+    for (const ing of ingredients) {
         const [categoryTag, tag2] = ing.tags;
         if (!map.has(tag2)) {
             map.set(tag2, { tag2, categoryTag, icon: ing.icon, ingredientIds: [] });
@@ -104,24 +108,23 @@ const TAG2_INDEX = (() => {
         map.get(tag2).ingredientIds.push(ing.id);
     }
     return map;
-})();
-const TAG2_ENTRIES = [...TAG2_INDEX.values()];
+}
 
-function generateOrder() {
+function generateOrder(tag2Entries) {
     const template = pickWeightedTemplate();
 
     const rewardQualityDef = QUALITY_CONFIG.find(q => q.id === template.rewardQuality) || QUALITY_CONFIG[0];
 
     // Pick N distinct 二级 tag entries for requirements — fully random,
     // no cross-category constraint (may include multiple tags from the same 大类).
-    const selectedTag2 = [...TAG2_ENTRIES].sort(() => Math.random() - 0.5).slice(0, template.ingredientTypes);
+    const selectedTag2 = [...tag2Entries].sort(() => Math.random() - 0.5).slice(0, template.ingredientTypes);
 
     // Reward tag2: avoid duplicating any requirement tag2 (same 小类), but
     // 大类 collisions between reward and reqs are allowed now.
     const reqTag2Set = new Set(selectedTag2.map(e => e.tag2));
-    const rewardPool = TAG2_ENTRIES.filter(e => !reqTag2Set.has(e.tag2));
+    const rewardPool = tag2Entries.filter(e => !reqTag2Set.has(e.tag2));
     const rewardEntry = rewardPool[Math.floor(Math.random() * rewardPool.length)]
-        || TAG2_ENTRIES[Math.floor(Math.random() * TAG2_ENTRIES.length)];
+        || tag2Entries[Math.floor(Math.random() * tag2Entries.length)];
     const finalReward = {
         tag2: rewardEntry.tag2,
         categoryTag: rewardEntry.categoryTag,
@@ -161,6 +164,15 @@ function generateOrder() {
 
 export const useGameLogic = (config) => {
     const { t, language } = useLanguage();
+
+    // --- Active ingredient pool (rebuilds when disabledIngredientIds changes) ---
+    // Subscribe to LIVE_CONFIG changes so TAG2_INDEX stays in sync with the pool.
+    const configVersion = useSyncExternalStore(subscribeConfig, getConfigVersion, getConfigVersion);
+    const tag2Entries = useMemo(() => {
+        // getActiveIngredients() reads LIVE_CONFIG.disabledIngredientIds at call time.
+        return [...buildTag2Index(getActiveIngredients()).values()];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [configVersion]);
 
     // --- Configuration ---
     const doomConfig = config.doom || DOOM_CONFIG;
@@ -322,15 +334,19 @@ export const useGameLogic = (config) => {
         // Reset draw direction for alternating wall
         setLastDrawDirection(null);
 
-        // Generate up to 3 unique market candidates (capped at available types to prevent infinite loop).
-        const maxCandidates = Math.min(3, MARKET_TYPES.length);
+        // Generate up to 3 unique market candidates (capped at active types to prevent infinite loop).
+        const activeMarketTypes = getActiveMarketTypes();
+        const maxCandidates = Math.min(3, activeMarketTypes.length);
         const candidates = [];
         const usedTypeIds = new Set();
+        // If all ingredients are disabled, no candidates can be built — skip gracefully.
         while (candidates.length < maxCandidates) {
             const marketType = pickMarketType();
+            if (!marketType) break;
             if (usedTypeIds.has(marketType.id)) continue;
             usedTypeIds.add(marketType.id);
             const marketIngredients = pickMarketIngredients(marketType);
+            if (!marketIngredients.length) continue;
             const { grid, doomCellCount } = generateWall(marketIngredients);
             candidates.push({ marketIngredients, grid, doomCellCount, wallType: marketType });
         }
@@ -394,7 +410,7 @@ export const useGameLogic = (config) => {
         setDishIntroPending(false);
         const initial = [];
         for (let i = 0; i < 4; i++) {
-            initial.push(generateOrder());
+            initial.push(generateOrder(tag2Entries));
         }
         setBulletinBoard(initial);
     };
@@ -1102,7 +1118,7 @@ export const useGameLogic = (config) => {
     const addBulletinOrder = () => {
         setIncomingQueue(prev => [...prev, {
             id: generateUID(),
-            candidates: [generateOrder(), generateOrder()],
+            candidates: [generateOrder(tag2Entries), generateOrder(tag2Entries)],
         }]);
     };
 

@@ -1,7 +1,8 @@
 import React, { useState, useSyncExternalStore } from 'react';
 import { X, Download, Upload, RotateCcw } from 'lucide-react';
-import { LIVE_CONFIG, bumpConfig, resetConfig, exportConfigJSON, importConfigJSON, subscribeConfig, getConfigVersion } from '../../data/runtimeConfig';
-import { QUALITY_CONFIG } from '../../data/v2Config';
+import { LIVE_CONFIG, bumpConfig, resetConfig, exportConfigJSON, importConfigJSON, subscribeConfig, getConfigVersion, toggleIngredient, setCategoryEnabled } from '../../data/runtimeConfig';
+import { QUALITY_CONFIG, INGREDIENTS } from '../../data/v2Config';
+import { getActiveIngredients, getActiveCategories, getDishWarnings } from '../../utils/activePool';
 
 // Subscribe hook — re-renders whenever LIVE_CONFIG is mutated via bumpConfig / resetConfig / importConfigJSON.
 function useLiveConfigVersion() {
@@ -186,6 +187,125 @@ function WallLayoutSection({ gridSize, onToggleGridSize }) {
     );
 }
 
+// ─── Section E: 食材池 ────────────────────────────────────────────
+// Derive per-大类 structure from INGREDIENTS once — static shape, dynamic
+// enable/disable state read from LIVE_CONFIG at render time.
+const CATEGORY_ORDER = ['肉类', '海鲜', '蔬菜', '主食', '蛋奶制品'];
+
+function buildCategoryData() {
+    // { categoryName → { subcategories: { tag2 → [ingredient] } } }
+    const categories = {};
+    for (const cat of CATEGORY_ORDER) {
+        categories[cat] = { subcategories: {} };
+    }
+    for (const ing of INGREDIENTS) {
+        const [cat, sub] = ing.tags;
+        if (!categories[cat]) continue;
+        if (!categories[cat].subcategories[sub]) {
+            categories[cat].subcategories[sub] = [];
+        }
+        categories[cat].subcategories[sub].push(ing);
+    }
+    return categories;
+}
+
+const CATEGORY_DATA = buildCategoryData();
+
+function IngredientPoolSection() {
+    const disabledSet = new Set(LIVE_CONFIG.disabledIngredientIds);
+    const activeCategories = getActiveCategories();
+    const warnings = getDishWarnings();
+    const totalActive = getActiveIngredients().length;
+    const totalAll = INGREDIENTS.length;
+
+    return (
+        <section className="mb-5">
+            <h3 className="text-sm font-bold text-gray-100 mb-2">E. 食材池</h3>
+            {totalActive === 0 && (
+                <div className="text-[11px] text-orange-400 mb-2">
+                    ⚠ 当前无可用食材，市场无法生成
+                </div>
+            )}
+            <div className="flex flex-col gap-3">
+                {CATEGORY_ORDER.map(catName => {
+                    const catData = CATEGORY_DATA[catName];
+                    const subcategories = catData.subcategories;
+                    const allIngsInCat = INGREDIENTS.filter(i => i.tags[0] === catName);
+                    const activeCount = allIngsInCat.filter(i => !disabledSet.has(i.id)).length;
+                    const isCatActive = activeCategories.has(catName);
+
+                    return (
+                        <div
+                            key={catName}
+                            className={`border rounded p-2 ${isCatActive ? 'border-gray-600 bg-gray-900/50' : 'border-gray-700 bg-gray-900/20 opacity-60'}`}
+                        >
+                            {/* 大类 header row */}
+                            <div className="flex items-center justify-between mb-2">
+                                <span className={`text-xs font-bold ${isCatActive ? 'text-gray-100' : 'text-gray-500'}`}>
+                                    {catName}
+                                    <span className="ml-1.5 text-[10px] font-normal text-gray-400">
+                                        {activeCount}/{allIngsInCat.length} 启用
+                                    </span>
+                                </span>
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={() => setCategoryEnabled(catName, true)}
+                                        className="px-1.5 py-0.5 text-[10px] bg-gray-700 hover:bg-gray-600 rounded border border-gray-600"
+                                    >全选</button>
+                                    <button
+                                        onClick={() => setCategoryEnabled(catName, false)}
+                                        className="px-1.5 py-0.5 text-[10px] bg-gray-700 hover:bg-gray-600 rounded border border-gray-600"
+                                    >全不选</button>
+                                </div>
+                            </div>
+                            {/* 小类 rows with ingredient chips */}
+                            <div className="flex flex-col gap-1">
+                                {Object.entries(subcategories).map(([subName, ings]) => (
+                                    <div key={subName} className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-[10px] text-gray-400 w-7 shrink-0">{subName}</span>
+                                        <div className="flex gap-1 flex-wrap">
+                                            {ings.map(ing => {
+                                                const isActive = !disabledSet.has(ing.id);
+                                                return (
+                                                    <button
+                                                        key={ing.id}
+                                                        title={`${ing.icon} ${ing.name}`}
+                                                        onClick={() => toggleIngredient(ing.id)}
+                                                        className={`px-1.5 py-0.5 text-[11px] font-bold rounded border transition-colors ${
+                                                            isActive
+                                                                ? 'bg-amber-700 border-amber-500 text-amber-100 hover:bg-amber-600'
+                                                                : 'bg-gray-800 border-gray-600 text-gray-500 hover:bg-gray-700'
+                                                        }`}
+                                                    >
+                                                        {ing.shortLabel}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            {/* 警告区 */}
+            {warnings.length > 0 && (
+                <div className="mt-3 flex flex-col gap-0.5">
+                    {warnings.map((w, i) => (
+                        <div key={i} className="text-[11px] text-orange-400">
+                            ⚠ [{w.dishName}] {w.issue}
+                        </div>
+                    ))}
+                </div>
+            )}
+            <div className="text-[10px] text-gray-500 mt-1">
+                合计 {totalActive}/{totalAll} 食材启用
+            </div>
+        </section>
+    );
+}
+
 // ─── Panel root ───────────────────────────────────────────────────
 export default function ConfigPanel({ onClose, gridSize, onToggleGridSize }) {
     useLiveConfigVersion();
@@ -225,6 +345,7 @@ export default function ConfigPanel({ onClose, gridSize, onToggleGridSize }) {
                     <CellSpawnSection />
                     <WallLayoutSection gridSize={gridSize} onToggleGridSize={onToggleGridSize} />
                     <OrderTemplatesSection />
+                    <IngredientPoolSection />
 
                     <div className="border-t border-gray-700 pt-3 mt-2">
                         <div className="flex gap-2 mb-2">

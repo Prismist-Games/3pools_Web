@@ -9,7 +9,7 @@
  * 不持久化：F5 刷新回到初始默认。用于开发 / 调试。
  */
 
-import { QUALITY_WEIGHTS, ORDER_TEMPLATES } from './v2Config';
+import { QUALITY_WEIGHTS, ORDER_TEMPLATES, INGREDIENTS } from './v2Config';
 import { MATRIX_CONFIG } from './matrixConfig';
 import { TURN_CONFIG } from './constants';
 
@@ -31,6 +31,8 @@ export const LIVE_CONFIG = {
     goldPerTurn: TURN_CONFIG.goldPerTurn,
     // Wall size (3 or 4). Mirrors MATRIX_CONFIG.gridSize so ConfigPanel can toggle.
     gridSize: MATRIX_CONFIG.gridSize,
+    // Set of disabled ingredient ids. Serialized as array; treat as a set in use.
+    disabledIngredientIds: [],
 };
 
 const DEFAULTS = deepClone(LIVE_CONFIG);
@@ -73,5 +75,35 @@ export function importConfigJSON(json) {
     Object.keys(parsed).forEach(k => {
         if (k in LIVE_CONFIG) LIVE_CONFIG[k] = parsed[k];
     });
+    notify();
+}
+
+/** Toggle a single ingredient id in disabledIngredientIds. Notifies. */
+export function toggleIngredient(id) {
+    const arr = LIVE_CONFIG.disabledIngredientIds;
+    const idx = arr.indexOf(id);
+    if (idx === -1) {
+        arr.push(id);
+    } else {
+        arr.splice(idx, 1);
+    }
+    notify();
+}
+
+/**
+ * Enable or disable every ingredient whose tags[0] === categoryName.
+ * All mutations are batched into a single notify().
+ */
+export function setCategoryEnabled(categoryName, enabled) {
+    const arr = LIVE_CONFIG.disabledIngredientIds;
+    for (const ing of INGREDIENTS) {
+        if (ing.tags[0] !== categoryName) continue;
+        const idx = arr.indexOf(ing.id);
+        if (!enabled && idx === -1) {
+            arr.push(ing.id);
+        } else if (enabled && idx !== -1) {
+            arr.splice(idx, 1);
+        }
+    }
     notify();
 }

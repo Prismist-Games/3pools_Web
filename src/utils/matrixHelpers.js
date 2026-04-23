@@ -1,6 +1,7 @@
 import { MATRIX_CONFIG, pickDoomEmoji } from '../data/matrixConfig';
-import { INGREDIENTS, TOOLS } from '../data/v2Config';
+import { TOOLS } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
+import { getActiveIngredients } from './activePool';
 
 function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
@@ -11,7 +12,7 @@ function generateUID() {
  * @param {Object} marketType — from MARKET_TYPES, has .category
  */
 export function pickMarketIngredients(marketType) {
-  return INGREDIENTS.filter(i => i.tags[0] === marketType.category);
+  return getActiveIngredients().filter(i => i.tags[0] === marketType.category);
 }
 
 /**
