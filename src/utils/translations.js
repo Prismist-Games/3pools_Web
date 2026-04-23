@@ -14,6 +14,7 @@ export const EN_TRANSLATIONS = {
     "老妈的餐厅，交给你了": "Mom's restaurant — yours now",
     "先把挂面合成到 Q3 再走": "Synthesize the noodles to Q3 before leaving",
     "回到餐厅": "Back to Restaurant",
+    "进入游戏": "Enter Game",
 
     // --- Kitchen system ---
     "厨房": "Kitchen",

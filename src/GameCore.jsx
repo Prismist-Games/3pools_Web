@@ -58,7 +58,7 @@ const FlyElementDiag = ({ flyId, icon, count, style }) => {
     );
 };
 
-const GameCore = () => {
+const GameCore = ({ playerInfo }) => {
     const { t, language, toggleLanguage } = useLanguage();
     const inventoryRef = useRef(null);
     const bulletinRef = useRef(null);
@@ -116,6 +116,7 @@ const GameCore = () => {
         applySwapTarget, applyDisperseTarget, applyBombWallTarget, applyClearInventoryTarget,
         // Tutorial
         tutorialMode, currentTutorialStep, tutorialOverrides, tutorialHeroLine, setTutorialHeroLine,
+        tutorialResetCounter,
         isInStep, advanceTutorial, skipTutorial,
     } = state;
 
@@ -230,6 +231,12 @@ const GameCore = () => {
                     <div className="flex items-center justify-between px-4 py-2 border-b border-kitchen-gold-border/30">
                         <h1 className="text-base font-black tracking-tight text-kitchen-text-title">🍳 {t('梦想厨房')}</h1>
                         <div className="flex items-center gap-2">
+                            {playerInfo?.name && (
+                                <span className="px-2 py-0.5 rounded-full bg-kitchen-card text-kitchen-text-body border border-kitchen-gold-border-muted text-[11px] font-bold flex items-center gap-1">
+                                    <span>{playerInfo.emoji}</span>
+                                    <span>{playerInfo.name}</span>
+                                </span>
+                            )}
                             <span className="px-2 py-0.5 rounded-full bg-[#FFF8E0] text-kitchen-gold-deep border border-kitchen-gold-border text-[11px] font-bold">
                                 {language === 'en' ? `Day ${dayNumber}` : `第 ${dayNumber} 天`}
                             </span>
@@ -259,11 +266,16 @@ const GameCore = () => {
                     </div>
                 </div>
 
-                {/* Pre-game state */}
-                {phase === 'pre_game' && (
+                {/* Pre-game state（教程态由 opening 卡片接管，不显示这里）*/}
+                {phase === 'pre_game' && !tutorialMode && (
                     <div className="text-center py-20">
                         <h2 className="text-2xl font-bold mb-4 text-kitchen-text-title">{t('梦想厨房')}</h2>
                         <p className="text-kitchen-text-body mb-6">{t('回合制原型')} v2</p>
+                        {playerInfo?.name && (
+                            <p className="text-sm text-kitchen-text-secondary mb-4">
+                                {playerInfo.emoji} {playerInfo.name}
+                            </p>
+                        )}
                         <button
                             onClick={startGame}
                             className="px-8 py-3 bg-gradient-to-b from-kitchen-card to-[#FFF3E0] border-2 border-kitchen-gold text-kitchen-text-body text-lg font-bold rounded-xl shadow-[0_3px_0_#D4952A] hover:from-[#FFF3E0] hover:to-[#FFE8CC] transition-colors"
@@ -805,6 +817,8 @@ const GameCore = () => {
                 {/* Restaurant phase — full-screen kitchen for end-of-day cooking */}
                 {phase === 'restaurant' && currentDish && (
                     <Kitchen
+                        // key 中包含 tutorialResetCounter：教程 soft-fail 时强制 remount 清空 placements
+                        key={`kitchen-${tutorialResetCounter}`}
                         inventory={fridge}
                         dish={currentDish}
                         onCook={(result, usedUids) => handleCookResult(result, usedUids)}

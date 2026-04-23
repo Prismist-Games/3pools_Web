@@ -117,13 +117,13 @@ const Prologue = ({ onComplete }) => {
                 <div style={floatingStyle}>{selectedEmoji}</div>
             )}
 
-            {/* Page 2: Name input */}
+            {/* Page 2: Name input — name 页直接进游戏（剧情交给游戏内的教程开场卡） */}
             {step === 'name' && (
                 <div
                     className={`fixed left-1/2 -translate-x-1/2 flex flex-col items-center transition-opacity duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}
                     style={{ top: 'calc(35vh + 50px)' }}
                 >
-                    <div className="text-4xl mb-8">🏪</div>
+                    <div className="text-4xl mb-8">🍳</div>
 
                     <div className="flex flex-col items-center gap-2 px-4">
                         <p className="text-base text-kitchen-text-body">
@@ -141,13 +141,10 @@ const Prologue = ({ onComplete }) => {
                                 autoFocus
                             />
                         </p>
-                        <p className={BODY_TEXT}>
-                            {t('怀揣着对烹饪的热情与执着，你成为了一名厨师，并经营着自己的小馆子。')}
-                        </p>
                     </div>
 
-                    <button onClick={() => goto('hardship')} className={PRIMARY_BTN}>
-                        {t('继续')}
+                    <button onClick={handleContinue} className={PRIMARY_BTN}>
+                        {t('进入游戏')}
                     </button>
                 </div>
             )}
