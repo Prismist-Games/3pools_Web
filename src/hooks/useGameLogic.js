@@ -1402,7 +1402,8 @@ export const useGameLogic = (config) => {
             return next;
         });
 
-        showToast(`${t('合成成功')}: ${item1.icon} ${item1.name} (${newQualityDef.name})`, 'success');
+        const itemLabel = language === 'en' && item1.nameEn ? item1.nameEn : t(item1.name);
+        showToast(`${t('合成成功')}: ${item1.icon} ${itemLabel} (${t(newQualityDef.name)})`, 'success');
         return true;
     };
 
@@ -1439,7 +1440,8 @@ export const useGameLogic = (config) => {
             : it
         ));
         setPendingItems(prev => prev.slice(1));
-        showToast(`${t('合成成功')}: ${target.icon} ${target.name} (${newQualityDef.name})`, 'success');
+        const targetLabel = language === 'en' && target.nameEn ? target.nameEn : t(target.name);
+        showToast(`${t('合成成功')}: ${target.icon} ${targetLabel} (${t(newQualityDef.name)})`, 'success');
         return true;
     };
 

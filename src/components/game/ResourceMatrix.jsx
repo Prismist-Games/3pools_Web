@@ -93,7 +93,9 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         desc = toolDef ? (language === 'en' && toolDef.descEn ? toolDef.descEn : t(toolDef.desc)) : t('抽中时获得此道具');
     } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
-        name = cell.item ? t(cell.item.name) : t(cell.name);
+        name = cell.item
+            ? (language === 'en' && cell.item.nameEn ? cell.item.nameEn : t(cell.item.name))
+            : t(cell.name);
         const ingTags = cell.item?.tags || [];
         const peekedQ = cell.item?.qualityPeeked ? cell.item?.quality : null;
         const peekedDef = peekedQ ? QUALITY_CONFIG.find(q => q.id === peekedQ) : null;
@@ -487,8 +489,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         >
             {wallType && (
                 <div className="text-center mb-2 pb-2 border-b border-dashed border-kitchen-wood-border">
-                    <span className="text-sm font-bold">{wallType.icon} {t(wallType.name)}</span>
-                    <p className="text-[11px] text-gray-400 mt-0.5 break-words">{t(wallType.desc)}</p>
+                    <span className="text-sm font-bold">{wallType.icon} {language === 'en' && wallType.nameEn ? wallType.nameEn : t(wallType.name)}</span>
+                    <p className="text-[11px] text-gray-400 mt-0.5 break-words">{language === 'en' && wallType.descEn ? wallType.descEn : t(wallType.desc)}</p>
                 </div>
             )}
 

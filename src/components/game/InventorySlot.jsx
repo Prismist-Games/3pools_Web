@@ -6,7 +6,7 @@ import { itemNameClass } from '../../utils/itemNameClass';
 
 // Tooltip 通过 Portal 渲染到 body，避免被父级 overflow/z-index 遮挡
 const ToolItemTooltip = ({ item, anchorRef, visible }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [pos, setPos] = useState(null); // null = 未就绪，不渲染
 
     // useLayoutEffect 在 DOM 更新后、浏览器绘制前同步执行，避免闪烁
@@ -40,7 +40,7 @@ const ToolItemTooltip = ({ item, anchorRef, visible }) => {
             <div className="bg-slate-900 text-white rounded-xl px-3 py-2 shadow-2xl border border-amber-400/30 min-w-[180px] max-w-[240px]">
                 <div className="flex items-center gap-2 mb-1.5 border-b border-slate-700 pb-1.5">
                     <span className="text-lg">{item.icon}</span>
-                    <span className="font-black text-amber-300 text-sm">{t(item.name)}</span>
+                    <span className="font-black text-amber-300 text-sm">{language === 'en' && item.nameEn ? item.nameEn : t(item.name)}</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
                     {t(item.toolDesc || '')}
@@ -165,10 +165,10 @@ export const InventorySlot = ({
                                 {item.icon}
                             </span>
                             <span
-                                title={t(item.name)}
+                                title={isEn && item.nameEn ? item.nameEn : t(item.name)}
                                 className={`${itemNameClass(language, 'md')} ${isToolItem ? 'text-amber-700' : ''} ${isEn ? 'mt-0.5' : ''}`}
                             >
-                                {t(item.name)}
+                                {isEn && item.nameEn ? item.nameEn : t(item.name)}
                             </span>
                             {item.rarity?.bonus > 0 && !isToolItem && (
                                 <div className="absolute top-0 right-0 p-0.5 bg-white/50 rounded-bl-lg">

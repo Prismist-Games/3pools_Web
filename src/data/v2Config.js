@@ -130,11 +130,11 @@ export const QUALITY_WEIGHTS = { 1: 0.40, 2: 0.30, 3: 0.18, 4: 0.09, 5: 0.03 };
 // --- 市场类型（替换原墙类型）---
 // 每种市场只出现对应大类的食材
 export const MARKET_TYPES = [
-    { id: 'seafood_market',  name: '海鲜市场', icon: '🦐', desc: '只能抢到海鲜类食材',        category: '海鲜',    weight: 20 },
-    { id: 'butcher',         name: '肉铺',     icon: '🍖', desc: '只能抢到肉类食材',          category: '肉类',    weight: 20 },
-    { id: 'grain_store',     name: '粮食店',   icon: '🍚', desc: '只能抢到主食类食材',        category: '主食',    weight: 20 },
-    { id: 'vegetable_shop',  name: '蔬菜店',   icon: '🥬', desc: '只能抢到蔬菜·水果·菌菇类食材', category: '蔬菜',    weight: 20 },
-    { id: 'dairy_store',     name: '乳品店',   icon: '🧀', desc: '只能抢到蛋奶制品',          category: '蛋奶制品', weight: 20 },
+    { id: 'seafood_market',  name: '海鲜市场', nameEn: 'Seafood Market', icon: '🦐', desc: '只能抢到海鲜类食材',        category: '海鲜',    weight: 20 },
+    { id: 'butcher',         name: '肉铺',     nameEn: 'Butcher',        icon: '🍖', desc: '只能抢到肉类食材',          category: '肉类',    weight: 20 },
+    { id: 'grain_store',     name: '粮食店',   nameEn: 'Grain Store',    icon: '🍚', desc: '只能抢到主食类食材',        category: '主食',    weight: 20 },
+    { id: 'vegetable_shop',  name: '蔬菜店',   nameEn: 'Greengrocer',    icon: '🥬', desc: '只能抢到蔬菜·水果·菌菇类食材', category: '蔬菜',    weight: 20 },
+    { id: 'dairy_store',     name: '乳品店',   nameEn: 'Dairy Shop',     icon: '🧀', desc: '只能抢到蛋奶制品',          category: '蛋奶制品', weight: 20 },
 ];
 
 // --- 菜品关卡 ---

@@ -33,7 +33,7 @@ export const EN_TRANSLATIONS = {
     "教程期间不能丢弃食材": "Discarding is disabled during the tutorial",
     "从我记事起，妈妈就是这家餐厅的主厨。她对料理的执着，让这家不大的小店在街坊间小有名气。": "For as long as I can remember, Mom has been the head chef of this restaurant. Her devotion to cooking has earned this little place a quiet reputation in the neighborhood.",
     "可世事无常，老妈突然病倒了。\n尚未准备好的你，不得不匆匆接过她的大旗，承担起经营家族餐厅的任务。": "But fate is fickle — Mom fell ill out of nowhere.\nUnprepared as you are, you have no choice but to take up her mantle and keep the family restaurant running.",
-    "怎么只有挂面啊？算了，也能凑合凑合。": "All noodles? Well... we'll make do.",
+    "怎么只有挂面啊？算了，也能凑合凑合。": "All dried noodles? Well... we'll make do.",
     "好了，现在该挤出这拥挤的人潮了。": "Alright — time to push through this crowd.",
     "面也没抢到，虾也没抢到。": "Didn't grab the noodles. Didn't grab the prawn either.",
     "变故": "Twist",
@@ -41,6 +41,58 @@ export const EN_TRANSLATIONS = {
     "先把挂面合成到 Q3 再走": "Synthesize the noodles to Q3 before leaving",
     "回到餐厅": "Back to Restaurant",
     "进入游戏": "Enter Game",
+
+    // --- Tutorial narrative (opening + scene lines + hero lines + handoff) ---
+    // 开场叙事 B · 我的跟班
+    "你从小展现出对料理的天赋，跟着老妈打下手、学烹饪——总有一天，这家餐厅会交到你手上。":
+        "You showed a knack for cooking early on — prepping beside Mom, learning her craft. Everyone knew: one day the restaurant would be yours.",
+    // 场景 1 · 第一次厨房
+    "这道菜老妈做了多少遍，我闭着眼都记得料该怎么摆。——先开冰箱。":
+        "Mom's made this dish a thousand times — I could place the ingredients with my eyes closed. First, the fridge.",
+    "嗯？……好像哪儿放错了。": "Hm?... Something's in the wrong slot.",
+    // 场景 1.5 · Kitchen 切到海洋线条
+    "……看吧，也没多难嘛。这家餐厅交给我，没问题。":
+        "...See? Not so hard. This restaurant's in good hands.",
+    "……冰箱见底了。老妈平常是上哪儿采买来着？":
+        "...Fridge is empty. Where did Mom usually shop?",
+    // 过场
+    "【半小时后】": "【Half an hour later】",
+    // 场景 2 · 粮食店
+    "这就是老妈常念叨的菜市场？——人怎么这么多。":
+        "So this is the market Mom kept mentioning? — What a crowd.",
+    "老板！鸡蛋面有没有？今晚的海洋线条等着下锅呢！":
+        "Boss! Got any egg noodles? Tonight's Lines of the Sea is waiting on them!",
+    "……抢个菜也这么费劲。": "...Grabbing groceries shouldn't be this hard.",
+    // 场景 3 · 市场 3 选 1
+    "算了。先去海鲜店碰碰运气——明虾说不定还剩几只。":
+        "Fine. Try my luck at the seafood market — maybe a few tiger prawns are still left.",
+    "明虾得先买到手，别的回头再说。":
+        "Get the tiger prawn first — everything else can wait.",
+    // 场景 5 · 交换区登场
+    "……原来不止我一个没抢到想要的。":
+        "...Turns out I'm not the only one who came up short today.",
+    "我手上这些，说不定正好是别人缺的。":
+        "What I've got might be exactly what someone else needs.",
+    // 场景 6 · 撤离 + 耐久归零说明
+    "天色不早了，回厨房吧——手头这点东西，也得凑一顿出来。":
+        "Getting late. Back to the kitchen — I'll make a meal out of what I've got.",
+    "菜篮耐久度（❤️）归零 = 失去菜篮内的所有食材、被迫结束一天。\n你的菜篮还结实，按理说还能够再抢点食材，但今天先到这里吧。":
+        "Basket durability (❤️) hits zero = lose every ingredient inside and the day ends.\nYour basket's still holding up — you could keep grabbing — but let's call it a day for now.",
+    // 场景 7 · 第二次厨房
+    "……菜谱上要的料，一样都没买着。":
+        "...Didn't get a single ingredient from the recipe.",
+    "手上这几样……就凑合着来一顿吧。":
+        "Just these few scraps... I'll make it work.",
+    "……嗯，起码能吃。": "...Well. At least it's edible.",
+    "明天再来一遍。总能做得更像样些。":
+        "I'll try again tomorrow. Bound to do it better.",
+    // Day 2 handoff · 人气值目标卡
+    "从今天起，餐厅靠\"人气值\"维持。\n每天做菜的评价决定人气值的涨跌：惊艳 +2 / 优秀 +1 / 合格 0 / 勉强 -1 / 翻车 -2。\n人气值归零 = 失败。":
+        "From today on, the restaurant runs on Popularity.\nEach day's cooking rating shifts it: Stunning +2 / Excellent +1 / Pass 0 / Barely −1 / Disaster −2.\nPopularity hits zero → game over.",
+
+    // Misc gameplay strings surfaced by tutorial layout
+    "开始今天": "Start Today",
+    "主关卡（暂停中）": "Main wall (paused)",
 
     // --- Kitchen system ---
     "厨房": "Kitchen",
@@ -95,10 +147,11 @@ export const EN_TRANSLATIONS = {
     "海鲜": "Seafood", "鱼": "Fish", "虾": "Shrimp", "贝": "Shellfish", "蟹": "Crab",
     "蔬菜": "Vegetable", "青菜": "Greens", "根茎": "Root", "水果": "Fruit", "菌菇": "Mushroom",
     "主食": "Staple", "米": "Rice", "面": "Noodles", "豆": "Beans", "面包": "Bread",
+    "蛋奶制品": "Dairy & Eggs", "蛋": "Egg", "奶": "Milk", "豆腐": "Tofu", "奶酪": "Cheese",
     // --- Dish/slot names ---
     "海洋线条": "Lines of the Sea",
     "炉火慢歌": "Ballad of the Ember Hearth",
-    "主料": "Main", "基底": "Base", "汤汁": "Broth", "配料": "Garnish", "底": "Base", "炖料": "Stew",
+    "主料": "Main", "基底": "Base", "汤汁": "Broth", "配料": "Garnish", "底": "Base", "炖料": "Stew", "面条": "Noodles",
 
     // --- Prologue / intro ---
     "自定义你的角色": "Customize Your Character",

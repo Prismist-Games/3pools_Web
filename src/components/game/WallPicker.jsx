@@ -9,7 +9,7 @@ const WallPicker = ({
     returnLockReason,        // 教程态：传入 reason 字符串则禁用"回到餐厅"，hover 显示 reason
     candidatesLockReason,    // 教程态：传入 reason 字符串则禁用所有市场候选卡，hover 显示 reason
 }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
 
     // Hovering a market card reports that market's full ingredient id set up
     // to the shared `hoveredIngredientIds` channel — BulletinBoard listens and
@@ -45,13 +45,13 @@ const WallPicker = ({
                                     : 'hover:border-blue-400 hover:shadow-lg'}
                                 transition-all duration-150 text-left`}
                         >
-                            <div className="text-sm font-bold mb-1">{wall.wallType.icon} {t(wall.wallType.name)}</div>
-                            <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">{wall.wallType.desc}</p>
+                            <div className="text-sm font-bold mb-1">{wall.wallType.icon} {language === 'en' && wall.wallType.nameEn ? wall.wallType.nameEn : t(wall.wallType.name)}</div>
+                            <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">{language === 'en' && wall.wallType.descEn ? wall.wallType.descEn : t(wall.wallType.desc)}</p>
 
                             <div className="flex flex-wrap gap-1 mb-3">
                                 {subcategories.map(sub => (
                                     <span key={sub} className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
-                                        {sub}
+                                        {t(sub)}
                                     </span>
                                 ))}
                             </div>

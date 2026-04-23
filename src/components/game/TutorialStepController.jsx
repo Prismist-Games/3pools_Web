@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLanguage } from '../../contexts/LanguageContext';
 import TutorialBottomDialog from './TutorialBottomDialog';
 import TutorialFullScreenCard from './TutorialFullScreenCard';
 import TutorialIntermission from './TutorialIntermission';
@@ -164,11 +165,12 @@ export default function TutorialStepController({
 
 /** 主角 transient 台词浮层（场景失败 / off-path / onExit 用） */
 function FloatingHeroLine({ line, playerEmoji }) {
+    const { t } = useLanguage();
     return (
         <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[170] pointer-events-none">
             <div className="bg-kitchen-card/95 border border-kitchen-gold-border rounded-lg px-4 py-2 shadow-lg flex items-center gap-2">
                 <span className="text-2xl">{playerEmoji ?? PLAYER_EMOJI_PLACEHOLDER}</span>
-                <span className="text-base text-kitchen-text-body whitespace-pre-wrap">{line}</span>
+                <span className="text-base text-kitchen-text-body whitespace-pre-wrap">{t(line)}</span>
             </div>
         </div>
     );
