@@ -2,7 +2,7 @@
 
 面向需要在此 repo 工作的开发者 / AI agent。读完后能正确定位修改点。
 
-> **最后更新**：2026-04-21 · `core-draw/ingredient-trade-flex-io` 分支
+> **最后更新**：2026-04-23 · `core-draw/item-use-tutorial-2026.04.23` 分支
 > 玩法规则见 `game_rules.md`，进度状态见 `gameplay_progress.md`，设定见 `setting-current-state.md`。
 
 ---
@@ -157,9 +157,9 @@ GameCore.jsx  (布局 + 模态调度；维护 UI-local state 如 hoveredIngredie
 
 | 导出 | 内容 |
 |------|------|
-| `INGREDIENTS` | 80 个基础食材（`id / icon / name / nameEn / shortLabel / shortLabelEn / tags:[大类, 小类]`）。品质**不预设**，在抽取时 roll |
+| `INGREDIENTS` | 60 个基础食材（5 大类 × 4 小类 × 3；源文件同位置还有 20 条 `//` 注释掉的备用）。字段 `id / icon / name / nameEn / shortLabel / shortLabelEn / tags:[大类, 小类]`。品质**不预设**，在抽取时 roll |
 | `QUALITY_CONFIG` | 5 档：普通/精选/优质/顶级/传说；每档有 `stars` 和 `scoreValue`（1/2/3/5/8） |
-| `QUALITY_WEIGHTS` | 默认 roll 权重 `{1:0.40, 2:0.30, 3:0.18, 4:0.08, 5:0.04}` |
+| `QUALITY_WEIGHTS` | 默认 roll 权重 `{1:0.40, 2:0.30, 3:0.18, 4:0.09, 5:0.03}` |
 | `TOOLS` | 5 个道具（透视/换位/驱散/炸墙/清库换抽）—— id / name / icon / desc / targetKind |
 | `TOOL_CONFIG` | `capacity:3`，`dayStartCount:3`，`perWallExitCount:1`，`allowDuplicates:true` |
 | `MARKET_TYPES` | 5 家店，每家指向一个大类 |
@@ -522,4 +522,4 @@ find INGREDIENTS[id=`${baseId}_${quality}-like`]  // 或直接走 scoreValue loo
 
 ---
 
-*文档版本：2026-04-21 core-draw/ingredient-trade-flex-io 分支*
+*文档版本：2026-04-23 core-draw/item-use-tutorial-2026.04.23 分支*
