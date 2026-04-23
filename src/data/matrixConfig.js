@@ -51,7 +51,7 @@ export const MATRIX_CONFIG = {
       name: '炸弹',
     },
     tool: {
-      spawnChance: 0.03,  // 3% per cell position — draw to gain the specific tool
+      spawnChance: 0,  // disabled — replaced by action system
       icon: '🧰',
       name: '道具',
     },

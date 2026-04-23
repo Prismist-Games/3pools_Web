@@ -25,10 +25,9 @@ export const LIVE_CONFIG = {
         gold:  MATRIX_CONFIG.specialCells.gold.spawnChance,
         order: MATRIX_CONFIG.specialCells.order.spawnChance,
         bomb:  MATRIX_CONFIG.specialCells.bomb.spawnChance,
-        tool:  MATRIX_CONFIG.specialCells.tool.spawnChance,
     },
-    // Draws per market entry (replaces TURN_CONFIG.goldPerTurn as the live value).
-    goldPerTurn: TURN_CONFIG.goldPerTurn,
+    // AP per market entry.
+    apPerTurn: TURN_CONFIG.apPerTurn,
     // Wall size (3 or 4). Mirrors MATRIX_CONFIG.gridSize so ConfigPanel can toggle.
     gridSize: MATRIX_CONFIG.gridSize,
 };

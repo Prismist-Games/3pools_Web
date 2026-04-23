@@ -4,7 +4,7 @@ import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES, TOOLS, TOOL_CONFIG } from '../data/v2Config';
+import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES, POSITION_CONFIG, ACTION_CONFIG } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 import { pickDoomEmoji } from '../data/matrixConfig';
 
@@ -186,7 +186,9 @@ export const useGameLogic = (config) => {
 
     // --- Turn State ---
     const [turnNumber, setTurnNumber] = useState(0);
-    const [gold, setGold] = useState(0);
+    const [ap, setAp] = useState(0);
+    const [position, setPosition] = useState(POSITION_CONFIG.initial);
+    const [turnEndPush, setTurnEndPush] = useState(1);
     const [phase, setPhase] = useState('pre_game'); // 'pre_game' | 'drawing' | 'between_turns' | 'game_over'
 
     // --- Grid State ---
@@ -209,7 +211,7 @@ export const useGameLogic = (config) => {
     const [growthFlashes, setGrowthFlashes] = useState(null); // Set of "row-col" keys for savage-growth flash feedback
 
     // --- Sub-Level State ---
-    const [wallStack, setWallStack] = useState([]); // stack of { matrix, gold, wallType }
+    const [wallStack, setWallStack] = useState([]); // stack of { matrix, ap, position, wallType, level }
     const isInSubLevel = wallStack.length > 0;
 
     // --- Doom State ---
@@ -238,17 +240,12 @@ export const useGameLogic = (config) => {
     // --- Inventory Pending Queue ---
     const [pendingItems, setPendingItems] = useState([]); // queue of items awaiting placement when inventory full
 
-    // --- Tool State ---
-    // tools: array of { id, name, icon, ..., uid } — player's toolbar (cap TOOL_CONFIG.capacity)
-    // pendingToolGrant: a tool waiting for the player to replace/discard when toolbar is full
-    // activeTool: { uid, id, stage, selections } when a tool is being used interactively
-    // toolGrantQueue: tools recently granted to player, waiting for confirm popup
-    // toolUseAnim: { type, positions, target, endsAt } — active short animation before state change
-    const [tools, setTools] = useState([]);
-    const [pendingToolGrant, setPendingToolGrant] = useState(null);
-    const [activeTool, setActiveTool] = useState(null);
-    const [toolGrantQueue, setToolGrantQueue] = useState([]);
-    const [toolUseAnim, setToolUseAnim] = useState(null);
+    // --- Action State ---
+    // activeAction: { id, stage, selections } when an action needs target selection
+    // actionUseAnim: { type, positions } — active short animation before state change
+    const [activeAction, setActiveAction] = useState(null);
+    const [actionUseAnim, setActionUseAnim] = useState(null);
+    const [drawExitPending, setDrawExitPending] = useState(false);
 
     // --- Order State ---
     const [bulletinBoard, setBulletinBoard] = useState([]);
@@ -299,7 +296,6 @@ export const useGameLogic = (config) => {
     const startNewTurn = () => {
         const newTurnNumber = turnNumber + 1;
         setTurnNumber(newTurnNumber);
-        setGold(LIVE_CONFIG.goldPerTurn ?? turnConfig.goldPerTurn);
         setLastDrawResult(null);
         setDoomResolutionResult(null);
         setGravityActive(false);
@@ -338,14 +334,42 @@ export const useGameLogic = (config) => {
         setPhase('wall_choice');
     };
 
+    const rollTurnEndPush = () =>
+        Math.floor(Math.random() * (POSITION_CONFIG.pushOnTurnEndMax - POSITION_CONFIG.pushOnTurnEndMin + 1))
+        + POSITION_CONFIG.pushOnTurnEndMin;
+
+    /** Continue in the same wall for another turn: reset AP, accumulate doom, stay in drawing. */
+    const startNextTurnInWall = () => {
+        const baseAp = LIVE_CONFIG.apPerTurn ?? turnConfig.apPerTurn;
+        setAp(baseAp);
+        setTurnEndPush(rollTurnEndPush());
+        setActiveAction(null);
+        setLastDrawResult(null);
+        setDoomResolutionResult(null);
+        setGravityActive(false);
+        setLastDrawDirection(null);
+        const newTurnNumber = turnNumber + 1;
+        setTurnNumber(newTurnNumber);
+        setDoomGrid(prev => {
+            const newGrid = [...prev];
+            let added = 0;
+            for (let i = 0; i < newGrid.length && added < doomConfig.dangerPerTurn; i++) {
+                if (newGrid[i].type === 'empty') {
+                    newGrid[i] = { type: 'danger', emoji: pickDoomEmoji() };
+                    added++;
+                }
+            }
+            return newGrid;
+        });
+        // phase stays 'drawing'
+    };
+
     /** Player picks one of the 3 market candidates — apply it immediately. */
     const selectWall = (index) => {
         if (!wallCandidates || !wallCandidates[index]) return;
         const chosen = wallCandidates[index];
-        setCurrentWallType(chosen.wallType);
-        setMatrix(chosen.grid.map(r => r.map(c => c ? { ...c } : null)));
+        applyWallCandidate(chosen);
         setWallCandidates(null);
-        setPhase('drawing');
     };
 
     /** Player clicks past the reveal — apply the chosen candidate. */
@@ -373,18 +397,9 @@ export const useGameLogic = (config) => {
 
         setBulletinBoard([]);
         setPendingChosenOrder(null);
+        setActiveAction(null);
+        setPosition(POSITION_CONFIG.initial);
         setPhase('setup');
-
-        // Grant the opening toolbar — N distinct tools via addTool so the
-        // grant popup batches them. Toolbar capacity > dayStartCount avoids
-        // overflow.
-        setTools([]);
-        setPendingToolGrant(null);
-        setActiveTool(null);
-        setToolGrantQueue([]);
-        pickDistinctToolsFromPool(TOOL_CONFIG.dayStartCount).forEach(addTool);
-        // Queue will be filled once the player dismisses the dish intro
-        // (see dismissDishIntro below).
     };
 
     /** Player dismisses the "today's dish" overlay — auto-fill the shelf
@@ -410,9 +425,17 @@ export const useGameLogic = (config) => {
         startNewTurn();
     }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
 
-    /** End current turn: resolve doom once, then go to between-turns decision */
+    /** End current turn: push position outward, either force-exit or reset AP for next turn. */
     const endTurn = () => {
-        resolveDoom('end_turn');
+        const newPos = position + turnEndPush;
+        setPosition(Math.min(newPos, POSITION_CONFIG.max));
+        if (newPos > POSITION_CONFIG.max) {
+            showToast('🚪 ' + t('被人群挤出'), 'warning');
+            setPhase('between_turns');
+            addBulletinOrder();
+        } else {
+            startNextTurnInWall();
+        }
     };
 
     /** Continue to next turn. Per-turn auto refill removed — shelf stays
@@ -430,12 +453,12 @@ export const useGameLogic = (config) => {
         setCurrentWallType(chosen.wallType || null);
         setCurrentLevel(chosen.level || null);
 
-        if (chosen.wallType?.goldOverride !== undefined) {
-            setGold(chosen.wallType.goldOverride);
-        }
-        if (chosen.level?.settings?.gold !== undefined) {
-            setGold(chosen.level.settings.gold);
-        }
+        const baseAp = LIVE_CONFIG.apPerTurn ?? turnConfig.apPerTurn;
+        const wallAp = chosen.wallType?.goldOverride ?? chosen.level?.settings?.gold ?? baseAp;
+        setAp(wallAp);
+        setPosition(POSITION_CONFIG.initial);
+        setTurnEndPush(rollTurnEndPush());
+        setActiveAction(null);
 
         setMatrix(chosen.grid);
         setPhase('drawing');
@@ -455,16 +478,19 @@ export const useGameLogic = (config) => {
 
         setWallStack(prev => [...prev, {
             matrix: savedMatrix,
-            gold,
+            ap,
+            position,
             wallType: currentWallType,
             level: currentLevel,
         }]);
 
         // Generate and load sub-level
         const result = generateWallFromTemplate(subLevel);
-        const subGold = subLevel.settings?.gold ?? turnConfig.goldPerTurn;
+        const subAp = subLevel.settings?.gold ?? turnConfig.apPerTurn;
         setMatrix(result.grid);
-        setGold(subGold);
+        setAp(subAp);
+        setPosition(POSITION_CONFIG.initial);
+        setActiveAction(null);
         setCurrentWallType(null);
         setCurrentLevel(null);
         setLastDrawResult(null);
@@ -484,7 +510,8 @@ export const useGameLogic = (config) => {
             const parent = wallStack[wallStack.length - 1];
             setWallStack(prev => prev.slice(0, -1));
             setMatrix(parent.matrix);
-            setGold(parent.gold);
+            setAp(parent.ap);
+            setPosition(parent.position);
             setCurrentWallType(parent.wallType);
             setCurrentLevel(parent.level || null);
             setLastDrawResult(null);
@@ -500,14 +527,10 @@ export const useGameLogic = (config) => {
 
     /** Select a row — starts scanning animation, then resolves */
     const selectRow = (rowIndex) => {
-        // Intercept when a peek tool is active — row/col picker becomes target
-        if (activeTool?.id === 'peek') {
-            applyPeek('row', rowIndex);
-            return;
-        }
+        if (activeAction?.id !== 'draw') return;
         if (phase !== 'drawing' && phase !== 'drawing_sub') return;
         if (isDoomResolving || isDrawAnimating) return;
-        if (gold < turnConfig.drawCost) return;
+        if (ap < ACTION_CONFIG.draw.ap) return;
         if (!matrix || !matrix[rowIndex]) return;
 
         setDoomResolutionResult(null);
@@ -521,7 +544,11 @@ export const useGameLogic = (config) => {
         });
         if (activeCols.length === 0) return;
 
-        setGold(prev => prev - turnConfig.drawCost);
+        setAp(prev => prev - ACTION_CONFIG.draw.ap);
+        const drawNewPos = position + ACTION_CONFIG.draw.posDelta;
+        setPosition(Math.min(drawNewPos, POSITION_CONFIG.max));
+        if (drawNewPos > POSITION_CONFIG.max) setDrawExitPending(true);
+        setActiveAction(null);
 
         // Pre-determine result
         const finalColIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
@@ -551,13 +578,10 @@ export const useGameLogic = (config) => {
 
     /** Select a column — starts scanning animation top-to-bottom, then resolves */
     const selectColumn = (colIndex) => {
-        if (activeTool?.id === 'peek') {
-            applyPeek('column', colIndex);
-            return;
-        }
+        if (activeAction?.id !== 'draw') return;
         if (phase !== 'drawing' && phase !== 'drawing_sub') return;
         if (isDoomResolving || isDrawAnimating) return;
-        if (gold < turnConfig.drawCost) return;
+        if (ap < ACTION_CONFIG.draw.ap) return;
         if (!matrix) return;
 
         setDoomResolutionResult(null);
@@ -571,7 +595,11 @@ export const useGameLogic = (config) => {
         });
         if (activeCols.length === 0) return;
 
-        setGold(prev => prev - turnConfig.drawCost);
+        setAp(prev => prev - ACTION_CONFIG.draw.ap);
+        const drawNewPos = position + ACTION_CONFIG.draw.posDelta;
+        setPosition(Math.min(drawNewPos, POSITION_CONFIG.max));
+        if (drawNewPos > POSITION_CONFIG.max) setDrawExitPending(true);
+        setActiveAction(null);
 
         // Pre-determine result: pick a random row from active rows
         const finalRowIndex = activeCols[Math.floor(Math.random() * activeCols.length)];
@@ -634,9 +662,9 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'doom_resolution') {
             doomEffects.resolutions = 1 * mult;
         } else if (drawnCell.type === 'gold') {
-            const goldGain = drawnCell.goldAmount * mult;
-            setGold(prev => prev + goldGain);
-            showToast(`${t('抽数')} +${goldGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
+            const apGain = drawnCell.goldAmount * mult;
+            setAp(prev => prev + apGain);
+            showToast(`AP +${apGain}${mult > 1 ? ' (×' + mult + ')' : ''}`, 'success');
         } else if (drawnCell.type === 'order_cell') {
             // Order cells queue an additional pick-1-of-2 for the end of
             // this wall (resolved in between_turns along with the default
@@ -656,13 +684,6 @@ export const useGameLogic = (config) => {
             showToast('⬇️ ' + t('重力开关！'), 'info');
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
-        } else if (drawnCell.type === 'tool') {
-            // Tool cells grant the specific tool baked in at wall generation.
-            const tool = TOOLS.find(t => t.id === drawnCell.toolId);
-            if (tool) {
-                addTool({ ...tool, uid: generateUID() });
-                showToast(`🧰 ${t('获得道具')}: ${t(tool.name)}`, 'success');
-            }
         } else if (drawnCell.type === 'entrance') {
             // Enter sub-level directly — no setTimeout, no stale closure issues
             const entryName = (language === 'en' && drawnCell.name_en) ? drawnCell.name_en : drawnCell.name;
@@ -701,8 +722,8 @@ export const useGameLogic = (config) => {
                 doomEffects.resolutions += 1 * mMult;
             } else if (mirrorCell.type === 'gold') {
                 const g = mirrorCell.goldAmount * mMult;
-                setGold(prev => prev + g);
-                showToast(`🪞 ${t('镜像')} ${t('抽数')} +${g}`, 'success');
+                setAp(prev => prev + g);
+                showToast(`🪞 ${t('镜像')} AP +${g}`, 'success');
             } else if (mirrorCell.type === 'order_cell') {
                 addBulletinOrder();
                 showToast(`🪞 ${t('镜像')}: 📋 ${t('新订单')} +1`, 'info');
@@ -963,6 +984,17 @@ export const useGameLogic = (config) => {
             doomEffects,
         });
         setDrawAnimState(null);
+
+        // Forced exit from draw position push — only when doom resolution isn't
+        // also running (doom resolution handles its own exit in completeDoomResolution).
+        if (drawExitPending) {
+            setDrawExitPending(false);
+            if (doomEffects.resolutions === 0) {
+                showToast('🚪 ' + t('被人群挤出'), 'warning');
+                setPhase('between_turns');
+                addBulletinOrder();
+            }
+        }
     };
 
     // =============================================
@@ -1311,15 +1343,14 @@ export const useGameLogic = (config) => {
         setDoomAnimState(null);
         setIsDoomResolving(false);
 
-        if (afterDoomAction === 'end_turn') {
-            setAfterDoomAction(null);
+        // Doom triggered by drawing a doom cell mid-turn → position +1
+        setAfterDoomAction(null);
+        const newPos = position + POSITION_CONFIG.pushOnDoomHit;
+        setPosition(Math.min(newPos, POSITION_CONFIG.max));
+        if (newPos > POSITION_CONFIG.max) {
+            showToast('🚪 ' + t('被人群挤出'), 'warning');
             setPhase('between_turns');
-            // Leaving a wall always offers a pick-1-of-2 order.
             addBulletinOrder();
-            // Grant +1 random tool on wall exit (overflow handled by addTool).
-            for (let i = 0; i < TOOL_CONFIG.perWallExitCount; i++) {
-                addTool(pickRandomToolFromPool());
-            }
         }
     };
 
@@ -1339,6 +1370,14 @@ export const useGameLogic = (config) => {
             setInventory(prev => prev.filter(i => !i.isOutOfGame));
         }
         setPhase('restaurant');
+    };
+
+    /** Leave the current wall voluntarily: go to between_turns for the next
+     *  3-choose-1. Does NOT transfer items to fridge (that only happens on
+     *  returnToRestaurant). */
+    const leaveWall = () => {
+        setPhase('between_turns');
+        addBulletinOrder();
     };
 
     /** Legacy alias: handleEvacuate now routes to the restaurant phase
@@ -1502,11 +1541,10 @@ export const useGameLogic = (config) => {
         setCurrentDish(null);
         setWallCandidates(null);
         setPendingWallCandidate(null);
-        setTools([]);
-        setPendingToolGrant(null);
-        setActiveTool(null);
-        setToolGrantQueue([]);
-        setToolUseAnim(null);
+        setActiveAction(null);
+        setActionUseAnim(null);
+        setPosition(POSITION_CONFIG.initial);
+        setAp(0);
         setPhase('pre_game');
     };
 
@@ -1523,143 +1561,62 @@ export const useGameLogic = (config) => {
     };
 
     // =============================================
-    // TOOL SYSTEM
+    // ACTION SYSTEM
     // =============================================
 
-    /** Pick N distinct tools from the pool, each with a fresh uid. */
-    const pickDistinctToolsFromPool = (n) => {
-        const shuffled = [...TOOLS].sort(() => Math.random() - 0.5);
-        return shuffled.slice(0, Math.min(n, TOOLS.length)).map(tool => ({ ...tool, uid: generateUID() }));
-    };
-
-    /** Pick 1 random tool from the pool (duplicates allowed across grants). */
-    const pickRandomToolFromPool = () => {
-        const tool = TOOLS[Math.floor(Math.random() * TOOLS.length)];
-        return { ...tool, uid: generateUID() };
-    };
-
-    /** Grant a tool. If toolbar has room add it AND enqueue for grant popup;
-     *  otherwise route to the overflow modal (which doubles as the grant
-     *  notification for the overflow path).
-     *
-     *  IMPORTANT: Side-effect setters (setToolGrantQueue / setPendingToolGrant)
-     *  live OUTSIDE the setTools updater. React.StrictMode double-invokes
-     *  state updater functions in dev to catch impure logic — any setter
-     *  called inside an updater would fire twice, causing ghost grant popups
-     *  and double-counted overflow events. */
-    const addTool = (tool) => {
-        const hasRoom = tools.length < TOOL_CONFIG.capacity;
-        if (hasRoom) {
-            setTools(prev => prev.length < TOOL_CONFIG.capacity ? [...prev, tool] : prev);
-            setToolGrantQueue(prev => [...prev, tool]);
-        } else {
-            setPendingToolGrant(tool);
-        }
-    };
-
-    /** Dismiss the grant popup — clears all currently queued tools. */
-    const dismissToolGrantQueue = () => setToolGrantQueue([]);
-
-    /** Overflow modal: replace the tool at `index` with the pending one. */
-    const acceptToolGrantReplace = (index) => {
-        if (!pendingToolGrant) return;
-        setTools(prev => {
-            if (index < 0 || index >= prev.length) return prev;
-            const next = [...prev];
-            next[index] = pendingToolGrant;
-            return next;
-        });
-        setPendingToolGrant(null);
-    };
-
-    /** Overflow modal: discard the pending tool, keep current toolbar. */
-    const discardToolGrant = () => setPendingToolGrant(null);
-
-    /** Enter active-tool mode to wait for the player's target selection. */
-    const startUseTool = (toolUid) => {
+    /** Arm an action for target selection, or execute immediately (push_in).
+     *  ESC / re-clicking same id cancels. */
+    const startAction = (actionId) => {
         if (phase !== 'drawing' && phase !== 'drawing_sub') return;
         if (isDoomResolving || isDrawAnimating) return;
-        // Clicking the same active tool cancels; clicking a different one switches.
-        if (activeTool && activeTool.uid === toolUid) { setActiveTool(null); return; }
-        const tool = tools.find(t => t.uid === toolUid);
-        if (!tool) return;
-        setActiveTool({ uid: toolUid, id: tool.id, stage: 0, selections: [] });
-    };
+        if (activeAction?.id === actionId) { setActiveAction(null); return; }
 
-    /** Cancel the currently active tool (no consumption). */
-    const cancelUseTool = () => setActiveTool(null);
+        const cfg = ACTION_CONFIG[actionId];
+        if (!cfg) return;
+        if (ap < cfg.ap) { showToast(t('AP 不足'), 'warning'); return; }
 
-    /** Remove the active tool from toolbar and clear active mode. Side-effect
-     *  setters (setTools) kept outside the setActiveTool updater so StrictMode
-     *  doesn't fire them twice. */
-    const consumeActiveTool = () => {
-        const uid = activeTool?.uid;
-        setActiveTool(null);
-        if (uid) {
-            setTools(prev => prev.filter(tool => tool.uid !== uid));
+        if (actionId === 'push_in') {
+            if (position <= POSITION_CONFIG.min) return;
+            setAp(prev => prev - cfg.ap);
+            const newPos = Math.max(POSITION_CONFIG.min, position + cfg.posDelta);
+            setPosition(newPos);
+            showToast(`🏃 ${t('冲进去')}！${position} → ${newPos}`, 'success');
+            return;
         }
+
+        if (actionId === 'haggle') {
+            if (inventory.length === 0) { showToast(t('菜篮为空'), 'warning'); return; }
+        }
+
+        setActiveAction({ id: actionId, stage: 0, selections: [] });
     };
 
-    // --- Tool effect handlers ---
+    const cancelAction = () => setActiveAction(null);
 
-    /** Run a tool use as a two-phase action: set animation state, consume tool
-     *  immediately from toolbar, then after `duration` commit the actual
-     *  game-state change and clear the animation. */
-    const runToolAnim = (anim, duration, commit) => {
-        setToolUseAnim({ ...anim, duration });
-        consumeActiveTool();
+    /** Run an action animation: store anim state, deduct AP, clear active action,
+     *  then after duration commit the game-state change. */
+    const runActionAnim = (anim, apCost, commit) => {
+        setActionUseAnim({ ...anim });
+        setActiveAction(null);
+        setAp(prev => prev - apCost);
         setTimeout(() => {
-            try { commit(); } finally { setToolUseAnim(null); }
-        }, duration);
+            try { commit(); } finally { setActionUseAnim(null); }
+        }, anim.duration || 400);
     };
 
-    /** Peek: pre-roll and reveal quality for all ingredient cells in a row/col.
-     *  The pre-rolled quality propagates to the actual draw via
-     *  `addToInventory`'s `itemCell.item?.quality ?? rollQuality()` branch. */
-    const applyPeek = (direction, index) => {
-        const positions = [];
-        if (matrix) {
-            if (direction === 'row') {
-                for (let c = 0; c < (matrix[index]?.length || 0); c++) positions.push([index, c]);
-            } else {
-                for (let r = 0; r < matrix.length; r++) positions.push([r, index]);
-            }
-        }
-        runToolAnim(
-            { type: 'peek', direction, index, positions },
-            500,
-            () => {
-                setMatrix(prev => {
-                    if (!prev) return prev;
-                    const next = prev.map(row => row.map(c => c ? { ...c, item: c.item ? { ...c.item } : null } : null));
-                    const reveal = (cell) => {
-                        if (cell?.type === 'ingredient' && cell.item && cell.item.quality === undefined) {
-                            cell.item.quality = rollQuality();
-                            cell.item.qualityPeeked = true;
-                        }
-                    };
-                    if (direction === 'row') next[index]?.forEach(reveal);
-                    else for (let r = 0; r < next.length; r++) reveal(next[r][index]);
-                    return next;
-                });
-                showToast(`👁 ${t('透视')}`, 'success');
-            }
-        );
-    };
-
-    /** Swap: 1st call records first cell; 2nd call performs swap (animated). */
+    /** Swap: 1st click records first cell; 2nd click swaps (animated). */
     const applySwapTarget = (r, c) => {
-        if (!activeTool || activeTool.id !== 'swap') return;
-        const selections = activeTool.selections || [];
+        if (!activeAction || activeAction.id !== 'swap') return;
+        const selections = activeAction.selections || [];
         if (selections.length === 0) {
-            setActiveTool({ ...activeTool, stage: 1, selections: [{ r, c }] });
+            setActiveAction({ ...activeAction, stage: 1, selections: [{ r, c }] });
             return;
         }
         const first = selections[0];
         if (first.r === r && first.c === c) return;
-        runToolAnim(
-            { type: 'swap', positions: [[first.r, first.c], [r, c]] },
-            400,
+        runActionAnim(
+            { type: 'swap', positions: [[first.r, first.c], [r, c]], duration: 400 },
+            ACTION_CONFIG.swap.ap,
             () => {
                 setMatrix(prev => {
                     if (!prev) return prev;
@@ -1676,11 +1633,11 @@ export const useGameLogic = (config) => {
 
     /** Disperse: fade out the target cell then null it. */
     const applyDisperseTarget = (r, c) => {
-        if (!activeTool || activeTool.id !== 'disperse') return;
+        if (!activeAction || activeAction.id !== 'disperse') return;
         if (!matrix?.[r]?.[c]) return;
-        runToolAnim(
-            { type: 'disperse', positions: [[r, c]] },
-            300,
+        runActionAnim(
+            { type: 'disperse', positions: [[r, c]], duration: 300 },
+            ACTION_CONFIG.disperse.ap,
             () => {
                 setMatrix(prev => {
                     if (!prev) return prev;
@@ -1693,25 +1650,25 @@ export const useGameLogic = (config) => {
         );
     };
 
-    /** Bomb wall: flash a 3×3 region, then re-roll each cell in it. */
-    const applyBombWallTarget = (centerR, centerC) => {
-        if (!activeTool || activeTool.id !== 'bomb_wall') return;
+    /** Bomb: flash a 3×3 region, then re-roll each cell in it.
+     *  Center is clamped so 3×3 never exceeds matrix bounds. */
+    const applyBombTarget = (centerR, centerC) => {
+        if (!activeAction || activeAction.id !== 'bomb') return;
         if (!matrix) return;
-        const marketIngs = currentWallType ? pickMarketIngredients(currentWallType) : INGREDIENTS;
-        const positions = [];
         const rows = matrix.length;
         const cols = matrix[0]?.length || 0;
+        const clampedR = Math.max(1, Math.min(centerR, rows - 2));
+        const clampedC = Math.max(1, Math.min(centerC, cols - 2));
+        const positions = [];
         for (let dr = -1; dr <= 1; dr++) {
             for (let dc = -1; dc <= 1; dc++) {
-                const nr = centerR + dr;
-                const nc = centerC + dc;
-                if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-                positions.push([nr, nc]);
+                positions.push([clampedR + dr, clampedC + dc]);
             }
         }
-        runToolAnim(
-            { type: 'bomb_wall', positions, center: [centerR, centerC] },
-            600,
+        const marketIngs = currentWallType ? pickMarketIngredients(currentWallType) : INGREDIENTS;
+        runActionAnim(
+            { type: 'bomb_wall', positions, center: [clampedR, clampedC], duration: 600 },
+            ACTION_CONFIG.bomb.ap,
             () => {
                 setMatrix(prev => {
                     if (!prev) return prev;
@@ -1726,21 +1683,17 @@ export const useGameLogic = (config) => {
         );
     };
 
-    /** Clear inventory: the basket slot shrinks + fades, then is removed
-     *  and +1 draw is granted. */
-    const applyClearInventoryTarget = (invItemUid) => {
-        if (!activeTool || activeTool.id !== 'clear_inventory') return;
-        const target = inventory.find(item => item.uid === invItemUid);
+    /** Haggle: discard selected basket item → position -1. */
+    const applyHaggleTarget = (itemUid) => {
+        if (!activeAction || activeAction.id !== 'haggle') return;
+        const target = inventory.find(item => item.uid === itemUid);
         if (!target) return;
-        runToolAnim(
-            { type: 'clear_inventory', target: { uid: invItemUid } },
-            400,
-            () => {
-                setInventory(prev => prev.filter(item => item.uid !== invItemUid));
-                setGold(prev => prev + 1);
-                showToast(`🗑 ${t('清库换抽')} +1 ${t('抽数')}`, 'success');
-            }
-        );
+        setActiveAction(null);
+        // No AP cost for haggle (ap: 0)
+        setInventory(prev => prev.filter(item => item.uid !== itemUid));
+        const newPos = Math.max(POSITION_CONFIG.min, position + ACTION_CONFIG.haggle.posDelta);
+        setPosition(newPos);
+        showToast(`🤝 ${t('讨价还价')}！${position} → ${newPos}`, 'success');
     };
 
     // =============================================
@@ -1760,7 +1713,9 @@ export const useGameLogic = (config) => {
 
         // Turn state
         turnNumber,
-        gold,
+        ap,
+        position,
+        turnEndPush,
         phase,
 
         // Grid
@@ -1819,6 +1774,7 @@ export const useGameLogic = (config) => {
         selectColumn,
         endTurn,
         continueToNextTurn,
+        leaveWall,
         handleEvacuate,
         returnToRestaurant,
         handleCookResult,
@@ -1853,21 +1809,14 @@ export const useGameLogic = (config) => {
         currentDish,
         dismissDishIntro,
 
-        // Tools
-        tools,
-        pendingToolGrant,
-        activeTool,
-        toolGrantQueue,
-        toolUseAnim,
-        startUseTool,
-        cancelUseTool,
-        acceptToolGrantReplace,
-        discardToolGrant,
-        dismissToolGrantQueue,
-        applyPeek,
+        // Actions
+        activeAction,
+        actionUseAnim,
+        startAction,
+        cancelAction,
         applySwapTarget,
         applyDisperseTarget,
-        applyBombWallTarget,
-        applyClearInventoryTarget,
+        applyBombTarget,
+        applyHaggleTarget,
     };
 };

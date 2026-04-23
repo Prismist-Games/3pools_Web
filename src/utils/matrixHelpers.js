@@ -1,5 +1,5 @@
 import { MATRIX_CONFIG, pickDoomEmoji } from '../data/matrixConfig';
-import { INGREDIENTS, TOOLS } from '../data/v2Config';
+import { INGREDIENTS } from '../data/v2Config';
 import { LIVE_CONFIG } from '../data/runtimeConfig';
 
 function generateUID() {
@@ -16,8 +16,8 @@ export function pickMarketIngredients(marketType) {
 
 /**
  * Roll a single cell — same semantics as generateWall's Phase 1+2+3 but for
- * one position. Used by bomb_wall tool refill. Returns a fully formed cell
- * (doom / gold / order_cell / bomb / tool / ingredient).
+ * one position. Used by bomb action refill. Returns a fully formed cell
+ * (doom / gold / order_cell / bomb / ingredient).
  *
  * @param {Array} marketIngredients — ingredient pool to pull from for ingredient fallthrough
  */
@@ -28,7 +28,6 @@ export function rollSingleCell(marketIngredients) {
   const goldChance = doomChance + cs.gold;
   const orderChance = goldChance + cs.order;
   const bombChance = orderChance + (cs.bomb || 0);
-  const toolChance = bombChance + (cs.tool || 0);
 
   const roll = Math.random();
 
@@ -45,17 +44,6 @@ export function rollSingleCell(marketIngredients) {
   }
   if (roll < bombChance) {
     return { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
-  }
-  if (roll < toolChance) {
-    const tool = TOOLS[Math.floor(Math.random() * TOOLS.length)];
-    return {
-      type: 'tool',
-      toolId: tool.id,
-      name: tool.name,
-      nameEn: tool.nameEn,
-      icon: tool.icon,
-      uid: generateUID(),
-    };
   }
   const ing = marketIngredients[Math.floor(Math.random() * marketIngredients.length)];
   return {
@@ -96,7 +84,6 @@ export function generateWall(marketIngredients) {
       const goldChance = doomChance + LIVE_CONFIG.cellSpawn.gold;
       const orderChance = goldChance + LIVE_CONFIG.cellSpawn.order;
       const bombChance = orderChance + (LIVE_CONFIG.cellSpawn.bomb || 0);
-      const toolChance = bombChance + (LIVE_CONFIG.cellSpawn.tool || 0);
 
       if (roll < doomChance) {
         grid[row][col] = { type: 'doom_resolution', icon: pickDoomEmoji(), name: doomCells.resolution.name, uid: generateUID() };
@@ -112,16 +99,6 @@ export function generateWall(marketIngredients) {
         grid[row][col] = { type: 'order_cell', icon: specialCells.order.icon, name: specialCells.order.name, uid: generateUID() };
       } else if (roll < bombChance) {
         grid[row][col] = { type: 'bomb', icon: specialCells.bomb.icon, name: specialCells.bomb.name, uid: generateUID() };
-      } else if (roll < toolChance) {
-        const tool = TOOLS[Math.floor(Math.random() * TOOLS.length)];
-        grid[row][col] = {
-          type: 'tool',
-          toolId: tool.id,
-          name: tool.name,
-          nameEn: tool.nameEn,
-          icon: tool.icon,
-          uid: generateUID(),
-        };
       }
     }
   }

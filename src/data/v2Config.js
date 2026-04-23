@@ -264,61 +264,21 @@ export const ORDER_CONFIG = {
     initialCount: 4,
 };
 
-// --- 道具系统 ---
-// 5 个道具共享一个骨架:"抽取前塑形"。所有道具都在抽取之前修改情境
-// (信息 / 墙面 / 资源),但不改变抽取本身的规则。
-export const TOOLS = [
-    {
-        id: 'peek',
-        name: '透视',
-        nameEn: 'Peek',
-        icon: '👁',
-        desc: '揭示一行或一列所有食材的品质',
-        descEn: 'Reveal ingredient qualities in a row or column',
-        // 使用流程:使用 → 点击一行或一列 → 该行/列所有 ingredient 格子的 quality 预 roll 并显示
-        targetKind: 'row_or_col',
-    },
-    {
-        id: 'swap',
-        name: '换位',
-        nameEn: 'Swap',
-        icon: '🔄',
-        desc: '选择墙上任意 2 格交换位置',
-        descEn: 'Swap any 2 cells on the wall',
-        targetKind: 'two_cells',
-    },
-    {
-        id: 'disperse',
-        name: '驱散',
-        nameEn: 'Disperse',
-        icon: '💨',
-        desc: '丢弃墙上任意 1 格的内容',
-        descEn: 'Discard any 1 cell on the wall',
-        targetKind: 'any_cell',
-    },
-    {
-        id: 'bomb_wall',
-        name: '炸墙',
-        nameEn: 'Blast Wall',
-        icon: '💥',
-        desc: '炸掉一个 3×3 区域,重新填充',
-        descEn: 'Blast a 3×3 region and refill',
-        targetKind: 'center_cell',
-    },
-    {
-        id: 'clear_inventory',
-        name: '清库换抽',
-        nameEn: 'Trade-in Draw',
-        icon: '🗑',
-        desc: '丢弃 1 格菜篮食材,换 1 抽数',
-        descEn: 'Discard 1 basket item for +1 draw',
-        targetKind: 'inventory_slot',
-    },
-];
+// --- AP + 位置系统 ---
+export const POSITION_CONFIG = {
+    initial: 3,
+    min: 1,
+    max: 5,
+    pushOnTurnEndMin: 1,
+    pushOnTurnEndMax: 3,
+    pushOnDoomHit: 1,
+};
 
-export const TOOL_CONFIG = {
-    capacity: 3,           // toolbar slots
-    dayStartCount: 3,      // granted at startGame (distinct)
-    perWallExitCount: 1,   // granted on entering between_turns
-    allowDuplicates: true, // same tool id can appear in multiple slots
+export const ACTION_CONFIG = {
+    draw:     { id: 'draw',     ap: 1, posDelta: 1 },
+    swap:     { id: 'swap',     ap: 1, posDelta: 0 },
+    disperse: { id: 'disperse', ap: 2, posDelta: 0 },
+    bomb:     { id: 'bomb',     ap: 3, posDelta: 0 },
+    push_in:  { id: 'push_in',  ap: 2, posDelta: -2 },
+    haggle:   { id: 'haggle',   ap: 0, posDelta: -1, requiresBasketItem: true },
 };

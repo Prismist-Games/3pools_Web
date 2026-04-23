@@ -29,11 +29,7 @@ import RoundTransition from './components/ui/RoundTransition';
 import WallPicker from './components/game/WallPicker';
 import OrderSubmitModal from './components/game/OrderSubmitModal';
 import ConfigPanel from './components/game/ConfigPanel';
-import Toolbar from './components/game/Toolbar';
-import ToolOverflowModal from './components/game/ToolOverflowModal';
-import ToolHintBar from './components/game/ToolHintBar';
-import ToolGrantPopup from './components/game/ToolGrantPopup';
-import { TOOL_CONFIG } from './data/v2Config';
+import ActionMenu from './components/game/ActionMenu';
 
 // DIAG: temporary wrapper to log mount/unmount of the fly element
 const FlyElementDiag = ({ flyId, icon, count, style }) => {
@@ -87,7 +83,7 @@ const GameCore = () => {
 
     const {
         expeditionNumber, expeditionScores, totalScore, expeditionConfig,
-        turnNumber, gold, phase,
+        turnNumber, ap, position, turnEndPush, phase,
         matrix, lastDrawResult, currentWallType, currentLevel, lastDrawDirection,
         hp, doomGrid, doomLevel, dangerCount,
         isDoomResolving, doomAnimState, doomResolutionResult,
@@ -97,7 +93,7 @@ const GameCore = () => {
         drawAnimState, isDrawAnimating, gravityDrops, rotationMoves, growthFlashes,
         startGame, selectWall, confirmWallReveal, selectRow, selectColumn, endTurn, continueToNextTurn,
         wallCandidates, pendingWallCandidate,
-        handleEvacuate, returnToRestaurant, handleCookResult, startNextDay,
+        leaveWall, handleEvacuate, returnToRestaurant, handleCookResult, startNextDay,
         handleReset, startNextExpedition,
         dayNumber, popularity, lastCookResult,
         tickDoomResolution, completeDoomResolution,
@@ -109,17 +105,17 @@ const GameCore = () => {
         dishIntroPending, currentDish, dismissDishIntro,
         isInSubLevel, wallStack,
         enterSubLevel, exitSubLevel,
-        tools, pendingToolGrant, activeTool, toolGrantQueue, toolUseAnim,
-        startUseTool, cancelUseTool, acceptToolGrantReplace, discardToolGrant, dismissToolGrantQueue,
-        applySwapTarget, applyDisperseTarget, applyBombWallTarget, applyClearInventoryTarget,
+        activeAction, actionUseAnim,
+        startAction, cancelAction,
+        applySwapTarget, applyDisperseTarget, applyBombTarget, applyHaggleTarget,
     } = state;
 
-    // Dispatch wall-cell clicks to the appropriate tool handler.
+    // Dispatch wall-cell clicks to the appropriate action handler.
     const handleWallCellClick = (r, c) => {
-        if (!activeTool) return;
-        if (activeTool.id === 'swap') applySwapTarget(r, c);
-        else if (activeTool.id === 'disperse') applyDisperseTarget(r, c);
-        else if (activeTool.id === 'bomb_wall') applyBombWallTarget(r, c);
+        if (!activeAction) return;
+        if (activeAction.id === 'swap') applySwapTarget(r, c);
+        else if (activeAction.id === 'disperse') applyDisperseTarget(r, c);
+        else if (activeAction.id === 'bomb') applyBombTarget(r, c);
     };
 
     // --- Doom animation interval ---
@@ -319,17 +315,11 @@ const GameCore = () => {
                                         </div>
                                     )}
                                     <div className={`flex flex-col items-center ${phase === 'drawing_sub' ? 'sub-level-enter' : phase === 'exiting_sub' ? 'sub-level-exit pointer-events-none' : ''}`}>
-                                        {activeTool && (
-                                            <div className="mb-3 w-full">
-                                                <ToolHintBar activeTool={activeTool} onCancel={cancelUseTool} />
-                                            </div>
-                                        )}
                                         <ResourceMatrix
                                             matrix={matrix}
                                             onSelectRow={selectRow}
                                             onSelectColumn={selectColumn}
-                                            gold={gold}
-                                            drawCost={INITIAL_GAME_CONFIG.turn.drawCost}
+                                            ap={ap}
                                             phase={phase}
                                             disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
                                             drawAnimState={drawAnimState}
@@ -339,23 +329,22 @@ const GameCore = () => {
                                             gravityDrops={gravityDrops}
                                             rotationMoves={rotationMoves}
                                             growthFlashes={growthFlashes}
-                                            activeTool={activeTool}
+                                            activeAction={activeAction}
                                             onCellClick={handleWallCellClick}
-                                            toolUseAnim={toolUseAnim}
+                                            actionUseAnim={actionUseAnim}
                                         />
-                                        <div className="mt-3">
-                                            <Toolbar
-                                                tools={tools}
-                                                capacity={TOOL_CONFIG.capacity}
-                                                activeTool={activeTool}
-                                                onUseTool={startUseTool}
-                                                enabled={!isDoomResolving && !isDrawAnimating && pendingItems.length === 0 && !incomingOrder}
-                                            />
-                                        </div>
+
+                                        {/* Action hint bar */}
+                                        {activeAction && (
+                                            <div className="mt-2 w-full px-3 py-1.5 bg-amber-50 border-2 border-amber-400 rounded-lg flex items-center justify-between text-xs font-bold text-amber-800">
+                                                <span>{t('选择目标')} — {activeAction.id === 'swap' && activeAction.selections?.length === 1 ? t('选第 2 格') : ''}</span>
+                                                <button onClick={cancelAction} className="text-[10px] px-2 py-0.5 bg-white border border-amber-400 rounded text-amber-700 hover:bg-amber-100">ESC</button>
+                                            </div>
+                                        )}
 
                                         {/* Draw result feedback */}
                                         {lastDrawResult && !isDoomResolving && !isDrawAnimating && (
-                                            <div className={`mt-3 p-2 rounded text-sm ${
+                                            <div className={`mt-2 p-2 rounded text-sm ${
                                                 lastDrawResult.obtained
                                                     ? 'bg-green-50 text-green-700'
                                                     : 'bg-gray-100 text-gray-500'
@@ -367,26 +356,90 @@ const GameCore = () => {
                                             </div>
                                         )}
 
-                                        {/* Remaining draws + end button */}
-                                        <div className="mt-4">
-                                            {phase !== 'drawing_sub' && (
-                                                <div className="mb-2 text-center">
-                                                    <span className="text-sm font-bold text-kitchen-text-secondary">{t('剩余抽取')}: </span>
-                                                    <span className="text-lg font-black text-kitchen-gold-deep">{gold}</span>
+                                        {/* AP + position display */}
+                                        {phase !== 'drawing_sub' && (
+                                            <div className="mt-3 w-full flex flex-col gap-2">
+                                                {/* AP dots */}
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[10px] font-bold text-kitchen-text-secondary mr-1">AP</span>
+                                                    {Array.from({ length: Math.max(3, ap) }).map((_, i) => (
+                                                        <span key={i} className={`text-base leading-none ${i < ap ? 'text-kitchen-gold' : 'text-kitchen-gold/25'}`}>⚡</span>
+                                                    ))}
                                                 </div>
+                                                {/* Position bar: left=摊位(pos1), right=人群边缘(pos5) */}
+                                                <div className="flex items-center gap-1 w-full">
+                                                    <span className="text-[9px] text-kitchen-text-muted whitespace-nowrap">{t('摊位')}</span>
+                                                    <div className="flex gap-1 flex-1">
+                                                        {Array.from({ length: 5 }).map((_, i) => {
+                                                            const posVal = i + 1;
+                                                            const isCurrent = posVal === position;
+                                                            const pushTargetPos = position + turnEndPush;
+                                                            const willExit = pushTargetPos > 5;
+                                                            const isPushTarget = !isCurrent && posVal === Math.min(pushTargetPos, 5);
+                                                            return (
+                                                                <div key={i} className={`flex-1 h-3 rounded-sm border transition-all ${
+                                                                    isCurrent
+                                                                        ? 'bg-green-500 border-green-600'
+                                                                        : isPushTarget && willExit
+                                                                        ? 'bg-kitchen-danger/60 border-kitchen-danger-border border-dashed'
+                                                                        : isPushTarget
+                                                                        ? 'bg-kitchen-info/40 border-kitchen-info-border border-dashed'
+                                                                        : 'bg-kitchen-info border-kitchen-info-border'
+                                                                }`} />
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <span className="text-[9px] text-kitchen-text-muted whitespace-nowrap">{t('人群边缘')}</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Action menu */}
+                                        <div className="mt-3 w-full">
+                                            <ActionMenu
+                                                ap={ap}
+                                                position={position}
+                                                activeAction={activeAction}
+                                                inventory={inventory}
+                                                onAction={startAction}
+                                                enabled={!isDoomResolving && !isDrawAnimating && pendingItems.length === 0 && !incomingOrder && (phase === 'drawing' || phase === 'drawing_sub')}
+                                            />
+                                        </div>
+
+                                        {/* End turn + Evacuate buttons */}
+                                        <div className="mt-3 w-full flex gap-2">
+                                            {phase !== 'drawing_sub' && (
+                                                <button
+                                                    onClick={leaveWall}
+                                                    disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
+                                                    className={`flex-1 px-3 py-2 rounded-lg font-bold transition-colors text-sm border-2 ${
+                                                        isDoomResolving || isDrawAnimating || pendingItems.length > 0
+                                                            ? 'bg-kitchen-card/60 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
+                                                            : 'bg-kitchen-card border-kitchen-gold-border-muted text-kitchen-text-secondary hover:bg-[#FFF3E0] hover:border-kitchen-gold'
+                                                    }`}
+                                                >
+                                                    {t('离开摊位')}
+                                                </button>
                                             )}
                                             <button
                                                 onClick={phase === 'drawing_sub' ? exitSubLevel : endTurn}
                                                 disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
-                                                className={`w-full px-6 py-2 rounded-lg font-bold transition-colors ${
+                                                className={`flex-1 px-3 py-2 rounded-lg font-bold transition-colors text-sm ${
                                                     isDoomResolving || isDrawAnimating || pendingItems.length > 0
                                                         ? 'bg-kitchen-card/60 border-2 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
+                                                        : ap === 0 && phase === 'drawing'
+                                                        ? 'bg-kitchen-gold border-2 border-kitchen-gold text-white shadow-[0_2px_0_#C8A880] animate-pulse'
                                                         : phase === 'drawing_sub'
                                                             ? 'bg-kitchen-info border-2 border-kitchen-info-border text-white hover:brightness-95'
                                                             : 'bg-gradient-to-b from-kitchen-wood-light to-kitchen-wood-dark border-2 border-kitchen-wood-border text-kitchen-text-title hover:brightness-105 shadow-[0_2px_0_#C8A880]'
                                                 }`}
                                             >
-                                                {phase === 'drawing_sub' ? t('结束事件') : t('挤出店铺')}
+                                                {phase === 'drawing_sub' ? t('结束事件') : (
+                                                    <span className="flex flex-col items-center leading-tight">
+                                                        <span>{t('结束回合')}</span>
+                                                        <span className="text-[10px] font-normal opacity-75">→ {turnEndPush}格</span>
+                                                    </span>
+                                                )}
                                             </button>
                                         </div>
                                     </div>
@@ -664,9 +717,9 @@ const GameCore = () => {
                                             const cell = (
                                                 <div
                                                     onClick={() => {
-                                                        // Clear-inventory tool takes priority when active — click to discard + gain 1 draw.
-                                                        if (activeTool?.id === 'clear_inventory') {
-                                                            if (item) applyClearInventoryTarget(item.uid);
+                                                        // Haggle action: discard item for position -1
+                                                        if (activeAction?.id === 'haggle') {
+                                                            if (item) applyHaggleTarget(item.uid);
                                                             return;
                                                         }
                                                         if (recycleMode && item) {
@@ -717,8 +770,8 @@ const GameCore = () => {
                                                             : !item ? 'bg-[#F8F4EC] border-kitchen-gold-border-muted'
                                                             : sc ? `bg-gradient-to-b ${sc.bg} ${sc.border}`
                                                             : 'bg-kitchen-card border-kitchen-gold-border-muted'}
-                                                        ${activeTool?.id === 'clear_inventory' && item ? 'ring-2 ring-amber-400 cursor-pointer hover:brightness-110' : ''}
-                                                        ${toolUseAnim?.type === 'clear_inventory' && toolUseAnim?.target?.uid === item?.uid ? 'animate-tool-clear-inv' : ''}
+                                                        ${activeAction?.id === 'haggle' && item ? 'ring-2 ring-amber-400 cursor-pointer hover:brightness-110' : ''}
+                                                        ${actionUseAnim?.type === 'haggle' && actionUseAnim?.target?.uid === item?.uid ? 'animate-tool-clear-inv' : ''}
                                                         ${canMergeWithPending ? 'cursor-pointer hover:bg-[#F0F8FF] hover:border-kitchen-info-border hover:scale-110 ring-2 ring-kitchen-info-border/60'
                                                             : canReplace ? 'cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger hover:scale-110'
                                                             : recycleMode && item ? 'cursor-pointer hover:border-kitchen-danger'
@@ -1044,25 +1097,6 @@ const GameCore = () => {
                 {/* Sprite Preview Modal */}
                 {spritePreviewOpen && <SpritePreview onClose={() => setSpritePreviewOpen(false)} />}
                 {configOpen && <ConfigPanel onClose={() => setConfigOpen(false)} gridSize={gridSize} onToggleGridSize={toggleGridSize} />}
-
-                {/* Tool overflow modal — blocks interaction when a new tool grant
-                    arrives and the toolbar is already at capacity. */}
-                {pendingToolGrant && (
-                    <ToolOverflowModal
-                        tools={tools}
-                        pendingTool={pendingToolGrant}
-                        onReplace={acceptToolGrantReplace}
-                        onDiscard={discardToolGrant}
-                    />
-                )}
-
-                {/* Tool grant popup — announces every successful tool grant. */}
-                {toolGrantQueue && toolGrantQueue.length > 0 && !pendingToolGrant && (
-                    <ToolGrantPopup
-                        tools={toolGrantQueue}
-                        onConfirm={dismissToolGrantQueue}
-                    />
-                )}
 
                 {/* Toast */}
                 {toast && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={clearToast} />}

@@ -68,8 +68,7 @@ function QualityWeightsSection() {
 // ─── Section B: 墙面符号比例 ───────────────────────────────────────
 function CellSpawnSection() {
     const cs = LIVE_CONFIG.cellSpawn;
-    const toolChance = cs.tool ?? 0;
-    const specialTotal = cs.doom + cs.gold + cs.order + cs.bomb + toolChance;
+    const specialTotal = cs.doom + cs.gold + cs.order + cs.bomb;
     const ingredientPct = (1 - specialTotal) * 100;
     return (
         <section className="mb-5">
@@ -90,10 +89,6 @@ function CellSpawnSection() {
                 <span>💣 炸弹</span>
                 <NumInput value={cs.bomb} onChange={v => { cs.bomb = v; bumpConfig(); }} />
                 <span className="text-gray-500">{(cs.bomb * 100).toFixed(1)}%</span>
-
-                <span>🧰 道具</span>
-                <NumInput value={toolChance} onChange={v => { cs.tool = v; bumpConfig(); }} />
-                <span className="text-gray-500">{(toolChance * 100).toFixed(1)}%</span>
 
                 <span className="text-gray-400 italic">🍴 食材格</span>
                 <span className="text-gray-500">(余下)</span>
@@ -160,10 +155,10 @@ function OrderTemplatesSection() {
 // ─── Section D: 局面布局 & 抽取次数 ────────────────────────────────
 function WallLayoutSection({ gridSize, onToggleGridSize }) {
     const currentGridSize = gridSize ?? LIVE_CONFIG.gridSize ?? 4;
-    const goldPerTurn = LIVE_CONFIG.goldPerTurn ?? 3;
+    const apPerTurn = LIVE_CONFIG.apPerTurn ?? 3;
     return (
         <section className="mb-5">
-            <h3 className="text-sm font-bold text-gray-100 mb-2">D. 局面布局 & 抽取</h3>
+            <h3 className="text-sm font-bold text-gray-100 mb-2">D. 局面布局 & AP</h3>
             <div className="grid grid-cols-[auto_auto_1fr] gap-x-3 gap-y-2 items-center text-xs text-gray-300">
                 <span>墙尺寸</span>
                 <div className="flex items-center gap-1">
@@ -178,9 +173,9 @@ function WallLayoutSection({ gridSize, onToggleGridSize }) {
                 </div>
                 <span className="text-gray-500">切换会重置当前游戏</span>
 
-                <span>进店抽取次数</span>
-                <IntInput value={goldPerTurn} onChange={v => { LIVE_CONFIG.goldPerTurn = Math.max(1, v); bumpConfig(); }} min={1} max={99} width="w-16" />
-                <span className="text-gray-500">次 / 家店</span>
+                <span>进店 AP</span>
+                <IntInput value={apPerTurn} onChange={v => { LIVE_CONFIG.apPerTurn = Math.max(1, v); bumpConfig(); }} min={1} max={99} width="w-16" />
+                <span className="text-gray-500">AP / 家店</span>
             </div>
         </section>
     );

@@ -1,4 +1,21 @@
 export const EN_TRANSLATIONS = {
+    // --- Action / AP system ---
+    "动作菜单": "Actions",
+    "抽取": "Draw",
+    "冲进去": "Push In",
+    "讨价还价": "Haggle",
+    "AP 不足": "Not enough AP",
+    "菜篮为空": "Basket is empty",
+    "位置": "Pos",
+    "摊位": "Stall",
+    "人群边缘": "Crowd Edge",
+    "边缘": "Edge",
+    "结束回合": "End Turn",
+    "离开摊位": "Leave Stall",
+    "选择目标": "Select target",
+    "选第 2 格": "Select 2nd cell",
+    "被人群挤出": "Pushed out by crowd",
+
     // --- Kitchen system ---
     "厨房": "Kitchen",
     "冰箱": "Fridge",

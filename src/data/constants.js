@@ -573,8 +573,7 @@ export const DOOM_CONFIG = {
 
 // --- 回合制配置 ---
 export const TURN_CONFIG = {
-    goldPerTurn: 3,            // 每次进市场的抽取次数
-    drawCost: 1,               // 每次抽取消耗
+    apPerTurn: 3,              // 每次进店的行动力(AP)
 };
 
 export const INITIAL_GAME_CONFIG = {

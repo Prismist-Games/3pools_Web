@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
 import { MATRIX_CONFIG } from '../../data/matrixConfig';
-import { QUALITY_CONFIG, TOOLS } from '../../data/v2Config';
+import { QUALITY_CONFIG } from '../../data/v2Config';
 
 // Quality badge color (shown after peek reveals a cell's actual draw quality)
 const QUALITY_BADGE_COLORS = { 1: '#9ca3af', 2: '#22c55e', 3: '#3b82f6', 4: '#a855f7', 5: '#f97316' };
@@ -85,11 +85,6 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
         icon = cell.icon || '🌽';
         name = t(cell.name || '膨化格');
         desc = t('抽中时无效果，周围的增益消失');
-    } else if (cell.type === 'tool') {
-        const toolDef = TOOLS.find(tool => tool.id === cell.toolId);
-        icon = cell.icon || toolDef?.icon || '🧰';
-        name = toolDef ? (language === 'en' && toolDef.nameEn ? toolDef.nameEn : t(toolDef.name)) : t(cell.name || '道具');
-        desc = toolDef ? (language === 'en' && toolDef.descEn ? toolDef.descEn : t(toolDef.desc)) : t('抽中时获得此道具');
     } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
@@ -311,7 +306,7 @@ const GridCell = ({ cell, cellContent, t, language, rowIndex, colIndex, highligh
 /**
  * Wall grid display for turn-based prototype (size from MATRIX_CONFIG.gridSize).
  */
-const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverIngredientIds, gravityDrops, rotationMoves, growthFlashes, activeTool, onCellClick, toolUseAnim }) => {
+const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, ap, phase, disabled, drawAnimState, wallType, lastDrawDirection, onHoverIngredientIds, gravityDrops, rotationMoves, growthFlashes, activeAction, onCellClick, actionUseAnim }) => {
     const { t, language } = useLanguage();
     const [hoveredRow, setHoveredRow] = useState(null);
     const [hoveredCol, setHoveredCol] = useState(null);
@@ -349,21 +344,18 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
 
     if (!matrix) return null;
 
-    const canDraw = (phase === 'drawing' || phase === 'drawing_sub') && gold >= drawCost && !disabled;
+    const drawArmed = activeAction?.id === 'draw';
+    const canDraw = (phase === 'drawing' || phase === 'drawing_sub') && drawArmed && ap >= 1 && !disabled;
 
-    // Tool-driven interaction flags
-    const peekActive = activeTool?.id === 'peek';
-    const cellTargetingActive = !!activeTool && ['swap', 'disperse', 'bomb_wall'].includes(activeTool.id);
-    const swapFirstSelection = activeTool?.id === 'swap' ? (activeTool.selections?.[0] || null) : null;
+    // Action-driven interaction flags
+    const cellTargetingActive = !!activeAction && ['swap', 'disperse', 'bomb'].includes(activeAction.id);
+    const swapFirstSelection = activeAction?.id === 'swap' ? (activeAction.selections?.[0] || null) : null;
 
-    // Look up the CSS animation class for a given cell based on the active
-    // tool-use animation (if any). Matches on position membership.
     const toolAnimClassFor = (r, c) => {
-        if (!toolUseAnim) return '';
-        const hit = toolUseAnim.positions?.some(([pr, pc]) => pr === r && pc === c);
+        if (!actionUseAnim) return '';
+        const hit = actionUseAnim.positions?.some(([pr, pc]) => pr === r && pc === c);
         if (!hit) return '';
-        switch (toolUseAnim.type) {
-            case 'peek': return 'animate-tool-peek';
+        switch (actionUseAnim.type) {
             case 'swap': return 'animate-tool-swap';
             case 'disperse': return 'animate-tool-disperse';
             case 'bomb_wall': return 'animate-tool-bomb';
@@ -442,22 +434,6 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
         if (cell.type === 'buff_field') {
             return <span className="text-xl">{cell.icon || '🌽'}</span>;
         }
-        if (cell.type === 'tool') {
-            const toolDef = TOOLS.find(tool => tool.id === cell.toolId);
-            const displayName = toolDef
-                ? (language === 'en' && toolDef.nameEn ? toolDef.nameEn : t(toolDef.name))
-                : '';
-            return (
-                <>
-                    <span className="text-lg leading-none">{cell.icon || toolDef?.icon || '🧰'}</span>
-                    {displayName && (
-                        <span className="text-[9px] font-bold leading-tight truncate max-w-full text-amber-800 mt-0.5 px-0.5">
-                            {displayName}
-                        </span>
-                    )}
-                </>
-            );
-        }
         return (
             <>
                 <span className="text-xl">{cell.icon}</span>
@@ -496,9 +472,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 {Array.from({ length: matrix[0]?.length || 4 }, (_, colIndex) => {
                     const hasActive = matrix.some(row => row[colIndex] !== null);
                     const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
-                    // Peek passthrough: row/col buttons must stay clickable when
-                    // peek is active even if gold is 0 — peek doesn't consume a draw.
-                    const colClickable = peekActive ? hasActive : (canDraw && hasActive && !altBlocked);
+                    const colClickable = canDraw && hasActive && !altBlocked;
                     return (
                         <button
                             key={colIndex}
@@ -530,7 +504,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                     {matrix.map((row, rowIndex) => {
                         const hasActive = row.some(c => c !== null);
                         const altBlockedRow = wallType?.id === 'alternating' && lastDrawDirection === 'row';
-                        const rowClickable = peekActive ? hasActive : (canDraw && hasActive && !altBlockedRow);
+                        const rowClickable = canDraw && hasActive && !altBlockedRow;
                         return (
                             <button
                                 key={rowIndex}
@@ -713,9 +687,9 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             const cellKey = `${rowIndex}-${colIndex}`;
                             // Cell-click targeting for wall-editing tools
                             const cellClickableForTool = cellTargetingActive && (
-                                activeTool.id === 'bomb_wall'                 // any position (null ok)
-                                || (activeTool.id === 'swap' && cell != null) // need a real cell to swap
-                                || (activeTool.id === 'disperse' && cell != null) // need a real cell to discard
+                                activeAction.id === 'bomb'                    // any position (null ok)
+                                || (activeAction.id === 'swap' && cell != null)
+                                || (activeAction.id === 'disperse' && cell != null)
                             );
                             const selectedForSwap = swapFirstSelection && swapFirstSelection.r === rowIndex && swapFirstSelection.c === colIndex;
                             return (
