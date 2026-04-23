@@ -8,14 +8,39 @@ import TutorialCoachmark from './TutorialCoachmark';
 // 用于识别"主角"占位符的常量：脚本里 speaker/emoji 用这两个值表示"玩家自己"
 const PLAYER_EMOJI_PLACEHOLDER = '🧑‍🍳';
 const PLAYER_NAME_PLACEHOLDER = '主角';
+// 妈妈占位符（中性色）—— 会根据玩家 emoji 的 Fitzpatrick 肤色修饰符染色后替换
+const MOM_EMOJI_PLACEHOLDER = '👩‍🍳';
+
+// Fitzpatrick 肤色修饰符码点 U+1F3FB..U+1F3FF
+// eslint-disable-next-line no-misleading-character-class
+const SKIN_TONE_RE = /[\u{1F3FB}-\u{1F3FF}]/u;
+
+// 从玩家 emoji 里提取肤色修饰符；没有则返回 null
+function extractSkinTone(emoji) {
+    if (typeof emoji !== 'string') return null;
+    const m = emoji.match(SKIN_TONE_RE);
+    return m ? m[0] : null;
+}
+
+// 构造和玩家同肤色的妈妈 emoji: 👩 + 肤色 + ZWJ + 🍳
+function buildMomEmoji(skinTone) {
+    if (!skinTone) return MOM_EMOJI_PLACEHOLDER;
+    return `\u{1F469}${skinTone}\u200D\u{1F373}`;
+}
 
 // 将 ui 字段（bottomDialog / fullScreenCard / postDialogModal）中的主角占位符
-// 替换为玩家实际选择的姓名和形象。字段可能为 undefined，直接返回原值。
+// 替换为玩家实际选择的姓名和形象；同时把妈妈的 emoji 染成和玩家同样的肤色。
+// 字段可能为 undefined，直接返回原值。
 function applyPlayerInfo(field, playerInfo) {
     if (!field || !playerInfo?.emoji) return field;
     const result = { ...field };
+    const skinTone = extractSkinTone(playerInfo.emoji);
+    const momEmoji = buildMomEmoji(skinTone);
     if (typeof result.emoji === 'string') {
-        result.emoji = result.emoji.replaceAll(PLAYER_EMOJI_PLACEHOLDER, playerInfo.emoji);
+        // 先处理妈妈，再处理玩家——顺序无所谓，两个占位符不会相互重叠
+        result.emoji = result.emoji
+            .replaceAll(MOM_EMOJI_PLACEHOLDER, momEmoji)
+            .replaceAll(PLAYER_EMOJI_PLACEHOLDER, playerInfo.emoji);
     }
     if (result.speaker === PLAYER_NAME_PLACEHOLDER && playerInfo.name) {
         result.speaker = playerInfo.name;
