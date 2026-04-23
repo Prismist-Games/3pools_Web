@@ -533,7 +533,10 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                     </div>
 
                     {/* Fridge — always visible; view-only disables interaction */}
-                    <div className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border-muted shadow-[0_2px_0_#D4B896] p-4">
+                    <div
+                        data-tutorial="fridge-area"
+                        className="bg-kitchen-card rounded-xl border-2 border-kitchen-gold-border-muted shadow-[0_2px_0_#D4B896] p-4"
+                    >
                         <div className="text-xs font-bold text-kitchen-text-body uppercase tracking-wide mb-3">
                             🧊 {t('冰箱')} ({fridgeItems.length})
                             {viewOnly && <span className="ml-2 text-[10px] font-normal text-kitchen-text-muted normal-case">({t('浏览')})</span>}
