@@ -785,9 +785,11 @@ export const EN_TRANSLATIONS = {
 
     // --- Snatcher (抢菜达人) ---
     "抢菜达人": "Grocery Pro",
-    "抢菜达人被驱逐！": "Grocery Pro driven off!",
-    "抢菜达人偷走了": "Grocery Pro swiped",
-    "每次抽取后，他会偷走相邻食材并移过去；没食材时会朝食材方向踱步。抽到他可驱逐。": "After each draw, he swipes an adjacent ingredient and moves into its cell; otherwise he strolls toward more food. Draw him to drive him off.",
+    "抢菜达人抢走了": "Grocery Pro grabbed",
+    "抢菜达人退场！": "Grocery Pro exits!",
+    "战利品": "loot",
+    "手里的菜": "In his basket",
+    "每次抽取后，他会抢走相邻食材并移过去；没食材时会朝食材方向踱步。当他离开板子时，手里的菜全归你。": "After each draw, he grabs an adjacent ingredient and moves into its cell; otherwise he strolls toward more food. When he leaves the board, everything in his basket is yours.",
 
     // --- WallPicker danger counts ---
     "人在抢菜": "snatchers",

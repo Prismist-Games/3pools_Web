@@ -636,7 +636,7 @@ export const useGameLogic = (config) => {
         } else if (drawnCell.type === 'loudmouth') {
             showToast('📢 ' + t('大嗓门被驱散！'), 'success');
         } else if (drawnCell.type === 'snatcher') {
-            showToast('🕴️ ' + t('抢菜达人被驱逐！'), 'success');
+            // 退场 toast 在 setMatrix 后统一发（因为要算战利品数量）
         } else if (drawnCell.type === 'bomb') {
             // Bomb: mark for adjacent destruction (handled in matrix update below)
         } else if (drawnCell.type === 'entrance') {
@@ -702,8 +702,9 @@ export const useGameLogic = (config) => {
         // （React 18 的状态更新是异步的，在 setMatrix 回调里赋值闭包变量
         //  会导致外部的 toast 检查拿到 null。）
         let snatchedItem = null;
-        let snatcherPlannedMove = null; // { from: [r,c], to: [r,c] }
-        if (matrix && drawnCell.type !== 'snatcher') {
+        let snatcherPlannedMove = null; // { from, to, updatedCell }
+        let snatcherLootOnRemoval = null; // 若 snatcher 本次被移除，战利品给玩家
+        if (matrix) {
             let snatcherR = -1, snatcherC = -1;
             for (let r = 0; r < matrix.length && snatcherR === -1; r++) {
                 for (let c = 0; c < matrix[0].length; c++) {
@@ -711,48 +712,87 @@ export const useGameLogic = (config) => {
                 }
             }
             if (snatcherR !== -1) {
-                const rows = matrix.length;
-                const cols = matrix[0].length;
-                const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-                const inBounds = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols;
-                // 视角：假装已经清掉 drawn cell（及 mirror cell）
-                const getCell = (r, c) => {
-                    if (r === finalRowIndex && c === finalColIndex) return null;
-                    if (mirrorCell && r === mirrorRow && c === mirrorCol) return null;
-                    return matrix[r]?.[c] ?? null;
+                const snatcherCell = matrix[snatcherR][snatcherC];
+                const currentLoot = snatcherCell.loot || [];
+
+                // 预判：他本次是否会被移除？
+                // 路径1：玩家抽到他
+                const drewSnatcher = drawnCell.type === 'snatcher'
+                    && snatcherR === finalRowIndex && snatcherC === finalColIndex;
+                // 路径2：炸弹（含 mirror 炸弹）相邻他
+                const adj8 = (r1, c1, r2, c2) => {
+                    const dr = Math.abs(r1 - r2);
+                    const dc = Math.abs(c1 - c2);
+                    return dr <= 1 && dc <= 1 && (dr + dc) > 0;
                 };
-                const ingNbrs = [];
-                const nullNbrs = [];
-                for (const [dr, dc] of dirs) {
-                    const nr = snatcherR + dr;
-                    const nc = snatcherC + dc;
-                    if (!inBounds(nr, nc)) continue;
-                    const cell = getCell(nr, nc);
-                    if (cell?.type === 'ingredient') ingNbrs.push([nr, nc]);
-                    else if (cell === null) nullNbrs.push([nr, nc]);
-                }
-                let target = null;
-                if (ingNbrs.length > 0) {
-                    target = ingNbrs[Math.floor(Math.random() * ingNbrs.length)];
-                    snatchedItem = matrix[target[0]][target[1]].item;
-                } else if (nullNbrs.length > 0) {
-                    let best = [];
-                    let bestScore = -1;
-                    for (const [nr, nc] of nullNbrs) {
-                        let score = 0;
-                        for (const [dr, dc] of dirs) {
-                            const nnr = nr + dr;
-                            const nnc = nc + dc;
-                            if (!inBounds(nnr, nnc)) continue;
-                            if (getCell(nnr, nnc)?.type === 'ingredient') score++;
-                        }
-                        if (score > bestScore) { bestScore = score; best = [[nr, nc]]; }
-                        else if (score === bestScore) best.push([nr, nc]);
+                const bombKills = drawnCell.type === 'bomb'
+                    && adj8(snatcherR, snatcherC, finalRowIndex, finalColIndex);
+                const mirrorBombKills = mirrorCell?.type === 'bomb' && mirrorRow !== null && mirrorCol !== null
+                    && adj8(snatcherR, snatcherC, mirrorRow, mirrorCol);
+
+                if (drewSnatcher || bombKills || mirrorBombKills) {
+                    // 移除：战利品归玩家（本次抢菜动作就不算了——他没机会完成）
+                    snatcherLootOnRemoval = currentLoot;
+                } else if (drawnCell.type !== 'snatcher') {
+                    // 未被移除：正常执行抢菜动作
+                    const rows = matrix.length;
+                    const cols = matrix[0].length;
+                    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+                    const inBounds = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols;
+                    // 视角：假装已经清掉 drawn cell（及 mirror cell）
+                    const getCell = (r, c) => {
+                        if (r === finalRowIndex && c === finalColIndex) return null;
+                        if (mirrorCell && r === mirrorRow && c === mirrorCol) return null;
+                        return matrix[r]?.[c] ?? null;
+                    };
+                    const ingNbrs = [];
+                    const nullNbrs = [];
+                    for (const [dr, dc] of dirs) {
+                        const nr = snatcherR + dr;
+                        const nc = snatcherC + dc;
+                        if (!inBounds(nr, nc)) continue;
+                        const cell = getCell(nr, nc);
+                        if (cell?.type === 'ingredient') ingNbrs.push([nr, nc]);
+                        else if (cell === null) nullNbrs.push([nr, nc]);
                     }
-                    target = best[Math.floor(Math.random() * best.length)];
-                }
-                if (target) {
-                    snatcherPlannedMove = { from: [snatcherR, snatcherC], to: target };
+                    let target = null;
+                    let updatedCell = snatcherCell;
+                    if (ingNbrs.length > 0) {
+                        target = ingNbrs[Math.floor(Math.random() * ingNbrs.length)];
+                        // 抢到的食材走和玩家抽取同样的流程：roll 品质 + 生成完整 item
+                        const stolenCell = matrix[target[0]][target[1]];
+                        const minQ = stolenCell.item?.minQuality;
+                        const rawQ = stolenCell.item?.quality ?? rollQuality();
+                        const quality = minQ ? Math.max(rawQ, minQ) : rawQ;
+                        const qualityDef = QUALITY_CONFIG.find(q => q.id === quality) || QUALITY_CONFIG[0];
+                        const lootItem = {
+                            ...stolenCell.item,
+                            quality,
+                            score: qualityDef.scoreValue,
+                            isOutOfGame: true,
+                            uid: generateUID(),
+                        };
+                        snatchedItem = lootItem;
+                        updatedCell = { ...snatcherCell, loot: [...currentLoot, lootItem] };
+                    } else if (nullNbrs.length > 0) {
+                        let best = [];
+                        let bestScore = -1;
+                        for (const [nr, nc] of nullNbrs) {
+                            let score = 0;
+                            for (const [dr, dc] of dirs) {
+                                const nnr = nr + dr;
+                                const nnc = nc + dc;
+                                if (!inBounds(nnr, nnc)) continue;
+                                if (getCell(nnr, nnc)?.type === 'ingredient') score++;
+                            }
+                            if (score > bestScore) { bestScore = score; best = [[nr, nc]]; }
+                            else if (score === bestScore) best.push([nr, nc]);
+                        }
+                        target = best[Math.floor(Math.random() * best.length)];
+                    }
+                    if (target) {
+                        snatcherPlannedMove = { from: [snatcherR, snatcherC], to: target, updatedCell };
+                    }
                 }
             }
         }
@@ -919,12 +959,12 @@ export const useGameLogic = (config) => {
 
             // 抢菜达人：决策在外面已同步算好（snatcherPlannedMove），这里只应用。
             // 放在 loudmouth refill 之前，以便他占到刚被抽空的格子时不会被 doom 覆盖。
-            // 守护：只在源格确实还是 snatcher 时才移动——避免 bomb 爆炸已经把他清了的情况下"复活"。
+            // 守护：只在源格确实还是 snatcher 时才移动——避免 bomb 把他清了后"复活"。
             if (snatcherPlannedMove) {
-                const { from, to } = snatcherPlannedMove;
+                const { from, to, updatedCell } = snatcherPlannedMove;
                 const srcCell = newMatrix[from[0]][from[1]];
                 if (srcCell?.type === 'snatcher') {
-                    newMatrix[to[0]][to[1]] = srcCell;
+                    newMatrix[to[0]][to[1]] = updatedCell;
                     newMatrix[from[0]][from[1]] = null;
                 }
             }
@@ -1002,7 +1042,22 @@ export const useGameLogic = (config) => {
 
         if (snatchedItem) {
             const stolenName = (language === 'en' && snatchedItem.nameEn) ? snatchedItem.nameEn : t(snatchedItem.name);
-            showToast(`🕴️ ${t('抢菜达人偷走了')} ${snatchedItem.icon} ${stolenName}`, 'warning');
+            showToast(`🕴️ ${t('抢菜达人抢走了')} ${snatchedItem.icon} ${stolenName}`, 'warning');
+        }
+
+        // 抢菜达人退场：战利品归玩家（篮子满则入 pending 队列）
+        if (snatcherLootOnRemoval !== null) {
+            const loot = snatcherLootOnRemoval;
+            if (loot.length > 0) {
+                const space = Math.max(0, maxInventorySize - inventory.length);
+                const toInv = loot.slice(0, space);
+                const toPending = loot.slice(space);
+                if (toInv.length > 0) setInventory(prev => [...prev, ...toInv]);
+                if (toPending.length > 0) setPendingItems(prev => [...prev, ...toPending]);
+                showToast(`🕴️ ${t('抢菜达人退场！')} +${loot.length} ${t('战利品')}`, 'success');
+            } else {
+                showToast(`🕴️ ${t('抢菜达人退场！')}`, 'success');
+            }
         }
 
         if (obtainedItem) {

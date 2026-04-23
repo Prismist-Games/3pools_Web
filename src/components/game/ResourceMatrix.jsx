@@ -96,7 +96,34 @@ const CellTooltip = ({ cell, anchorRef, visible, t, language }) => {
     } else if (cell.type === 'snatcher') {
         icon = cell.icon || '🕴️';
         name = t(cell.name || '抢菜达人');
-        desc = t('每次抽取后，他会偷走相邻食材并移过去；没食材时会朝食材方向踱步。抽到他可驱逐。');
+        const lootList = cell.loot || [];
+        const qBorder = { 1: 'border-gray-400', 2: 'border-green-400', 3: 'border-blue-400', 4: 'border-purple-400', 5: 'border-orange-400' };
+        const qText   = { 1: 'text-gray-300', 2: 'text-green-300', 3: 'text-blue-300', 4: 'text-purple-300', 5: 'text-orange-300' };
+        desc = (
+            <>
+                <span>{t('每次抽取后，他会抢走相邻食材并移过去；没食材时会朝食材方向踱步。当他离开板子时，手里的菜全归你。')}</span>
+                {lootList.length > 0 && (
+                    <div className="mt-1.5 pt-1 border-t border-slate-700">
+                        <div className="text-[10px] text-slate-400 mb-1">{t('手里的菜')}（{lootList.length}）:</div>
+                        <div className="flex flex-col gap-0.5">
+                            {lootList.map((item, i) => {
+                                const displayName = (language === 'en' && item.nameEn) ? item.nameEn : t(item.name);
+                                const stars = '★'.repeat(item.quality || 1);
+                                return (
+                                    <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                                        <span className={`inline-flex items-center justify-center w-5 h-5 rounded border ${qBorder[item.quality] || qBorder[1]} bg-slate-800`}>
+                                            {item.icon}
+                                        </span>
+                                        <span className="text-slate-200 flex-1 truncate">{displayName}</span>
+                                        <span className={`${qText[item.quality] || qText[1]} tracking-tight`}>{stars}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </>
+        );
     } else if (cell.type === 'ingredient' || cell.type === 'sticker' || cell.type === 'item') {
         icon = cell.item?.icon || cell.icon;
         name = cell.item ? t(cell.item.name) : t(cell.name);
@@ -545,7 +572,17 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
             return <span className="text-xl">{cell.icon || '🫠'}</span>;
         }
         if (cell.type === 'snatcher') {
-            return <span className="text-xl">{cell.icon || '🕴️'}</span>;
+            const lootCount = cell.loot?.length || 0;
+            return (
+                <>
+                    <span className="text-xl">{cell.icon || '🕴️'}</span>
+                    {lootCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow z-10">
+                            {lootCount}
+                        </span>
+                    )}
+                </>
+            );
         }
         return (
             <>
