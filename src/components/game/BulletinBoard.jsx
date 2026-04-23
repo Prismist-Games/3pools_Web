@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import Tooltip from '../ui/Tooltip';
 import { INGREDIENTS, QUALITY_CONFIG, ORDER_CONFIG } from '../../data/v2Config';
+import { itemNameClass } from '../../utils/itemNameClass';
 
 // Map quality id (1-5) → scoreValue (1/2/3/5/8). Badges display the actual
 // gameplay score, not the internal quality id.
@@ -113,7 +114,7 @@ const RewardCard = ({ reward, size = 'md', bonusValue }) => {
         <Tooltip content={tipContent}>
             <div className={`relative ${dim} rounded border-2 ${s.border} bg-gradient-to-b ${s.bg} flex flex-col items-center justify-center shadow-sm px-0.5`}>
                 <span className={`${iconSize} leading-none`}>{reward.icon}</span>
-                <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                <span title={displayName} className={`${itemNameClass(language, 'sm')} text-slate-700 mt-0.5`}>
                     {displayName}
                 </span>
                 <span className={`absolute -bottom-1 -right-1 ${s.badge} text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow`}>
@@ -180,7 +181,10 @@ const BulletinBoard = ({
                                     <div key={i} className="flex items-center gap-0.5">
                                         <div className="relative w-12 h-12 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex flex-col items-center justify-center shadow-sm px-0.5">
                                             <span className="text-base leading-none">{req.icon}</span>
-                                            <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                            <span
+                                                title={language === 'en' && req.nameEn ? req.nameEn : t(req.name)}
+                                                className={`${itemNameClass(language, 'sm')} text-slate-700 mt-0.5`}
+                                            >
                                                 {language === 'en' && req.nameEn ? req.nameEn : t(req.name)}
                                             </span>
                                         </div>
@@ -268,7 +272,10 @@ const BulletinBoard = ({
                                                             : qs.border + ' bg-kitchen-card'
                                                         } ${isHovered ? 'animate-[req-highlight-pulse_1.4s_ease-in-out_infinite]' : 'shadow-sm'} flex flex-col items-center justify-center px-0.5`}>
                                                             <span className="text-lg leading-none">{req.icon}</span>
-                                                            <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                            <span
+                                                                title={t(req.name)}
+                                                                className={`${itemNameClass(language, 'sm')} text-slate-700 mt-0.5`}
+                                                            >
                                                                 {t(req.name)}
                                                             </span>
                                                             <span className={`absolute -bottom-1 -right-1 ${qs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>

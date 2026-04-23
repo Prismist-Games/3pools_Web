@@ -4,6 +4,7 @@ import { INGREDIENTS, QUALITY_CONFIG } from '../../data/v2Config';
 
 const qualityToScore = (q) => QUALITY_CONFIG.find(c => c.id === q)?.scoreValue ?? q;
 import { QUALITY_STYLE, DIFFICULTY_STYLE } from './BulletinBoard';
+import { itemNameClass } from '../../utils/itemNameClass';
 
 const QUALITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★', 5: '★★★★★' };
 
@@ -120,7 +121,7 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                                                     title={displayName}
                                                 >
                                                     <span className="text-lg leading-none">{item.icon}</span>
-                                                    <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                    <span className={`${itemNameClass(language, 'sm')} text-slate-700 mt-0.5`}>
                                                         {displayName}
                                                     </span>
                                                     <span className={`absolute -bottom-1 -right-1 ${iqs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>
@@ -178,7 +179,7 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                                                     title={displayName}
                                                 >
                                                     <span className="text-lg leading-none">{ing.icon}</span>
-                                                    <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                    <span className={`${itemNameClass(language, 'sm')} text-slate-700 mt-0.5`}>
                                                         {displayName}
                                                     </span>
                                                     <span className={`absolute -bottom-1 -right-1 ${qs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>

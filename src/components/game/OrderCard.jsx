@@ -46,8 +46,9 @@ const OrderCardBase = ({
     isRecycleMode,
     selectionMode,
 }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [hoveredReqIndex, setHoveredReqIndex] = useState(null);
+    const isEn = language === 'en';
 
     if (!order) {
         return (
@@ -216,7 +217,7 @@ const OrderCardBase = ({
                     </div>
 
                     {/* Requirements */}
-                    <div className={`flex ${isCandidate ? 'flex-wrap gap-1.5' : 'flex-nowrap gap-1.5'}`}>
+                    <div className={`flex gap-1.5 ${isCandidate ? 'flex-wrap' : (isEn ? 'flex-wrap' : 'flex-nowrap')}`}>
                         {requirements.map((req, rIdx) => {
                             let matchedItem = null;
 
@@ -355,7 +356,7 @@ const OrderCardBase = ({
                                         <div className={`flex items-center gap-1 opacity-0 pointer-events-none transition-all ${isSlotMode ? 'hidden' : ''}`}>
                                             <div className="w-2 h-2 shrink-0" />
                                             <span className={`shrink-0 ${isCandidate ? 'text-[10px]' : 'text-xs'}`}>{req.icon}</span>
-                                            <span className={`font-bold ${isCandidate ? 'text-[10px]' : 'text-xs'} max-w-[80px] truncate`}>{t(req.name)}</span>
+                                            <span className={`font-bold ${isCandidate ? 'text-[10px]' : (isEn ? 'text-[11px]' : 'text-xs')} ${isEn ? 'max-w-[112px]' : 'max-w-[80px]'} truncate`}>{t(req.name)}</span>
                                         </div>
 
                                         {/* Shared Animated Dot */}
@@ -382,12 +383,14 @@ const OrderCardBase = ({
                                         </div>
 
                                         {/* Shared Animated Text */}
-                                        <span className={`
-                                            absolute font-bold truncate pointer-events-none
+                                        <span
+                                            title={displayName}
+                                            className={`
+                                            absolute font-bold pointer-events-none
                                             transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                                             ${isSlotMode
-                                                ? `left-[50%] top-[42px] -translate-x-1/2 translate-y-0 text-[10px] w-full text-center px-1 ${slotQualitySatisfied ? 'text-slate-700' : 'text-slate-400'}`
-                                                : `left-[38px] top-[50%] translate-x-0 -translate-y-1/2 ${isCandidate ? 'text-[10px]' : 'text-xs'} max-w-[80px] text-left ${textColorClass}`
+                                                ? `left-[50%] -translate-x-1/2 w-full text-center px-1 ${slotQualitySatisfied ? 'text-slate-700' : 'text-slate-400'} ${isEn ? 'top-[38px] text-[9px] leading-[1.1] line-clamp-2 break-words' : 'top-[42px] text-[10px] truncate'}`
+                                                : `left-[38px] top-[50%] translate-x-0 -translate-y-1/2 truncate ${isCandidate ? 'text-[10px]' : (isEn ? 'text-[11px]' : 'text-xs')} ${isEn ? 'max-w-[112px]' : 'max-w-[80px]'} text-left ${textColorClass}`
                                             }
                                         `}>
                                             {displayName}

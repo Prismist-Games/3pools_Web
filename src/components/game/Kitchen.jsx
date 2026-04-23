@@ -6,6 +6,7 @@ import { RARITY_STYLE, IngredientTip } from './BulletinBoard';
 const INGREDIENT_MAP = Object.fromEntries(INGREDIENTS.map(i => [i.id, i]));
 import Tooltip from '../ui/Tooltip';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { itemNameClass } from '../../utils/itemNameClass';
 
 // ── Matching & Scoring ──
 // Rules-based matching: each slot has rules[], each rule has
@@ -555,7 +556,10 @@ const Kitchen = ({ inventory, dish: dishOverride, onCook, onClose, isRestaurantP
                                                     ${isSelected ? 'border-kitchen-gold bg-[#FFF8E0] ring-2 ring-kitchen-gold/50 scale-110' : `${rs.border} bg-gradient-to-b ${rs.bg} ${interactive ? 'hover:scale-105' : ''}`}`}
                                             >
                                                 <span className="text-xl leading-none">{item.icon}</span>
-                                                <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                <span
+                                                    title={language === 'en' && item.nameEn ? item.nameEn : t(item.name)}
+                                                    className={`${itemNameClass(language, 'md')} text-slate-700 mt-0.5`}
+                                                >
                                                     {language === 'en' && item.nameEn ? item.nameEn : t(item.name)}
                                                 </span>
                                                 <span className={`absolute -bottom-1 -right-1 ${rs.badge} text-white text-[7px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow`}>

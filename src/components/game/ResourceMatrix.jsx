@@ -4,6 +4,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { LEVEL_TEMPLATES } from '../../data/levelTemplates';
 import { MATRIX_CONFIG } from '../../data/matrixConfig';
 import { QUALITY_CONFIG, TOOLS } from '../../data/v2Config';
+import { itemNameClass } from '../../utils/itemNameClass';
 
 // Quality badge color (shown after peek reveals a cell's actual draw quality)
 const QUALITY_BADGE_COLORS = { 1: '#9ca3af', 2: '#22c55e', 3: '#3b82f6', 4: '#a855f7', 5: '#f97316' };
@@ -383,7 +384,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 <>
                     <span className="text-lg leading-none">{cell.item?.icon || cell.icon}</span>
                     {displayName && (
-                        <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5 px-0.5">
+                        <span title={displayName} className={`${itemNameClass(language, 'md')} text-slate-700 mt-0.5`}>
                             {displayName}
                         </span>
                     )}
@@ -401,7 +402,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 <>
                     <span className="text-lg leading-none">{cell.item?.icon || cell.icon}</span>
                     {displayName && (
-                        <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5 px-0.5">
+                        <span title={displayName} className={`${itemNameClass(language, 'md')} text-slate-700 mt-0.5`}>
                             {displayName}
                         </span>
                     )}
@@ -451,7 +452,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 <>
                     <span className="text-lg leading-none">{cell.icon || toolDef?.icon || '🧰'}</span>
                     {displayName && (
-                        <span className="text-[9px] font-bold leading-tight truncate max-w-full text-amber-800 mt-0.5 px-0.5">
+                        <span title={displayName} className={`${itemNameClass(language, 'md')} text-amber-800 mt-0.5`}>
                             {displayName}
                         </span>
                     )}

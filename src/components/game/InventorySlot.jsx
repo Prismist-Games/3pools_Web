@@ -2,6 +2,7 @@ import { useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, Trash2, ArrowLeftRight, Check, ChevronsUp, Ban, Star, CircleArrowUp, MousePointerClick } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { itemNameClass } from '../../utils/itemNameClass';
 
 // Tooltip 通过 Portal 渲染到 body，避免被父级 overflow/z-index 遮挡
 const ToolItemTooltip = ({ item, anchorRef, visible }) => {
@@ -95,9 +96,10 @@ export const InventorySlot = ({
     // Style overrides
     className = ""
 }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [showTooltip, setShowTooltip] = useState(false);
     const slotRef = useRef(null);
+    const isEn = language === 'en';
 
     const isMultiSelectMode = isSubmitMode || isRecycleMode;
     const isTradeInMode = isSelectionMode;
@@ -159,10 +161,13 @@ export const InventorySlot = ({
                 {item && (
                     <>
                         <div className={`flex flex-col items-center justify-center w-full h-full ${(item.sterile && !isToolItem) || (item.decay !== undefined && item.decay <= 0) ? 'grayscale opacity-70' : ''}`}>
-                            <span className={`text-2xl lg:text-3xl filter drop-shadow-sm transition-transform duration-300 ${isToolItem ? 'animate-pulse' : ''}`}>
+                            <span className={`${isEn ? 'text-xl lg:text-2xl' : 'text-2xl lg:text-3xl'} filter drop-shadow-sm transition-transform duration-300 ${isToolItem ? 'animate-pulse' : ''}`}>
                                 {item.icon}
                             </span>
-                            <span className={`text-[10px] font-bold leading-none truncate max-w-full px-1 ${isToolItem ? 'text-amber-700' : ''}`}>
+                            <span
+                                title={t(item.name)}
+                                className={`${itemNameClass(language, 'md')} ${isToolItem ? 'text-amber-700' : ''} ${isEn ? 'mt-0.5' : ''}`}
+                            >
                                 {t(item.name)}
                             </span>
                             {item.rarity?.bonus > 0 && !isToolItem && (

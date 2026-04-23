@@ -36,6 +36,7 @@ import ToolGrantPopup from './components/game/ToolGrantPopup';
 import { TOOL_CONFIG } from './data/v2Config';
 import TutorialStepController from './components/game/TutorialStepController';
 import TutorialSkipButton from './components/game/TutorialSkipButton';
+import { itemNameClass } from './utils/itemNameClass';
 
 // DIAG: temporary wrapper to log mount/unmount of the fly element
 const FlyElementDiag = ({ flyId, icon, count, style }) => {
@@ -374,7 +375,7 @@ const GameCore = ({ playerInfo }) => {
                                     {/* Parent wall preview — only visible during sub-level */}
                                     {(phase === 'drawing_sub' || phase === 'exiting_sub') && wallStack && wallStack.length > 0 && (
                                         <div className={`mb-4 pointer-events-none ${phase === 'exiting_sub' ? 'parent-restore' : 'parent-shrink'}`} style={{ overflow: 'hidden' }}>
-                                            <div className="text-[9px] text-gray-400 mb-1 text-center">主关卡（暂停中）</div>
+                                            <div className="text-[9px] text-gray-400 mb-1 text-center">{t('主关卡（暂停中）')}</div>
                                             <div className="transform scale-[0.5] origin-top">
                                                 <ResourceMatrix
                                                     matrix={wallStack[wallStack.length - 1].matrix}
@@ -528,7 +529,10 @@ const GameCore = ({ playerInfo }) => {
                                                                         <div key={i} className="flex items-center gap-0.5">
                                                                             <div className="relative w-12 h-12 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex flex-col items-center justify-center shadow-sm px-0.5">
                                                                                 <span className="text-base leading-none">{req.icon}</span>
-                                                                                <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                                                <span
+                                                                                    title={language === 'en' && req.nameEn ? req.nameEn : t(req.name)}
+                                                                                    className={`${itemNameClass(language, 'sm')} text-slate-700 mt-0.5`}
+                                                                                >
                                                                                     {language === 'en' && req.nameEn ? req.nameEn : t(req.name)}
                                                                                 </span>
                                                                             </div>
@@ -743,7 +747,10 @@ const GameCore = ({ playerInfo }) => {
                                                             ${idx === 0 ? 'ring-2 ring-kitchen-gold' : 'opacity-60'}
                                                             ${pSc ? `${pSc.border} bg-gradient-to-b ${pSc.bg}` : 'border-kitchen-gold-border-muted bg-kitchen-card'}`}>
                                                             <span className="text-xl leading-none">{pItem.icon}</span>
-                                                            <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                            <span
+                                                                title={language === 'en' && pItem.nameEn ? pItem.nameEn : t(pItem.name)}
+                                                                className={`${itemNameClass(language, 'md')} text-slate-700 mt-0.5`}
+                                                            >
                                                                 {language === 'en' && pItem.nameEn ? pItem.nameEn : t(pItem.name)}
                                                             </span>
                                                             {pSc && <span className={`absolute -bottom-1 -right-1 ${pSc.badge} text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow`}>{itemScoreValue(pItem)}</span>}
@@ -838,7 +845,10 @@ const GameCore = ({ playerInfo }) => {
                                                     {item && (
                                                         <>
                                                             <span className="text-xl leading-none">{item.icon}</span>
-                                                            <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                            <span
+                                                                title={language === 'en' && item.nameEn ? item.nameEn : t(item.name)}
+                                                                className={`${itemNameClass(language, 'md')} text-slate-700 mt-0.5`}
+                                                            >
                                                                 {language === 'en' && item.nameEn ? item.nameEn : t(item.name)}
                                                             </span>
                                                         </>
@@ -958,7 +968,10 @@ const GameCore = ({ playerInfo }) => {
                                                     <div key={j} className="relative flex flex-col items-center">
                                                         <div className={`relative w-16 h-16 rounded-lg border-2 ${sc.border} bg-gradient-to-b ${sc.bg} shadow-sm flex flex-col items-center justify-center px-0.5`}>
                                                             <span className="text-2xl leading-none">{item.icon}</span>
-                                                            <span className="text-[9px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5 text-center">
+                                                            <span
+                                                                title={language === 'en' && item.nameEn ? item.nameEn : t(item.name)}
+                                                                className={`${itemNameClass(language, 'md')} text-slate-700 mt-0.5`}
+                                                            >
                                                                 {language === 'en' && item.nameEn ? item.nameEn : t(item.name)}
                                                             </span>
                                                         </div>
@@ -1069,7 +1082,10 @@ const GameCore = ({ playerInfo }) => {
                                                         <div key={i} className="flex items-center gap-0.5">
                                                             <div className="relative w-12 h-12 rounded border border-kitchen-gold-border-muted bg-kitchen-card flex flex-col items-center justify-center shadow-sm px-0.5">
                                                                 <span className="text-base leading-none">{req.icon}</span>
-                                                                <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                                                                <span
+                                                                    title={language === 'en' && req.nameEn ? req.nameEn : t(req.name)}
+                                                                    className={`${itemNameClass(language, 'sm')} text-slate-700 mt-0.5`}
+                                                                >
                                                                     {language === 'en' && req.nameEn ? req.nameEn : t(req.name)}
                                                                 </span>
                                                             </div>
@@ -1118,7 +1134,10 @@ const GameCore = ({ playerInfo }) => {
                                             className={`relative w-14 h-14 rounded-lg border flex flex-col items-center justify-center transition-colors px-0.5
                                                 ${debugSelectedItem?.id === item.id && !debugSelectedItem?.isSticker ? 'border-blue-400 bg-blue-900 ring-2 ring-blue-500' : 'border-gray-600 bg-gray-800 hover:border-gray-400'}`}>
                                             <span className="text-lg leading-none">{item.icon}</span>
-                                            <span className="text-[8px] font-bold leading-tight truncate max-w-full text-gray-300 mt-0.5">
+                                            <span
+                                                title={language === 'en' && item.nameEn ? item.nameEn : t(item.name)}
+                                                className={`${itemNameClass(language, 'sm')} text-gray-300 mt-0.5`}
+                                            >
                                                 {language === 'en' && item.nameEn ? item.nameEn : t(item.name)}
                                             </span>
                                         </button>
