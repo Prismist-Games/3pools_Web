@@ -4,7 +4,7 @@ import { generateWallFromTemplate } from '../utils/templateGenerator';
 import { LEVEL_TEMPLATES } from '../data/levelTemplates';
 import { DOOM_CONFIG, TURN_CONFIG } from '../data/constants';
 import { MATRIX_CONFIG } from '../data/matrixConfig';
-import { INGREDIENTS, ORDER_TEMPLATES, MARKET_TYPES, QUALITY_CONFIG, QUALITY_WEIGHTS, DISHES, TOOLS, TOOL_CONFIG } from '../data/v2Config';
+import { INGREDIENTS, MARKET_TYPES, QUALITY_CONFIG, DISHES, TOOLS, TOOL_CONFIG } from '../data/v2Config';
 import { LIVE_CONFIG, subscribeConfig, getConfigVersion } from '../data/runtimeConfig';
 import { pickDoomEmoji } from '../data/matrixConfig';
 import { getActiveIngredients, getActiveMarketTypes } from '../utils/activePool';
@@ -69,18 +69,6 @@ function rollQuality() {
     return 1;
 }
 
-// Distribute reqBudget (score-value units) across slotCount requirement slots.
-// Returns an array of quality IDs. Each slot targets avgScore ±25% variance,
-// mapped to the nearest quality tier — creating natural quality mixing.
-function assignQualitiesFromBudget(reqBudget, slotCount) {
-    const avgScore = reqBudget / slotCount;
-    return Array.from({ length: slotCount }, () => {
-        const targetScore = avgScore * (0.75 + Math.random() * 0.5);
-        return QUALITY_CONFIG.reduce((best, q) =>
-            Math.abs(q.scoreValue - targetScore) < Math.abs(best.scoreValue - targetScore) ? q : best
-        , QUALITY_CONFIG[0]).id;
-    });
-}
 
 function pickMarketType() {
     const active = getActiveMarketTypes();
@@ -112,54 +100,43 @@ function buildTag2Index(ingredients) {
 
 function generateOrder(tag2Entries) {
     const template = pickWeightedTemplate();
-
-    const rewardQualityDef = QUALITY_CONFIG.find(q => q.id === template.rewardQuality) || QUALITY_CONFIG[0];
+    const slotCount = Math.min(template.count, tag2Entries.length);
 
     // Pick N distinct 二级 tag entries for requirements — fully random,
     // no cross-category constraint (may include multiple tags from the same 大类).
-    const selectedTag2 = [...tag2Entries].sort(() => Math.random() - 0.5).slice(0, template.ingredientTypes);
+    const selectedTag2 = [...tag2Entries].sort(() => Math.random() - 0.5).slice(0, slotCount);
 
-    // Reward tag2: avoid duplicating any requirement tag2 (same 小类), but
-    // 大类 collisions between reward and reqs are allowed now.
+    // Reward tag2: prefer non-requirement tags, fallback to any tag if exhausted.
     const reqTag2Set = new Set(selectedTag2.map(e => e.tag2));
     const rewardPool = tag2Entries.filter(e => !reqTag2Set.has(e.tag2));
     const rewardEntry = rewardPool[Math.floor(Math.random() * rewardPool.length)]
         || tag2Entries[Math.floor(Math.random() * tag2Entries.length)];
+
+    // Reward quality is unknown at generation time (computed at submit).
+    // Store a placeholder quality=0 and isOutOfGame=true; quality is resolved
+    // in OrderSubmitModal when the player submits.
     const finalReward = {
         tag2: rewardEntry.tag2,
         categoryTag: rewardEntry.categoryTag,
         icon: rewardEntry.icon,
         name: rewardEntry.tag2,
         tags: [rewardEntry.categoryTag, rewardEntry.tag2],
-        quality: template.rewardQuality,
-        score: rewardQualityDef.scoreValue,
+        quality: 0,
+        score: 0,
         isOutOfGame: true,
     };
 
-    // Assign quality to each slot.
-    //   qualityDist (explicit, e.g. hard/extreme) → shuffle + slot 1:1 map
-    //   reqBudget  (legacy, e.g. easy/medium)    → distribute with ±25% variance
-    // Shuffle so display order doesn't reveal the tier ladder.
-    let qualityIds;
-    if (template.qualityDist) {
-        qualityIds = [...template.qualityDist].sort(() => Math.random() - 0.5);
-        // Pad/truncate defensively so length == selectedTag2.length
-        while (qualityIds.length < selectedTag2.length) qualityIds.push(1);
-        qualityIds = qualityIds.slice(0, selectedTag2.length);
-    } else {
-        qualityIds = assignQualitiesFromBudget(template.reqBudget, selectedTag2.length);
-    }
-    const requirements = selectedTag2.map((entry, i) => ({
+    // Requirements are quality-agnostic — only tag2 and count matter.
+    const requirements = selectedTag2.map((entry) => ({
         tag2: entry.tag2,
         categoryTag: entry.categoryTag,
         icon: entry.icon,
         name: entry.tag2,
         tags: [entry.categoryTag, entry.tag2],
-        quality: qualityIds[i],
         count: 1,
     }));
 
-    return { id: generateUID(), difficulty: template.difficulty, rewards: [finalReward], totalScore: finalReward.score, requirements };
+    return { id: generateUID(), rewards: [finalReward], totalScore: 0, requirements };
 }
 
 export const useGameLogic = (config) => {
@@ -1157,7 +1134,7 @@ export const useGameLogic = (config) => {
     };
 
     /** Check if player has required ingredients to submit an order (checks bulletinBoard).
-     *  Matches by 二级 tag (`tags[1] === req.tag2`) with quality ≥ req.quality.
+     *  Matches by 二级 tag (`tags[1] === req.tag2`) only — no quality constraint.
      *  Allocates inventory items greedily per req to avoid double-counting. */
     const canSubmitOrder = (orderId) => {
         const order = bulletinBoard.find(o => o.id === orderId);
@@ -1168,7 +1145,7 @@ export const useGameLogic = (config) => {
             for (let i = 0; i < inventory.length && allocated < req.count; i++) {
                 if (used.has(i)) continue;
                 const item = inventory[i];
-                if (item?.tags?.[1] === req.tag2 && item.quality >= req.quality) {
+                if (item?.tags?.[1] === req.tag2) {
                     used.add(i);
                     allocated++;
                 }
@@ -1196,10 +1173,11 @@ export const useGameLogic = (config) => {
     /** Commit the submit-modal choices: consume selected uids, grant the
      *  chosen concrete rewards. If inventory is full, excess rewards queue
      *  to pendingItems for replace/discard resolution.
-     *  @param orderId        the order being submitted
-     *  @param consumeUids    array of inventory uids the player chose to consume
-     *  @param rewardChoices  array of ingredient ids (one per reward slot) */
-    const confirmSubmitOrder = (orderId, consumeUids, rewardChoices) => {
+     *  @param orderId                the order being submitted
+     *  @param consumeUids            array of inventory uids the player chose to consume
+     *  @param rewardChoices          array of ingredient ids (one per reward slot)
+     *  @param computedRewardQualities array of quality ids computed at submit time (one per reward) */
+    const confirmSubmitOrder = (orderId, consumeUids, rewardChoices, computedRewardQualities) => {
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return;
 
@@ -1210,10 +1188,12 @@ export const useGameLogic = (config) => {
             const chosen = INGREDIENTS.find(ing => ing.id === chosenId)
                 || INGREDIENTS.find(ing => ing.tags?.[1] === r.tag2)
                 || INGREDIENTS[0];
-            const qualityDef = QUALITY_CONFIG.find(q => q.id === r.quality) || QUALITY_CONFIG[0];
+            // Use the quality computed at submit time; fallback to q1 if missing.
+            const resolvedQuality = (computedRewardQualities && computedRewardQualities[i]) || 1;
+            const qualityDef = QUALITY_CONFIG.find(q => q.id === resolvedQuality) || QUALITY_CONFIG[0];
             return {
                 ...chosen,
-                quality: r.quality,
+                quality: resolvedQuality,
                 score: qualityDef.scoreValue,
                 isOutOfGame: true,
                 uid: generateUID(),

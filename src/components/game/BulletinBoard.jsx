@@ -11,12 +11,8 @@ const qualityToScore = (q) => QUALITY_CONFIG.find(c => c.id === q)?.scoreValue ?
 // in as concrete ids from the wall) into tag2-level matches against order reqs.
 const INGREDIENT_TAG2 = new Map(INGREDIENTS.map(ing => [ing.id, ing.tags[1]]));
 
-const DIFFICULTY_STYLE = {
-    easy:    { bg: 'bg-[#F0FFF8]', text: 'text-[#408060]' },
-    medium:  { bg: 'bg-[#F0F8FF]', text: 'text-kitchen-info-border' },
-    hard:    { bg: 'bg-purple-50', text: 'text-purple-700' },
-    extreme: { bg: 'bg-[#FFF0F0]', text: 'text-kitchen-danger-text' },
-};
+// DIFFICULTY_STYLE kept as empty object for backward-compat imports; no longer used in rendering.
+const DIFFICULTY_STYLE = {};
 
 const QUALITY_STYLE = {
     1: { border: 'border-gray-400',   bg: 'from-gray-50 to-white',   badge: 'bg-gray-500',   label: '★',     labelColor: 'text-gray-400',   tagBg: 'bg-gray-100 text-gray-600'     },
@@ -124,6 +120,31 @@ const RewardCard = ({ reward, size = 'md', bonusValue }) => {
     );
 };
 
+/** Reward card for orders that haven't been submitted yet — quality is unknown. */
+const PendingRewardCard = ({ reward, size = 'md' }) => {
+    const { t, language } = useLanguage();
+    const dim = size === 'sm' ? 'w-12 h-12' : 'w-14 h-14';
+    const iconSize = size === 'sm' ? 'text-lg' : 'text-xl';
+    const badgeDim = size === 'sm' ? 'w-3 h-3 text-[7px]' : 'w-3.5 h-3.5 text-[8px]';
+    const displayName = (language === 'en' && reward.nameEn) ? reward.nameEn : t(reward.name);
+
+    const tipContent = <IngredientTip item={reward} />;
+
+    return (
+        <Tooltip content={tipContent}>
+            <div className={`relative ${dim} rounded border-2 border-gray-300 bg-gradient-to-b from-gray-50 to-white flex flex-col items-center justify-center shadow-sm px-0.5`}>
+                <span className={`${iconSize} leading-none`}>{reward.icon}</span>
+                <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
+                    {displayName}
+                </span>
+                <span className={`absolute -bottom-1 -right-1 bg-gray-400 text-white font-black ${badgeDim} rounded-full flex items-center justify-center shadow text-[6px]`}>
+                    ?
+                </span>
+            </div>
+        </Tooltip>
+    );
+};
+
 const BulletinBoard = ({
     orders, inventory, onSubmit, canSubmitOrder,
     incomingOrder, onConfirmIncoming, onDiscardIncoming,
@@ -170,7 +191,7 @@ const BulletinBoard = ({
                         <div className="text-[11px] font-bold text-kitchen-gold-deep mb-1.5">{t('交换区已满，选择下方订单替换')}</div>
                         <div className="flex items-center gap-1 mb-1.5">
                             {pendingChosenOrder.rewards.map((r, i) => (
-                                <RewardCard key={i} reward={r} size="sm" />
+                                <PendingRewardCard key={i} reward={r} size="sm" />
                             ))}
                         </div>
                         {pendingChosenOrder.requirements && pendingChosenOrder.requirements.length > 0 && (
@@ -201,7 +222,6 @@ const BulletinBoard = ({
                 ) : (
                     <div className="flex flex-col gap-1.5">
                         {orders.map((order, index) => {
-                            const ds = DIFFICULTY_STYLE[order.difficulty] || DIFFICULTY_STYLE.easy;
                             const submittable = canSubmitOrder ? canSubmitOrder(order.id) : false;
                             return (
                                 <div key={order.id}
@@ -212,18 +232,12 @@ const BulletinBoard = ({
                                             ? 'border-kitchen-gold bg-[#FFF8E0] cursor-pointer hover:bg-[#FFF0EE] hover:border-kitchen-danger transition-colors'
                                             : submittable ? 'border-kitchen-success-border bg-[#F0FFF8]' : 'border-kitchen-gold-border-muted/50 bg-kitchen-card/80'
                                     }`}>
-                                    {/* Row 1: difficulty + rewards + action */}
+                                    {/* Row 1: rewards + action */}
                                     <div className="flex items-center justify-between mb-1.5">
                                         <div className="flex items-center gap-1.5">
-                                            <span className="text-[9px] text-kitchen-text-muted">{t('难度')}</span>
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>
-                                                {t(order.difficulty)}
-                                            </span>
-                                            <div className="flex gap-0.5">
-                                                {order.rewards.map((r, i) => (
-                                                    <RewardCard key={i} reward={r} size="sm" />
-                                                ))}
-                                            </div>
+                                            {order.rewards.map((r, i) => (
+                                                <PendingRewardCard key={i} reward={r} size="sm" />
+                                            ))}
                                         </div>
                                         {!isReplacing && (
                                             <button
@@ -243,35 +257,31 @@ const BulletinBoard = ({
                                         <span className="text-[9px] text-kitchen-text-muted uppercase tracking-wide">{t('需要')}</span>
                                         {order.requirements.map((req, i) => {
                                             const owned = inventory ? inventory.filter(item =>
-                                                item?.tags?.[1] === req.tag2 && item.quality >= req.quality
+                                                item?.tags?.[1] === req.tag2
                                             ).length : 0;
                                             const enough = owned >= req.count;
                                             const isHovered = hoveredTag2Set?.has(req.tag2);
-                                            const qs = QUALITY_STYLE[req.quality] || QUALITY_STYLE[1];
                                             return (
                                                 <Tooltip key={i} content={
                                                     <>
-                                                        <IngredientTip item={{ icon: req.icon, name: req.name, tags: req.tags, quality: req.quality }} />
+                                                        <IngredientTip item={{ icon: req.icon, name: req.name, tags: req.tags, quality: 1 }} />
                                                         <div className="border-t border-gray-700/50 pt-1.5 mt-1">
                                                             <div className="flex justify-between text-[11px]">
                                                                 <span className="text-gray-400">{t('持有')} / {t('需要')}</span>
                                                                 <span className={`font-bold ${enough ? 'text-green-400' : 'text-red-400'}`}>{owned} / {req.count}</span>
                                                             </div>
-                                                            <div className="text-[10px] text-gray-500 mt-1">{t('品质大于等于即可')}</div>
+                                                            <div className="text-[10px] text-gray-500 mt-1">{t('任意品质均可')}</div>
                                                         </div>
                                                     </>
                                                 }>
                                                     <div className={`flex items-center gap-0.5 transition-transform duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
                                                         <div className={`relative w-12 h-12 rounded border-2 ${
                                                             enough ? 'border-kitchen-success-border bg-[#F0FFF8]'
-                                                            : qs.border + ' bg-kitchen-card'
+                                                            : 'border-gray-300 bg-kitchen-card'
                                                         } ${isHovered ? 'animate-[req-highlight-pulse_1.4s_ease-in-out_infinite]' : 'shadow-sm'} flex flex-col items-center justify-center px-0.5`}>
                                                             <span className="text-lg leading-none">{req.icon}</span>
                                                             <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
                                                                 {t(req.name)}
-                                                            </span>
-                                                            <span className={`absolute -bottom-1 -right-1 ${qs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>
-                                                                {req.quality}
                                                             </span>
                                                         </div>
                                                         <span className={`text-[10px] font-bold ${
@@ -295,4 +305,4 @@ const BulletinBoard = ({
 };
 
 export default BulletinBoard;
-export { RewardCard, IngredientTip, StickerTip, QUALITY_STYLE, RARITY_STYLE, SCORE_STYLE, DIFFICULTY_STYLE };
+export { RewardCard, PendingRewardCard, IngredientTip, StickerTip, QUALITY_STYLE, RARITY_STYLE, SCORE_STYLE, DIFFICULTY_STYLE };

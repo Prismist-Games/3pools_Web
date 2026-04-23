@@ -116,40 +116,19 @@ function OrderTemplatesSection() {
     return (
         <section className="mb-5">
             <h3 className="text-sm font-bold text-gray-100 mb-2">C. 订单模板</h3>
+            <div className="text-[10px] text-gray-500 mb-2">奖励品质在提交时动态计算（交付食材 scoreValue 之和），此处不配置。</div>
             <div className="flex flex-col gap-2">
                 {tpls.map((t, i) => (
                     <div key={t.id} className="border border-gray-700 rounded p-2 bg-gray-900/50">
                         <div className="flex items-center justify-between mb-1.5">
                             <span className="text-xs font-bold text-gray-200">{t.id}</span>
                             <span className="text-[10px] text-gray-500">
-                                选中概率 {totalW > 0 ? ((t.weight / totalW) * 100).toFixed(0) : 0}%
+                                需求数 {t.count} 槽 · 选中概率 {totalW > 0 ? ((t.weight / totalW) * 100).toFixed(0) : 0}%
                             </span>
                         </div>
                         <div className="grid grid-cols-[auto_auto] gap-x-3 gap-y-1 items-center text-[11px] text-gray-300">
                             <span>weight</span>
                             <IntInput value={t.weight} onChange={v => { tpls[i].weight = v; bumpConfig(); }} />
-
-                            <span>reward quality</span>
-                            <IntInput value={t.rewardQuality} onChange={v => { tpls[i].rewardQuality = Math.max(1, Math.min(5, v)); bumpConfig(); }} min={1} max={5} />
-
-                            <span>ingredient types</span>
-                            <IntInput value={t.ingredientTypes} onChange={v => { tpls[i].ingredientTypes = Math.max(1, Math.min(20, v)); bumpConfig(); }} min={1} max={20} />
-
-                            {t.qualityDist ? (
-                                <>
-                                    <span>qualityDist</span>
-                                    <div className="flex gap-1">
-                                        {t.qualityDist.map((q, j) => (
-                                            <IntInput key={j} value={q} onChange={v => { tpls[i].qualityDist[j] = Math.max(1, Math.min(5, v)); bumpConfig(); }} min={1} max={5} width="w-12" />
-                                        ))}
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <span>reqBudget</span>
-                                    <IntInput value={t.reqBudget || 0} onChange={v => { tpls[i].reqBudget = Math.max(1, v); bumpConfig(); }} min={1} max={50} />
-                                </>
-                            )}
                         </div>
                     </div>
                 ))}

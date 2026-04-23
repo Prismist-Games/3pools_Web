@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { INGREDIENTS, QUALITY_CONFIG } from '../../data/v2Config';
+import { computeRewardQuality } from '../../utils/orderReward';
 
 const qualityToScore = (q) => QUALITY_CONFIG.find(c => c.id === q)?.scoreValue ?? q;
-import { QUALITY_STYLE, DIFFICULTY_STYLE } from './BulletinBoard';
+import { QUALITY_STYLE } from './BulletinBoard';
 
 const QUALITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★', 5: '★★★★★' };
 
@@ -16,6 +17,20 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
     const [rewardChoices, setRewardChoices] = useState(() => order.rewards.map(() => null));
 
     const selectedUids = useMemo(() => new Set(selections.flat()), [selections]);
+
+    // Compute reward quality dynamically from submitted items.
+    const computedRewardQualities = useMemo(() => {
+        return order.rewards.map((_, rewardIdx) => {
+            // Gather all items selected across all requirement slots for this submit.
+            const allSelectedUids = selections.flat();
+            const submittedItems = allSelectedUids
+                .map(uid => inventory.find(item => item.uid === uid))
+                .filter(Boolean);
+            if (submittedItems.length === 0) return null;
+            return computeRewardQuality(submittedItems);
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selections, inventory, order.rewards.length]);
 
     const toggleSelect = (reqIdx, uid) => {
         setSelections(prev => {
@@ -44,10 +59,9 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
 
     const handleConfirm = () => {
         if (!canConfirm) return;
-        onConfirm(selections.flat(), rewardChoices);
+        // Pass computed qualities so the caller can attach them to the reward items.
+        onConfirm(selections.flat(), rewardChoices, computedRewardQualities);
     };
-
-    const ds = DIFFICULTY_STYLE[order.difficulty] || DIFFICULTY_STYLE.easy;
 
     // Wrapper is pointer-events-none: clicks pass through so the shelf and
     // inventory behind stay interactive. Only the inner modal captures clicks.
@@ -63,9 +77,6 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                         <h2 className="text-base font-black text-kitchen-gold-deep flex items-center gap-2">
                             📋 {t('提交订单')}
                         </h2>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>
-                            {t(order.difficulty)}
-                        </span>
                     </div>
                 </div>
 
@@ -76,24 +87,23 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                     </div>
                     <div className="flex flex-col gap-2.5">
                         {order.requirements.map((req, reqIdx) => {
-                            const qs = QUALITY_STYLE[req.quality] || QUALITY_STYLE[1];
                             const candidates = inventory.filter(item =>
-                                item?.tags?.[1] === req.tag2 && item.quality >= req.quality
+                                item?.tags?.[1] === req.tag2
                             );
                             const picked = selections[reqIdx];
                             const needed = req.count;
                             const complete = picked.length === needed;
 
                             return (
-                                <div key={reqIdx} className={`p-2.5 rounded-lg border-2 transition-colors ${complete ? 'border-kitchen-success-border bg-[#F0FFF8]' : `${qs.border} bg-kitchen-card`}`}>
+                                <div key={reqIdx} className={`p-2.5 rounded-lg border-2 transition-colors ${complete ? 'border-kitchen-success-border bg-[#F0FFF8]' : 'border-gray-300 bg-kitchen-card'}`}>
                                     <div className="flex items-center gap-2 mb-2">
                                         <span className="text-xl leading-none">{req.icon}</span>
                                         <div className="flex-1">
                                             <div className="text-sm font-bold text-kitchen-text-body">
-                                                {t(req.name)} <span className={qs.labelColor}>{QUALITY_STARS[req.quality]}</span>
+                                                {t(req.name)}
                                             </div>
                                             <div className="text-[10px] text-kitchen-text-muted">
-                                                {t('品质大于等于即可')} · {picked.length}/{needed}
+                                                {t('任意品质均可')} · {picked.length}/{needed}
                                             </div>
                                         </div>
                                     </div>
@@ -148,19 +158,30 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                     </div>
                     <div className="flex flex-col gap-2.5">
                         {order.rewards.map((reward, rewardIdx) => {
-                            const qs = QUALITY_STYLE[reward.quality] || QUALITY_STYLE[1];
+                            const computedQuality = computedRewardQualities[rewardIdx];
+                            const qs = computedQuality ? (QUALITY_STYLE[computedQuality] || QUALITY_STYLE[1]) : null;
                             const pool = INGREDIENTS.filter(ing => ing.tags?.[1] === reward.tag2);
                             const picked = rewardChoices[rewardIdx];
                             return (
-                                <div key={rewardIdx} className={`p-2.5 rounded-lg border-2 transition-colors ${picked ? 'border-kitchen-success-border bg-[#F0FFF8]' : `${qs.border} bg-kitchen-card`}`}>
+                                <div key={rewardIdx} className={`p-2.5 rounded-lg border-2 transition-colors ${picked ? 'border-kitchen-success-border bg-[#F0FFF8]' : computedQuality ? `${qs.border} bg-kitchen-card` : 'border-gray-300 bg-kitchen-card'}`}>
                                     <div className="flex items-center gap-2 mb-2">
                                         <span className="text-xl leading-none">{reward.icon}</span>
                                         <div className="flex-1">
-                                            <div className="text-sm font-bold text-kitchen-text-body">
-                                                {t(reward.name)} <span className={qs.labelColor}>{QUALITY_STARS[reward.quality]}</span>
+                                            <div className="text-sm font-bold text-kitchen-text-body flex items-center gap-1.5">
+                                                {t(reward.name)}
+                                                {computedQuality ? (
+                                                    <span className={qs.labelColor}>{QUALITY_STARS[computedQuality]}</span>
+                                                ) : (
+                                                    <span className="text-gray-400 font-normal text-[11px]">品质待定</span>
+                                                )}
                                             </div>
                                             <div className="text-[10px] text-kitchen-text-muted">
                                                 {t('从以下选择一种')}
+                                                {computedQuality && (
+                                                    <span className={`ml-1 ${qs.labelColor} font-bold`}>
+                                                        (scoreValue 合计 → {QUALITY_CONFIG.find(q => q.id === computedQuality)?.scoreValue ?? '?'})
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -168,12 +189,13 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                                         {pool.map(ing => {
                                             const isPicked = picked === ing.id;
                                             const displayName = (language === 'en' && ing.nameEn) ? ing.nameEn : t(ing.name);
+                                            const rqs = computedQuality ? (QUALITY_STYLE[computedQuality] || QUALITY_STYLE[1]) : QUALITY_STYLE[1];
                                             return (
                                                 <button key={ing.id}
                                                     onClick={() => pickReward(rewardIdx, ing.id)}
                                                     className={`relative w-14 h-14 rounded border-2 flex flex-col items-center justify-center shadow-sm px-0.5 transition-all ${
                                                         isPicked ? 'border-kitchen-gold ring-2 ring-kitchen-gold/40 bg-[#FFF8E0] scale-105' :
-                                                        `${qs.border} bg-gradient-to-b ${qs.bg} hover:scale-105 hover:shadow-md`
+                                                        `${rqs.border} bg-gradient-to-b ${rqs.bg} hover:scale-105 hover:shadow-md`
                                                     }`}
                                                     title={displayName}
                                                 >
@@ -181,9 +203,15 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                                                     <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
                                                         {displayName}
                                                     </span>
-                                                    <span className={`absolute -bottom-1 -right-1 ${qs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>
-                                                        {qualityToScore(reward.quality)}
-                                                    </span>
+                                                    {computedQuality ? (
+                                                        <span className={`absolute -bottom-1 -right-1 ${rqs.badge} text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow`}>
+                                                            {qualityToScore(computedQuality)}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="absolute -bottom-1 -right-1 bg-gray-400 text-white font-black w-3 h-3 text-[7px] rounded-full flex items-center justify-center shadow">
+                                                            ?
+                                                        </span>
+                                                    )}
                                                     {isPicked && (
                                                         <span className="absolute -top-1 -right-1 bg-kitchen-gold text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow">
                                                             ✓

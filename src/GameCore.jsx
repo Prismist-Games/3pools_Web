@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { INITIAL_GAME_CONFIG } from './data/constants';
 import ResourceMatrix from './components/game/ResourceMatrix';
-import BulletinBoard, { SCORE_STYLE, RewardCard, IngredientTip, StickerTip, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
+import BulletinBoard, { SCORE_STYLE, RewardCard, PendingRewardCard, IngredientTip, StickerTip, DIFFICULTY_STYLE } from './components/game/BulletinBoard';
 import Tooltip from './components/ui/Tooltip';
 // ActiveOrders removed — order submit is now on BulletinBoard directly
 import DispatchJudgment from './components/game/DispatchJudgment';
@@ -417,16 +417,14 @@ const GameCore = () => {
                                             </div>
                                             <div className="flex flex-col gap-2">
                                                 {incomingOrder.candidates.map((candidate) => {
-                                                    const ds = DIFFICULTY_STYLE[candidate.difficulty] || DIFFICULTY_STYLE.easy;
                                                     return (
                                                         <button key={candidate.id}
                                                             onClick={() => confirmIncomingOrder(candidate)}
                                                             className="p-3 rounded-lg border-2 border-kitchen-gold-border-muted bg-kitchen-card hover:border-kitchen-gold hover:bg-[#FFF3E0] transition-colors text-left">
                                                             <div className="flex items-center gap-2 mb-1.5">
-                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
                                                                 <div className="flex gap-0.5">
                                                                     {candidate.rewards.map((r, i) => (
-                                                                        <RewardCard key={i} reward={r} size="sm" />
+                                                                        <PendingRewardCard key={i} reward={r} size="sm" />
                                                                     ))}
                                                                 </div>
                                                             </div>
@@ -934,16 +932,14 @@ const GameCore = () => {
                             </div>
                             <div className="flex flex-col gap-2">
                                 {incomingOrder.candidates.map((candidate) => {
-                                    const ds = DIFFICULTY_STYLE[candidate.difficulty] || DIFFICULTY_STYLE.easy;
                                     return (
                                         <button key={candidate.id}
                                             onClick={() => confirmIncomingOrder(candidate)}
                                             className="p-3 rounded-lg border-2 border-kitchen-gold-border-muted bg-kitchen-card hover:border-kitchen-gold hover:bg-[#FFF3E0] transition-colors text-left">
                                             <div className="flex items-center gap-2 mb-1.5">
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ds.bg} ${ds.text}`}>{t(candidate.difficulty)}</span>
                                                 <div className="flex gap-0.5">
                                                     {candidate.rewards.map((r, i) => (
-                                                        <RewardCard key={i} reward={r} size="sm" />
+                                                        <PendingRewardCard key={i} reward={r} size="sm" />
                                                     ))}
                                                 </div>
                                             </div>
@@ -982,7 +978,7 @@ const GameCore = () => {
                     <OrderSubmitModal
                         order={submittingOrder}
                         inventory={inventory}
-                        onConfirm={(consumeUids, rewardChoices) => confirmSubmitOrder(submittingOrder.id, consumeUids, rewardChoices)}
+                        onConfirm={(consumeUids, rewardChoices, computedRewardQualities) => confirmSubmitOrder(submittingOrder.id, consumeUids, rewardChoices, computedRewardQualities)}
                         onCancel={cancelSubmitOrder}
                     />
                 )}

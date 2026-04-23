@@ -238,16 +238,11 @@ export const DISHES = [
 ];
 
 // --- 订单模板 ---
-// 两种需求模式（二选一）：
-//   qualityDist: 固定品质数组（每个元素是该 slot 要求的品质 id）——
-//                优先使用；长度 = 槽位数；每个 slot count 仍 = 1。
-//   reqBudget:   legacy 预算法 —— 把总 scoreValue 分布到 ingredientTypes
-//                个 slot 上，品质带 ±25% 方差。仅在未设 qualityDist 时生效。
+// count = 该订单的需求槽位数（每槽 count=1）。
+// 奖励品质在提交时动态计算（依据交付食材的 scoreValue 之和）。
 export const ORDER_TEMPLATES = [
-    { id: 'easy',    difficulty: 'easy',    reqBudget: 2,                   rewardQuality: 2, ingredientTypes: 2, weight: 30 },
-    { id: 'medium',  difficulty: 'medium',  reqBudget: 3,                   rewardQuality: 3, ingredientTypes: 2, weight: 40 },
-    { id: 'hard',    difficulty: 'hard',    qualityDist: [3, 2, 1],         rewardQuality: 4, ingredientTypes: 3, weight: 20 },
-    { id: 'extreme', difficulty: 'extreme', qualityDist: [3, 3, 2],         rewardQuality: 5, ingredientTypes: 3, weight: 10 },
+    { id: 'count2', count: 2, weight: 50 },
+    { id: 'count3', count: 3, weight: 50 },
 ];
 
 // --- 远征配置 ---

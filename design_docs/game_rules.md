@@ -1,6 +1,6 @@
 # 幸运之墙 Wall of Fortune — 游戏规则文档
 
-> **最后更新**：2026-04-21 · `ingredient-trade-flex-io` 分支
+> **最后更新**：2026-04-23 · `core-draw/order-system-remake` 分支
 > 本文记录**当前代码**的已实装规则（基于 `src/data/v2Config.js` / `matrixConfig.js` / `runtimeConfig.js` / `hooks/useGameLogic.js` / `utils/matrixHelpers.js`）。设定背景见 `setting-current-state.md`，进度状态见 `gameplay_progress.md`。
 
 ---
@@ -186,19 +186,35 @@ UI 上**所有"价值 badge"显示 scoreValue**（1/2/3/5/8），而不是 quali
 
 ### 订单模板（`ORDER_TEMPLATES`）
 
-| id | 难度 | 权重 | 奖励品质 | 需求 | 类型数 |
-|----|------|------|---------|------|-------|
-| easy | easy | 30 | ★★（绿） | reqBudget = 2 | 2 |
-| medium | medium | 40 | ★★★（蓝） | reqBudget = 3 | 2 |
-| hard | hard | 20 | ★★★★（紫） | qualityDist [3, 2, 1] | 3 |
-| extreme | extreme | 10 | ★★★★★（橙） | qualityDist [3, 3, 2] | 3 |
+只有两种模板，权重各 50：
 
-**reqBudget** 表示"需求总品质分值 ≈ N"，分布到槽位时每槽按 `avgScore × [0.75, 1.25]` 随机（±25%）。
-**qualityDist** 直接写死每槽的品质（洗牌后 1:1 填到 slot）。
+| id | count（需求槽位数） | weight |
+|----|-------------------|--------|
+| count2 | 2 | 50 |
+| count3 | 3 | 50 |
+
+**难度系统已移除**。订单不再有 `difficulty`、`rewardQuality`、`qualityDist`、`reqBudget`、`ingredientTypes` 字段。
 
 ### 需求的类型随机性
 
-订单的 N 个需求 tag2 从 20 个二级 tag（5 大类 × 4 小类）里随机洗牌取前 N 个。**彼此之间允许同大类**（2026-04-20 之前是强制跨大类，后移除了这个约束）。奖励 tag2 从**非需求**的 tag2 里随机选。
+订单的 N 个需求 tag2 从当前**活跃**二级 tag（15 个：5 大类 × 3 小类，由食材池配置工具控制）里随机洗牌取前 N 个。**彼此之间允许同大类**。奖励 tag2 从**非需求**的活跃 tag2 里随机选（若用尽则允许重叠，实践中不应出现）。
+
+**需求无品质约束**：每个需求槽只指定"给我 N 个这个 tag2 的食材"，不附带任何品质要求。玩家提交时只需凑够对应 tag2 的数量，任意品质均可满足。提交食材的品质仅影响奖励品质（见下节），不影响能否提交。
+
+### 奖励品质（提交时计算）
+
+订单生成时**不预设奖励品质**——品质在玩家提交订单时根据交付食材动态计算：
+
+1. 将所有交付食材的 `scoreValue` 求和
+2. 取不超过该总分的最高品质档（上限 q5 传说）
+
+示例：
+- 白+白 = 1+1 = 2 → **q2 绿（精选）**
+- 蓝+白 = 3+1 = 4 → **q3 蓝（优质）**（q4 需 scoreValue 5，未达到）
+- 蓝+白+白 = 3+1+1 = 5 → **q4 紫（顶级）**
+- 紫+紫 = 5+5 = 10 → **封顶 q5 橙（传说）**
+
+UI 上，**交换区订单卡的奖励位显示 `?` 徽标**（灰色），表示品质待定。提交弹窗的奖励区在玩家选完交付食材后即时显示计算结果。
 
 ### 交换区（旧"货架"）
 
@@ -227,7 +243,7 @@ UI 上**所有"价值 badge"显示 scoreValue**（1/2/3/5/8），而不是 quali
 
 ### 提交订单
 
-- `canSubmitOrder`：按 tag2 逐个配对库存，每项数量 count=1，品质 ≥ 订单要求
+- `canSubmitOrder`：按 tag2 逐个配对库存，每项数量 count=1，任意品质均可匹配（无品质门槛）
 - 提交后：消耗选中食材 → 弹 **OrderSubmitModal**
   - wrapper `pointer-events-none` → **点击可穿透到交换区/菜篮，两边都能继续看和交互**
   - 最多 max-w-xl，max-h 85vh
@@ -311,7 +327,7 @@ GameCore header 的 **⚙ 按钮**打开 `ConfigPanel`（2026-04-20 加）。可
 - **品质 roll 概率**：5 档 weight（合计显示）
 - **墙面符号比例**：doom/gold/order/bomb/道具 spawnChance
 - **局面布局 & 抽取**：3×3 ↔ 4×4 切换；进店抽取次数（goldPerTurn）
-- **订单模板**：每个模板的 weight / rewardQuality / ingredientTypes / qualityDist 或 reqBudget
+- **订单模板**：每个模板的 weight（奖励品质在提交时动态计算，不在此配置）
 
 底部：
 - 重置默认（DEFAULTS 深拷贝复位）
@@ -357,12 +373,10 @@ GameCore header 的 **⚙ 按钮**打开 `ConfigPanel`（2026-04-20 加）。可
 | 5 | 传说 | 8 | 4% |
 
 ### 订单模板
-| id | weight | rewardQuality | types | 需求 |
-|----|--------|--------------|-------|------|
-| easy | 30 | 2 | 2 | reqBudget 2 |
-| medium | 40 | 3 | 2 | reqBudget 3 |
-| hard | 20 | 4 | 3 | qualityDist [3,2,1] |
-| extreme | 10 | 5 | 3 | qualityDist [3,3,2] |
+| id | weight | count（需求槽位数） |
+|----|--------|-------------------|
+| count2 | 50 | 2 |
+| count3 | 50 | 3 |
 
 ### 菜品评级
 | 条件 | 评级 | Δ 人气 |
@@ -375,4 +389,4 @@ GameCore header 的 **⚙ 按钮**打开 `ConfigPanel`（2026-04-20 加）。可
 
 ---
 
-*文档版本：2026-04-21 ingredient-trade-flex-io 分支*
+*文档版本：2026-04-23 core-draw/order-system-remake 分支*
