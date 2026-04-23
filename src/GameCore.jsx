@@ -34,6 +34,8 @@ import ToolOverflowModal from './components/game/ToolOverflowModal';
 import ToolHintBar from './components/game/ToolHintBar';
 import ToolGrantPopup from './components/game/ToolGrantPopup';
 import { TOOL_CONFIG } from './data/v2Config';
+import TutorialStepController from './components/game/TutorialStepController';
+import TutorialSkipButton from './components/game/TutorialSkipButton';
 
 // DIAG: temporary wrapper to log mount/unmount of the fly element
 const FlyElementDiag = ({ flyId, icon, count, style }) => {
@@ -112,7 +114,13 @@ const GameCore = () => {
         tools, pendingToolGrant, activeTool, toolGrantQueue, toolUseAnim,
         startUseTool, cancelUseTool, acceptToolGrantReplace, discardToolGrant, dismissToolGrantQueue,
         applySwapTarget, applyDisperseTarget, applyBombWallTarget, applyClearInventoryTarget,
+        // Tutorial
+        tutorialMode, currentTutorialStep, tutorialOverrides, tutorialHeroLine, setTutorialHeroLine,
+        isInStep, advanceTutorial, skipTutorial,
     } = state;
+
+    // 教程态下哪些 UI 应该被隐藏
+    const isUIDisabled = (key) => !!tutorialOverrides?.disableUI?.includes(key);
 
     // Dispatch wall-cell clicks to the appropriate tool handler.
     const handleWallCellClick = (r, c) => {
@@ -228,12 +236,25 @@ const GameCore = () => {
                             <button onClick={() => setGuideOpen(true)} className="text-[11px] font-bold ml-1 px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">❓</button>
                             <button onClick={toggleLanguage} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">{language === 'zh' ? 'EN' : '中'}</button>
                             <button onClick={handleReset} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#FFF0F0] border border-kitchen-danger text-kitchen-danger-text hover:bg-red-100 transition-colors">{t('重置')}</button>
-                            <button onClick={() => setDispatchOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-800 text-amber-200 border border-amber-600 hover:bg-amber-700 transition-colors">{t('派遣')}</button>
-                            <button onClick={() => setKitchenOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🍳 {t('厨房')}</button>
-                            <button onClick={() => setSpritePreviewOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🎬 {t('动画')}</button>
-                            <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
-                            <button onClick={() => setConfigOpen(true)} title="配置面板" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">⚙</button>
-                            <Link to="/editor" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors no-underline">📐</Link>
+                            {tutorialMode && <TutorialSkipButton onSkip={skipTutorial} />}
+                            {!isUIDisabled('dispatch') && (
+                                <button onClick={() => setDispatchOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-800 text-amber-200 border border-amber-600 hover:bg-amber-700 transition-colors">{t('派遣')}</button>
+                            )}
+                            {!isUIDisabled('kitchen_modal') && (
+                                <button onClick={() => setKitchenOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🍳 {t('厨房')}</button>
+                            )}
+                            {!isUIDisabled('sprite_preview') && (
+                                <button onClick={() => setSpritePreviewOpen(true)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-kitchen-card border border-kitchen-gold-border-muted shadow-[0_1px_0_#D4B896] text-kitchen-text-secondary hover:bg-[#FFF3E0] transition-colors">🎬 {t('动画')}</button>
+                            )}
+                            {!isUIDisabled('debug') && (
+                                <button onClick={() => setDebugOpen(prev => !prev)} className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">🛠</button>
+                            )}
+                            {!isUIDisabled('config_panel') && (
+                                <button onClick={() => setConfigOpen(true)} title="配置面板" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors">⚙</button>
+                            )}
+                            {!isUIDisabled('editor') && (
+                                <Link to="/editor" className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-colors no-underline">📐</Link>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1089,6 +1110,12 @@ const GameCore = () => {
                     onDismiss={confirmWallReveal}
                 />
             </div>
+            <TutorialStepController
+                currentStep={currentTutorialStep}
+                onAdvance={advanceTutorial}
+                tutorialHeroLine={tutorialHeroLine}
+                onClearHeroLine={() => setTutorialHeroLine(null)}
+            />
         </div>
     );
 };
