@@ -86,7 +86,12 @@ export function generateWall(marketIngredients, options = {}) {
       if (!c) return null;
       const baseUid = generateUID();
       if (c.type === 'ingredient') {
-        return { type: 'ingredient', item: { ...c.item }, uid: baseUid };
+        // 由 id 反查完整 ingredient 对象（含 name / icon / tags），与随机 phase 行为一致
+        const fullIngredient = INGREDIENTS.find(i => i.id === c.item.id);
+        if (!fullIngredient) {
+          throw new Error(`generateWall: tutorialLayout cell references unknown ingredient id "${c.item.id}"`);
+        }
+        return { type: 'ingredient', item: { ...fullIngredient }, uid: baseUid };
       }
       return { ...c, uid: baseUid };
     }));

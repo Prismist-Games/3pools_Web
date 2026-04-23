@@ -6,11 +6,13 @@ import { useLanguage } from '../../contexts/LanguageContext';
  * - 不阻断玩家观察上方游戏 UI
  * - 多行台词通过点击"继续"逐行推进
  * - 全部台词读完后调 onComplete
+ * - 支持单行覆盖说话人：line 为 { speaker, emoji, text } 时使用其 speaker/emoji，
+ *   否则退化为字符串、用 props 上的 speaker/emoji（兼容旧场景）
  *
  * Props:
- *   speaker: 说话人名（i18n 通过 t()）
- *   emoji:   左侧头像 emoji
- *   lines:   台词数组（每条可包含 \n）
+ *   speaker: 默认说话人名（i18n 通过 t()）
+ *   emoji:   默认左侧头像 emoji
+ *   lines:   台词数组；元素可为 string 或 { speaker, emoji, text }
  *   onComplete: 全部台词读完后回调
  */
 export default function TutorialBottomDialog({ speaker, emoji, lines, onComplete }) {
@@ -25,6 +27,11 @@ export default function TutorialBottomDialog({ speaker, emoji, lines, onComplete
     if (!lines || lines.length === 0) return null;
 
     const isLast = lineIdx >= lines.length - 1;
+    const raw = lines[lineIdx];
+    const lineObj = typeof raw === 'string' ? { text: raw } : raw;
+    const curSpeaker = lineObj.speaker ?? speaker;
+    const curEmoji = lineObj.emoji ?? emoji;
+    const curText = lineObj.text ?? '';
 
     const next = () => {
         if (isLast) onComplete?.();
@@ -36,10 +43,10 @@ export default function TutorialBottomDialog({ speaker, emoji, lines, onComplete
             <div
                 className="bg-kitchen-card/95 border-2 border-kitchen-gold-border rounded-lg shadow-xl p-4 flex items-start gap-4 max-w-3xl mx-auto pointer-events-auto"
             >
-                <div className="text-5xl flex-shrink-0 leading-none">{emoji}</div>
+                <div className="text-5xl flex-shrink-0 leading-none">{curEmoji}</div>
                 <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-kitchen-gold-deep mb-1">{t(speaker)}</div>
-                    <div className="text-base text-kitchen-text-body whitespace-pre-wrap leading-relaxed">{t(lines[lineIdx])}</div>
+                    <div className="text-xs font-bold text-kitchen-gold-deep mb-1">{t(curSpeaker)}</div>
+                    <div className="text-base text-kitchen-text-body whitespace-pre-wrap leading-relaxed">{t(curText)}</div>
                 </div>
                 <button
                     onClick={next}
