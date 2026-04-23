@@ -347,27 +347,86 @@ export const useGameLogic = (config) => {
         advanceTutorial();
     };
 
-    /** Tutorial step 切换时的 onEnter 副作用：fixedOrder / toolsGranted 等需要在
-     *  step 切到新状态时生效。注意 startGame 已单独处理 dish + fridgePreload + 初始 toolsGranted。
-     *  这个 effect 只处理"步骤推进过程中"才生效的覆盖。 */
+    /** Tutorial step 切换时的核心 effect：负责 per-step 的 phase / dish / fridge / bulletin
+     *  / tools 等状态初始化。教程态下，主游戏的 startGame / startNewTurn useEffect 链被绕开，
+     *  由这里直接驱动各 step 的进入态。 */
     useEffect(() => {
         if (!tutorialMode || !currentTutorialStep) return;
-        const o = currentTutorialStep.overrides;
-        if (!o) return;
+        const o = currentTutorialStep.overrides ?? {};
+        const stepId = currentTutorialStep.id;
 
-        // fixedOrder：场景 5 直接把固定订单写到 bulletinBoard
+        // === 应用 dish 覆盖（任何指定 dish 的 step）===
+        if (o.dish) {
+            const dish = DISHES.find(d => d.id === o.dish);
+            if (dish) setCurrentDish(dish);
+        }
+
+        // === 应用 fridgePreload（写入 fridge，因为做菜读 fridge）===
+        if (o.fridgePreload !== undefined) {
+            const items = o.fridgePreload.map(p => {
+                const ing = INGREDIENTS.find(i => i.id === p.id);
+                const qDef = QUALITY_CONFIG.find(q => q.id === p.quality) || QUALITY_CONFIG[0];
+                return ing ? { ...ing, quality: p.quality, score: qDef.scoreValue, isOutOfGame: true, uid: generateUID() } : null;
+            }).filter(Boolean);
+            setFridge(items);
+        }
+
+        // === fixedOrder 注入（场景 5）===
         if (o.fixedOrder) {
             setBulletinBoard([o.fixedOrder]);
         }
 
-        // toolsGranted：在 step 进入时（非 startGame 阶段）发放道具
-        // scene_1_cooking 等开局 step 的 tools 已由 startGame 处理；这里只为中途解锁的 step（如场景 4 海鲜店）
-        if (o.toolsGranted && phase !== 'pre_game' && phase !== 'setup') {
+        // === toolsGranted（场景 4 海鲜店中途解锁）===
+        if (o.toolsGranted) {
             o.toolsGranted.forEach(toolId => {
                 const tool = TOOLS.find(t => t.id === toolId);
                 if (tool) addTool({ ...tool, uid: generateUID() });
             });
         }
+
+        // === Per-scene phase + 游戏状态初始化 ===
+        if (stepId === 'scene_1_cooking') {
+            // 教程 Day 1 起点：初始化 day 1 + 进 restaurant cook 妈妈的家常汤面
+            if (dayNumber === 0) setExpeditionNumber(1);
+            setInventory([]);
+            setBulletinBoard([]);
+            setPendingChosenOrder(null);
+            setIncomingQueue([]);
+            setHp(doomConfig.initialHP);
+            setDoomGrid(() => {
+                const grid = Array(doomConfig.gridSize).fill(null).map(() => ({ type: 'empty' }));
+                for (let i = 0; i < doomConfig.initialDangerCount; i++) {
+                    grid[i] = { type: 'danger', emoji: pickDoomEmoji() };
+                }
+                return grid;
+            });
+            setPhase('restaurant');
+        } else if (stepId === 'scene_1_5_dishcard') {
+            // 切到海洋线条 viewOnly 设置（玩家点"开始第 1 天"）
+            setInventory([]);
+            setDishIntroPending(true);
+            setPhase('setup');
+        } else if (stepId === 'scene_2_grainstore') {
+            // 直接进粮食店 drawing
+            const marketType = MARKET_TYPES.find(m => m.id === o.forceMarket);
+            if (marketType && o.wallLayout) {
+                const marketIngredients = pickMarketIngredients(marketType);
+                const { grid } = generateWall(marketIngredients, { tutorialLayout: o.wallLayout });
+                setCurrentWallType(marketType);
+                setMatrix(grid);
+                setGold(LIVE_CONFIG.goldPerTurn ?? turnConfig.goldPerTurn);
+                setTurnNumber(1);
+                setLastDrawResult(null);
+                setDoomResolutionResult(null);
+                setPhase('drawing');
+            }
+        } else if (stepId === 'scene_3_market_picker') {
+            // 进入 wall_choice，强制候选含海鲜店（forceCandidatesInclude 在 startNewTurn 处理）
+            startNewTurn();
+        }
+        // scene_4 由 selectWall（场景 3 选海鲜店）触发，wallLayout 已在 selectWall 中应用
+        // scene_5/6 不做 phase 转换（继续在 between_turns 等）
+        // scene_7 由 returnToRestaurant 触发 phase=restaurant，dish=ocean_threads 已在 1.5 设置
     }, [tutorialStepIndex]);  // 仅 step index 变化时触发
 
     // =============================================
@@ -494,48 +553,25 @@ export const useGameLogic = (config) => {
     const startGame = () => {
         setExpeditionNumber(prev => prev + 1);
 
-        // === Tutorial dish + fridgePreload override ===
-        // 教程 step 指定了菜谱就用它，否则按原 day-by-day 轮转
-        let dish;
-        if (tutorialOverrides?.dish) {
-            dish = DISHES.find(d => d.id === tutorialOverrides.dish) || DISHES[0];
-        } else {
-            const nextDay = expeditionNumber + 1;
-            dish = DISHES[(nextDay - 1) % DISHES.length];
-        }
+        // Pick today's dish — fixed order by day. Day 1 → DISHES[0],
+        // Day 2 → DISHES[1], cycles afterwards.
+        const nextDay = expeditionNumber + 1;
+        const dish = DISHES[(nextDay - 1) % DISHES.length];
         setCurrentDish(dish);
         setDishIntroPending(true);
-
-        // 教程冰箱预发：转换 { id, quality } 列表为带 score / uid 的 inventory items
-        if (tutorialOverrides?.fridgePreload) {
-            const preloaded = tutorialOverrides.fridgePreload.map(p => {
-                const ing = INGREDIENTS.find(i => i.id === p.id);
-                const qDef = QUALITY_CONFIG.find(q => q.id === p.quality) || QUALITY_CONFIG[0];
-                return ing ? { ...ing, quality: p.quality, score: qDef.scoreValue, uid: generateUID() } : null;
-            }).filter(Boolean);
-            setInventory(preloaded);
-        }
 
         setBulletinBoard([]);
         setPendingChosenOrder(null);
         setPhase('setup');
 
-        // Grant the opening toolbar — 教程态下用 toolsGranted override 控制；否则正常发 dayStartCount
+        // Grant the opening toolbar — N distinct tools via addTool so the
+        // grant popup batches them. Toolbar capacity > dayStartCount avoids
+        // overflow.
         setTools([]);
         setPendingToolGrant(null);
         setActiveTool(null);
         setToolGrantQueue([]);
-        if (tutorialOverrides?.toolsGranted) {
-            // 教程指定的几个 tool（按 id）依次发放
-            tutorialOverrides.toolsGranted.forEach(toolId => {
-                const tool = TOOLS.find(t => t.id === toolId);
-                if (tool) addTool({ ...tool, uid: generateUID() });
-            });
-        } else if (!tutorialMode) {
-            // 非教程态：正常发 dayStartCount 个互不相同
-            pickDistinctToolsFromPool(TOOL_CONFIG.dayStartCount).forEach(addTool);
-        }
-        // 教程态但当前 step 没指定 toolsGranted（如开场叙事 / 场景 1）→ 不发，等海鲜店 step 才发
+        pickDistinctToolsFromPool(TOOL_CONFIG.dayStartCount).forEach(addTool);
         // Queue will be filled once the player dismisses the dish intro
         // (see dismissDishIntro below).
     };
@@ -548,6 +584,8 @@ export const useGameLogic = (config) => {
         // 教程态：交换区强制清空，订单由 fixedOrder（场景 5）单独注入
         if (tutorialMode) {
             setBulletinBoard([]);
+            // 场景 1.5 的"开始第 1 天"按钮 → emit start_day_clicked → 推进到 intermission_market
+            emitTutorialEvent('start_day_clicked');
             return;
         }
         const initial = [];
@@ -565,6 +603,9 @@ export const useGameLogic = (config) => {
         if (dishIntroPending) return;
         if (incomingQueue.length > 0) return;
         if (pendingChosenOrder) return;
+        // 教程 scene_1_5_dishcard 阶段由 emit start_day_clicked → 推进到 intermission_market
+        // → 再到 scene_2_grainstore → useEffect 直接进 drawing。这里跳过 startNewTurn 避免抢跑。
+        if (tutorialMode && currentTutorialStep?.id === 'scene_1_5_dishcard') return;
         startNewTurn();
     }, [phase, dishIntroPending, incomingQueue.length, pendingChosenOrder]);
 
@@ -1439,6 +1480,8 @@ export const useGameLogic = (config) => {
         // Completing an order offers a pick-1-of-2 just like leaving a wall.
         addBulletinOrder();
         showToast(t('订单完成'), 'success');
+        // Tutorial 场景 5 完成事件
+        emitTutorialEvent('order_submitted');
     };
 
     /** Manual refresh: consume 1 charge to push a new 2-candidate event to
@@ -1554,6 +1597,11 @@ export const useGameLogic = (config) => {
                     addTool(pickRandomToolFromPool());
                 }
             }
+            // Tutorial 场景 2 / 4 完成事件：挤出店铺 + 人挤人结算完成
+            // onExit heroLine 也在此触发（让玩家能看到那句话再推进）
+            const onExitLine = currentTutorialStep?.onExit?.heroLine;
+            if (onExitLine) setTutorialHeroLine(onExitLine);
+            emitTutorialEvent('doom_resolved_after_endturn');
         }
     };
 
@@ -1573,6 +1621,8 @@ export const useGameLogic = (config) => {
             setInventory(prev => prev.filter(i => !i.isOutOfGame));
         }
         setPhase('restaurant');
+        // Tutorial 场景 6 完成事件
+        emitTutorialEvent('evacuate_clicked');
     };
 
     /** Legacy alias: handleEvacuate now routes to the restaurant phase
@@ -1584,6 +1634,23 @@ export const useGameLogic = (config) => {
      *  uids from the fridge (persistent home storage), bumps popularity,
      *  stores the result for the cook_result phase to display. */
     const handleCookResult = (result, usedUids) => {
+        // Tutorial 场景 1：必达"惊艳"才推进；否则软重置冰箱 + 主角失败台词
+        if (isInStep('scene_1_cooking') && result?.rating !== '惊艳') {
+            const onFail = currentTutorialStep?.onFail;
+            if (onFail?.heroLine) setTutorialHeroLine(onFail.heroLine);
+            // 软重置冰箱（教程菜消耗的食材回到 fridgePreload 状态）
+            const preload = currentTutorialStep?.overrides?.fridgePreload ?? [];
+            const restored = preload.map(p => {
+                const ing = INGREDIENTS.find(i => i.id === p.id);
+                const qDef = QUALITY_CONFIG.find(q => q.id === p.quality) || QUALITY_CONFIG[0];
+                return ing ? { ...ing, quality: p.quality, score: qDef.scoreValue, uid: generateUID() } : null;
+            }).filter(Boolean);
+            setInventory(restored);
+            setFridge([]);
+            // 不进 cook_result，不扣人气，留在 restaurant 让玩家重做
+            return;
+        }
+
         if (usedUids && usedUids.length > 0) {
             const uidSet = new Set(usedUids);
             setFridge(prev => prev.filter(item => !uidSet.has(item.uid)));
@@ -1591,6 +1658,9 @@ export const useGameLogic = (config) => {
         setPopularity(prev => Math.max(0, prev + (result?.popularityDelta || 0)));
         setLastCookResult(result);
         setPhase('cook_result');
+
+        // Tutorial 场景 1（惊艳路径）/ 场景 7：emit cook_result
+        emitTutorialEvent('cook_result', { rating: result?.rating });
     };
 
     /** Player clicks past the cook result screen to start the next day.

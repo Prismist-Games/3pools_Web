@@ -396,19 +396,30 @@ const GameCore = () => {
                                                     <span className="text-lg font-black text-kitchen-gold-deep">{gold}</span>
                                                 </div>
                                             )}
-                                            <button
-                                                onClick={phase === 'drawing_sub' ? exitSubLevel : endTurn}
-                                                disabled={isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder}
-                                                className={`w-full px-6 py-2 rounded-lg font-bold transition-colors ${
-                                                    isDoomResolving || isDrawAnimating || pendingItems.length > 0
-                                                        ? 'bg-kitchen-card/60 border-2 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
-                                                        : phase === 'drawing_sub'
-                                                            ? 'bg-kitchen-info border-2 border-kitchen-info-border text-white hover:brightness-95'
-                                                            : 'bg-gradient-to-b from-kitchen-wood-light to-kitchen-wood-dark border-2 border-kitchen-wood-border text-kitchen-text-title hover:brightness-105 shadow-[0_2px_0_#C8A880]'
-                                                }`}
-                                            >
-                                                {phase === 'drawing_sub' ? t('结束事件') : t('挤出店铺')}
-                                            </button>
+                                            {(() => {
+                                                // 教程场景 2 lockEvacuateUntilSynth：合成完成前挤出店铺按钮 disabled
+                                                // 判定标准：菜篮里有 Q3 挂面（玩家完成了 Q1+Q1→Q2，再 Q2+Q2→Q3）
+                                                const lockedBySynth = !!tutorialOverrides?.lockEvacuateUntilSynth
+                                                    && !inventory.some(i => i?.id === 'dried_noodles' && i?.quality >= 3);
+                                                const baseDisabled = isDoomResolving || isDrawAnimating || pendingItems.length > 0 || !!incomingOrder;
+                                                const isDisabled = baseDisabled || lockedBySynth;
+                                                return (
+                                                    <button
+                                                        onClick={phase === 'drawing_sub' ? exitSubLevel : endTurn}
+                                                        disabled={isDisabled}
+                                                        title={lockedBySynth ? t('先把挂面合成到 Q3 再走') : undefined}
+                                                        className={`w-full px-6 py-2 rounded-lg font-bold transition-colors ${
+                                                            isDisabled
+                                                                ? 'bg-kitchen-card/60 border-2 border-kitchen-gold-border-muted/60 text-kitchen-text-muted cursor-not-allowed'
+                                                                : phase === 'drawing_sub'
+                                                                    ? 'bg-kitchen-info border-2 border-kitchen-info-border text-white hover:brightness-95'
+                                                                    : 'bg-gradient-to-b from-kitchen-wood-light to-kitchen-wood-dark border-2 border-kitchen-wood-border text-kitchen-text-title hover:brightness-105 shadow-[0_2px_0_#C8A880]'
+                                                        }`}
+                                                    >
+                                                        {phase === 'drawing_sub' ? t('结束事件') : t('挤出店铺')}
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 </div>
