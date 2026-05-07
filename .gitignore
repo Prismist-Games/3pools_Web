@@ -135,5 +135,10 @@ Desktop.ini
 # Claude Code local settings
 .claude/settings.local.json
 
+# Codex local workspace files
+.codex/
+.agents/
+AGENTS.md
+
 # Superpowers brainstorm workspace (visual companion + session state)
 .superpowers/

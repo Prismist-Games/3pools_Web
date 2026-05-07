@@ -7,10 +7,6 @@ import { INGREDIENTS, QUALITY_CONFIG, ORDER_CONFIG } from '../../data/v2Config';
 // gameplay score, not the internal quality id.
 const qualityToScore = (q) => QUALITY_CONFIG.find(c => c.id === q)?.scoreValue ?? q;
 
-// ingredientId → 二级 tag; used to translate hover highlights (which come
-// in as concrete ids from the wall) into tag2-level matches against order reqs.
-const INGREDIENT_TAG2 = new Map(INGREDIENTS.map(ing => [ing.id, ing.tags[1]]));
-
 // DIFFICULTY_STYLE kept as empty object for backward-compat imports; no longer used in rendering.
 const DIFFICULTY_STYLE = {};
 
@@ -26,6 +22,13 @@ const RARITY_STYLE = QUALITY_STYLE;
 const SCORE_STYLE = QUALITY_STYLE;
 const QUALITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★', 5: '★★★★★' };
 const RARITY_STARS = QUALITY_STARS;
+
+function itemMatchesRequirement(item, req) {
+    if (!item || !req) return false;
+    if (req.requirementKind === 'tag2') return item.tags?.[1] === req.tag2;
+    if (req.ingredientId) return item.id === req.ingredientId;
+    return item.tags?.[1] === req.tag2;
+}
 
 /** Shared tooltip content for a sticker. Pass inventory + stickerId to
  *  show Have/Need if used in an order-requirement context; pass only the
@@ -155,16 +158,13 @@ const BulletinBoard = ({
 }) => {
     const { t, language } = useLanguage();
     const isReplacing = !!pendingChosenOrder;
-    // Convert wall-hovered ingredient ids into the set of 二级 tag they cover,
-    // so order requirements (which now live at tag2 level) can highlight.
     const hoveredTag2Set = useMemo(() => {
         if (!hoveredIngredientIds) return null;
-        const out = new Set();
-        hoveredIngredientIds.forEach(id => {
-            const tag2 = INGREDIENT_TAG2.get(id);
-            if (tag2) out.add(tag2);
+        const tags = new Set();
+        INGREDIENTS.forEach(ing => {
+            if (hoveredIngredientIds.has(ing.id) && ing.tags?.[1]) tags.add(ing.tags[1]);
         });
-        return out;
+        return tags;
     }, [hoveredIngredientIds]);
     const hasInlinePicker = !!incomingOrder && incomingOrder.candidates;
     // Refresh may be queued while a picker is shown — it just pushes another
@@ -256,15 +256,14 @@ const BulletinBoard = ({
                                     <div className="flex gap-1.5 flex-wrap items-center">
                                         <span className="text-[9px] text-kitchen-text-muted uppercase tracking-wide">{t('需要')}</span>
                                         {order.requirements.map((req, i) => {
-                                            const owned = inventory ? inventory.filter(item =>
-                                                item?.tags?.[1] === req.tag2
-                                            ).length : 0;
+                                            const owned = inventory ? inventory.filter(item => itemMatchesRequirement(item, req)).length : 0;
                                             const enough = owned >= req.count;
                                             const isHovered = hoveredTag2Set?.has(req.tag2);
+                                            const displayName = (language === 'en' && req.nameEn) ? req.nameEn : t(req.name);
                                             return (
                                                 <Tooltip key={i} content={
                                                     <>
-                                                        <IngredientTip item={{ icon: req.icon, name: req.name, tags: req.tags, quality: 1 }} />
+                                                        <IngredientTip item={{ icon: req.icon, name: req.name, nameEn: req.nameEn, tags: req.tags, quality: 1 }} />
                                                         <div className="border-t border-gray-700/50 pt-1.5 mt-1">
                                                             <div className="flex justify-between text-[11px]">
                                                                 <span className="text-gray-400">{t('持有')} / {t('需要')}</span>
@@ -275,13 +274,13 @@ const BulletinBoard = ({
                                                     </>
                                                 }>
                                                     <div className={`flex items-center gap-0.5 transition-transform duration-150 ${isHovered ? 'scale-110 z-10' : ''}`}>
-                                                        <div className={`relative w-12 h-12 rounded border-2 ${
+                                                        <div className={`relative w-12 min-h-12 rounded border-2 ${
                                                             enough ? 'border-kitchen-success-border bg-[#F0FFF8]'
                                                             : 'border-gray-300 bg-kitchen-card'
-                                                        } ${isHovered ? 'animate-[req-highlight-pulse_1.4s_ease-in-out_infinite]' : 'shadow-sm'} flex flex-col items-center justify-center px-0.5`}>
+                                                        } ${isHovered ? 'animate-[req-highlight-pulse_1.4s_ease-in-out_infinite]' : 'shadow-sm'} flex flex-col items-center justify-center px-0.5 py-0.5`}>
                                                             <span className="text-lg leading-none">{req.icon}</span>
-                                                            <span className="text-[8px] font-bold leading-tight truncate max-w-full text-slate-700 mt-0.5">
-                                                                {t(req.name)}
+                                                            <span className="text-[7px] font-bold leading-tight break-words whitespace-normal text-center w-full text-slate-700 mt-0.5">
+                                                                {displayName}
                                                             </span>
                                                         </div>
                                                         <span className={`text-[10px] font-bold ${

@@ -7,6 +7,79 @@ function generateUID() {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 }
 
+export const PURCHASE_METHODS = [
+  {
+    id: 'selective',
+    name: '精挑',
+    icon: '🔎',
+    desc: '抽中食材时，品质至少为精选',
+  },
+  {
+    id: 'fresh_rush',
+    name: '抢鲜',
+    icon: '⚡',
+    desc: '抽中食材时品质+1，但人群压力+1',
+  },
+  {
+    id: 'bargain',
+    name: '捡漏',
+    icon: '🪙',
+    desc: '抽中普通或精选食材时，返还1抽',
+  },
+  {
+    id: 'bulk',
+    name: '囤货',
+    icon: '📦',
+    desc: '抽中食材时，额外获得1个同名普通副本',
+  },
+  {
+    id: 'detour',
+    name: '绕路',
+    icon: '🛡️',
+    desc: '抽中抢菜人时取消人挤人结算',
+  },
+  {
+    id: 'ask_around',
+    name: '打听',
+    icon: '📣',
+    desc: '抽中订单格时，多获得1次手动刷新',
+  },
+];
+
+function shuffle(list) {
+  return [...list].sort(() => Math.random() - 0.5);
+}
+
+function buildStalls(marketIngredients, gridSize) {
+  const byTag2 = new Map();
+  for (const ing of marketIngredients) {
+    const tag2 = ing.tags?.[1];
+    if (!tag2) continue;
+    if (!byTag2.has(tag2)) byTag2.set(tag2, []);
+    byTag2.get(tag2).push(ing);
+  }
+
+  const entries = shuffle([...byTag2.entries()]);
+  const stalls = [];
+  for (let i = 0; i < gridSize; i++) {
+    const [tag2, ingredients] = entries[i % entries.length];
+    stalls.push({
+      id: tag2,
+      name: tag2,
+      icon: ingredients[0]?.icon || '🍽️',
+      tag2,
+      ingredientIds: ingredients.map(ing => ing.id),
+    });
+  }
+  return stalls;
+}
+
+function pickIngredientForRow(marketIngredients, stall) {
+  const stallIngredients = marketIngredients.filter(ing => ing.tags?.[1] === stall?.tag2);
+  const pool = stallIngredients.length && Math.random() < 0.78 ? stallIngredients : marketIngredients;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 /**
  * Pick all ingredients belonging to a market type's category.
  * @param {Object} marketType — from MARKET_TYPES, has .category
@@ -84,6 +157,8 @@ export function generateWall(marketIngredients) {
   const { gridSize, doomCells, specialCells } = MATRIX_CONFIG;
   const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(null));
   const doomCellCount = { resolution: 0 };
+  const stalls = buildStalls(marketIngredients, gridSize);
+  const purchaseMethods = shuffle(PURCHASE_METHODS).slice(0, gridSize);
 
   // Phase 1 + 2: Doom and special cells — per-cell probability roll.
   // Rates read from LIVE_CONFIG.cellSpawn so ConfigPanel tweaks take effect
@@ -131,7 +206,7 @@ export function generateWall(marketIngredients) {
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       if (grid[r][c] !== null) continue;
-      const ingredient = marketIngredients[Math.floor(Math.random() * marketIngredients.length)];
+      const ingredient = pickIngredientForRow(marketIngredients, stalls[r]);
       grid[r][c] = {
         type: 'ingredient',
         item: { ...ingredient },
@@ -140,7 +215,7 @@ export function generateWall(marketIngredients) {
     }
   }
 
-  return { grid, doomCellCount };
+  return { grid, doomCellCount, stalls, purchaseMethods };
 }
 
 // ---------------------------------------------------------------------------

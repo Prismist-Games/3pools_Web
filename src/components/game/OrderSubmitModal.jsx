@@ -8,6 +8,13 @@ import { QUALITY_STYLE } from './BulletinBoard';
 
 const QUALITY_STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★', 5: '★★★★★' };
 
+function itemMatchesRequirement(item, req) {
+    if (!item || !req) return false;
+    if (req.requirementKind === 'tag2') return item.tags?.[1] === req.tag2;
+    if (req.ingredientId) return item.id === req.ingredientId;
+    return item.tags?.[1] === req.tag2;
+}
+
 /** Unified submit modal: player picks which inventory items to consume per
  *  tag2 requirement, and which concrete ingredient to receive per reward. */
 const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
@@ -87,9 +94,7 @@ const OrderSubmitModal = ({ order, inventory, onConfirm, onCancel }) => {
                     </div>
                     <div className="flex flex-col gap-2.5">
                         {order.requirements.map((req, reqIdx) => {
-                            const candidates = inventory.filter(item =>
-                                item?.tags?.[1] === req.tag2
-                            );
+                            const candidates = inventory.filter(item => itemMatchesRequirement(item, req));
                             const picked = selections[reqIdx];
                             const needed = req.count;
                             const complete = picked.length === needed;

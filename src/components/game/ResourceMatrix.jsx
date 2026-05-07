@@ -350,6 +350,8 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     if (!matrix) return null;
 
     const canDraw = (phase === 'drawing' || phase === 'drawing_sub') && gold >= drawCost && !disabled;
+    const stalls = wallType?.stalls || [];
+    const purchaseMethods = wallType?.purchaseMethods || [];
 
     // Tool-driven interaction flags
     const peekActive = activeTool?.id === 'peek';
@@ -469,7 +471,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
     };
 
     // Row button width
-    const ROW_BTN_WIDTH = 36;
+    const ROW_BTN_WIDTH = 58;
     const ROW_BTN_MARGIN = 8; // mr-2
 
     // Fix container width to grid natural width so long modifier descriptions
@@ -496,6 +498,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                 {Array.from({ length: matrix[0]?.length || 4 }, (_, colIndex) => {
                     const hasActive = matrix.some(row => row[colIndex] !== null);
                     const altBlocked = wallType?.id === 'alternating' && lastDrawDirection === 'column';
+                    const method = purchaseMethods[colIndex];
                     // Peek passthrough: row/col buttons must stay clickable when
                     // peek is active even if gold is 0 — peek doesn't consume a draw.
                     const colClickable = peekActive ? hasActive : (canDraw && hasActive && !altBlocked);
@@ -507,18 +510,19 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                             onMouseLeave={() => { setHoveredCol(null); reportHover(null, null); }}
                             disabled={!colClickable}
                             className={`
-                                rounded-lg text-xs font-black flex-shrink-0
-                                flex items-center justify-center
+                                rounded-lg flex-shrink-0
+                                flex flex-col items-center justify-center leading-none
                                 transition-all duration-150
                                 ${colClickable
                                     ? 'bg-gradient-to-b from-[#FFF3E0] to-[#FFE8CC] border-2 border-kitchen-gold rounded-lg shadow-[0_2px_0_#D4952A,0_0_10px_rgba(232,168,48,0.25)] text-kitchen-gold-deep font-bold cursor-pointer'
                                     : 'bg-[#F5F0E8] border-2 border-kitchen-gold-border-muted/50 text-kitchen-text-muted cursor-not-allowed opacity-60'
                                 }
                             `}
-                            style={{ width: CELL_SIZE, height: 24, marginRight: GAP }}
-                            title={colClickable ? t('抽取此列') : t('无法抽取')}
+                            style={{ width: CELL_SIZE, height: 40, marginRight: GAP }}
+                            title={method ? `${t(method.name)}：${t(method.desc)}` : (colClickable ? t('抽取此列') : t('无法抽取'))}
                         >
-                            ⬇
+                            <span className="text-sm">{method?.icon || '⬇'}</span>
+                            <span className="text-[9px] mt-0.5">{method ? t(method.name) : '⬇'}</span>
                         </button>
                     );
                 })}
@@ -531,6 +535,7 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                         const hasActive = row.some(c => c !== null);
                         const altBlockedRow = wallType?.id === 'alternating' && lastDrawDirection === 'row';
                         const rowClickable = peekActive ? hasActive : (canDraw && hasActive && !altBlockedRow);
+                        const stall = stalls[rowIndex];
                         return (
                             <button
                                 key={rowIndex}
@@ -539,18 +544,19 @@ const ResourceMatrix = ({ matrix, onSelectRow, onSelectColumn, gold, drawCost, p
                                 onMouseLeave={() => { setHoveredRow(null); reportHover(null, null); }}
                                 disabled={!rowClickable}
                                 className={`
-                                    rounded-lg text-xs font-black flex-shrink-0
-                                    flex items-center justify-center
+                                    rounded-lg flex-shrink-0
+                                    flex flex-col items-center justify-center leading-none
                                     transition-all duration-150
                                     ${rowClickable
                                         ? 'bg-gradient-to-r from-[#FFF3E0] to-[#FFE8CC] border-2 border-kitchen-gold rounded-lg shadow-[0_2px_0_#D4952A,0_0_10px_rgba(232,168,48,0.25)] text-kitchen-gold-deep font-bold cursor-pointer'
                                         : 'bg-[#F5F0E8] border-2 border-kitchen-gold-border-muted/50 text-kitchen-text-muted cursor-not-allowed opacity-60'
                                     }
                                 `}
-                                style={{ width: 36, height: CELL_SIZE, marginBottom: GAP }}
-                                title={rowClickable ? t('抽取此行') : t('无法抽取')}
+                                style={{ width: ROW_BTN_WIDTH, height: CELL_SIZE, marginBottom: GAP }}
+                                title={stall ? `${t(stall.name)}：${t('本行更容易出现此类食材')}` : (rowClickable ? t('抽取此行') : t('无法抽取'))}
                             >
-                                ➡
+                                <span className="text-sm">{stall?.icon || '➡'}</span>
+                                <span className="text-[9px] mt-0.5 max-w-full truncate px-0.5">{stall ? t(stall.name) : '➡'}</span>
                             </button>
                         );
                     })}

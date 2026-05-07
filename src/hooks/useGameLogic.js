@@ -100,16 +100,16 @@ function buildTag2Index(ingredients) {
 
 function generateOrder(tag2Entries) {
     const template = pickWeightedTemplate();
+
+    // Sample N distinct second-level ingredient categories. This keeps the
+    // target readable from market stall labels instead of forcing exact-id lookup.
     const slotCount = Math.min(template.count, tag2Entries.length);
+    const selectedEntries = [...tag2Entries].sort(() => Math.random() - 0.5).slice(0, slotCount);
 
-    // Pick N distinct 二级 tag entries for requirements — fully random,
-    // no cross-category constraint (may include multiple tags from the same 大类).
-    const selectedTag2 = [...tag2Entries].sort(() => Math.random() - 0.5).slice(0, slotCount);
-
-    // Reward tag2: prefer non-requirement tags, fallback to any tag if exhausted.
-    const reqTag2Set = new Set(selectedTag2.map(e => e.tag2));
-    const rewardPool = tag2Entries.filter(e => !reqTag2Set.has(e.tag2));
-    const rewardEntry = rewardPool[Math.floor(Math.random() * rewardPool.length)]
+    // Reward tag2: prefer a tag2 not already used by any requirement ingredient.
+    const reqTag2Set = new Set(selectedEntries.map(entry => entry.tag2));
+    const rewardTag2Pool = tag2Entries.filter(e => !reqTag2Set.has(e.tag2));
+    const rewardEntry = rewardTag2Pool[Math.floor(Math.random() * rewardTag2Pool.length)]
         || tag2Entries[Math.floor(Math.random() * tag2Entries.length)];
 
     // Reward quality is unknown at generation time (computed at submit).
@@ -126,17 +126,25 @@ function generateOrder(tag2Entries) {
         isOutOfGame: true,
     };
 
-    // Requirements are quality-agnostic — only tag2 and count matter.
-    const requirements = selectedTag2.map((entry) => ({
+    const requirements = selectedEntries.map((entry) => ({
+        requirementKind: 'tag2',
         tag2: entry.tag2,
         categoryTag: entry.categoryTag,
         icon: entry.icon,
         name: entry.tag2,
+        nameEn: entry.tag2,
         tags: [entry.categoryTag, entry.tag2],
         count: 1,
     }));
 
     return { id: generateUID(), rewards: [finalReward], totalScore: 0, requirements };
+}
+
+function itemMatchesRequirement(item, req) {
+    if (!item || !req) return false;
+    if (req.requirementKind === 'tag2') return item.tags?.[1] === req.tag2;
+    if (req.ingredientId) return item.id === req.ingredientId;
+    return item.tags?.[1] === req.tag2;
 }
 
 export const useGameLogic = (config) => {
@@ -280,6 +288,20 @@ export const useGameLogic = (config) => {
         [doomGrid]
     );
 
+    const addCrowdDanger = (amount = 1) => {
+        setDoomGrid(prev => {
+            const next = [...prev];
+            let added = 0;
+            for (let i = 0; i < next.length && added < amount; i++) {
+                if (next[i].type === 'empty') {
+                    next[i] = { type: 'danger', emoji: pickDoomEmoji() };
+                    added++;
+                }
+            }
+            return next;
+        });
+    };
+
     // =============================================
     // TURN FLOW
     // =============================================
@@ -324,8 +346,13 @@ export const useGameLogic = (config) => {
             usedTypeIds.add(marketType.id);
             const marketIngredients = pickMarketIngredients(marketType);
             if (!marketIngredients.length) continue;
-            const { grid, doomCellCount } = generateWall(marketIngredients);
-            candidates.push({ marketIngredients, grid, doomCellCount, wallType: marketType });
+            const { grid, doomCellCount, stalls, purchaseMethods } = generateWall(marketIngredients);
+            candidates.push({
+                marketIngredients,
+                grid,
+                doomCellCount,
+                wallType: { ...marketType, stalls, purchaseMethods },
+            });
         }
         setWallCandidates(candidates);
         setPhase('wall_choice');
@@ -608,7 +635,11 @@ export const useGameLogic = (config) => {
     /** Apply draw result after animation settles */
     const completeDrawAnim = () => {
         if (!drawAnimState) return;
-        const { direction, finalRowIndex, finalColIndex, drawnCell } = drawAnimState;
+        const { direction, finalRowIndex, finalColIndex } = drawAnimState;
+        let drawnCell = drawAnimState.drawnCell;
+        const purchaseMethod = direction === 'column'
+            ? currentWallType?.purchaseMethods?.[finalColIndex]
+            : null;
 
         // Track draw direction for alternating wall
         setLastDrawDirection(direction);
@@ -623,9 +654,30 @@ export const useGameLogic = (config) => {
         const doomEffects = { resolutions: 0 };
 
         if (drawnCell.type === 'ingredient' || drawnCell.type === 'out_of_game') {
+            if (purchaseMethod && drawnCell.item) {
+                const baseQuality = drawnCell.item.quality ?? rollQuality();
+                let quality = baseQuality;
+                if (purchaseMethod.id === 'selective') quality = Math.max(quality, 2);
+                if (purchaseMethod.id === 'fresh_rush') quality = Math.min(5, quality + 1);
+                drawnCell = {
+                    ...drawnCell,
+                    item: { ...drawnCell.item, quality },
+                };
+                if (purchaseMethod.id === 'fresh_rush') {
+                    addCrowdDanger(1);
+                    showToast(`${purchaseMethod.icon} ${t(purchaseMethod.name)}: ${t('品质')} +1, ${t('人群')} +1`, 'warning');
+                } else if (purchaseMethod.id === 'bargain' && quality <= 2) {
+                    setGold(prev => prev + 1);
+                    showToast(`${purchaseMethod.icon} ${t(purchaseMethod.name)}: ${t('抽数')} +1`, 'success');
+                }
+            }
             obtainedItem = drawnCell;
         } else if (drawnCell.type === 'doom_resolution') {
-            doomEffects.resolutions = 1 * mult;
+            if (purchaseMethod?.id === 'detour') {
+                showToast(`${purchaseMethod.icon} ${t(purchaseMethod.name)}: ${t('避开人群')}`, 'success');
+            } else {
+                doomEffects.resolutions = 1 * mult;
+            }
         } else if (drawnCell.type === 'gold') {
             const goldGain = drawnCell.goldAmount * mult;
             setGold(prev => prev + goldGain);
@@ -635,6 +687,10 @@ export const useGameLogic = (config) => {
             // this wall (resolved in between_turns along with the default
             // one from endTurn).
             addBulletinOrder();
+            if (purchaseMethod?.id === 'ask_around') {
+                setRefreshCharges(prev => Math.min(prev + 1, 5));
+                showToast(`${purchaseMethod.icon} ${t(purchaseMethod.name)}: ${t('刷新')} +1`, 'success');
+            }
             showToast(`📋 ${t('新订单')} +1`, 'info');
         } else if (drawnCell.type === 'heal') {
             const amount = (drawnCell.healAmount || 1) * mult;
@@ -943,6 +999,14 @@ export const useGameLogic = (config) => {
             } else {
                 addToInventory(obtainedItem);
             }
+            if (purchaseMethod?.id === 'bulk') {
+                addToInventory({
+                    ...obtainedItem,
+                    uid: generateUID(),
+                    item: { ...obtainedItem.item, quality: 1 },
+                });
+                showToast(`${purchaseMethod.icon} ${t(purchaseMethod.name)}: ${t('额外获得')} +1`, 'success');
+            }
         }
 
         if (doomEffects.resolutions > 0) {
@@ -1133,9 +1197,8 @@ export const useGameLogic = (config) => {
         setIncomingQueue(prev => prev.slice(1));
     };
 
-    /** Check if player has required ingredients to submit an order (checks bulletinBoard).
-     *  Matches by 二级 tag (`tags[1] === req.tag2`) only — no quality constraint.
-     *  Allocates inventory items greedily per req to avoid double-counting. */
+    /** Check if player has required ingredients to submit an order.
+     *  New orders match by tag2; old exact-id orders still work. */
     const canSubmitOrder = (orderId) => {
         const order = bulletinBoard.find(o => o.id === orderId);
         if (!order) return false;
@@ -1145,7 +1208,7 @@ export const useGameLogic = (config) => {
             for (let i = 0; i < inventory.length && allocated < req.count; i++) {
                 if (used.has(i)) continue;
                 const item = inventory[i];
-                if (item?.tags?.[1] === req.tag2) {
+                if (itemMatchesRequirement(item, req)) {
                     used.add(i);
                     allocated++;
                 }
