@@ -1,0 +1,16 @@
+{
+  "eval_id": 0,
+  "eval_name": "feedback-loop",
+  "prompt": "我们分析完了，核心问题是游戏缺少反馈循环——玩家的行为不影响世界状态，所以叙事和机制是脱节的。方向是：需要一个机制让玩家的订单完成和物品处理产生世界层面的后果。给我几个具体方案。",
+  "assertions": [
+    {"id": "proposal_count", "description": "Generates 3-5 distinct proposals"},
+    {"id": "format_compliance", "description": "Each proposal has all required sections (想法/规则变更/分析)"},
+    {"id": "rule_concreteness", "description": "Rule changes specify actual modifications (not abstract concepts)"},
+    {"id": "system_awareness", "description": "Proposals reference actual game systems accurately"},
+    {"id": "proposal_range", "description": "Proposals span different ambition levels"},
+    {"id": "problem_solution_link", "description": "Each proposal's 想法 section explicitly names the problem (feedback loop) and explains the causal chain of how it solves it"},
+    {"id": "no_coined_jargon", "description": "Proposals use plain descriptive language, not invented compound nouns or coined terms"},
+    {"id": "complexity_justified", "description": "When proposals add new systems, they justify why. Simpler proposals exist alongside complex ones."},
+    {"id": "fun_impact_assessed", "description": "Analysis addresses whether the proposal risks hurting existing fun with explicit tradeoff reasoning"}
+  ]
+}

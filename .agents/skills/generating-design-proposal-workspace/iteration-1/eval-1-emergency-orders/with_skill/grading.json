@@ -1,0 +1,36 @@
+{
+  "eval_id": 1,
+  "run_type": "with_skill",
+  "expectations": [
+    {
+      "text": "Generates 3-5 distinct proposals",
+      "passed": true,
+      "evidence": "The output contains exactly 5 top-level proposal headings: 方案一 (急单指定奖池/征用), 方案二 (急单需求动态变异), 方案三 (急单赏金/奖池强化), 方案四 (急单透支), 方案五 (急单连锁). All 5 are distinct directions for differentiating emergency orders."
+    },
+    {
+      "text": "Each proposal has all 6 required sections",
+      "passed": true,
+      "evidence": "All 5 proposals contain the 6 required sections: 核心构想, 玩家体验, 系统交互, 主题共鸣, 设计张力, and Scope 信号 (spelled as 'Scope 信号' in all proposals). Verified each proposal individually."
+    },
+    {
+      "text": "Player experience sections describe specific game moments",
+      "passed": true,
+      "evidence": "All 玩家体验 sections use concrete game elements: 方案一 references '电器池', '耳机(Uncommon)', '空调(Common)', specific gold/draw counts; 方案二 references 'Rare柠檬', 'Uncommon铅笔', '三回合后' timing, 'Common苹果'; 方案三 describes choosing among pool-specific buffs ('品质+2级', '免费抽取一次'); 方案四 references 'Rare菜刀', 'Uncommon注射器', '8回合' debt duration, '1条命'; 方案五 references 'Uncommon柠檬 + Rare注射器', 'Epic注射器超标完成', specific turn limits. All sections describe specific game moments rather than abstract statements."
+    },
+    {
+      "text": "Proposals reference actual emergency order mechanics accurately",
+      "passed": true,
+      "evidence": "Multiple accurate references to real emergency order mechanics: 方案三 correctly states '急单不给积分（现在就是这样）' matching isScoreOrder:false; 方案四 references '仅有的1条命' matching maxHealth:1 in EMERGENCY_ORDER_CONFIG; emergency orders consistently shown as 2-item requirements matching the fixed requirement count; time limits referenced throughout; 方案二 correctly names tool items (万象棱镜=Transmute, 命运熔炉=Reforge) and their actual effects; 方案五 references difficulty scaling; pool/inventory interactions described correctly (3 pools, affixes, merging for rarity upgrade). No factual errors about existing mechanics found."
+    },
+    {
+      "text": "Proposals span different ambition levels",
+      "passed": true,
+      "evidence": "Clear range of ambition in Scope 信号 sections: 方案二 is '小改动' (minimal: change one requirement name every 5 turns, no new UI needed); 方案一 is '小到中等改动'; 方案三 and 方案四 are both '中等改动'; 方案五 is '大改动' (requires '重构急单生成逻辑和新增事件链数据结构', designing multiple branching event chains). The横向对比 table also explicitly maps Scope from 小 to 大. At least one conservative (方案二) and one ambitious (方案五) proposal present."
+    },
+    {
+      "text": "Avoids known dead-end patterns",
+      "passed": false,
+      "evidence": "方案一 (征用/急单指定奖池) proposes that failing an emergency order causes a pool to disappear: '急单超时→征用池在下次刷新时变为空位（2个池子运作若干回合）'. This directly matches the dead-end entry in the '产生厌烦而非不安' category: '惩罚导致池子变少/订单变难' with reason '同一循环变难=厌烦，不是不安' (logged 2026-03-02). The mechanic is structurally identical — failure punishment results in fewer pools, making the same core loop harder rather than introducing a new pressure dimension. While 方案一's 设计张力 section acknowledges the risk of the punishment being too heavy, it does not escape the dead-end pattern itself."
+    }
+  ]
+}

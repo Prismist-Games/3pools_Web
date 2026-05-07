@@ -1,0 +1,36 @@
+{
+  "eval_id": 2,
+  "run_type": "with_skill",
+  "expectations": [
+    {
+      "text": "Generates 3-5 distinct proposals",
+      "passed": true,
+      "evidence": "The output contains exactly 5 top-level proposal headings: 方案一：池子记忆（Pool Memory）, 方案二：池子生态位（Pool Niches）, 方案三：池子状态流转（Pool States）, 方案四：池子共振（Pool Resonance）, 方案五：池子个性词缀（Pool Archetypes）. Count of 5 falls within the required 3-5 range."
+    },
+    {
+      "text": "Each proposal has all 6 required sections",
+      "passed": true,
+      "evidence": "All 5 proposals contain the 6 required sections: 核心构想, 玩家体验, 系统交互, 主题共鸣, 设计张力, and Scope 信号 (written as 'Scope 信号' with a space, which is a close variant of 'Scope信号'). Every section is present as an H2 heading under each proposal."
+    },
+    {
+      "text": "Player experience sections describe specific game moments",
+      "passed": true,
+      "evidence": "All 玩家体验 sections describe concrete game moments with specific elements: Proposal 1 describes pools with specific draw histories (3 Common draws, a recent Epic), 2 gold coins budget, and decision between pools A and C. Proposal 2 references specific item pools (水果/电器/文具) with specific affixes (提纯 on fruit, 稀碎 on electronics) creating expectation-breaking combinations. Proposal 3 describes pools in specific states (涌动/枯竭/稳定) with a Rare medicine order to fulfill. Proposal 4 describes drawing from a fruit pool with fragmented affix for 1 gold, getting 3 Common fruits, and other pools' parameters changing. Proposal 5 describes a scenario with 8 gold, needing 1 Rare stationery and 2 fruits, choosing between 洪流 (2 gold/3 items), 精粹 (4 gold/1 Rare guaranteed), and 抉择 (3 gold/pick from options)."
+    },
+    {
+      "text": "Proposals reference actual pool mechanics accurately",
+      "passed": true,
+      "evidence": "The output accurately references: all 7 real affixes by name (稀碎/波动/硬化/提纯/精准/有的放矢/以旧换新) with correct costs (e.g., 稀碎=1 gold, 提纯=3 gold, 有的放矢=4 gold); correct affix behaviors (稀碎 producing 3 Common items, 波动 giving 90% Common/10% Legendary); all 5 item pools (水果/药物/文具/厨具/电器) with correct items; correct rarity hierarchy (Common through Mythic); correct refresh mechanics (3 non-duplicate pools each with random affix); correct skill references (VIP折扣 affecting precise and targeted affixes); and correct system interactions with merging, recycling, inventory, and orders."
+    },
+    {
+      "text": "Proposals span different ambition levels",
+      "passed": true,
+      "evidence": "Clear range of ambition: Proposal 2 (Pool Niches) is explicitly described as '最保守的' (most conservative) with scope '小' (small), requiring only parameter changes to affix weights in constants.js. Proposal 5 (Pool Archetypes) is described as '最激进' (most radical) with scope '中到大' (medium to large), involving structural replacement of the entire affix system. The cross-proposal analysis section explicitly maps the range: '方案二（生态位）是最保守的——不改变任何机制，只调整参数' and '方案五（范式）最激进——直接重定义三个池子各自是什么'. Proposals 1, 3, and 4 occupy the middle ground with scopes of '小到中', '中', and '中' respectively."
+    },
+    {
+      "text": "Handles vague input appropriately",
+      "passed": true,
+      "evidence": "The output begins with two specific clarifying questions: (1) whether '个性' means persistent pool identity vs. sharper per-refresh contrast, and (2) whether the 7-affix system itself is the problem or if another dimension is missing. It then explicitly states '不过这两个问题不影响我先给你方案——我会覆盖不同的方向，你看完反应可能比直接回答更有效' (these questions don't stop me from giving proposals -- I'll cover different directions, your reaction may be more effective than answering directly). This is ideal handling: brief clarifying questions asked, ambiguity acknowledged, but proposals proceed covering multiple interpretations of the vague input."
+    }
+  ]
+}

@@ -1,0 +1,338 @@
+{
+  "skill_name": "mechanic-to-setting",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I'm making a roguelike where you manage a small crew surviving in a post-apocalyptic wasteland. Core mechanics: food/ammo/morale as the three main resources, permadeath for individual crew members (not run-ending), dangerous scavenge sites between missions for risk/reward, and meta-progression unlocks that persist across runs. Turn-based tactical combat. I want a theme that makes the mechanics feel inevitable rather than arbitrary.",
+      "expected_output": "A feel analysis with verb inventory, 4-6 design questions, 5-8 setting concepts each with Setting Name, Elevator Pitch, Why This Fits (as narrative levers), A Day in This World, Sensory Identity, Implied Systems, and What Could Go Wrong. A theme audit with mechanical storytelling and narrative lever coverage checks. Ranked recommendations with How It Speaks, narrative depth, and feasibility notes. Design pillars for the top concept.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "has_feel_analysis",
+          "description": "Output starts with a feel/emotional analysis before any settings",
+          "check": "The response analyzes gameplay feel, core rhythm, or key tensions before the first setting concept"
+        },
+        {
+          "id": "minimum_five_settings",
+          "description": "At least 5 distinct setting concepts are presented",
+          "check": "Count named setting concepts — must be >= 5"
+        },
+        {
+          "id": "no_mechanic_mapping_tables",
+          "description": "No 1:1 mechanic-to-setting mapping tables",
+          "check": "No concept contains a table or list explicitly mapping individual mechanics (e.g., 'food = X, ammo = Y') to setting equivalents"
+        },
+        {
+          "id": "why_this_fits_is_fusion_check",
+          "description": "Why This Fits answers whether someone in this world naturally does what the player does",
+          "check": "Each concept's Why This Fits section addresses whether the setting generates gameplay constraints naturally, not just describes the setting"
+        },
+        {
+          "id": "theme_audit_present",
+          "description": "A theme audit section exists after the settings",
+          "check": "There is a Theme Audit section that checks whether each concept's theme comes through gameplay"
+        },
+        {
+          "id": "theme_audit_flags_weakness",
+          "description": "Theme audit honestly flags at least one concept as weaker",
+          "check": "The Theme Audit identifies at least one setting with a conditional or failed rating"
+        },
+        {
+          "id": "ranking_has_expression_profile",
+          "description": "Ranking section includes how the setting speaks",
+          "check": "The ranking/recommendation section notes primary narrative channels (mechanical, environmental, text, audio) for at least some concepts"
+        },
+        {
+          "id": "non_obvious_setting_included",
+          "description": "At least one setting avoids the obvious post-apocalyptic framing",
+          "check": "At least one concept is unexpected — not 'post-apocalyptic wasteland', 'zombie survival', 'space colony', or generic military sci-fi"
+        },
+        {
+          "id": "output_structure",
+          "description": "Output follows the expected section structure",
+          "check": "Output has identifiable sections for feel analysis, design questions, setting concepts, theme audit, recommendations, and design pillars"
+        },
+        {
+          "id": "has_verb_inventory",
+          "description": "Feel analysis includes explicit enumeration of player verbs",
+          "check": "The feel/opening analysis section lists player actions (verbs) with notes on thematic weight each could carry"
+        },
+        {
+          "id": "has_design_questions",
+          "description": "A Design Questions section exists between feel analysis and settings",
+          "check": "There is a clearly labeled Design Questions section with 4-6 questions the setting must answer, appearing after feel analysis and before setting concepts"
+        },
+        {
+          "id": "has_dead_end_awareness",
+          "description": "At least some concepts include What Could Go Wrong",
+          "check": "At least 3 setting concepts include a What Could Go Wrong note identifying the most likely dead end or development tension"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "My game is like Slay the Spire but the deckbuilding is about your corporate career — you build a deck of 'talking points' and professional tactics, face different boss-type encounters (performance review, hostile takeover, office politics), and a run ends when you get fired or promoted out. I need a setting that makes the metaphor feel real rather than satirical.",
+      "expected_output": "Feel analysis with verb inventory, design questions, 5-8 setting concepts with core components including narrative levers and implied systems. Theme audit with mechanical storytelling checks. Ranked recommendations with How It Speaks and narrative depth.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "has_feel_analysis",
+          "description": "Output starts with a feel/emotional analysis",
+          "check": "The response analyzes gameplay feel before the first setting concept"
+        },
+        {
+          "id": "minimum_five_settings",
+          "description": "At least 5 distinct setting concepts",
+          "check": "Count named setting concepts — must be >= 5"
+        },
+        {
+          "id": "non_corporate_setting_included",
+          "description": "At least one setting moves away from the corporate metaphor",
+          "check": "At least one concept applies the deckbuilding mechanics to a non-workplace context"
+        },
+        {
+          "id": "sincerity_addressed",
+          "description": "The recommendation addresses the sincerity vs. satire tension",
+          "check": "The recommendations section discusses whether settings lean satirical or sincere"
+        },
+        {
+          "id": "theme_audit_present",
+          "description": "A theme audit section exists",
+          "check": "There is a Theme Audit section checking thematic integration"
+        },
+        {
+          "id": "ranking_has_expression_profile",
+          "description": "Ranking section includes how the setting speaks",
+          "check": "The ranking/recommendation section notes primary narrative channels for at least some concepts"
+        },
+        {
+          "id": "output_structure",
+          "description": "Output follows the expected section structure",
+          "check": "Output has identifiable sections for feel analysis, design questions, setting concepts, theme audit, recommendations, and design pillars"
+        },
+        {
+          "id": "has_verb_inventory",
+          "description": "Feel analysis includes explicit enumeration of player verbs",
+          "check": "The feel/opening analysis section lists player actions (verbs) with notes on thematic weight each could carry"
+        },
+        {
+          "id": "has_design_questions",
+          "description": "A Design Questions section exists between feel analysis and settings",
+          "check": "There is a clearly labeled Design Questions section with 4-6 questions the setting must answer, appearing after feel analysis and before setting concepts"
+        },
+        {
+          "id": "has_dead_end_awareness",
+          "description": "At least some concepts include What Could Go Wrong",
+          "check": "At least 3 setting concepts include a What Could Go Wrong note identifying the most likely dead end or development tension"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I have 3 resource pools that slowly drain over time. Players can transfer resources between the pools (at a cost) and complete 'orders' to earn resources back. The challenge is keeping all three pools above zero while the drain rate accelerates. It's a browser-based idle-ish strategy game, single-player, no combat. The theme I'm going for is 'the quiet anxiety of keeping things alive'.",
+      "expected_output": "Feel analysis acknowledging the theme as primary constraint, with verb inventory. Design questions. 5-8 settings with narrative levers and implied systems. Theme audit checking each concept against 'quiet anxiety of keeping things alive' with mechanical storytelling checks. Ranking with How It Speaks and feasibility.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "theme_as_primary_constraint",
+          "description": "The provided theme is treated as the most important constraint",
+          "check": "The theme 'quiet anxiety of keeping things alive' is explicitly discussed as the primary lens in the opening analysis, not just listed"
+        },
+        {
+          "id": "minimum_five_settings",
+          "description": "At least 5 distinct setting concepts",
+          "check": "Count named setting concepts — must be >= 5"
+        },
+        {
+          "id": "theme_audit_flags_weakness",
+          "description": "Theme audit honestly flags at least one concept as weaker",
+          "check": "The Theme Audit identifies at least one setting where the theme doesn't fully come through gameplay"
+        },
+        {
+          "id": "browser_appropriate",
+          "description": "Settings are feasible for browser-based idle game",
+          "check": "No setting demands high-fidelity 3D or real-time action. Feasibility notes in ranking reflect browser context"
+        },
+        {
+          "id": "no_mechanic_mapping_tables",
+          "description": "No explicit mechanic mapping tables",
+          "check": "No concept contains tables mapping 'pool 1 = X, pool 2 = Y, pool 3 = Z'"
+        },
+        {
+          "id": "ranking_has_expression_profile",
+          "description": "Ranking section includes how the setting speaks",
+          "check": "The ranking/recommendation section notes primary narrative channels for at least some concepts"
+        },
+        {
+          "id": "has_verb_inventory",
+          "description": "Feel analysis includes explicit enumeration of player verbs",
+          "check": "The feel/opening analysis section lists player actions (verbs) with notes on thematic weight each could carry"
+        },
+        {
+          "id": "has_design_questions",
+          "description": "A Design Questions section exists between feel analysis and settings",
+          "check": "There is a clearly labeled Design Questions section with 4-6 questions the setting must answer, appearing after feel analysis and before setting concepts"
+        },
+        {
+          "id": "has_dead_end_awareness",
+          "description": "At least some concepts include What Could Go Wrong",
+          "check": "At least 3 setting concepts include a What Could Go Wrong note identifying the most likely dead end or development tension"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "my game plays kind of like Into the Breach meets FTL. small grid tactical combat but you're also managing a ship/crew between fights. permadeath on crew, procedural missions, about 30min runs",
+      "expected_output": "Feel analysis that extracts the emotional core from the reference games rather than copying their settings, with verb inventory. Design questions. 5-8 settings that find their own identity. No sci-fi default just because the references are sci-fi.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "has_feel_analysis",
+          "description": "Output starts with a feel analysis",
+          "check": "The response analyzes gameplay feel before settings, extracting emotional core from the reference games"
+        },
+        {
+          "id": "minimum_five_settings",
+          "description": "At least 5 distinct setting concepts",
+          "check": "Count named setting concepts — must be >= 5"
+        },
+        {
+          "id": "not_all_scifi",
+          "description": "Settings are not all sci-fi just because references are",
+          "check": "At least 2 concepts use a non-sci-fi setting"
+        },
+        {
+          "id": "own_identity",
+          "description": "Settings find their own thematic identity",
+          "check": "No concept is essentially 'FTL but with a twist' or 'Into the Breach reskinned' — each has its own world"
+        },
+        {
+          "id": "theme_audit_present",
+          "description": "A theme audit section exists",
+          "check": "There is a Theme Audit section"
+        },
+        {
+          "id": "has_verb_inventory",
+          "description": "Feel analysis includes explicit enumeration of player verbs",
+          "check": "The feel/opening analysis section lists player actions (verbs) with notes on thematic weight each could carry"
+        },
+        {
+          "id": "has_design_questions",
+          "description": "A Design Questions section exists between feel analysis and settings",
+          "check": "There is a clearly labeled Design Questions section with 4-6 questions the setting must answer, appearing after feel analysis and before setting concepts"
+        },
+        {
+          "id": "has_dead_end_awareness",
+          "description": "At least some concepts include What Could Go Wrong",
+          "check": "At least 3 setting concepts include a What Could Go Wrong note identifying the most likely dead end or development tension"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I have a puzzle game where you rotate and connect pipe-like segments to complete circuits. Levels get harder by adding more segment types and constraints. No story, no characters, just pure puzzle mechanics. Single player, mobile-first. I don't have a theme yet — what could this game be about?",
+      "expected_output": "Feel analysis of a pure puzzle game with verb inventory. Design questions. 5-8 settings that give meaning to abstract puzzle mechanics without forcing narrative. Settings appropriate for mobile scope.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "has_feel_analysis",
+          "description": "Output starts with a feel analysis",
+          "check": "The response analyzes what the puzzle-solving feels like emotionally before settings"
+        },
+        {
+          "id": "minimum_five_settings",
+          "description": "At least 5 distinct setting concepts",
+          "check": "Count named setting concepts — must be >= 5"
+        },
+        {
+          "id": "mobile_appropriate",
+          "description": "Settings are feasible for mobile puzzle game",
+          "check": "Settings don't require complex 3D worlds or extensive narrative content. Feasibility notes reflect mobile context"
+        },
+        {
+          "id": "no_forced_narrative",
+          "description": "Settings don't force story onto a pure puzzle game",
+          "check": "No concept requires cutscenes, dialogue, or character arcs to work — the setting enhances the puzzle experience without bolting on narrative"
+        },
+        {
+          "id": "non_obvious_setting",
+          "description": "At least one setting avoids the obvious plumbing/electrical metaphor",
+          "check": "At least one concept goes beyond literal pipe/circuit/plumbing themes"
+        },
+        {
+          "id": "has_verb_inventory",
+          "description": "Feel analysis includes explicit enumeration of player verbs",
+          "check": "The feel/opening analysis section lists player actions (verbs) with notes on thematic weight each could carry"
+        },
+        {
+          "id": "has_design_questions",
+          "description": "A Design Questions section exists between feel analysis and settings",
+          "check": "There is a clearly labeled Design Questions section with 4-6 questions the setting must answer, appearing after feel analysis and before setting concepts"
+        },
+        {
+          "id": "has_dead_end_awareness",
+          "description": "At least some concepts include What Could Go Wrong",
+          "check": "At least 3 setting concepts include a What Could Go Wrong note identifying the most likely dead end or development tension"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "I'm building a tower defense game where you place and upgrade defensive structures along a path. Enemies come in waves with escalating difficulty. Between waves you spend currency to build or upgrade. There's a rock-paper-scissors elemental system (fire/ice/lightning) where matching the right element to an enemy type deals bonus damage. The theme is 'holding the line when everything is falling apart' — desperate defense, not power fantasy. PC, single-player, hand-drawn art style.",
+      "expected_output": "Feel analysis with verb inventory, design questions, 5-8 setting concepts with full structure, theme audit, ranked recommendations, and design pillars for the top concept. The clear theme + mechanics should produce a top concept that clearly dominates, with 3-5 design pillars that are one-sentence decision-making tools.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "has_design_pillars",
+          "description": "Design pillars are generated for the top concept",
+          "check": "There is a Design Pillars section for the top-ranked concept, clearly labeled and appearing after recommendations"
+        },
+        {
+          "id": "pillars_are_decision_tools",
+          "description": "Each pillar is a one-sentence decision-making tool, not a description",
+          "check": "Each pillar is actionable — it tells you how to make a design decision, not just describes the game. 'Every defense should feel improvised' is a pillar; 'the game has a desperate tone' is not"
+        },
+        {
+          "id": "pillar_count",
+          "description": "There are 3-5 design pillars",
+          "check": "The Design Pillars section contains between 3 and 5 pillars inclusive"
+        },
+        {
+          "id": "theme_as_primary_constraint",
+          "description": "The provided theme is treated as the most important constraint",
+          "check": "The theme 'holding the line when everything is falling apart' is explicitly discussed as the primary lens in the opening analysis"
+        },
+        {
+          "id": "has_verb_inventory",
+          "description": "Feel analysis includes explicit enumeration of player verbs",
+          "check": "The feel/opening analysis section lists player actions (verbs) with notes on thematic weight each could carry"
+        },
+        {
+          "id": "has_design_questions",
+          "description": "A Design Questions section exists between feel analysis and settings",
+          "check": "There is a clearly labeled Design Questions section with 4-6 questions the setting must answer, appearing after feel analysis and before setting concepts"
+        },
+        {
+          "id": "minimum_five_settings",
+          "description": "At least 5 distinct setting concepts",
+          "check": "Count named setting concepts — must be >= 5"
+        },
+        {
+          "id": "has_implied_systems",
+          "description": "Concepts include Implied Systems",
+          "check": "At least 3 setting concepts include an Implied Systems note suggesting new storytelling systems or features the setting wants"
+        },
+        {
+          "id": "has_dead_end_awareness",
+          "description": "At least some concepts include What Could Go Wrong",
+          "check": "At least 3 setting concepts include a What Could Go Wrong note identifying the most likely dead end or development tension"
+        },
+        {
+          "id": "output_structure",
+          "description": "Output follows the full expected section structure",
+          "check": "Output has identifiable sections for feel analysis, design questions, setting concepts, theme audit, recommendations, and design pillars"
+        }
+      ]
+    }
+  ]
+}

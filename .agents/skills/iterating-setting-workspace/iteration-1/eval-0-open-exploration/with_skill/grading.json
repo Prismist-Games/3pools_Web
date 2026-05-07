@@ -1,0 +1,27 @@
+{
+  "eval_id": 0,
+  "eval_name": "open-exploration",
+  "configuration": "with_skill",
+  "expectations": [
+    {
+      "text": "response_length_sufficient",
+      "passed": true,
+      "evidence": "Response is ~1800 Chinese characters, well above 500 threshold"
+    },
+    {
+      "text": "visible_reasoning_process",
+      "passed": true,
+      "evidence": "Shows numbered reasoning chain (5 steps) with explicit per-step constraint checking: '每一步我都在检查是否需要额外解释。结论：不需要。' Dead-end check shown as table. Clear pivots visible."
+    },
+    {
+      "text": "explores_multiple_angles",
+      "passed": true,
+      "evidence": "Explores orders-as-department-commitments, checks social mirror implications, discusses what-if source, considers visible consequences. Mostly one direction but deeply explored."
+    },
+    {
+      "text": "no_bare_conclusion",
+      "passed": true,
+      "evidence": "77 lines of structured reasoning, far above 200 char minimum"
+    }
+  ]
+}

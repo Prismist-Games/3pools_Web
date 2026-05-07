@@ -1,0 +1,37 @@
+{
+  "eval_id": 0,
+  "eval_name": "feedback-loop",
+  "prompt": "我们分析完了，核心问题是游戏缺少反馈循环——玩家的行为不影响世界状态，所以叙事和机制是脱节的。方向是：需要一个机制让玩家的订单完成和物品处理产生世界层面的后果。给我几个具体方案。",
+  "assertions": [
+    {
+      "id": "proposal_count",
+      "description": "Generates 3-5 distinct proposals",
+      "check": "Count top-level proposal headings. Must be between 3 and 5 inclusive."
+    },
+    {
+      "id": "format_compliance",
+      "description": "Each proposal has all 6 required sections",
+      "check": "Each proposal contains: 核心构想, 玩家体验, 系统交互, 主题共鸣, 设计张力, Scope信号 (or close variants)"
+    },
+    {
+      "id": "experience_concreteness",
+      "description": "Player experience sections describe specific game moments",
+      "check": "玩家体验 sections reference concrete game elements (specific pools, items, orders, gold amounts, inventory states) rather than abstract statements like 'players make interesting choices'"
+    },
+    {
+      "id": "system_awareness",
+      "description": "Proposals reference actual game systems accurately",
+      "check": "系统交互 sections name real systems from game_rules.md (pools, affixes, inventory, orders, skills, stages, tool items) and describe interactions correctly"
+    },
+    {
+      "id": "proposal_range",
+      "description": "Proposals span different ambition levels",
+      "check": "At least one proposal is conservative (small scope change) and at least one is ambitious (larger change with higher payoff)"
+    },
+    {
+      "id": "no_dead_ends",
+      "description": "Avoids known dead-end patterns from setting doc",
+      "check": "No proposal falls into dead-end categories listed in setting-current-state.md (e.g., mystery-as-answer-to-theme, needs-explanation patterns)"
+    }
+  ]
+}

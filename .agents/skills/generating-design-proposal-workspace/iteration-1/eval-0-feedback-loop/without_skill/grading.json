@@ -1,0 +1,36 @@
+{
+  "eval_id": 0,
+  "run_type": "without_skill",
+  "expectations": [
+    {
+      "text": "Generates 3-5 distinct proposals",
+      "passed": true,
+      "evidence": "The output contains exactly 4 top-level proposal headings: 方案一：世界状态池, 方案二：后果事件系统, 方案三：供需回路, 方案四：世界后果作为订单选择的维度. 4 is within the 3-5 range."
+    },
+    {
+      "text": "Each proposal has all 6 required sections",
+      "passed": false,
+      "evidence": "Each proposal uses a 4-section structure: 核心思路 (maps to 核心构想), 具体机制 (maps to 系统交互), 为什么有趣 (partially maps to 玩家体验), 风险 (partially maps to 设计张力). Missing dedicated coverage of 主题共鸣 — thematic resonance is only sporadically mentioned (e.g., Proposal 2 mentions 'ambient unease' in passing, Proposal 4 mentions 'dilemma'). Missing Scope信号 — implementation complexity only appears in the comparison table at the end, not per-proposal. At least 2 of the 6 required dimensions (主题共鸣, Scope信号) lack consistent per-proposal coverage, and 设计张力 is reduced to 'risk' rather than exploring inherent design tensions."
+    },
+    {
+      "text": "Player experience sections describe specific game moments",
+      "passed": false,
+      "evidence": "The '为什么有趣' sections (closest to 玩家体验) mostly describe system dynamics abstractly rather than painting concrete game moments. Proposal 1: 'you influenced the distribution but aren't sure of specific results' — no specific items, gold, or states. Proposal 2: 'every order submission has a then-what' — generic. Proposal 4: 'order choice changes from which is easier to which consequence I prefer' — abstract reframing. Proposal 3 is the strongest, referencing 水果 pool specifically ('你提交水果→更多订单要水果→你被推向专精化'), but still lacks a concrete game moment with specific gold amounts, inventory states, or item combinations. No proposal describes a specific turn-by-turn scenario a player would experience."
+    },
+    {
+      "text": "Proposals reference actual game systems accurately",
+      "passed": true,
+      "evidence": "All proposals demonstrate accurate knowledge of the game's actual systems. Proposal 1 correctly references 奖池 generation rules, 词缀 assignment, 物品池, and 物品回收. Proposal 2 correctly references 订单完成, 词缀费用, 急单难度/频率, and 物品类型/品质. Proposal 3 correctly references 订单生成 weights, 物品回收, and pool-based item categories (水果, etc.). Proposal 4 correctly references 订单候选选择 (2-choose-1 after completion), 奖池刷新, 急单难度, and 词缀偏好. All named systems match those documented in game_rules.md and interactions are described correctly."
+    },
+    {
+      "text": "Proposals span different ambition levels",
+      "passed": true,
+      "evidence": "Proposal 3 (供需回路) is explicitly conservative: described as '极简——不需要新UI、新概念，只需要改变订单生成的权重' with '改动最小、风险最低' and rated '低' implementation complexity. Proposal 2 (后果事件系统) is explicitly ambitious: requires building an event system with delayed effects and opaque causality, rated '高' implementation complexity. The comparison table at the end further reinforces this range with 实现复杂度 spanning from 低 to 高. The author explicitly recommends starting with the conservative option and layering the ambitious one on top."
+    },
+    {
+      "text": "Avoids known dead-end patterns from setting doc",
+      "passed": false,
+      "evidence": "Several specific examples within proposals match dead-end patterns from setting-current-state.md. (1) 产生厌烦而非不安: Proposal 2 suggests '新增一个持续若干轮的全局修正（如所有词缀费用+1/-1）' — making the same loop numerically harder matches the dead-end '惩罚导致池子变少/订单变难 = 同一循环变难=厌烦'. Proposal 2 also suggests '下N轮中，某个物品池暂时不会出现在奖池中' — reducing available pools is a form of 'pool reduction'. (2) 需要解释: Proposal 3 explicitly acknowledges '为什么提交水果会导致更多水果订单需要设定层面的解释', and Proposal 1's world state dimensions 'need explanation for why submitting items shifts dimensions'. While the output self-identifies some of these as risks, the proposed consequence examples themselves directly match documented dead-end patterns rather than avoiding them."
+    }
+  ]
+}

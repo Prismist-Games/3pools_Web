@@ -1,0 +1,62 @@
+{
+  "expectations": [
+    {
+      "text": "Generates 3-5 distinct proposals",
+      "passed": true,
+      "evidence": "4 distinct proposals: 方案一(来源限制), 方案二(词缀覆盖奖励), 方案三(债务累积), 方案四(活订单)."
+    },
+    {
+      "text": "Each proposal has all required sections (想法/规则变更/分析)",
+      "passed": true,
+      "evidence": "Each proposal has 核心规则(≈想法), 具体规则变更(≈规则变更), 为什么有效+数值建议(≈分析). Content covers all required areas."
+    },
+    {
+      "text": "Rule changes specify actual modifications to emergency order rules",
+      "passed": true,
+      "evidence": "方案一: sourcePool attribute added to items, emergency orders require matching source. 方案二: 3 affix candidates after completion, override 1 pool for 1 round. 方案三: debt tokens occupy 1 inventory slot, +1 gold cost per draw, 5 gold to clear, 3 = game over. 方案四: demands shift every 5 turns."
+    },
+    {
+      "text": "Proposals reference actual emergency order mechanics accurately",
+      "passed": true,
+      "evidence": "References 15-turn timer, 2 item requirements, health=1 system, no score reward, difficulty levels. Comparison table references core systems (三池刷新, 词缀系统, 经济+背包). All accurate."
+    },
+    {
+      "text": "Proposals span different ambition levels",
+      "passed": true,
+      "evidence": "方案一 is low complexity (1 attribute + 1 check). 方案三 replaces the entire health system. Comparison table explicitly ranks 实现复杂度 from 低 to 中."
+    },
+    {
+      "text": "Each proposal explains HOW it makes emergency orders feel more unique/distinct from regular orders",
+      "passed": true,
+      "evidence": "方案一: 'must track which pool items came from' = new decision type. 方案二: 'emergency orders become an investment, not a threat'. 方案三: 'timeout is beginning of new dilemma, not endpoint'. 方案四: 'moving target vs static target'. Each clearly articulates the experiential difference."
+    },
+    {
+      "text": "Proposals use plain descriptive language, not invented compound nouns",
+      "passed": true,
+      "evidence": "Uses '来源限制', '词缀覆盖', '债务累积', '活订单' — all descriptive. No invented jargon."
+    },
+    {
+      "text": "Proposals that add new systems justify the added complexity",
+      "passed": true,
+      "evidence": "方案三 explicitly justifies replacing the health system: '渐进式失败' vs sudden death, creates new decision type (pay debt or endure). 方案一 is presented as simplest option first."
+    },
+    {
+      "text": "Analysis addresses whether changes risk making emergency orders frustrating rather than exciting",
+      "passed": false,
+      "evidence": "'为什么有效' sections focus entirely on positives. No discussion of frustration risks — e.g., 方案一 could frustrate if desired pool never appears; 方案四's shifting demands could feel unfair. The comparison table doesn't address frustration either."
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 1,
+    "total": 9,
+    "pass_rate": 0.89
+  },
+  "timing": {
+    "total_duration_seconds": 90.5
+  },
+  "claims": [],
+  "eval_feedback": {
+    "overall": "Strong concrete output. Same gap as eval-0: fun/frustration risk assessment is missing."
+  }
+}
