@@ -1,12 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import { Settings, Download, Upload, RotateCcw, X, Flag, Package, Zap, Timer } from 'lucide-react';
 import GameCore from './GameCore';
+import MultiplayerGame from './multiplayer/MultiplayerGame';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { INITIAL_GAME_CONFIG, SKILL_DEFINITIONS } from './data/constants';
 import ErrorBoundary from './components/ErrorBoundary';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 export default function App() {
+    if (window.location.pathname.includes('multiplayer')) {
+        return <MultiplayerGame />;
+    }
+
+    return <SinglePlayerApp />;
+}
+
+function SinglePlayerApp() {
     const { t } = useLanguage();
     const [config, setConfig] = useState(INITIAL_GAME_CONFIG);
     const [gameId, setGameId] = useState(0);
