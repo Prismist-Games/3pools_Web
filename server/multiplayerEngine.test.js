@@ -95,6 +95,75 @@ function testOrderBufferAllowsOtherPlayersUntilNextDraw() {
     assert.equal(room.orders.some((order) => order.id === originalOrder.id), false, 'buffered order should retire when the next draw resolves');
 }
 
+function testOutOfFundsPlayerCanRecycleBeforeStopping() {
+    const { room, playerA } = createStartedRoom();
+    const player = room.players.get(playerA);
+
+    player.gold = 0;
+    player.inventory = [makeItem('rare-cashout-item', config.pools[0].items[0], 'rare')];
+    room.beginRound();
+
+    const brokeSnapshot = room.snapshot(playerA).players.find((candidate) => candidate.id === playerA);
+    assert.equal(player.eliminated, false, 'a broke player should not be automatically stopped while they can manage inventory');
+    assert.equal(brokeSnapshot.needsCashout, true, 'snapshot should expose the cashout state to the UI');
+    assert.equal(room.canParticipateInCurrentRound(player), false, 'a broke player should not block the current reveal');
+
+    room.recycleItems(playerA, { indices: [0] });
+    assert.equal(player.gold, 1, 'rare recycle value should restore one gold');
+    assert.equal(player.eliminated, false, 'recycling should keep the player in the game');
+
+    const poolId = usePassivePool(room);
+    assert.equal(room.canParticipateInCurrentRound(player), true, 'after recycling enough gold, the player can rejoin the current decision window');
+    room.choosePool(playerA, poolId);
+    assert.equal(player.ready, true);
+}
+
+function testManualStopDrawingFinishesAfterAllPlayersStop() {
+    const { room, playerA, playerB } = createStartedRoom();
+
+    room.stopDrawing(playerA);
+    assert.equal(room.players.get(playerA).eliminated, true);
+    assert.equal(room.status, 'playing', 'game should continue while at least one player has not stopped');
+
+    room.stopDrawing(playerB);
+    assert.equal(room.status, 'finished');
+}
+
+function testResetToLobbyPreservesConnectedPlayers() {
+    const { room, playerA, playerB } = createStartedRoom();
+    const originalNames = [...room.players.values()].map((player) => player.name);
+
+    room.players.get(playerA).score = 12;
+    room.players.get(playerA).inventory = [makeItem('carried-item')];
+    room.stopDrawing(playerA);
+    room.stopDrawing(playerB);
+
+    room.resetToLobby(playerA);
+
+    assert.equal(room.status, 'lobby');
+    assert.equal(room.players.size, 2);
+    assert.deepEqual([...room.players.values()].map((player) => player.name), originalNames);
+    assert.equal(room.orders.length, 0);
+    assert.equal(room.activePools.length, 0);
+    assert.equal(room.round, 0);
+    assert.equal(room.roundResults.length, 0);
+    assert.ok(room.hostId);
+
+    for (const player of room.players.values()) {
+        assert.equal(player.connected, true);
+        assert.equal(player.gold, config.global?.initialGold ?? 30);
+        assert.equal(player.score, 0);
+        assert.deepEqual(player.inventory, []);
+        assert.equal(player.pendingItem, null);
+        assert.equal(player.pendingQueue.length, 0);
+        assert.equal(player.ready, false);
+        assert.equal(player.eliminated, false);
+    }
+}
+
 testOrderBufferAllowsOtherPlayersUntilNextDraw();
+testOutOfFundsPlayerCanRecycleBeforeStopping();
+testManualStopDrawingFinishesAfterAllPlayersStop();
+testResetToLobbyPreservesConnectedPlayers();
 
 console.log('multiplayerEngine tests passed');

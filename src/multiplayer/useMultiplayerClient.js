@@ -62,6 +62,8 @@ export function useMultiplayerClient() {
             moveItem: (payload) => send({ type: 'moveItem', ...payload }),
             recycleItems: (indices) => send({ type: 'recycleItems', indices }),
             submitOrder: (orderId, itemUids = []) => send({ type: 'submitOrder', orderId, itemUids }),
+            stopDrawing: () => send({ type: 'stopDrawing' }),
+            resetRoom: () => send({ type: 'resetRoom' }),
         },
     };
 }

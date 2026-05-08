@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Check, ChevronsUp, Crown, Hand, Loader2, Play, Radio, Recycle, Send, Star, Trophy, Users, X } from 'lucide-react';
+import { ArrowLeftRight, Check, ChevronsUp, Crown, Hand, Loader2, Play, Radio, Recycle, RotateCcw, Send, Star, Trophy, Users, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useMultiplayerClient } from './useMultiplayerClient';
@@ -698,8 +698,24 @@ function GameTable({ snapshot, self, actions, error }) {
                             {self?.interaction && <span className="rounded bg-amber-100 px-2 py-1 text-amber-700">{t('选择词缀中')}</span>}
                             {self?.pendingItem && <span className="rounded bg-purple-100 px-2 py-1 text-purple-700">{t('处理中')}</span>}
                             {self?.eliminated && <span className="rounded bg-slate-200 px-2 py-1 text-slate-600">{t('已停止抽奖')}</span>}
-                            {!self?.ready && !self?.interaction && !self?.pendingItem && !self?.eliminated && <span className="rounded bg-blue-100 px-2 py-1 text-blue-700">{t('可以行动')}</span>}
+                            {self?.needsCashout && <span className="rounded bg-amber-100 px-2 py-1 text-amber-700">{t('资金告急')}</span>}
+                            {!self?.ready && !self?.interaction && !self?.pendingItem && !self?.eliminated && !self?.needsCashout && <span className="rounded bg-blue-100 px-2 py-1 text-blue-700">{t('可以行动')}</span>}
                         </div>
+                        {self?.needsCashout && (
+                            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                                <p className="mb-2 text-xs font-bold leading-relaxed text-amber-800">
+                                    {t('你现在支付不起任何奖池。可以回收物品后继续，或结束抽奖。')}
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={actions.stopDrawing}
+                                    className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white shadow-sm hover:bg-slate-700"
+                                >
+                                    <Hand size={14} />
+                                    {t('结束抽奖')}
+                                </button>
+                            </div>
+                        )}
                     </section>
                 </header>
 
@@ -731,6 +747,7 @@ function GameTable({ snapshot, self, actions, error }) {
                             <div className="mb-2 flex items-center justify-between gap-2">
                                 <h2 className="text-xs font-black uppercase text-slate-400">{t('本回合奖池')}</h2>
                                 {self?.pendingItem && <span className="text-xs font-black text-purple-600">{t('你可以先处理背包，其他玩家可继续选择')}</span>}
+                                {self?.needsCashout && <span className="text-xs font-black text-amber-600">{t('先回收物品即可继续抽奖')}</span>}
                             </div>
                             <div className="grid gap-3 md:grid-cols-3">
                                 {snapshot.activePools.map((pool) => (
@@ -772,8 +789,9 @@ function GameTable({ snapshot, self, actions, error }) {
     );
 }
 
-function Finished({ snapshot }) {
+function Finished({ snapshot, actions }) {
     const { t } = useLanguage();
+    const self = snapshot.players.find((player) => player.isSelf);
     return (
         <main className="min-h-screen bg-slate-100 p-4 text-slate-900">
             <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -789,6 +807,19 @@ function Finished({ snapshot }) {
                         </div>
                     ))}
                 </div>
+                {self && (
+                    <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                        <p className="mb-3 text-sm font-bold text-blue-800">{t('所有在线玩家会回到同一个房间，可重新开始。')}</p>
+                        <button
+                            type="button"
+                            onClick={actions.resetRoom}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm hover:bg-blue-700"
+                        >
+                            <RotateCcw size={18} />
+                            {t('回到房间')}
+                        </button>
+                    </div>
+                )}
             </div>
         </main>
     );
@@ -805,7 +836,7 @@ export default function MultiplayerGame() {
         );
     }
 
-    if (snapshot.status === 'finished') return <Finished snapshot={snapshot} />;
+    if (snapshot.status === 'finished') return <Finished snapshot={snapshot} actions={actions} />;
     if (snapshot.status === 'lobby') return <Lobby snapshot={snapshot} actions={actions} connectionStatus={connectionStatus} error={error} />;
     return <GameTable snapshot={snapshot} self={self} actions={actions} error={error} />;
 }

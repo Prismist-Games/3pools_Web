@@ -92,6 +92,55 @@ export class MultiplayerRoom {
         this.addLog('游戏开始');
     }
 
+    resetToLobby(playerId) {
+        if (this.status !== 'finished') throw new Error('只有结算后可以回到房间');
+        const requester = this.players.get(playerId);
+        if (!requester?.connected) throw new Error('玩家不存在');
+
+        const connectedPlayers = [...this.players.values()].filter((player) => player.connected);
+        this.players = new Map(connectedPlayers.map((player) => [player.id, player]));
+        this.hostId = this.players.has(this.hostId) ? this.hostId : connectedPlayers[0]?.id || null;
+        this.status = 'lobby';
+        this.orders = [];
+        this.activePools = [];
+        this.round = 0;
+        this.roundResults = [];
+        this.log = [];
+
+        for (const player of this.players.values()) {
+            player.isHost = player.id === this.hostId;
+            player.gold = this.config.global?.initialGold ?? 30;
+            player.score = 0;
+            player.inventory = [];
+            player.pendingItem = null;
+            player.pendingQueue = [];
+            player.selectedDraw = null;
+            player.interaction = null;
+            player.ready = false;
+            player.eliminated = false;
+        }
+
+        this.addLog('已回到房间');
+    }
+
+    stopDrawing(playerId) {
+        this.ensurePlaying();
+        const player = this.players.get(playerId);
+        if (!player) throw new Error('玩家不存在');
+        if (player.eliminated) return;
+        if (player.pendingItem || player.pendingQueue.length > 0) throw new Error('请先处理待处理物品');
+        if (player.interaction) throw new Error('请先完成词缀选择');
+        if (player.ready || player.selectedDraw) throw new Error('已选择奖池，等待开奖时无法结束抽奖');
+
+        player.eliminated = true;
+        player.ready = false;
+        player.interaction = null;
+        player.selectedDraw = null;
+        this.addLog(`${player.name} 结束抽奖`);
+        this.tryResolveRound();
+        this.checkGameEnd();
+    }
+
     choosePool(playerId, poolId) {
         this.ensurePlaying();
         const player = this.requireActivePlayer(playerId);
@@ -585,18 +634,17 @@ export class MultiplayerRoom {
     canParticipateInCurrentRound(player) {
         return !player.eliminated
             && !player.pendingItem
-            && player.pendingQueue.length === 0;
+            && player.pendingQueue.length === 0
+            && this.canAffordAnyPool(player);
     }
 
     updateElimination(player) {
         if (player.eliminated) return;
         if (player.pendingItem || player.pendingQueue.length > 0) return;
         if (this.activePools.length > 0 && !this.canAffordAnyPool(player)) {
-            player.eliminated = true;
             player.ready = false;
             player.interaction = null;
             player.selectedDraw = null;
-            this.addLog(`${player.name} 金币不足，停止抽奖`);
         }
     }
 
@@ -627,21 +675,32 @@ export class MultiplayerRoom {
     }
 
     snapshot(viewerId = null) {
-        const players = [...this.players.values()].map((player) => ({
-            id: player.id,
-            name: player.name,
-            connected: player.connected,
-            isHost: player.id === this.hostId,
-            isSelf: player.id === viewerId,
-            gold: player.gold,
-            score: player.score,
-            inventory: player.inventory,
-            pendingItem: player.pendingItem,
-            pendingQueueCount: player.pendingQueue.length,
-            ready: player.ready,
-            eliminated: player.eliminated,
-            interaction: player.id === viewerId ? player.interaction : null,
-        }));
+        const players = [...this.players.values()].map((player) => {
+            const canManageNow = !player.eliminated
+                && !player.ready
+                && !player.interaction
+                && !player.pendingItem
+                && player.pendingQueue.length === 0;
+            const canAffordPool = this.activePools.length > 0 && this.canAffordAnyPool(player);
+
+            return {
+                id: player.id,
+                name: player.name,
+                connected: player.connected,
+                isHost: player.id === this.hostId,
+                isSelf: player.id === viewerId,
+                gold: player.gold,
+                score: player.score,
+                inventory: player.inventory,
+                pendingItem: player.pendingItem,
+                pendingQueueCount: player.pendingQueue.length,
+                ready: player.ready,
+                eliminated: player.eliminated,
+                canDraw: canManageNow && canAffordPool,
+                needsCashout: canManageNow && this.activePools.length > 0 && !canAffordPool,
+                interaction: player.id === viewerId ? player.interaction : null,
+            };
+        });
 
         return {
             status: this.status,

@@ -106,6 +106,8 @@ return <SinglePlayerApp />;
 | `moveItem` | `from`, `to` | 移动、交换或合成背包物品 |
 | `recycleItems` | `indices` | 回收一组背包物品 |
 | `submitOrder` | `orderId`, `itemUids` | 用指定物品提交订单 |
+| `stopDrawing` | - | 玩家主动结束后续抽奖 |
+| `resetRoom` | - | 结算后把在线玩家带回大厅并重置本局状态 |
 
 ### 5.2 `server/multiplayerEngine.js`
 
@@ -189,11 +191,16 @@ const ROUND_RESULT_LIMIT = 8;
 interaction: player.id === viewerId ? player.interaction : null
 ```
 
+同时会给 UI 派生：
+
+- `canDraw`：当前可直接选择奖池；
+- `needsCashout`：当前支付不起任何奖池，但还没有停止抽奖，可先回收或手动结束。
+
 ### 6.5 开奖
 
 `tryResolveRound()`：
 
-- 找出当前可参与玩家：未淘汰、无 `pendingItem`、无 `pendingQueue`。
+- 找出当前可参与玩家：未停止抽奖、无 `pendingItem`、无 `pendingQueue`，且当前能支付至少一个可用奖池。
 - 如果可参与玩家中还有人未 ready，则不开奖。
 - 如果全部 ready，则逐个调用 `resolvePlayerDraw()`。
 - 开奖前调用 `retireCompletedOrders()`，清理上一决策窗口中已完成、等待退场的旧订单。
@@ -259,17 +266,30 @@ interaction: player.id === viewerId ? player.interaction : null
 
 同一名玩家不能重复完成同一个已缓冲的旧订单。旧订单的生命周期由 `retireOnNextDraw` 和 `completedBy` 标记维护。
 
-### 6.10 淘汰与结束
+### 6.10 停止抽奖、结算与回房
 
 `updateElimination(player)`：
 
-- 如果玩家还有待处理物品或队列，不会立刻淘汰。
-- 如果当前没有任何可支付奖池，则 `eliminated = true`。
+- 这是历史命名，现在不再自动淘汰玩家。
+- 如果当前没有任何可支付奖池，只清空 `ready` / `interaction` / `selectedDraw`，让玩家回到可整理、回收、提交订单或手动结束的状态。
 - `trade_in` 需要背包非空才算可支付。
+
+`stopDrawing(playerId)`：
+
+- 只能在 `playing` 状态调用。
+- 玩家不能处于待处理物品、待处理队列、交互词缀选择、已 ready 等中间状态。
+- 将 `eliminated = true`，清空选择状态，然后触发 `tryResolveRound()` 和 `checkGameEnd()`。
 
 `checkGameEnd()`：
 
-- 所有玩家都淘汰时调用 `finishGame()`。
+- 所有玩家都停止抽奖时调用 `finishGame()`。
+
+`resetToLobby(playerId)`：
+
+- 只能在 `finished` 状态调用。
+- 保留仍在线玩家，移除断线玩家。
+- 重置金币、分数、背包、待处理物品、ready、订单、奖池、回合与开奖结果。
+- 状态回到 `lobby`，由当前在线玩家重新开始。
 
 ---
 
@@ -295,6 +315,8 @@ handlePending(payload)
 moveItem(payload)
 recycleItems(indices)
 submitOrder(orderId, itemUids)
+stopDrawing()
+resetRoom()
 ```
 
 ### 7.2 `src/multiplayer/MultiplayerGame.jsx`

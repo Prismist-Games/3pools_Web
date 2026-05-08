@@ -56,6 +56,8 @@ server.on('connection', (socket) => {
             if (message.type === 'moveItem') room.moveItem(playerId, message);
             if (message.type === 'recycleItems') room.recycleItems(playerId, message);
             if (message.type === 'submitOrder') room.submitOrder(playerId, message.orderId, message.itemUids);
+            if (message.type === 'stopDrawing') room.stopDrawing(playerId);
+            if (message.type === 'resetRoom') room.resetToLobby(playerId);
 
             broadcast();
         } catch (error) {

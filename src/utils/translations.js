@@ -114,6 +114,12 @@ export const EN_TRANSLATIONS = {
     "等待其他玩家": "Waiting for other players",
     "最近开奖": "Recent Results",
     "游戏结束": "Game Over",
+    "资金告急": "Cashout Needed",
+    "你现在支付不起任何奖池。可以回收物品后继续，或结束抽奖。": "You cannot afford any pool right now. Recycle items to continue, or stop drawing.",
+    "先回收物品即可继续抽奖": "Recycle items first to keep drawing",
+    "结束抽奖": "Stop Drawing",
+    "所有在线玩家会回到同一个房间，可重新开始。": "All online players will return to the same room and can start again.",
+    "回到房间": "Back to Room",
 
     // --- New Game Core UI ---
     "当前积分": "Current Score",
