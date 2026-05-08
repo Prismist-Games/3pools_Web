@@ -277,6 +277,11 @@ export class MultiplayerRoom {
         if (orderIndex < 0) throw new Error('订单已经不存在');
 
         const order = this.orders[orderIndex];
+        const completedBy = order.completedBy || [];
+        if (completedBy.some((entry) => entry.playerId === playerId)) {
+            throw new Error('你已经完成过该订单');
+        }
+
         const match = itemUids.length > 0
             ? this.findOrderMatchByUids(player.inventory, order, itemUids)
             : this.findOrderMatch(player.inventory, order);
@@ -285,7 +290,21 @@ export class MultiplayerRoom {
         const finalScoreReward = this.calculateOrderScore(order, match.items);
         player.score += finalScoreReward;
         player.inventory = player.inventory.filter((_, index) => !match.indices.includes(index));
-        this.orders[orderIndex] = this.createOrder();
+        this.orders[orderIndex] = {
+            ...order,
+            completedBy: [
+                ...completedBy,
+                {
+                    playerId: player.id,
+                    playerName: player.name,
+                    score: finalScoreReward,
+                },
+            ],
+            retireOnNextDraw: true,
+        };
+        if (completedBy.length === 0) {
+            this.orders.push(this.createOrder());
+        }
         this.addLog(`${player.name} 完成订单，获得 ${finalScoreReward} 分`);
     }
 
@@ -313,6 +332,8 @@ export class MultiplayerRoom {
             return;
         }
         if (availablePlayers.length === 0 || unresolvedPlayers.length > 0) return;
+
+        this.retireCompletedOrders();
 
         const results = [];
         for (const player of availablePlayers) {
@@ -470,7 +491,24 @@ export class MultiplayerRoom {
 
     createOrder() {
         const allItems = getAllNormalItems(this.config.pools, this.stage);
-        return generateOrder(allItems, this.config, hasSkill, this.stage);
+        return {
+            ...generateOrder(allItems, this.config, hasSkill, this.stage),
+            completedBy: [],
+            retireOnNextDraw: false,
+        };
+    }
+
+    retireCompletedOrders() {
+        const beforeCount = this.orders.length;
+        this.orders = this.orders.filter((order) => !order.retireOnNextDraw);
+
+        while (this.orders.length < this.stage.orderSlots) {
+            this.orders.push(this.createOrder());
+        }
+
+        if (this.orders.length !== beforeCount) {
+            this.addLog('已完成订单离开订单栏');
+        }
     }
 
     findOrderMatch(inventory, order) {

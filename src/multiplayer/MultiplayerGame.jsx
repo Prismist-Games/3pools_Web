@@ -124,6 +124,7 @@ function calculateSelectedReward(order, selectedItems) {
 function OrderCardMini({
     order,
     inventory,
+    selfId,
     isSubmitTarget,
     selectedSubmitIndices,
     hoveredPoolItemNames,
@@ -135,9 +136,20 @@ function OrderCardMini({
     const selectedItems = selectedSubmitIndices.map((index) => inventory[index]).filter(Boolean);
     const canSubmit = isSubmitTarget && selectedItemsSatisfyOrder(order, selectedItems);
     const selectedReward = calculateSelectedReward(order, selectedItems);
+    const completionEntries = order.completedBy || [];
+    const completedBySelf = !!selfId && completionEntries.some((entry) => entry.playerId === selfId);
+    const hasBufferedCompletion = completionEntries.length > 0 || order.retireOnNextDraw;
+    const buttonDisabled = disabled || completedBySelf;
+    const buttonClass = completedBySelf
+        ? 'bg-slate-300 text-slate-600'
+        : isSubmitTarget
+            ? 'bg-green-600 text-white hover:bg-green-700'
+            : hasBufferedCompletion
+                ? 'bg-amber-600 text-white hover:bg-amber-700'
+                : 'bg-blue-600 text-white hover:bg-blue-700';
 
     return (
-        <article className={`relative rounded-2xl border-2 p-3 shadow-sm transition-all duration-200 ${isSubmitTarget ? 'border-green-500 bg-green-50 ring-4 ring-green-100' : 'border-blue-100 bg-blue-50'}`}>
+        <article className={`relative rounded-2xl border-2 p-3 shadow-sm transition-all duration-200 ${isSubmitTarget ? 'border-green-500 bg-green-50 ring-4 ring-green-100' : hasBufferedCompletion ? 'border-amber-200 bg-amber-50' : 'border-blue-100 bg-blue-50'}`}>
             <div className="mb-2 flex items-center justify-between gap-2">
                 <div className={`rounded-lg px-2 py-1 text-xs font-black shadow-sm ${canSubmit ? 'bg-green-500 text-white' : 'bg-white text-blue-700'}`}>
                     {isSubmitTarget ? selectedReward : order.baseScoreReward} ⭐
@@ -145,12 +157,23 @@ function OrderCardMini({
                 <button
                     type="button"
                     onClick={() => onBeginSubmit(order.id)}
-                    disabled={disabled}
-                    className={`rounded-xl px-3 py-2 text-xs font-black text-white shadow-sm transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${isSubmitTarget ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                    disabled={buttonDisabled}
+                    className={`rounded-xl px-3 py-2 text-xs font-black shadow-sm transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${buttonClass}`}
                 >
-                    {isSubmitTarget ? t('选择中') : t('选择提交')}
+                    {completedBySelf ? t('已提交') : isSubmitTarget ? t('选择中') : hasBufferedCompletion ? t('追单提交') : t('选择提交')}
                 </button>
             </div>
+            {hasBufferedCompletion && (
+                <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[10px] font-black">
+                    <span className="rounded-full bg-amber-200 px-2 py-1 text-amber-800">{t('本轮已完成')}</span>
+                    {completionEntries.length > 0 && (
+                        <span className="max-w-full truncate rounded-full bg-white px-2 py-1 text-amber-700">
+                            {completionEntries.map((entry) => entry.playerName).join('、')}
+                        </span>
+                    )}
+                    <span className="rounded-full bg-white px-2 py-1 text-slate-500">{t('下次开奖后移除')}</span>
+                </div>
+            )}
             <div className="flex flex-wrap gap-1.5">
                 {order.requirements.map((req, index) => {
                     const matching = inventory.find((item) => item?.name === req.name);
@@ -166,12 +189,11 @@ function OrderCardMini({
                                 ${selected ? 'scale-105 border-green-500 bg-green-100 text-green-800 ring-2 ring-green-300' : ''}
                                 ${highlighted ? 'scale-110 border-slate-500 shadow-xl ring-2 ring-slate-200' : ''}
                             `}
+                            title={`${t(req.name)} / ${t(req.requiredRarity?.name)}`}
                         >
                             <span className={`absolute left-1.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-white/60 ${req.requiredRarity?.dotColor || 'bg-slate-300'}`} />
                             <span className="ml-3">{req.icon}</span>
                             <span className="max-w-20 truncate">{t(req.name)}</span>
-                            <span className="text-slate-300">/</span>
-                            <span>{t(req.requiredRarity?.name)}</span>
                             {selected && (
                                 <span className="absolute -right-2 -top-2 rounded-full bg-green-500 p-0.5 text-white shadow">
                                     <Check size={10} strokeWidth={4} />
@@ -455,8 +477,13 @@ function MyInventoryWorkbench({
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                         {submitOrder.requirements.map((req, index) => (
-                            <div key={`${submitOrder.id}-submit-${index}`} className="rounded-lg border border-green-200 bg-white px-2 py-1 text-[11px] font-black text-green-800">
-                                {req.icon} {t(req.name)} / {t(req.requiredRarity?.name)}
+                            <div
+                                key={`${submitOrder.id}-submit-${index}`}
+                                className="relative rounded-lg border border-green-200 bg-white py-1 pl-5 pr-2 text-[11px] font-black text-green-800"
+                                title={`${t(req.name)} / ${t(req.requiredRarity?.name)}`}
+                            >
+                                <span className={`absolute left-2 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-white/60 ${req.requiredRarity?.dotColor || 'bg-slate-300'}`} />
+                                {req.icon} {t(req.name)}
                             </div>
                         ))}
                     </div>
@@ -686,6 +713,7 @@ function GameTable({ snapshot, self, actions, error }) {
                                 key={order.id}
                                 order={order}
                                 inventory={self?.inventory || []}
+                                selfId={self?.id}
                                 isSubmitTarget={submitOrderId === order.id}
                                 selectedSubmitIndices={selectedSubmitIndices}
                                 hoveredPoolItemNames={hoveredPoolItemNames}

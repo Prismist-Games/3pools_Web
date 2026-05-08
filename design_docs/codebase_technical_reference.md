@@ -25,6 +25,7 @@
 npm run dev       # 原单人前端开发服务
 npm run dev:lan   # 局域网前端服务，host 0.0.0.0，默认端口 5176
 npm run server:lan # WebSocket 多人服务器，默认端口 8787
+npm run test:multiplayer # 多人服务器规则测试
 npm run build     # 生产构建
 npm run lint      # ESLint；当前项目缺少 ESLint 9 配置文件，会失败
 ```
@@ -195,6 +196,7 @@ interaction: player.id === viewerId ? player.interaction : null
 - 找出当前可参与玩家：未淘汰、无 `pendingItem`、无 `pendingQueue`。
 - 如果可参与玩家中还有人未 ready，则不开奖。
 - 如果全部 ready，则逐个调用 `resolvePlayerDraw()`。
+- 开奖前调用 `retireCompletedOrders()`，清理上一决策窗口中已完成、等待退场的旧订单。
 - 开奖后把结果放进 `roundResults`。
 - 立即调用 `beginRound()` 进入下一轮。
 
@@ -251,7 +253,11 @@ interaction: player.id === viewerId ? player.interaction : null
 - 校验成功后：
   - 计算分数；
   - 消耗所选物品；
-  - 替换该共享订单。
+  - 标记该订单被该玩家完成；
+  - 如果这是该订单第一次被完成，追加一个新订单；
+  - 被完成的旧订单保留到下一次开奖开始，期间其他玩家仍可完成。
+
+同一名玩家不能重复完成同一个已缓冲的旧订单。旧订单的生命周期由 `retireOnNextDraw` 和 `completedBy` 标记维护。
 
 ### 6.10 淘汰与结束
 
